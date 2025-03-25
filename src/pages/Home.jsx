@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import FloatingQuickAdd from '../components/FloatingQuickAdd';
 
 const Home = () => {
   const [selectedCity, setSelectedCity] = useState(null);
@@ -344,6 +345,9 @@ const Home = () => {
           </div>
         ))}
       </div>
+
+      {/* Add the floating button */}
+      <FloatingQuickAdd />
     </div>
   );
 };

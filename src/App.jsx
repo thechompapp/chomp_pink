@@ -7,6 +7,7 @@ import CreateList from './pages/CreateList';
 import ListDetail from './pages/ListDetail';
 import RestaurantDetail from './pages/RestaurantDetail';
 import DishDetail from './pages/DishDetail';
+import QuickCreateForm from './pages/QuickCreateForm';
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
           <Route path="/list/:id" element={<ListDetail />} />
           <Route path="/restaurant/:id" element={<RestaurantDetail />} />
           <Route path="/dish/:id" element={<DishDetail />} />
+          <Route path="/quickadd" element={<QuickCreateForm />} />
         </Routes>
       </Router>
     </div>
