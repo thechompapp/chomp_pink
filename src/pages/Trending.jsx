@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import FloatingQuickAdd from '../components/FloatingQuickAdd';
 
 const Trending = () => {
   const [timeFrame, setTimeFrame] = useState('weekly');
@@ -10,6 +11,38 @@ const Trending = () => {
   const [showCities, setShowCities] = useState(true);
   const [showNeighborhoods, setShowNeighborhoods] = useState(false);
   const [showCategories, setShowCategories] = useState(false);
+  const [showPopover, setShowPopover] = useState(null);
+  
+  // Close popover when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      // Check if the click was on a quick add button (which has data-item-id)
+      const clickedButton = event.target.closest('button[data-item-id]');
+      if (clickedButton) {
+        const itemId = parseInt(clickedButton.getAttribute('data-item-id'));
+        if (itemId === showPopover) {
+          // Don't close if clicking the same button that opened the popover
+          return;
+        }
+      }
+      
+      // Check if the click was inside a popover (which has data-popover-for)
+      const clickedPopover = event.target.closest('div[data-popover-for]');
+      if (clickedPopover) {
+        const popoverId = parseInt(clickedPopover.getAttribute('data-popover-for'));
+        if (popoverId === showPopover) {
+          // Don't close if clicking inside the active popover
+          return;
+        }
+      }
+      
+      // Otherwise, close the popover
+      setShowPopover(null);
+    };
+    
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showPopover]);
 
   const cities = ["NYC", "LA", "MIA", "SF", "CHI"];
   
@@ -39,6 +72,14 @@ const Trending = () => {
     { id: 101, title: "Best Date Spots in NYC", author: "mary216", follows: 786, trending: true, category: "date-night", city: "NYC" },
     { id: 102, title: "Affordable Hidden Gems", author: "foodhunter", follows: 654, trending: false, category: "budget", city: "NYC" },
     { id: 103, title: "Must-Try Desserts", author: "sweetooth", follows: 521, trending: false, category: "dessert", city: "NYC" }
+  ];
+
+  // Sample user lists for the quick add popover
+  const userLists = [
+    { id: 201, name: "My Favorites" },
+    { id: 202, name: "Want to Try" },
+    { id: 203, name: "Weekend Plans" },
+    { id: 204, name: "Special Occasions" }
   ];
 
   const handleCitySelect = (city) => {
@@ -97,6 +138,20 @@ const Trending = () => {
     } else {
       return `/list/${item.id}`;
     }
+  };
+  
+  const handleQuickAdd = (e, itemId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowPopover(showPopover === itemId ? null : itemId);
+  };
+  
+  const handleAddToList = (e, itemId, listId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log(`Added item ${itemId} to list ${listId}`);
+    // In a real app, this would make an API call
+    setShowPopover(null);
   };
 
   const filteredItems = trendingItems.filter(item => {
@@ -343,29 +398,72 @@ const Trending = () => {
       {/* Display Items */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
         {filteredItems.map(item => (
-          <div key={item.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition">
-            <Link to={getDetailPageUrl(item)} className="block p-4">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="font-medium text-gray-900 hover:text-pink-600">{item.name}</h3>
-                  {item.type === 'Dish' && (
-                    <p className="text-sm text-gray-600 mt-1">at {item.restaurant}</p>
+          <div key={item.id} className="bg-white rounded-lg shadow-md overflow-visible relative hover:shadow-lg transition">
+            <div className="relative p-4">
+              <Link to={getDetailPageUrl(item)} className="block">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="font-medium text-gray-900 hover:text-pink-600">{item.name}</h3>
+                    {item.type === 'Dish' && (
+                      <p className="text-sm text-gray-600 mt-1">at {item.restaurant}</p>
+                    )}
+                  </div>
+                  {item.trending && (
+                    <span className="text-red-500 text-lg" title="Trending">🔥</span>
                   )}
                 </div>
-                {item.trending && (
-                  <span className="text-red-500 text-lg" title="Trending">🔥</span>
-                )}
-              </div>
-              <div className="mt-2">
-                <span className="inline-block bg-gray-100 text-gray-800 px-2 py-0.5 rounded text-xs">
-                  #{item.category}
-                </span>
-              </div>
-              <div className="mt-3 text-sm text-gray-500 flex justify-between items-center">
-                <span>{item.location}</span>
-                <span className="font-medium text-pink-600">+{item.adds.toLocaleString()}</span>
-              </div>
-            </Link>
+                <div className="mt-2">
+                  <span className="inline-block bg-gray-100 text-gray-800 px-2 py-0.5 rounded text-xs">
+                    #{item.category}
+                  </span>
+                </div>
+                <div className="mt-3 text-sm text-gray-500 flex justify-between items-center">
+                  <span>{item.location}</span>
+                  <span className="font-medium text-pink-600">+{item.adds.toLocaleString()}</span>
+                </div>
+              </Link>
+              
+              {/* Quick Add Button - always visible */}
+              <button 
+                onClick={(e) => handleQuickAdd(e, item.id)}
+                data-item-id={item.id}
+                className="absolute top-3 right-3 w-8 h-8 bg-pink-500 rounded-full flex items-center justify-center text-white shadow-sm hover:bg-pink-600 transition-colors"
+                title="Quick add to a list"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
+                </svg>
+              </button>
+              
+              {/* Quick Add Popover */}
+              {showPopover === item.id && (
+                <div 
+                  className="absolute overflow-visible right-0 top-0 w-auto min-w-[12rem] z-50 bg-white p-3 shadow-xl rounded-lg border border-gray-200"
+                  style={{transform: 'translateY(-100%)', marginTop: '-10px'}}
+                  data-popover-for={item.id}
+                >
+                  <div className="text-sm font-medium text-gray-700 mb-2">Add to list:</div>
+                  <div className="space-y-1 max-h-48 overflow-y-auto">
+                    {userLists.map(list => (
+                      <button 
+                        key={list.id}
+                        onClick={(e) => handleAddToList(e, item.id, list.id)}
+                        className="w-full text-left px-3 py-2 text-sm rounded hover:bg-pink-50 transition flex items-center"
+                      >
+                        <span className="truncate">{list.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="border-t border-gray-100 mt-2 pt-2">
+                    <button 
+                      className="w-full text-left px-3 py-2 text-sm text-pink-600 hover:bg-pink-50 rounded transition"
+                    >
+                      + Create New List
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         ))}
         
@@ -402,6 +500,9 @@ const Trending = () => {
           </div>
         )}
       </div>
+      
+      {/* Add the floating quick add button */}
+      <FloatingQuickAdd />
     </div>
   );
 };
