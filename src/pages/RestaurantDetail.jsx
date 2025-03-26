@@ -1,5 +1,54 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import FloatingQuickAdd from '../components/FloatingQuickAdd';
+
+// Reusable Similar Place Card Component
+const SimilarPlaceCard = ({ name, distance, cuisine, rating, onQuickAdd }) => (
+  <div className="border border-gray-200 rounded-lg p-3 hover:border-pink-200 hover:bg-pink-50">
+    <h3 className="font-medium">{name} ({distance})</h3>
+    <div className="text-xs text-gray-600 mt-1">{cuisine}</div>
+    <div className="mt-2 flex justify-between items-center">
+      <div className="flex items-center">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-4 w-4 text-yellow-500 mr-1"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+        </svg>
+        <span className="text-xs ml-1">{rating}</span>
+      </div>
+      <button
+        className="text-pink-500 text-lg hover:text-pink-700"
+        onClick={onQuickAdd}
+        aria-label={`Quick add ${name}`}
+      >
+        +
+      </button>
+    </div>
+  </div>
+);
+
+// Reusable Featured List Card Component
+const FeaturedListCard = ({ list, onQuickAdd }) => (
+  <div className="flex justify-between items-center border border-gray-200 rounded-lg p-3 hover:border-pink-200 hover:bg-pink-50">
+    <Link to={`/list/${list.id}`} className="flex-1">
+      <h3 className="font-medium text-pink-600">{list.name}</h3>
+      <div className="flex justify-between items-center mt-1 text-xs text-gray-600">
+        <span>Created by {list.by}</span>
+        <span>{list.followers} followers</span>
+      </div>
+    </Link>
+    <button
+      onClick={(e) => onQuickAdd(e, list.id, 'list')}
+      className="text-pink-500 hover:text-pink-700 text-lg font-medium ml-2"
+      aria-label={`Quick add ${list.name}`}
+    >
+      +
+    </button>
+  </div>
+);
 
 const RestaurantDetail = () => {
   const { id } = useParams();
@@ -26,31 +75,58 @@ const RestaurantDetail = () => {
     topDishes: [
       { id: 101, name: "Pasta alla Norma", tags: ["pasta", "signature"], adds: 342 },
       { id: 102, name: "Branzino al Sale", tags: ["seafood", "special"], adds: 267 },
-      { id: 103, name: "Tiramisu", tags: ["dessert", "popular"], adds: 198 }
+      { id: 103, name: "Tiramisu", tags: ["dessert", "popular"], adds: 198 },
     ],
     tags: ["italian", "sicilian", "pasta", "seafood", "wine"],
     lists: [
-      { name: "Best Italian in NYC", by: "@pastafan", followers: 423 },
-      { name: "SoHo Hidden Gems", by: "@localfoodie", followers: 189 },
-      { name: "Worth the Wait", by: "@nycfoodie", followers: 568 }
-    ]
+      { id: 201, name: "Best Italian in NYC", by: "@pastafan", followers: 423 },
+      { id: 202, name: "SoHo Hidden Gems", by: "@localfoodie", followers: 189 },
+      { id: 203, name: "Worth the Wait", by: "@nycfoodie", followers: 568 },
+    ],
+    similarPlaces: [
+      { name: "Carbone", distance: "0.8m", cuisine: "Italian", rating: 4.6 },
+      { name: "Via Carota", distance: "0.4m", cuisine: "Italian", rating: 4.8 },
+      { name: "Osteria Morini", distance: "0.9m", cuisine: "Italian", rating: 4.5 },
+    ],
+  };
+
+  const handleQuickAdd = useCallback((e, itemId, itemType) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log(`Quick adding ${itemType} ${itemId}`);
+  }, []);
+
+  const handleAddToList = (id, type) => {
+    console.log(`Adding ${type} ${id} to list`);
   };
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
       {/* App Header */}
       <div className="flex justify-between items-center py-4 mb-4">
-        <div className="text-2xl font-bold text-pink-500">chomp</div>
-        <div className="flex items-center space-x-6">
-          <Link to="/" className="text-gray-700 hover:text-gray-900">Home</Link>
-          <Link to="/trending" className="text-gray-700 hover:text-gray-900">Trending</Link>
-          <Link to="/mylists" className="text-gray-700 hover:text-gray-900">My Lists</Link>
-          <Link to="/createlist" className="bg-gradient-to-r from-pink-500 to-orange-400 text-white py-2 px-4 rounded-full hover:from-pink-600 hover:to-orange-500 transition">
-            Create a List
-          </Link>
-          <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-700">
-            <span>U</span>
+        <Link to="/" className="w-full flex justify-center">
+          <div className="text-center">
+            <img
+              src="/logo-placeholder.png"
+              alt="Chomp Logo"
+              className="h-10 w-auto"
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src =
+                  "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='40' viewBox='0 0 100 40'%3E%3Crect width='100' height='40' fill='%23f472b6'%3E%3C/rect%3E%3Ctext x='50' y='25' font-family='Arial' font-size='16' text-anchor='middle' fill='white'%3Echomp%3C/text%3E%3C/svg%3E";
+              }}
+            />
           </div>
+        </Link>
+      </div>
+      
+      <div className="flex items-center space-x-6 mb-4 overflow-x-auto py-2 px-4 scrollbar-hide">
+        <Link to="/" className="text-gray-700 hover:text-gray-900 whitespace-nowrap">Home</Link>
+        <Link to="/trending" className="text-gray-700 hover:text-gray-900 whitespace-nowrap">Trending</Link>
+        <Link to="/nightplanner" className="text-gray-700 hover:text-gray-900 whitespace-nowrap">Night Planner</Link>
+        <Link to="/mylists" className="text-gray-700 hover:text-gray-900 whitespace-nowrap">My Lists</Link>
+        <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-700 flex-shrink-0">
+          <span>U</span>
         </div>
       </div>
       
@@ -58,7 +134,11 @@ const RestaurantDetail = () => {
       <div className="mb-4">
         <Link to="/" className="text-gray-600 hover:text-gray-900 flex items-center">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+            <path
+              fillRule="evenodd"
+              d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z"
+              clipRule="evenodd"
+            />
           </svg>
           Back to search
         </Link>
@@ -93,11 +173,18 @@ const RestaurantDetail = () => {
             <button className="bg-pink-500 text-white px-4 py-2 rounded-lg mr-2 flex items-center">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
                 <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                <path
+                  fillRule="evenodd"
+                  d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z"
+                  clipRule="evenodd"
+                />
               </svg>
               Visit
             </button>
-            <button className="bg-white border border-pink-500 text-pink-500 px-4 py-2 rounded-lg flex items-center">
+            <button
+              onClick={() => handleAddToList(restaurant.id, 'restaurant')}
+              className="bg-white border border-pink-500 text-pink-500 px-4 py-2 rounded-lg flex items-center"
+            >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
                 <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
               </svg>
@@ -133,7 +220,6 @@ const RestaurantDetail = () => {
             </button>
           </nav>
         </div>
-
         <div className="p-4">
           {kbygSection === 'directions' && (
             <div className="space-y-4">
@@ -145,7 +231,12 @@ const RestaurantDetail = () => {
                     <div>{restaurant.phone}</div>
                     <div className="text-gray-500">Website:</div>
                     <div>
-                      <a href={restaurant.website} className="text-pink-500 hover:text-pink-700 truncate block" target="_blank" rel="noreferrer">
+                      <a
+                        href={restaurant.website}
+                        className="text-pink-500 hover:text-pink-700 truncate block"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
                         {restaurant.website.replace('https://', '')}
                       </a>
                     </div>
@@ -153,9 +244,9 @@ const RestaurantDetail = () => {
                     <div>{restaurant.hours}</div>
                   </div>
                 </div>
-                <a 
-                  href={`https://instagram.com/${restaurant.instagram.substring(1)}`} 
-                  target="_blank" 
+                <a
+                  href={`https://instagram.com/${restaurant.instagram.substring(1)}`}
+                  target="_blank"
                   rel="noreferrer"
                   className="flex-shrink-0 bg-gradient-to-r from-pink-500 to-orange-400 text-white p-2 rounded-lg"
                 >
@@ -166,13 +257,14 @@ const RestaurantDetail = () => {
                   </svg>
                 </a>
               </div>
-              
               <div className="bg-gray-50 p-3 rounded-lg">
                 <h3 className="font-medium text-gray-900 mb-2">Location & Getting There</h3>
                 <div className="text-sm space-y-1.5">
                   <p>
-                    <span className="font-medium text-gray-700">{restaurant.address}</span> 
-                    <span className="text-gray-500 ml-1">({restaurant.neighborhood}, near {restaurant.crossStreets})</span>
+                    <span className="font-medium text-gray-700">{restaurant.address}</span>
+                    <span className="text-gray-500 ml-1">
+                      ({restaurant.neighborhood}, near {restaurant.crossStreets})
+                    </span>
                   </p>
                   <p className="flex items-start">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500 mr-1 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
@@ -185,18 +277,17 @@ const RestaurantDetail = () => {
               </div>
             </div>
           )}
-          
           {kbygSection === 'order' && (
             <div>
               <h3 className="font-medium text-gray-900 mb-3">Most Popular Dishes</h3>
               <div className="grid gap-3">
                 {restaurant.topDishes.map((dish, index) => (
-                  <Link 
+                  <Link
                     key={index}
                     to={`/dish/${dish.id}`}
                     className="flex justify-between items-center p-3 border border-gray-200 rounded-lg hover:border-pink-200 hover:bg-pink-50"
                   >
-                    <div>
+                    <div className="flex-1">
                       <h4 className="font-medium text-gray-900">{dish.name}</h4>
                       <div className="flex items-center mt-1 text-xs">
                         <span className="text-pink-600">+{dish.adds} adds</span>
@@ -208,9 +299,7 @@ const RestaurantDetail = () => {
                         </div>
                       </div>
                     </div>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                    </svg>
+                    <button className="text-pink-500 text-lg font-medium ml-2">+</button>
                   </Link>
                 ))}
               </div>
@@ -226,13 +315,7 @@ const RestaurantDetail = () => {
         </div>
         <div className="p-4 grid gap-3">
           {restaurant.lists.map((list, index) => (
-            <div key={index} className="border border-gray-200 rounded-lg p-3 hover:border-pink-200 hover:bg-pink-50">
-              <h3 className="font-medium text-pink-600">{list.name}</h3>
-              <div className="flex justify-between items-center mt-1 text-xs text-gray-600">
-                <span>Created by {list.by}</span>
-                <span>{list.followers} followers</span>
-              </div>
-            </div>
+            <FeaturedListCard key={index} list={list} onQuickAdd={handleQuickAdd} />
           ))}
         </div>
       </div>
@@ -243,49 +326,32 @@ const RestaurantDetail = () => {
           <h2 className="font-semibold text-gray-900">Similar Places</h2>
         </div>
         <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="border border-gray-200 rounded-lg p-3 hover:border-pink-200 hover:bg-pink-50">
-            <h3 className="font-medium">Carbone (0.8m)</h3>
-            <div className="text-xs text-gray-600 mt-1">Italian</div>
-            <div className="mt-2 flex justify-between items-center">
-              <div className="flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                </svg>
-                <span className="text-xs ml-1">4.6</span>
-              </div>
-              <button className="text-pink-500 text-sm">+</button>
-            </div>
-          </div>
-          
-          <div className="border border-gray-200 rounded-lg p-3 hover:border-pink-200 hover:bg-pink-50">
-            <h3 className="font-medium">Via Carota (0.4m)</h3>
-            <div className="text-xs text-gray-600 mt-1">Italian</div>
-            <div className="mt-2 flex justify-between items-center">
-              <div className="flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                </svg>
-                <span className="text-xs ml-1">4.8</span>
-              </div>
-              <button className="text-pink-500 text-sm">+</button>
-            </div>
-          </div>
-          
-          <div className="border border-gray-200 rounded-lg p-3 hover:border-pink-200 hover:bg-pink-50">
-            <h3 className="font-medium">Osteria Morini (0.9m)</h3>
-            <div className="text-xs text-gray-600 mt-1">Italian</div>
-            <div className="mt-2 flex justify-between items-center">
-              <div className="flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                </svg>
-                <span className="text-xs ml-1">4.5</span>
-              </div>
-              <button className="text-pink-500 text-sm">+</button>
-            </div>
-          </div>
+          {restaurant.similarPlaces.map((place, index) => (
+            <SimilarPlaceCard
+              key={index}
+              name={place.name}
+              distance={place.distance}
+              cuisine={place.cuisine}
+              rating={place.rating}
+              onQuickAdd={(e) => handleQuickAdd(e, place.name, 'restaurant')}
+            />
+          ))}
         </div>
       </div>
+
+      {/* Floating Quick Add Button */}
+      <FloatingQuickAdd />
+
+      {/* Custom CSS for scrollbar */}
+      <style jsx>{`
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
     </div>
   );
 };

@@ -1,3 +1,58 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Custom styles for the entire application */
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+/* Shake animation for Night Planner */
+@keyframes shake {
+  0% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  50% { transform: translateX(0); }
+  75% { transform: translateX(2px); }
+  100% { transform: translateX(0); }
+}
+
+/* Add extra margin for mobile nav */
+@media (max-width: 640px) {
+  .mobile-nav-margin {
+    margin-bottom: 0.5rem;
+  }
+}
+
+/* Custom styles for carousel */
+.carousel-wrapper {
+  position: relative;
+}
+
+.carousel-control {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+}
+
+.carousel-control-left {
+  left: -1rem;
+}
+
+.carousel-control-right {
+  right: -1rem;
+}
+
+/* Improved tap/click targets for mobile */
+.mobile-tap-target {
+  min-height: 44px;
+  min-width: 44px;
+}
