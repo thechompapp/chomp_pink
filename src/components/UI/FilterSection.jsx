@@ -83,8 +83,8 @@ const FilterSection = () => {
               onClick={() => handleHashtagToggle(tag)}
               className={`px-3 py-1 rounded-full text-sm border ${
                 selectedHashtags.includes(tag)
-                  ? 'border-black bg-black text-white'
-                  : 'border-gray-300 hover:border-gray-400 text-gray-700'
+                  ? 'border-[#D1B399] bg-[#D1B399] text-white'
+                  : 'border-[#D1B399] hover:bg-[#D1B399] hover:text-white text-gray-700'
               } transition-colors`}
             >
               #{tag}
@@ -102,8 +102,8 @@ const FilterSection = () => {
               onClick={() => handleNeighborhoodSelect(neighborhood)}
               className={`px-3 py-1 rounded-full text-sm border ${
                 selectedNeighborhood === neighborhood
-                  ? 'border-black bg-black text-white'
-                  : 'border-gray-300 hover:border-gray-400 text-gray-700'
+                  ? 'border-[#D1B399] bg-[#D1B399] text-white'
+                  : 'border-[#D1B399] hover:bg-[#D1B399] hover:text-white text-gray-700'
               } transition-colors`}
             >
               {neighborhood}
@@ -121,8 +121,8 @@ const FilterSection = () => {
               onClick={() => handleCitySelect(city)}
               className={`px-3 py-1 rounded-full text-sm border ${
                 selectedCity === city
-                  ? 'border-black bg-black text-white'
-                  : 'border-gray-300 hover:border-gray-400 text-gray-700'
+                  ? 'border-[#D1B399] bg-[#D1B399] text-white'
+                  : 'border-[#D1B399] hover:bg-[#D1B399] hover:text-white text-gray-700'
               } transition-colors`}
             >
               {city}
@@ -134,7 +134,7 @@ const FilterSection = () => {
   };
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-8 p-4">
+    <div className="bg-white rounded-lg border border-[#D1B399] overflow-hidden mb-8 p-4">
       <div className="flex items-center justify-between mb-2">
         <h3 className="font-medium text-gray-800">Filters</h3>
         
@@ -142,7 +142,7 @@ const FilterSection = () => {
         {(selectedCity || selectedNeighborhood || selectedHashtags.length > 0) && (
           <button 
             onClick={handleClearAll}
-            className="text-sm text-gray-500 hover:text-gray-700"
+            className="text-sm text-[#D1B399] hover:text-[#D1B399]/80"
           >
             Clear All
           </button>
@@ -152,7 +152,7 @@ const FilterSection = () => {
       {/* Active filter pills */}
       <div className="flex flex-wrap gap-2 mb-4">
         {selectedCity && (
-          <span className="px-3 py-1 text-sm rounded-full border border-black bg-black text-white flex items-center">
+          <span className="px-3 py-1 text-sm rounded-full border border-[#D1B399] bg-[#D1B399] text-white flex items-center">
             {selectedCity}
             <button onClick={() => handleCitySelect(selectedCity)} className="ml-1 text-white hover:text-gray-200">
               <X size={14} />
@@ -161,7 +161,7 @@ const FilterSection = () => {
         )}
         
         {selectedNeighborhood && (
-          <span className="px-3 py-1 text-sm rounded-full border border-black bg-black text-white flex items-center">
+          <span className="px-3 py-1 text-sm rounded-full border border-[#D1B399] bg-[#D1B399] text-white flex items-center">
             {selectedNeighborhood}
             <button onClick={() => handleNeighborhoodSelect(selectedNeighborhood)} className="ml-1 text-white hover:text-gray-200">
               <X size={14} />
@@ -170,7 +170,7 @@ const FilterSection = () => {
         )}
         
         {selectedHashtags.map(tag => (
-          <span key={tag} className="px-3 py-1 text-sm rounded-full border border-black bg-black text-white flex items-center">
+          <span key={tag} className="px-3 py-1 text-sm rounded-full border border-[#D1B399] bg-[#D1B399] text-white flex items-center">
             #{tag}
             <button onClick={() => handleHashtagToggle(tag)} className="ml-1 text-white hover:text-gray-200">
               <X size={14} />

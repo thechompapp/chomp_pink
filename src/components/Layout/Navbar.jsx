@@ -9,6 +9,9 @@ const Navbar = () => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [scrolled, setScrolled] = useState(false);
+  
+  // Check if we're on the home page
+  const isHomePage = location.pathname === "/" || location.pathname === "/home";
 
   // Navigation links with icons
   const navLinks = [
@@ -56,7 +59,7 @@ const Navbar = () => {
               {doofLogo ? (
                 <img src={doofLogo} alt="Doof Logo" className="h-8 w-auto" />
               ) : (
-                <span className="text-xl font-bold bg-gradient-to-r from-pink-500 to-orange-400 text-transparent bg-clip-text">DOOF</span>
+                <span className="text-xl font-bold bg-gradient-to-r from-[#D1B399] to-[#D1B399]/70 text-transparent bg-clip-text">DOOF</span>
               )}
             </Link>
           </div>
@@ -69,14 +72,14 @@ const Navbar = () => {
                 to={link.path}
                 className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors relative ${
                   isActive(link.path)
-                    ? "text-pink-500"
-                    : "text-gray-600 hover:text-pink-500"
+                    ? "text-[#D1B399]"
+                    : "text-gray-600 hover:text-[#D1B399]"
                 }`}
               >
                 <span className="mr-2">{link.icon}</span>
                 {link.name}
                 {isActive(link.path) && (
-                  <span className="absolute bottom-0 left-0 w-full h-0.5 bg-gradient-to-r from-pink-500 to-orange-400 rounded-full"></span>
+                  <span className="absolute bottom-0 left-0 w-full h-0.5 bg-[#D1B399] rounded-full"></span>
                 )}
               </Link>
             ))}
@@ -84,16 +87,19 @@ const Navbar = () => {
 
           {/* Desktop Right Actions */}
           <div className="hidden md:flex items-center space-x-4">
-            <button 
-              onClick={() => setSearchOpen(true)}
-              className="p-2 text-gray-600 hover:text-pink-500 rounded-full hover:bg-gray-100 transition-colors"
-              aria-label="Search"
-            >
-              <Search size={20} />
-            </button>
+            {/* Only show search on non-home pages */}
+            {!isHomePage && (
+              <button 
+                onClick={() => setSearchOpen(true)}
+                className="p-2 text-gray-600 hover:text-[#D1B399] rounded-full hover:bg-gray-100 transition-colors"
+                aria-label="Search"
+              >
+                <Search size={20} />
+              </button>
+            )}
             <Link 
               to="/profile" 
-              className="p-2 text-gray-600 hover:text-pink-500 rounded-full hover:bg-gray-100 transition-colors"
+              className="p-2 text-gray-600 hover:text-[#D1B399] rounded-full hover:bg-gray-100 transition-colors"
               aria-label="Profile"
             >
               <User size={20} />
@@ -102,16 +108,19 @@ const Navbar = () => {
 
           {/* Mobile menu button */}
           <div className="md:hidden flex items-center space-x-3">
-            <button 
-              onClick={() => setSearchOpen(true)}
-              className="p-2 text-gray-600 hover:text-pink-500 rounded-full hover:bg-gray-100 transition-colors"
-              aria-label="Search"
-            >
-              <Search size={20} />
-            </button>
+            {/* Only show search on non-home pages */}
+            {!isHomePage && (
+              <button 
+                onClick={() => setSearchOpen(true)}
+                className="p-2 text-gray-600 hover:text-[#D1B399] rounded-full hover:bg-gray-100 transition-colors"
+                aria-label="Search"
+              >
+                <Search size={20} />
+              </button>
+            )}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 text-gray-600 hover:text-pink-500 rounded-full hover:bg-gray-100 transition-colors"
+              className="p-2 text-gray-600 hover:text-[#D1B399] rounded-full hover:bg-gray-100 transition-colors"
               aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
             >
               {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
@@ -130,8 +139,8 @@ const Navbar = () => {
                 to={link.path}
                 className={`flex items-center px-3 py-2 rounded-md text-base font-medium ${
                   isActive(link.path)
-                    ? "bg-pink-50 text-pink-500"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-pink-500"
+                    ? "bg-[#D1B399]/10 text-[#D1B399]"
+                    : "text-gray-600 hover:bg-gray-50 hover:text-[#D1B399]"
                 }`}
                 onClick={() => setMobileMenuOpen(false)}
               >
@@ -141,7 +150,7 @@ const Navbar = () => {
             ))}
             <Link
               to="/profile"
-              className="flex items-center px-3 py-2 rounded-md text-base font-medium text-gray-600 hover:bg-gray-50 hover:text-pink-500"
+              className="flex items-center px-3 py-2 rounded-md text-base font-medium text-gray-600 hover:bg-gray-50 hover:text-[#D1B399]"
               onClick={() => setMobileMenuOpen(false)}
             >
               <span className="mr-3"><User size={20} /></span>
@@ -175,7 +184,7 @@ const Navbar = () => {
                 </button>
               </form>
               
-              {/* Quick suggestions (would be dynamic in a real app) */}
+              {/* Quick suggestions */}
               <div className="px-4 py-3 border-t border-gray-200">
                 <p className="text-xs font-medium text-gray-500 mb-2">TRENDING SEARCHES</p>
                 <div className="flex flex-wrap gap-2">

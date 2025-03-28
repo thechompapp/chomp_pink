@@ -7,7 +7,7 @@ const DishCard = ({ name, restaurant, tags, price = "$$ • ", followers = Math.
 
   return (
     <>
-      <div className="w-72 h-64 bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
+      <div className="w-72 h-64 bg-[#D1B399] bg-opacity-10 border border-[#D1B399] rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
         <div className="h-full flex flex-col justify-between">
           {/* Card header */}
           <div>
@@ -30,7 +30,7 @@ const DishCard = ({ name, restaurant, tags, price = "$$ • ", followers = Math.
               {tags.slice(0, 3).map((tag) => (
                 <span 
                   key={tag} 
-                  className="px-2 py-0.5 border border-gray-200 rounded-full text-xs text-gray-600"
+                  className="px-2 py-0.5 border border-[#D1B399] rounded-full text-xs text-gray-600"
                 >
                   #{tag}
                 </span>
@@ -41,7 +41,7 @@ const DishCard = ({ name, restaurant, tags, price = "$$ • ", followers = Math.
           {/* Action button */}
           <button
             onClick={() => setShowQuickAdd(true)}
-            className="w-full py-2 border border-black text-black rounded-lg flex items-center justify-center font-medium hover:bg-black hover:text-white transition-colors"
+            className="w-full py-2 border border-[#D1B399] text-[#D1B399] rounded-lg flex items-center justify-center font-medium hover:bg-[#D1B399] hover:text-white transition-colors"
           >
             <PlusCircle size={16} className="mr-2" />
             Add to List

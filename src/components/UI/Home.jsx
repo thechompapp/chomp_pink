@@ -151,7 +151,7 @@ const Home = () => {
           <h2 className="text-xl font-bold text-gray-800">{title}</h2>
           <button 
             onClick={() => toggleSectionExpansion(sectionKey)}
-            className="flex items-center text-gray-500 hover:text-black"
+            className="flex items-center text-gray-500 hover:text-[#D1B399]"
           >
             {isExpanded ? 'Collapse' : 'Expand'}
             {isExpanded ? <ChevronUp size={16} className="ml-1" /> : <ChevronDown size={16} className="ml-1" />}
@@ -159,15 +159,15 @@ const Home = () => {
         </div>
         
         {isExpanded ? (
-          // Expanded grid view
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          // Expanded grid view - centered on mobile
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 place-items-center md:place-items-start">
             {items.map((item, index) => renderItem(item, index))}
           </div>
         ) : (
           // Horizontal scrolling view
           <div 
             ref={sectionRef}
-            className="flex overflow-x-auto pb-4 space-x-4 no-scrollbar"
+            className="flex overflow-x-auto pb-4 space-x-4 no-scrollbar pl-1"
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
             {items.map((item, index) => (
@@ -182,21 +182,21 @@ const Home = () => {
   };
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto">
+    <div className="space-y-8 mx-auto px-4 sm:px-6 md:px-8 max-w-7xl">
       {/* Hero section with search */}
-      <div className="bg-white rounded-2xl p-6 md:p-8 border border-gray-200 shadow-sm">
-        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Discover Great Places</h1>
-        <p className="text-gray-600 text-lg mb-6">Find the best restaurants, dishes, and curated lists</p>
+      <div className="bg-[#D1B399] rounded-2xl p-5 md:p-8 shadow-sm">
+        <h1 className="text-2xl md:text-4xl font-bold text-white mb-3 md:mb-4">Discover Great Places</h1>
+        <p className="text-white text-opacity-90 text-base md:text-lg mb-4 md:mb-6">Find the best restaurants, dishes, and curated lists</p>
         
         <div className="relative">
           <input
             type="text"
             placeholder="Search for restaurants, dishes, or cuisines..."
-            className="w-full py-3 px-5 pr-12 rounded-full border border-gray-300 text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-black focus:border-black"
+            className="w-full py-2 md:py-3 px-4 md:px-5 pr-10 md:pr-12 rounded-full border border-[#D1B399]/30 text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-[#D1B399] focus:border-[#D1B399]"
             onChange={(e) => handleSearch(e.target.value)}
             value={searchQuery}
           />
-          <Search className="absolute right-4 top-3.5 text-gray-500" size={20} />
+          <Search className="absolute right-3 md:right-4 top-2.5 md:top-3.5 text-gray-500" size={20} />
         </div>
       </div>
       
@@ -204,7 +204,7 @@ const Home = () => {
       <div>
         <button 
           onClick={() => setExpandedFilter(!expandedFilter)}
-          className="mb-4 flex items-center text-gray-700 font-medium hover:text-black transition-colors"
+          className="mb-4 flex items-center text-gray-700 font-medium hover:text-[#D1B399] transition-colors"
         >
           <span>Filters</span>
           <ChevronRight className={`ml-1 transition-transform ${expandedFilter ? 'rotate-90' : ''}`} size={18} />
@@ -253,7 +253,7 @@ const Home = () => {
               setSearchQuery('');
               setExpandedFilter(true);
             }}
-            className="mt-4 px-4 py-2 border border-black text-black hover:bg-black hover:text-white rounded-lg transition-colors"
+            className="mt-4 px-4 py-2 border border-[#D1B399] text-[#D1B399] hover:bg-[#D1B399] hover:text-white rounded-lg transition-colors"
           >
             Clear all filters
           </button>
