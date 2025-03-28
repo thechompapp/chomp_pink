@@ -1,34 +1,52 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Home from './pages/Home';
-import Trending from './pages/Trending';
-import MyLists from './pages/MyLists';
-import CreateList from './pages/CreateList';
-import ListDetail from './pages/ListDetail';
-import RestaurantDetail from './pages/RestaurantDetail';
-import DishDetail from './pages/DishDetail';
-import QuickCreateForm from './pages/QuickCreateForm';
-import NightPlanner from './pages/NightPlanner';
+import React from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Home from "./components/UI/Home";
+import Trending from "./components/UI/Trending";
+import MyLists from "./components/UI/Lists";
+import NightPlanner from "./components/UI/NightPlanner";
+import RestaurantDetail from "./components/UI/RestaurantDetail";
+import PageContainer from "./components/Layout/PageContainer";
+import FloatingQuickAdd from "./components/QuickAdd/FloatingQuickAdd";
 
-
-function App() {
+const App = () => {
   return (
-    <div className="app-container min-h-screen bg-gray-100 text-gray-900">
-      <Router>
+    <Router>
+      <PageContainer>
         <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/trending" element={<Trending />} />
-          <Route path="/mylists" element={<MyLists />} />
-          <Route path="/createlist" element={<CreateList />} />
-          <Route path="/list/:id" element={<ListDetail />} />
-          <Route path="/restaurant/:id" element={<RestaurantDetail />} />
-          <Route path="/dish/:id" element={<DishDetail />} />
-          <Route path="/quickadd" element={<QuickCreateForm />} />
-          <Route path="/nightplanner" element={<NightPlanner />} />
+          <Route path="/" element={
+            <>
+              <Home />
+              <FloatingQuickAdd />
+            </>
+          } />
+          <Route path="/trending" element={
+            <>
+              <Trending />
+              <FloatingQuickAdd />
+            </>
+          } />
+          <Route path="/lists" element={
+            <>
+              <MyLists />
+              <FloatingQuickAdd />
+            </>
+          } />
+          <Route path="/night-planner" element={
+            <>
+              <NightPlanner />
+              <FloatingQuickAdd />
+            </>
+          } />
+          <Route path="/restaurant/:id" element={
+            <>
+              <RestaurantDetail />
+              <FloatingQuickAdd />
+            </>
+          } />
         </Routes>
-      </Router>
-    </div>
+      </PageContainer>
+    </Router>
   );
-}
+};
 
 export default App;
