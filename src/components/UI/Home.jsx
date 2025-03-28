@@ -1,15 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import { Search, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Search, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
 import useAppStore from '../../hooks/useAppStore';
 import FilterSection from './FilterSection';
 import RestaurantCard from './RestaurantCard';
 import DishCard from './DishCard';
 import ListCard from './ListCard';
-import { Link } from 'react-router-dom';
 
 const Home = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedFilter, setExpandedFilter] = useState(false);
+  const [expandedSections, setExpandedSections] = useState({
+    dishes: false,
+    restaurants: false,
+    lists: false
+  });
   
   // Get data and filters from store
   const trendingItems = useAppStore((state) => state.trendingItems);
@@ -20,6 +24,11 @@ const Home = () => {
   // Sample data for trending dishes and popular lists
   const [trendingDishes, setTrendingDishes] = useState([]);
   const [popularLists, setPopularLists] = useState([]);
+  
+  // Refs for scroll containers
+  const dishesRef = useRef(null);
+  const restaurantsRef = useRef(null);
+  const listsRef = useRef(null);
 
   useEffect(() => {
     // Simulate fetching data
@@ -122,18 +131,68 @@ const Home = () => {
   const filteredDishes = applyFilters(trendingDishes);
   const filteredLists = applyFilters(popularLists);
 
+  // Toggle section expansion
+  const toggleSectionExpansion = (section) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
+
+  // Render horizontal scrolling section or expanded grid
+  const renderSection = (title, items, renderItem, sectionKey, sectionRef) => {
+    if (items.length === 0) return null;
+    
+    const isExpanded = expandedSections[sectionKey];
+    
+    return (
+      <section className="mb-12">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold text-gray-800">{title}</h2>
+          <button 
+            onClick={() => toggleSectionExpansion(sectionKey)}
+            className="flex items-center text-gray-500 hover:text-black"
+          >
+            {isExpanded ? 'Collapse' : 'Expand'}
+            {isExpanded ? <ChevronUp size={16} className="ml-1" /> : <ChevronDown size={16} className="ml-1" />}
+          </button>
+        </div>
+        
+        {isExpanded ? (
+          // Expanded grid view
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {items.map((item, index) => renderItem(item, index))}
+          </div>
+        ) : (
+          // Horizontal scrolling view
+          <div 
+            ref={sectionRef}
+            className="flex overflow-x-auto pb-4 space-x-4 no-scrollbar"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          >
+            {items.map((item, index) => (
+              <div key={index} className="flex-shrink-0">
+                {renderItem(item, index)}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    );
+  };
+
   return (
-    <div className="space-y-8 max-w-6xl mx-auto">
+    <div className="space-y-8 max-w-7xl mx-auto">
       {/* Hero section with search */}
-      <div className="bg-gradient-to-r from-pink-500 to-orange-400 rounded-2xl p-6 md:p-8 shadow-lg">
-        <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">Discover Great Places</h1>
-        <p className="text-white text-opacity-90 text-lg mb-6">Find the best restaurants, dishes, and curated lists</p>
+      <div className="bg-white rounded-2xl p-6 md:p-8 border border-gray-200 shadow-sm">
+        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Discover Great Places</h1>
+        <p className="text-gray-600 text-lg mb-6">Find the best restaurants, dishes, and curated lists</p>
         
         <div className="relative">
           <input
             type="text"
             placeholder="Search for restaurants, dishes, or cuisines..."
-            className="w-full py-3 px-5 pr-12 rounded-full border-none shadow-lg text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-pink-300"
+            className="w-full py-3 px-5 pr-12 rounded-full border border-gray-300 text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-black focus:border-black"
             onChange={(e) => handleSearch(e.target.value)}
             value={searchQuery}
           />
@@ -145,7 +204,7 @@ const Home = () => {
       <div>
         <button 
           onClick={() => setExpandedFilter(!expandedFilter)}
-          className="mb-4 flex items-center text-gray-700 font-medium hover:text-pink-500 transition-colors"
+          className="mb-4 flex items-center text-gray-700 font-medium hover:text-black transition-colors"
         >
           <span>Filters</span>
           <ChevronRight className={`ml-1 transition-transform ${expandedFilter ? 'rotate-90' : ''}`} size={18} />
@@ -155,63 +214,36 @@ const Home = () => {
         {expandedFilter && <FilterSection />}
       </div>
       
-      {/* Trending Dishes */}
-      {filteredDishes.length > 0 && (
-        <section>
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold text-gray-800">Trending Dishes</h2>
-            <Link to="/trending" className="text-pink-500 hover:text-pink-600 font-medium text-sm flex items-center">
-              View All <ChevronRight size={16} className="ml-1" />
-            </Link>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredDishes.slice(0, 6).map((dish, index) => (
-              <DishCard key={`${dish.name}-${index}`} {...dish} />
-            ))}
-          </div>
-        </section>
+      {/* Trending Dishes Section */}
+      {renderSection(
+        "Trending Dishes", 
+        filteredDishes, 
+        (dish, index) => <DishCard key={`${dish.name}-${index}`} {...dish} />,
+        "dishes",
+        dishesRef
       )}
       
-      {/* Trending Restaurants */}
-      {filteredRestaurants.length > 0 && (
-        <section>
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold text-gray-800">Trending Restaurants</h2>
-            <Link to="/trending" className="text-pink-500 hover:text-pink-600 font-medium text-sm flex items-center">
-              View All <ChevronRight size={16} className="ml-1" />
-            </Link>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredRestaurants.slice(0, 6).map((restaurant, index) => (
-              <RestaurantCard key={`${restaurant.name}-${index}`} {...restaurant} />
-            ))}
-          </div>
-        </section>
+      {/* Trending Restaurants Section */}
+      {renderSection(
+        "Trending Restaurants", 
+        filteredRestaurants, 
+        (restaurant, index) => <RestaurantCard key={`${restaurant.name}-${index}`} {...restaurant} />,
+        "restaurants",
+        restaurantsRef
       )}
       
-      {/* Popular Lists */}
-      {filteredLists.length > 0 && (
-        <section>
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold text-gray-800">Popular Lists</h2>
-            <Link to="/lists" className="text-pink-500 hover:text-pink-600 font-medium text-sm flex items-center">
-              View All <ChevronRight size={16} className="ml-1" />
-            </Link>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredLists.slice(0, 6).map((list) => (
-              <ListCard key={list.id} {...list} />
-            ))}
-          </div>
-        </section>
+      {/* Popular Lists Section */}
+      {renderSection(
+        "Popular Lists", 
+        filteredLists, 
+        (list) => <ListCard key={list.id} {...list} />,
+        "lists",
+        listsRef
       )}
       
       {/* No results message */}
       {filteredRestaurants.length === 0 && filteredDishes.length === 0 && filteredLists.length === 0 && (
-        <div className="text-center py-12">
+        <div className="text-center py-12 bg-white border border-gray-200 rounded-lg">
           <h3 className="text-xl font-medium text-gray-700 mb-2">No results found</h3>
           <p className="text-gray-500">Try adjusting your filters or search query</p>
           <button 
@@ -221,12 +253,23 @@ const Home = () => {
               setSearchQuery('');
               setExpandedFilter(true);
             }}
-            className="mt-4 px-4 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition-colors"
+            className="mt-4 px-4 py-2 border border-black text-black hover:bg-black hover:text-white rounded-lg transition-colors"
           >
             Clear all filters
           </button>
         </div>
       )}
+      
+      {/* Add CSS for hiding scrollbars */}
+      <style jsx>{`
+        .no-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .no-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
     </div>
   );
 };

@@ -1,70 +1,56 @@
-import React from 'react';
-import { Bookmark, PlusCircle, Users } from 'lucide-react';
+import React, { useState } from 'react';
+import { Bookmark, Users, PlusCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import useAppStore from '../../hooks/useAppStore';
-import QuickAddPopup from '../QuickAdd/QuickAddPopup';  // Added correct import path if needed
+import QuickAddPopup from '../QuickAdd/QuickAddPopup';
 
-const ListCard = ({ id, name, itemCount = 0, isPublic = true, savedCount = 0 }) => {
-  const [showQuickAdd, setShowQuickAdd] = React.useState(false);
-  const addToUserList = useAppStore((state) => state.addToUserList);
-
-  // List of gradient backgrounds to use
-  const gradients = [
-    'from-emerald-500 to-teal-400',  
-    'from-indigo-500 to-blue-400',
-    'from-violet-500 to-purple-400',
-    'from-amber-500 to-yellow-400'
-  ];
-  
-  // Randomly select a gradient background
-  const randomGradient = gradients[Math.floor(Math.random() * gradients.length)];
-
-  const handleQuickAdd = () => {
-    setShowQuickAdd(true);
-  };
+const ListCard = ({ id, name, itemCount = 0, isPublic = true, savedCount = Math.floor(Math.random() * 500) + 50 }) => {
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
 
   return (
     <>
-      <div className="bg-white rounded-xl shadow-md overflow-hidden transition-all duration-300 hover:shadow-lg transform hover:-translate-y-1">
-        {/* Card header with gradient background */}
-        <div className={`h-24 bg-gradient-to-r ${randomGradient} p-4 relative`}>
-          <div className="absolute top-2 right-2 bg-white bg-opacity-90 rounded-full px-2 py-1 flex items-center text-xs font-medium text-gray-700">
-            <Users size={14} className="inline mr-1" />
-            {savedCount}
-          </div>
-          <h3 className="font-bold text-white text-xl mb-1 line-clamp-1 mt-4">{name}</h3>
-        </div>
-        
-        {/* Card content */}
-        <div className="p-4">
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center text-gray-600 text-sm">
-              <Bookmark size={16} className="mr-1" />
-              {itemCount} {itemCount === 1 ? 'item' : 'items'}
+      <div className="w-72 h-64 bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
+        <div className="h-full flex flex-col justify-between">
+          {/* Card header */}
+          <div>
+            <h3 className="font-bold text-gray-900 text-lg mb-1 truncate">{name}</h3>
+            
+            <div className="flex items-start text-gray-500 text-sm">
+              <Bookmark size={14} className="mr-1 mt-0.5 flex-shrink-0" />
+              <span className="truncate">{itemCount} {itemCount === 1 ? 'item' : 'items'}</span>
             </div>
             
-            <span className={`px-2 py-1 rounded-full text-xs ${
+            <div className="flex items-center text-gray-500 text-sm mt-1">
+              <Users size={14} className="mr-1" />
+              <span>{savedCount.toLocaleString()} followers</span>
+            </div>
+          </div>
+          
+          {/* Visibility */}
+          <div className="my-3 flex items-center">
+            <span className={`px-2 py-0.5 border rounded-full text-xs ${
               isPublic 
-                ? 'bg-green-100 text-green-800' 
-                : 'bg-gray-100 text-gray-800'
+                ? 'border-gray-300 text-gray-700' 
+                : 'border-gray-300 text-gray-700'
             }`}>
               {isPublic ? 'Public' : 'Private'}
             </span>
           </div>
           
-          <div className="flex space-x-2">
+          {/* Action buttons */}
+          <div className="grid grid-cols-2 gap-2">
             <Link
               to={`/lists/${id}`}
-              className="flex-1 py-2 px-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-center text-sm font-medium"
+              className="py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors text-center text-sm font-medium"
             >
-              View List
+              View
             </Link>
             
             <button
-              onClick={handleQuickAdd}
-              className="flex items-center justify-center py-2 px-3 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-lg hover:from-purple-600 hover:to-indigo-600 transition-colors shadow-sm"
+              onClick={() => setShowQuickAdd(true)}
+              className="py-2 border border-black text-black rounded-lg flex items-center justify-center font-medium hover:bg-black hover:text-white transition-colors"
             >
-              <PlusCircle size={16} className="mr-1" />
+              <PlusCircle size={14} className="mr-1" />
               Save
             </button>
           </div>
