@@ -1,17 +1,15 @@
 import React, { useState, useEffect } from "react";
-import Button from "../UI/Button";
-import RestaurantCard from "../UI/RestaurantCard";
-import DishCard from "../UI/DishCard";
-import FilterSection from "../UI/FilterSection";
-import { TrendingUp, ArrowUpRight, ChevronDown } from "lucide-react";
+import { TrendingUp, SortAsc, SortDesc, Map } from "lucide-react";
 import useAppStore from "../../hooks/useAppStore";
+import FilterSection from "./FilterSection";
+import RestaurantCard from "./RestaurantCard";
+import DishCard from "./DishCard";
+import ListCard from "./ListCard";
 
 const Trending = () => {
   const [activeTab, setActiveTab] = useState("restaurants");
-  const [expandedFilter, setExpandedFilter] = useState(false);
   const [sortMethod, setSortMethod] = useState("popular");
-  const [trendingData, setTrendingData] = useState({ restaurants: [], dishes: [] });
-  const [showSortOptions, setShowSortOptions] = useState(false);
+  const [trendingData, setTrendingData] = useState({ restaurants: [], dishes: [], lists: [] });
   
   // Get filters from store
   const activeFilters = useAppStore((state) => state.activeFilters || { city: null, neighborhood: null, tags: [] });
@@ -53,13 +51,29 @@ const Trending = () => {
         { name: "Stone Crab Claws", restaurant: "Joe's Stone Crab", tags: ['seafood', 'signature'], city: 'Miami', neighborhood: 'South Beach', trending: 90 }
       ];
       
-      setTrendingData({ restaurants: restaurantData, dishes: dishData });
+      // Sample lists
+      const listData = [
+        { id: 101, name: "NYC Pizza Tour", itemCount: 8, savedCount: 245, isPublic: true, city: 'New York', tags: ['pizza', 'italian'], trending: 95 },
+        { id: 102, name: "Best Burgers in Manhattan", itemCount: 12, savedCount: 187, isPublic: true, city: 'New York', tags: ['burgers', 'beef'], trending: 88 },
+        { id: 103, name: "Late Night Eats", itemCount: 5, savedCount: 92, isPublic: true, city: 'Los Angeles', tags: ['late-night', 'casual'], trending: 82 },
+        { id: 104, name: "Michelin Star Experience", itemCount: 7, savedCount: 156, isPublic: true, city: 'Chicago', tags: ['fine-dining', 'upscale'], trending: 91 },
+        { id: 105, name: "Budget-Friendly Bites", itemCount: 15, savedCount: 201, isPublic: true, city: 'New York', tags: ['cheap-eats', 'casual'], trending: 89 },
+        { id: 106, name: "Date Night Spots", itemCount: 10, savedCount: 172, isPublic: true, city: 'Miami', tags: ['romantic', 'dinner'], trending: 86 },
+        { id: 107, name: "Hidden Gems of Chicago", itemCount: 9, savedCount: 134, isPublic: true, city: 'Chicago', tags: ['local', 'unique'], trending: 84 },
+        { id: 108, name: "LA's Best Tacos", itemCount: 14, savedCount: 287, isPublic: true, city: 'Los Angeles', tags: ['tacos', 'mexican'], trending: 93 }
+      ];
+      
+      setTrendingData({ 
+        restaurants: restaurantData, 
+        dishes: dishData,
+        lists: listData 
+      });
     };
 
     fetchTrendingData();
   }, []);
 
-  // Filter data based on active filters and search query
+  // Apply filters to data
   const applyFilters = (items) => {
     return items.filter(item => {
       // Apply city filter
@@ -98,173 +112,156 @@ const Trending = () => {
     });
   };
 
-  // Apply sorting
+  // Apply sorting to data
   const sortData = (items) => {
     switch (sortMethod) {
-      case 'popular':
-        return [...items].sort((a, b) => b.trending - a.trending);
-      case 'alphabetical':
+      case 'a-z':
         return [...items].sort((a, b) => a.name.localeCompare(b.name));
-      case 'nearest':
-        // In a real app, this would use geolocation
+      case 'z-a':
+        return [...items].sort((a, b) => b.name.localeCompare(a.name));
+      case 'distance':
+        // In a real app, this would use geolocation to sort by distance
         return items;
+      case 'popular':
       default:
-        return items;
+        return [...items].sort((a, b) => b.trending - a.trending);
     }
   };
 
-  const filteredRestaurants = sortData(applyFilters(trendingData.restaurants));
-  const filteredDishes = sortData(applyFilters(trendingData.dishes));
+  // Get filtered and sorted data for current tab
+  const getActiveData = () => {
+    const tabData = {
+      restaurants: trendingData.restaurants,
+      dishes: trendingData.dishes,
+      lists: trendingData.lists
+    }[activeTab] || [];
+    
+    // Apply filters and sorting
+    return sortData(applyFilters(tabData));
+  };
 
-  const activeData = activeTab === "restaurants" ? filteredRestaurants : filteredDishes;
-  
-  const sortOptions = [
-    { id: 'popular', label: 'Most Popular' },
-    { id: 'alphabetical', label: 'Alphabetical' },
-    { id: 'nearest', label: 'Nearest to Me' }
-  ];
+  const activeData = getActiveData();
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8">
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-2">
-          <TrendingUp size={24} className="text-pink-500" />
-          <h1 className="text-3xl font-bold text-gray-800">Trending Now</h1>
+    <div className="space-y-8 mx-auto px-4 sm:px-6 md:px-8 max-w-7xl">
+      {/* Header with title */}
+      <div className="pt-4 md:pt-6">
+        <div className="flex items-center gap-2 mb-6">
+          <TrendingUp size={28} className="text-[#D1B399]" />
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Trending Now</h1>
         </div>
-        
-        <div className="flex items-center gap-3">
-          {/* Tab selector */}
-          <div className="bg-gray-100 rounded-lg p-1 flex">
-            <button
-              onClick={() => setActiveTab("restaurants")}
-              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                activeTab === "restaurants"
-                  ? "bg-white shadow text-pink-500"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              Restaurants
-            </button>
-            <button
-              onClick={() => setActiveTab("dishes")}
-              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                activeTab === "dishes"
-                  ? "bg-white shadow text-pink-500"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              Dishes
-            </button>
+      </div>
+
+      {/* Filters - always visible */}
+      <FilterSection />
+      
+      {/* Tab selector and sort options */}
+      <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm mb-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:justify-between">
+          {/* Content type tabs */}
+          <div className="flex justify-center">
+            <div className="inline-flex rounded-md border border-[#D1B399] p-1">
+              <button
+                onClick={() => setActiveTab("restaurants")}
+                className={`px-4 py-2 text-sm font-medium rounded transition-colors ${
+                  activeTab === "restaurants"
+                    ? "bg-[#D1B399] text-white"
+                    : "text-[#D1B399] hover:bg-[#D1B399]/10"
+                }`}
+              >
+                Restaurants
+              </button>
+              <button
+                onClick={() => setActiveTab("dishes")}
+                className={`px-4 py-2 text-sm font-medium rounded transition-colors ${
+                  activeTab === "dishes"
+                    ? "bg-[#D1B399] text-white"
+                    : "text-[#D1B399] hover:bg-[#D1B399]/10"
+                }`}
+              >
+                Dishes
+              </button>
+              <button
+                onClick={() => setActiveTab("lists")}
+                className={`px-4 py-2 text-sm font-medium rounded transition-colors ${
+                  activeTab === "lists"
+                    ? "bg-[#D1B399] text-white"
+                    : "text-[#D1B399] hover:bg-[#D1B399]/10"
+                }`}
+              >
+                Lists
+              </button>
+            </div>
           </div>
           
-          {/* Sort dropdown */}
-          <div className="relative">
+          {/* Sort options - smaller text */}
+          <div className="flex flex-wrap justify-center gap-2">
             <button
-              onClick={() => setShowSortOptions(!showSortOptions)}
-              className="flex items-center px-3 py-2 text-sm font-medium bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              onClick={() => setSortMethod("popular")}
+              className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
+                sortMethod === "popular"
+                  ? "bg-[#D1B399] text-white border-[#D1B399]"
+                  : "text-gray-700 border-gray-300 hover:border-[#D1B399] hover:text-[#D1B399]"
+              }`}
             >
-              Sort: {sortOptions.find(opt => opt.id === sortMethod)?.label}
-              <ChevronDown size={16} className="ml-1" />
+              Popular
             </button>
-            
-            {showSortOptions && (
-              <div className="absolute right-0 mt-1 bg-white rounded-lg shadow-lg py-1 z-10 min-w-[160px]">
-                {sortOptions.map(option => (
-                  <button
-                    key={option.id}
-                    className={`w-full text-left px-4 py-2 text-sm transition-colors ${
-                      sortMethod === option.id
-                        ? 'text-pink-500 bg-pink-50'
-                        : 'text-gray-700 hover:bg-gray-50'
-                    }`}
-                    onClick={() => {
-                      setSortMethod(option.id);
-                      setShowSortOptions(false);
-                    }}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            )}
+            <button
+              onClick={() => setSortMethod("a-z")}
+              className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors flex items-center ${
+                sortMethod === "a-z"
+                  ? "bg-[#D1B399] text-white border-[#D1B399]"
+                  : "text-gray-700 border-gray-300 hover:border-[#D1B399] hover:text-[#D1B399]"
+              }`}
+            >
+              <SortAsc size={12} className="mr-1" />A-Z
+            </button>
+            <button
+              onClick={() => setSortMethod("z-a")}
+              className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors flex items-center ${
+                sortMethod === "z-a"
+                  ? "bg-[#D1B399] text-white border-[#D1B399]"
+                  : "text-gray-700 border-gray-300 hover:border-[#D1B399] hover:text-[#D1B399]"
+              }`}
+            >
+              <SortDesc size={12} className="mr-1" />Z-A
+            </button>
+            <button
+              onClick={() => setSortMethod("distance")}
+              className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors flex items-center ${
+                sortMethod === "distance"
+                  ? "bg-[#D1B399] text-white border-[#D1B399]"
+                  : "text-gray-700 border-gray-300 hover:border-[#D1B399] hover:text-[#D1B399]"
+              }`}
+            >
+              <Map size={12} className="mr-1" />Distance
+            </button>
           </div>
         </div>
       </div>
-
-      {/* Filter toggle */}
-      <div>
-        <Button 
-          variant="secondary"
-          size="sm"
-          onClick={() => setExpandedFilter(!expandedFilter)}
-          className="mb-4"
-        >
-          {expandedFilter ? "Hide Filters" : "Show Filters"}
-        </Button>
-        
-        {/* Collapsible filter section */}
-        {expandedFilter && <FilterSection />}
-      </div>
-
-      {/* No results message */}
-      {activeData.length === 0 && (
-        <div className="text-center py-16 bg-white rounded-xl shadow-sm">
-          <h3 className="text-xl font-medium text-gray-700 mb-2">No trending {activeTab} found</h3>
-          <p className="text-gray-500 mb-4">Try adjusting your filters or search criteria</p>
-          <Button 
-            onClick={() => {
-              const clearFilters = useAppStore.getState().clearFilters;
-              if (clearFilters) clearFilters();
-            }}
-            variant="primary"
-          >
-            Clear all filters
-          </Button>
-        </div>
-      )}
-
-      {/* Results grid */}
-      {activeData.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {activeTab === "restaurants" ? (
-            // Restaurant cards
-            activeData.map((restaurant, index) => (
-              <div key={`${restaurant.name}-${index}`} className="relative">
-                <div className="absolute top-3 right-3 z-10 bg-pink-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center">
-                  <TrendingUp size={12} className="mr-1" />
-                  {restaurant.trending}
-                </div>
-                <RestaurantCard {...restaurant} />
-              </div>
-            ))
-          ) : (
-            // Dish cards
-            activeData.map((dish, index) => (
-              <div key={`${dish.name}-${index}`} className="relative">
-                <div className="absolute top-3 right-3 z-10 bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center">
-                  <TrendingUp size={12} className="mr-1" />
-                  {dish.trending}
-                </div>
-                <DishCard {...dish} />
-              </div>
-            ))
-          )}
-        </div>
-      )}
       
-      {/* View more button */}
-      {activeData.length > 12 && (
-        <div className="text-center mt-8">
-          <Button 
-            variant="secondary" 
-            size="lg"
-            onClick={() => console.log("Load more")}
-            className="mx-auto"
-          >
-            Load more
-          </Button>
-        </div>
-      )}
+      {/* Results section - always in vertical grid */}
+      <div className="mt-6">
+        {activeData.length === 0 ? (
+          <div className="text-center py-12 bg-white border border-gray-200 rounded-lg">
+            <h3 className="text-xl font-medium text-gray-700 mb-2">No results found</h3>
+            <p className="text-gray-500">Try adjusting your filters or search criteria</p>
+          </div>
+        ) : (
+          // Vertical grid view with centered cards on mobile
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 place-items-center">
+            {activeData.map((item, index) => {
+              if (activeTab === "restaurants") {
+                return <RestaurantCard key={`restaurant-${index}`} {...item} />;
+              } else if (activeTab === "dishes") {
+                return <DishCard key={`dish-${index}`} {...item} />;
+              } else {
+                return <ListCard key={`list-${item.id}`} {...item} />;
+              }
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
