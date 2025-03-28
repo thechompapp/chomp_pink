@@ -1,8 +1,9 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import { MapPin, Users, PlusCircle } from "lucide-react";
 import QuickAddPopup from "../QuickAdd/QuickAddPopup";
 
-const RestaurantCard = ({ name, neighborhood, city, tags, followers = Math.floor(Math.random() * 900) + 100 }) => {
+const RestaurantCard = ({ id = 1, name, neighborhood, city, tags, followers = Math.floor(Math.random() * 900) + 100 }) => {
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   
   return (
@@ -11,7 +12,9 @@ const RestaurantCard = ({ name, neighborhood, city, tags, followers = Math.floor
         <div className="h-full flex flex-col justify-between">
           {/* Card header */}
           <div>
-            <h3 className="font-bold text-gray-900 text-lg mb-1 truncate">{name}</h3>
+            <Link to={`/restaurant/${id}`} className="block">
+              <h3 className="font-bold text-gray-900 text-lg mb-1 truncate hover:text-[#D1B399] transition-colors">{name}</h3>
+            </Link>
             
             <div className="flex items-start text-gray-500 text-sm">
               <MapPin size={14} className="mr-1 mt-0.5 flex-shrink-0" />
@@ -38,20 +41,28 @@ const RestaurantCard = ({ name, neighborhood, city, tags, followers = Math.floor
             </div>
           </div>
           
-          {/* Action button */}
-          <button
-            onClick={() => setShowQuickAdd(true)}
-            className="w-full py-2 border border-[#D1B399] text-[#D1B399] rounded-lg flex items-center justify-center font-medium hover:bg-[#D1B399] hover:text-white transition-colors"
-          >
-            <PlusCircle size={16} className="mr-2" />
-            Add to List
-          </button>
+          {/* Action buttons */}
+          <div className="flex gap-2">
+            <Link
+              to={`/restaurant/${id}`}
+              className="flex-1 py-2 border border-[#D1B399] text-[#D1B399] rounded-lg flex items-center justify-center font-medium hover:bg-[#D1B399]/10 transition-colors"
+            >
+              View
+            </Link>
+            <button
+              onClick={() => setShowQuickAdd(true)}
+              className="flex-1 py-2 border border-[#D1B399] text-[#D1B399] rounded-lg flex items-center justify-center font-medium hover:bg-[#D1B399] hover:text-white transition-colors"
+            >
+              <PlusCircle size={16} className="mr-2" />
+              Add to List
+            </button>
+          </div>
         </div>
       </div>
       
       {showQuickAdd && (
         <QuickAddPopup 
-          item={{ name, neighborhood, city, tags }} 
+          item={{ id, name, neighborhood, city, tags }} 
           onClose={() => setShowQuickAdd(false)} 
         />
       )}

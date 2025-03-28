@@ -5,6 +5,7 @@ import Trending from "./components/UI/Trending";
 import MyLists from "./components/UI/Lists";
 import NightPlanner from "./components/UI/NightPlanner";
 import RestaurantDetail from "./components/UI/RestaurantDetail";
+import DishDetail from "./components/UI/DishDetail";
 import ListDetail from "./components/UI/ListDetail";
 import PageContainer from "./components/Layout/PageContainer";
 import FloatingQuickAdd from "./components/QuickAdd/FloatingQuickAdd";
@@ -47,6 +48,19 @@ const App = () => {
           <Route path="/restaurant/:id" element={
             <>
               <RestaurantDetail />
+              <FloatingQuickAdd />
+            </>
+          } />
+          <Route path="/dish/:id" element={
+            <>
+              <DishDetail />
+              <FloatingQuickAdd />
+            </>
+          } />
+          {/* Add a search route to match the "Back to search" link in detail pages */}
+          <Route path="/search" element={
+            <>
+              <Home />
               <FloatingQuickAdd />
             </>
           } />

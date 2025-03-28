@@ -56,7 +56,7 @@ const ListDetail = () => {
   const sortedItems = getSortedItems();
 
   return (
-    <div className="max-w-4xl mx-auto px-4">
+    <div className="max-w-4xl mx-auto px-3 sm:px-4">
       {/* Back button */}
       <Link to="/lists" className="inline-flex items-center text-gray-600 hover:text-[#D1B399] my-4 transition-colors">
         <ChevronLeft size={20} className="mr-1" />
@@ -65,10 +65,10 @@ const ListDetail = () => {
       
       {/* List header */}
       <div className="bg-white rounded-xl border border-[#D1B399]/20 mb-6">
-        <div className="p-6 flex flex-col md:flex-row md:items-center md:justify-between">
+        <div className="p-4 sm:p-6 flex flex-col md:flex-row md:items-center md:justify-between">
           <div>
-            <div className="flex items-center space-x-3">
-              <h1 className="text-2xl font-bold text-gray-900">{list.name}</h1>
+            <div className="flex items-center flex-wrap gap-2">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{list.name}</h1>
               <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                 listType === 'restaurants' 
                   ? 'bg-pink-100 text-pink-800' 
@@ -81,49 +81,49 @@ const ListDetail = () => {
             <p className="text-gray-500 mt-1">{list.items.length} {list.items.length === 1 ? 'item' : 'items'}</p>
           </div>
           
-          <div className="flex mt-4 md:mt-0 items-center space-x-3">
-            {/* Sort buttons */}
-            <div className="flex space-x-2">
+          <div className="mt-4 md:mt-0">
+            {/* Sort buttons - Wrapped for small screens */}
+            <div className="flex flex-wrap gap-2 mb-3 md:mb-0">
               <button
                 onClick={() => setSortMethod('a-z')}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center ${
+                className={`px-2 sm:px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center ${
                   sortMethod === 'a-z'
                     ? 'bg-[#D1B399] text-white'
                     : 'bg-white text-gray-700 hover:bg-[#D1B399]/10 border border-[#D1B399]/20'
                 }`}
               >
                 <SortAsc size={16} className="mr-1" />
-                A-Z
+                <span>A-Z</span>
               </button>
               <button
                 onClick={() => setSortMethod('z-a')}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center ${
+                className={`px-2 sm:px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center ${
                   sortMethod === 'z-a'
                     ? 'bg-[#D1B399] text-white'
                     : 'bg-white text-gray-700 hover:bg-[#D1B399]/10 border border-[#D1B399]/20'
                 }`}
               >
                 <SortDesc size={16} className="mr-1" />
-                Z-A
+                <span>Z-A</span>
               </button>
               <button
                 onClick={() => setSortMethod('date')}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center ${
+                className={`px-2 sm:px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center ${
                   sortMethod === 'date'
                     ? 'bg-[#D1B399] text-white'
                     : 'bg-white text-gray-700 hover:bg-[#D1B399]/10 border border-[#D1B399]/20'
                 }`}
               >
                 <CalendarDays size={16} className="mr-1" />
-                Date
+                <span>Date</span>
               </button>
             </div>
             
             {/* Visibility toggle and share button */}
-            <div className="flex space-x-2">
+            <div className="flex flex-wrap items-center gap-2">
               {/* Visibility toggle (only for owner) */}
               {isOwner && (
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-600">{isPublic ? 'Public' : 'Private'}</span>
                   <button 
                     onClick={handleToggleVisibility} 
@@ -148,24 +148,24 @@ const ListDetail = () => {
       </div>
       
       {/* List items */}
-      <div className="space-y-4 mb-12">
+      <div className="space-y-3 sm:space-y-4 mb-12">
         {sortedItems.length === 0 ? (
           <div className="bg-white p-8 text-center rounded-xl border border-[#D1B399]/20">
             <p className="text-gray-500">This list is empty</p>
           </div>
         ) : (
           sortedItems.map((item, index) => (
-            <div key={item.name} className="bg-white p-4 rounded-xl border border-[#D1B399]/20 flex justify-between">
+            <div key={item.name} className="bg-white p-3 sm:p-4 rounded-xl border border-[#D1B399]/20 flex justify-between">
               <div className="flex">
-                <div className="w-8 h-8 bg-[#D1B399]/10 rounded-full flex items-center justify-center mr-3 text-[#D1B399] font-medium">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 bg-[#D1B399]/10 rounded-full flex items-center justify-center mr-2 sm:mr-3 text-[#D1B399] font-medium text-sm sm:text-base">
                   {index + 1}
                 </div>
-                <div>
-                  <h3 className="font-bold text-gray-900">{item.name}</h3>
+                <div className="pr-2">
+                  <h3 className="font-bold text-gray-900 text-sm sm:text-base">{item.name}</h3>
                   {item.restaurant ? (
-                    <p className="text-sm text-gray-600">at {item.restaurant}</p>
+                    <p className="text-xs sm:text-sm text-gray-600">at {item.restaurant}</p>
                   ) : (
-                    <p className="text-sm text-gray-600">{item.neighborhood}, {item.city}</p>
+                    <p className="text-xs sm:text-sm text-gray-600">{item.neighborhood}, {item.city}</p>
                   )}
                   <div className="flex flex-wrap gap-1 mt-1">
                     {item.tags && item.tags.slice(0, 3).map(tag => (
@@ -176,33 +176,33 @@ const ListDetail = () => {
               </div>
               
               {/* External links */}
-              <div className="flex space-x-2 items-start">
+              <div className="flex items-start">
                 <a 
                   href={`https://maps.google.com/?q=${item.name} ${item.city || ''}`} 
                   target="_blank" 
                   rel="noopener noreferrer" 
-                  className="p-1.5 text-gray-500 hover:text-[#D1B399] transition-colors" 
+                  className="p-1 sm:p-1.5 text-gray-500 hover:text-[#D1B399] transition-colors" 
                   title="View on Google Maps"
                 >
-                  <MapPin size={16} />
+                  <MapPin size={14} className="sm:size-16" />
                 </a>
                 <a 
                   href={`https://www.instagram.com/explore/tags/${encodeURIComponent(item.name.replace(/\s+/g, ''))}`} 
                   target="_blank" 
                   rel="noopener noreferrer" 
-                  className="p-1.5 text-gray-500 hover:text-[#D1B399] transition-colors" 
+                  className="p-1 sm:p-1.5 text-gray-500 hover:text-[#D1B399] transition-colors" 
                   title="Find on Instagram"
                 >
-                  <Instagram size={16} />
+                  <Instagram size={14} className="sm:size-16" />
                 </a>
                 <a 
                   href={`https://www.yelp.com/search?find_desc=${encodeURIComponent(item.name)}&find_loc=${encodeURIComponent(item.city || '')}`} 
                   target="_blank" 
                   rel="noopener noreferrer" 
-                  className="p-1.5 text-gray-500 hover:text-[#D1B399] transition-colors" 
+                  className="p-1 sm:p-1.5 text-gray-500 hover:text-[#D1B399] transition-colors" 
                   title="Find on Yelp"
                 >
-                  <ExternalLink size={16} />
+                  <ExternalLink size={14} className="sm:size-16" />
                 </a>
               </div>
             </div>

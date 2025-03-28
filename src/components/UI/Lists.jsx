@@ -53,12 +53,13 @@ const Lists = () => {
       <div className="mb-8">
         <h1 className="text-2xl font-bold mb-6 text-gray-900">My Lists</h1>
         
-        {/* Filter and sort controls */}
-        <div className="flex flex-wrap justify-between items-center mb-6">
-          <div className="flex space-x-2 mb-2 sm:mb-0">
+        {/* Filter and sort controls - Enhanced for better mobile display */}
+        <div className="flex flex-col sm:flex-row sm:justify-between gap-3 mb-6">
+          {/* Type filter buttons - Better wrapping on mobile */}
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setFilterType('all')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-2 sm:px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 filterType === 'all'
                   ? 'bg-[#D1B399] text-white'
                   : 'bg-white text-gray-700 hover:bg-[#D1B399]/10 border border-[#D1B399]/20'
@@ -68,32 +69,33 @@ const Lists = () => {
             </button>
             <button
               onClick={() => setFilterType('restaurants')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center ${
+              className={`px-2 sm:px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center ${
                 filterType === 'restaurants'
                   ? 'bg-[#D1B399] text-white'
                   : 'bg-white text-gray-700 hover:bg-[#D1B399]/10 border border-[#D1B399]/20'
               }`}
             >
               <Store size={16} className="mr-1" />
-              Restaurants
+              <span className="whitespace-nowrap">Restaurants</span>
             </button>
             <button
               onClick={() => setFilterType('dishes')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center ${
+              className={`px-2 sm:px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center ${
                 filterType === 'dishes'
                   ? 'bg-[#D1B399] text-white'
                   : 'bg-white text-gray-700 hover:bg-[#D1B399]/10 border border-[#D1B399]/20'
               }`}
             >
               <Utensils size={16} className="mr-1" />
-              Dishes
+              <span className="whitespace-nowrap">Dishes</span>
             </button>
           </div>
           
-          <div className="flex space-x-2">
+          {/* Sort buttons - Better wrapping on mobile */}
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setSortMethod('a-z')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center ${
+              className={`px-2 sm:px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center ${
                 sortMethod === 'a-z'
                   ? 'bg-[#D1B399] text-white'
                   : 'bg-white text-gray-700 hover:bg-[#D1B399]/10 border border-[#D1B399]/20'
@@ -104,7 +106,7 @@ const Lists = () => {
             </button>
             <button
               onClick={() => setSortMethod('z-a')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center ${
+              className={`px-2 sm:px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center ${
                 sortMethod === 'z-a'
                   ? 'bg-[#D1B399] text-white'
                   : 'bg-white text-gray-700 hover:bg-[#D1B399]/10 border border-[#D1B399]/20'
@@ -115,7 +117,7 @@ const Lists = () => {
             </button>
             <button
               onClick={() => setSortMethod('date')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center ${
+              className={`px-2 sm:px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center ${
                 sortMethod === 'date'
                   ? 'bg-[#D1B399] text-white'
                   : 'bg-white text-gray-700 hover:bg-[#D1B399]/10 border border-[#D1B399]/20'
@@ -128,12 +130,12 @@ const Lists = () => {
         </div>
 
         {userLists.length === 0 ? (
-          <div className="bg-white rounded-xl border border-[#D1B399]/20 p-8 text-center">
+          <div className="bg-white rounded-xl border border-[#D1B399]/20 p-6 sm:p-8 text-center">
             <p className="text-gray-500 mb-4">You have no lists yet.</p>
             <p className="text-sm text-gray-500">Start adding items from the home page or trending section!</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {sortedLists.map(list => {
               // Determine list type based on first item
               const listType = list.items && list.items.length > 0 && list.items[0].restaurant 
@@ -144,10 +146,10 @@ const Lists = () => {
                 <Link
                   key={list.id}
                   to={`/lists/${list.id}`}
-                  className="bg-white rounded-xl border border-[#D1B399]/20 p-5 hover:border-[#D1B399] transition-colors"
+                  className="bg-white rounded-xl border border-[#D1B399]/20 p-4 sm:p-5 hover:border-[#D1B399] transition-colors"
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-lg font-bold text-gray-900">{list.name}</h2>
+                  <div className="flex items-center justify-between mb-2 sm:mb-3">
+                    <h2 className="text-base sm:text-lg font-bold text-gray-900">{list.name}</h2>
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                       listType === 'restaurants' 
                         ? 'bg-pink-100 text-pink-800' 
@@ -157,7 +159,7 @@ const Lists = () => {
                     </span>
                   </div>
                   
-                  <p className="text-sm text-gray-600 mb-3">
+                  <p className="text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3">
                     {list.items.length} {list.items.length === 1 ? 'item' : 'items'}
                     <span className="mx-1">•</span>
                     {list.isPublic ? 'Public' : 'Private'}
@@ -167,18 +169,18 @@ const Lists = () => {
                   {list.items.length > 0 ? (
                     <div className="space-y-1">
                       {list.items.slice(0, 3).map((item, i) => (
-                        <div key={i} className="text-sm truncate text-gray-700">
+                        <div key={i} className="text-xs sm:text-sm truncate text-gray-700">
                           {i + 1}. {item.name}
                         </div>
                       ))}
                       {list.items.length > 3 && (
-                        <div className="text-sm text-[#D1B399]">
+                        <div className="text-xs sm:text-sm text-[#D1B399]">
                           +{list.items.length - 3} more
                         </div>
                       )}
                     </div>
                   ) : (
-                    <p className="text-sm text-gray-400 italic">Empty list</p>
+                    <p className="text-xs sm:text-sm text-gray-400 italic">Empty list</p>
                   )}
                 </Link>
               );
