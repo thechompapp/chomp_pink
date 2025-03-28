@@ -3,10 +3,10 @@ import { create } from 'zustand';
 const useAppStore = create((set) => ({
   // User lists with initial sample data
   userLists: [
-    { id: 201, name: "My Favorites", items: [] },
-    { id: 202, name: "Want to Try", items: [] },
-    { id: 203, name: "Weekend Plans", items: [] },
-    { id: 204, name: "Special Occasions", items: [] }
+    { id: 201, name: "My Favorites", items: [], dateCreated: new Date().toISOString(), isPublic: false },
+    { id: 202, name: "Want to Try", items: [], dateCreated: new Date().toISOString(), isPublic: true },
+    { id: 203, name: "Weekend Plans", items: [], dateCreated: new Date().toISOString(), isPublic: false },
+    { id: 204, name: "Special Occasions", items: [], dateCreated: new Date().toISOString(), isPublic: true }
   ],
   
   // Trending items (restaurants)
@@ -79,6 +79,63 @@ const useAppStore = create((set) => ({
       });
       
       return { userLists: updatedLists };
+    });
+  },
+  
+  // Update list visibility
+  updateListVisibility: (listId, isPublic) => {
+    set(state => {
+      const updatedLists = state.userLists.map(list => {
+        if (list.id === listId) {
+          return {
+            ...list,
+            isPublic
+          };
+        }
+        return list;
+      });
+      
+      return { userLists: updatedLists };
+    });
+  },
+  
+  // Create a new list
+  createList: (name, isPublic = false) => {
+    set(state => {
+      const newId = Math.max(...state.userLists.map(list => list.id), 0) + 1;
+      const newList = {
+        id: newId,
+        name,
+        items: [],
+        dateCreated: new Date().toISOString(),
+        isPublic
+      };
+      
+      return { userLists: [...state.userLists, newList] };
+    });
+  },
+  
+  // Initialize lists metadata (for existing lists that don't have metadata)
+  initializeListsMetadata: () => {
+    set(state => {
+      // Add creation dates and determine list types
+      const listsWithMetadata = state.userLists.map(list => {
+        // If list doesn't have a creation date, add one
+        if (!list.dateCreated) {
+          const randomDays = Math.floor(Math.random() * 30); // Random date within last month
+          const date = new Date();
+          date.setDate(date.getDate() - randomDays);
+          
+          return {
+            ...list,
+            dateCreated: date.toISOString(),
+            isPublic: list.isPublic || false
+          };
+        }
+        return list;
+      });
+      
+      return { userLists: listsWithMetadata };
     });
   }
 }));

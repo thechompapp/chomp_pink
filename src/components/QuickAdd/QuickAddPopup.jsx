@@ -21,9 +21,14 @@ const QuickAddPopup = ({ item, onClose }) => {
 
   const handleAddToLists = () => {
     setIsAdding(true);
-    // Add to all selected lists
+    // Add to all selected lists with the current date and time
+    const now = new Date();
     selectedLists.forEach(listId => {
-      addToUserList(listId, item);
+      const itemWithDate = {
+        ...item,
+        dateAdded: now.toISOString()
+      };
+      addToUserList(listId, itemWithDate);
     });
     
     // Store the lists we've added to

@@ -5,6 +5,7 @@ import Trending from "./components/UI/Trending";
 import MyLists from "./components/UI/Lists";
 import NightPlanner from "./components/UI/NightPlanner";
 import RestaurantDetail from "./components/UI/RestaurantDetail";
+import ListDetail from "./components/UI/ListDetail";
 import PageContainer from "./components/Layout/PageContainer";
 import FloatingQuickAdd from "./components/QuickAdd/FloatingQuickAdd";
 
@@ -28,6 +29,12 @@ const App = () => {
           <Route path="/lists" element={
             <>
               <MyLists />
+              <FloatingQuickAdd />
+            </>
+          } />
+          <Route path="/lists/:id" element={
+            <>
+              <ListDetail />
               <FloatingQuickAdd />
             </>
           } />
