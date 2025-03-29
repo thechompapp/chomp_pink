@@ -5,6 +5,7 @@ import FilterSection from './FilterSection';
 import RestaurantCard from './RestaurantCard';
 import DishCard from './DishCard';
 import ListCard from './ListCard';
+import doofLogo from '../../assets/doof.svg';
 
 const Home = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -15,25 +16,24 @@ const Home = () => {
     lists: false
   });
   
-  // Get data and filters from store
   const trendingItems = useAppStore((state) => state.trendingItems);
   const setTrendingItems = useAppStore((state) => state.setTrendingItems);
   const activeFilters = useAppStore((state) => state.activeFilters || { city: null, neighborhood: null, tags: [] });
   const setSearchQuery_store = useAppStore((state) => state.setSearchQuery || (() => {}));
 
-  // Sample data for trending dishes and popular lists
   const [trendingDishes, setTrendingDishes] = useState([]);
   const [popularLists, setPopularLists] = useState([]);
   
-  // Refs for scroll containers
   const dishesRef = useRef(null);
   const restaurantsRef = useRef(null);
   const listsRef = useRef(null);
 
   useEffect(() => {
-    // Simulate fetching data
+    console.log('activeFilters updated:', JSON.stringify(activeFilters));
+  }, [activeFilters]);
+
+  useEffect(() => {
     const fetchAllData = async () => {
-      // Sample restaurants
       const restaurantData = [
         { name: "Joe's Pizza", neighborhood: 'Greenwich Village', city: 'New York', tags: ['pizza', 'italian'] },
         { name: "Shake Shack", neighborhood: 'Midtown', city: 'New York', tags: ['burgers', 'fast-food'] },
@@ -49,7 +49,6 @@ const Home = () => {
         { name: "Joe's Stone Crab", neighborhood: 'South Beach', city: 'Miami', tags: ['seafood', 'upscale'] }
       ];
       
-      // Sample dishes
       const dishData = [
         { name: "Margherita Pizza", restaurant: "Joe's Pizza", tags: ['pizza', 'vegetarian'], city: 'New York', neighborhood: 'Greenwich Village' },
         { name: "ShackBurger", restaurant: "Shake Shack", tags: ['burger', 'beef'], city: 'New York', neighborhood: 'Midtown' },
@@ -64,7 +63,6 @@ const Home = () => {
         { name: "Stone Crab Claws", restaurant: "Joe's Stone Crab", tags: ['seafood', 'signature'], city: 'Miami', neighborhood: 'South Beach' }
       ];
       
-      // Sample popular lists
       const listData = [
         { id: 101, name: "NYC Pizza Tour", itemCount: 8, savedCount: 245, isPublic: true, city: 'New York', tags: ['pizza', 'italian'] },
         { id: 102, name: "Best Burgers in Manhattan", itemCount: 12, savedCount: 187, isPublic: true, city: 'New York', tags: ['burgers', 'beef'] },
@@ -83,32 +81,36 @@ const Home = () => {
   }, [setTrendingItems]);
 
   const handleSearch = (query) => {
+    console.log('handleSearch called with query:', query);
     setSearchQuery(query);
     if (setSearchQuery_store) setSearchQuery_store(query);
   };
 
-  // Apply filters to all data
   const applyFilters = (items) => {
+    console.log('Applying filters - Active Filters:', JSON.stringify(activeFilters), 'Search Query:', searchQuery);
     return items.filter(item => {
-      // Apply city filter
-      if (activeFilters.city && item.city !== activeFilters.city) {
-        return false;
-      }
-      
-      // Apply neighborhood filter
-      if (activeFilters.neighborhood && item.neighborhood !== activeFilters.neighborhood) {
-        return false;
-      }
-      
-      // Apply tags filter
-      if (activeFilters.tags && activeFilters.tags.length > 0) {
-        // Item must have at least one of the selected tags
-        if (!item.tags || !item.tags.some(tag => activeFilters.tags.includes(tag))) {
+      if (activeFilters.city && item.city !== activeFilters.city) return false;
+      if (activeFilters.neighborhood) {
+        if (activeFilters.neighborhood === "Manhattan") {
+          const manhattanNeighborhoods = [
+            'Greenwich Village',
+            'Midtown',
+            'Lower East Side',
+            'SoHo',
+            'Upper West Side'
+          ];
+          if (!manhattanNeighborhoods.includes(item.neighborhood)) return false;
+        } else if (item.neighborhood !== activeFilters.neighborhood) {
           return false;
         }
       }
-      
-      // Apply search query
+      if (activeFilters.tags && activeFilters.tags.length > 0) {
+        if (!item.tags || !Array.isArray(item.tags)) return false;
+        for (const tag of activeFilters.tags) {
+          // Case-insensitive tag comparison
+          if (!item.tags.some(itemTag => itemTag.toLowerCase() === tag.toLowerCase())) return false;
+        }
+      }
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
         const nameMatch = item.name.toLowerCase().includes(query);
@@ -116,35 +118,24 @@ const Home = () => {
         const neighborhoodMatch = item.neighborhood && item.neighborhood.toLowerCase().includes(query);
         const tagsMatch = item.tags && item.tags.some(tag => tag.toLowerCase().includes(query));
         const restaurantMatch = item.restaurant && item.restaurant.toLowerCase().includes(query);
-        
-        if (!(nameMatch || cityMatch || neighborhoodMatch || tagsMatch || restaurantMatch)) {
-          return false;
-        }
+        if (!(nameMatch || cityMatch || neighborhoodMatch || tagsMatch || restaurantMatch)) return false;
       }
-      
       return true;
     });
   };
 
-  // Filter all data based on search query and active filters
   const filteredRestaurants = applyFilters(trendingItems);
   const filteredDishes = applyFilters(trendingDishes);
   const filteredLists = applyFilters(popularLists);
 
-  // Toggle section expansion
   const toggleSectionExpansion = (section) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }));
+    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
   };
 
-  // Render horizontal scrolling section or expanded grid
   const renderSection = (title, items, renderItem, sectionKey, sectionRef) => {
     if (items.length === 0) return null;
-    
     const isExpanded = expandedSections[sectionKey];
-    
+    console.log(`Rendering ${title} - Items:`, items);
     return (
       <section className="mb-12">
         <div className="flex justify-between items-center mb-4">
@@ -157,14 +148,11 @@ const Home = () => {
             {isExpanded ? <ChevronUp size={16} className="ml-1" /> : <ChevronDown size={16} className="ml-1" />}
           </button>
         </div>
-        
         {isExpanded ? (
-          // Expanded grid view
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {items.map((item, index) => renderItem(item, index))}
           </div>
         ) : (
-          // Horizontal scrolling view
           <div 
             ref={sectionRef}
             className="flex overflow-x-auto pb-4 space-x-4 no-scrollbar pl-1"
@@ -183,11 +171,10 @@ const Home = () => {
 
   return (
     <div className="space-y-8 mx-auto px-4 sm:px-6 md:px-8 max-w-7xl">
-      {/* Hero section with search */}
       <div className="bg-[#D1B399] rounded-2xl p-5 md:p-8 shadow-sm">
+        <img src={doofLogo} alt="Doof Logo" className="h-16 w-auto mx-auto mb-4" />
         <h1 className="text-2xl md:text-4xl font-bold text-white mb-3 md:mb-4">Discover Great Places</h1>
-        <p className="text-white text-opacity-90 text-base md:text-lg mb-4 md:mb-6">Find the best restaurants, dishes, and curated lists</p>
-        
+        <p className="text-white text-opacity-90 text-base md:text-lg mb-4 md:mb-6">What’s next on your list?</p>
         <div className="relative">
           <input
             type="text"
@@ -199,8 +186,6 @@ const Home = () => {
           <Search className="absolute right-3 md:right-4 top-2.5 md:top-3.5 text-gray-500" size={20} />
         </div>
       </div>
-      
-      {/* Toggle filter section */}
       <div>
         <button 
           onClick={() => setExpandedFilter(!expandedFilter)}
@@ -209,39 +194,11 @@ const Home = () => {
           <span>Filters</span>
           <ChevronRight className={`ml-1 transition-transform ${expandedFilter ? 'rotate-90' : ''}`} size={18} />
         </button>
-        
-        {/* Collapsible filter section */}
         {expandedFilter && <FilterSection />}
       </div>
-      
-      {/* Trending Dishes Section */}
-      {renderSection(
-        "Trending Dishes", 
-        filteredDishes, 
-        (dish, index) => <DishCard key={`${dish.name}-${index}`} {...dish} />,
-        "dishes",
-        dishesRef
-      )}
-      
-      {/* Trending Restaurants Section */}
-      {renderSection(
-        "Trending Restaurants", 
-        filteredRestaurants, 
-        (restaurant, index) => <RestaurantCard key={`${restaurant.name}-${index}`} {...restaurant} />,
-        "restaurants",
-        restaurantsRef
-      )}
-      
-      {/* Popular Lists Section */}
-      {renderSection(
-        "Popular Lists", 
-        filteredLists, 
-        (list) => <ListCard key={list.id} {...list} />,
-        "lists",
-        listsRef
-      )}
-      
-      {/* No results message */}
+      {renderSection("Trending Dishes", filteredDishes, (dish, index) => <DishCard key={`${dish.name}-${index}`} {...dish} />, "dishes", dishesRef)}
+      {renderSection("Trending Restaurants", filteredRestaurants, (restaurant, index) => <RestaurantCard key={`${restaurant.name}-${index}`} {...restaurant} />, "restaurants", restaurantsRef)}
+      {renderSection("Popular Lists", filteredLists, (list) => <ListCard key={list.id} {...list} />, "lists", listsRef)}
       {filteredRestaurants.length === 0 && filteredDishes.length === 0 && filteredLists.length === 0 && (
         <div className="text-center py-12 bg-white border border-gray-200 rounded-lg">
           <h3 className="text-xl font-medium text-gray-700 mb-2">No results found</h3>
@@ -259,9 +216,7 @@ const Home = () => {
           </button>
         </div>
       )}
-      
-      {/* Add CSS for hiding scrollbars */}
-      <style jsx>{`
+      <style>{`
         .no-scrollbar::-webkit-scrollbar {
           display: none;
         }

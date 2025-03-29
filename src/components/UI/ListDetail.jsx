@@ -1,213 +1,89 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Share2, MapPin, Instagram, ExternalLink, ChevronLeft, SortAsc, SortDesc, CalendarDays } from 'lucide-react';
+import { ChevronLeft, Instagram, MapPin, Share2, Globe } from 'lucide-react';
 import useAppStore from '../../hooks/useAppStore';
 
 const ListDetail = () => {
   const { id } = useParams();
-  const [list, setList] = useState(null);
-  const [sortMethod, setSortMethod] = useState('default');
-  const [isOwner, setIsOwner] = useState(true); // In a real app, you would check if the user is the owner
-  const [isPublic, setIsPublic] = useState(false);
-  
   const userLists = useAppStore((state) => state.userLists);
   const updateListVisibility = useAppStore((state) => state.updateListVisibility);
-  
+  const [list, setList] = useState(null);
+  const [sortMethod, setSortMethod] = useState('default');
+
   useEffect(() => {
-    // Find the list by id
-    const foundList = userLists.find(list => list.id === parseInt(id));
-    if (foundList) {
-      setList(foundList);
-      setIsPublic(foundList.isPublic || false);
-    }
+    const foundList = userLists.find(l => l.id === Number(id));
+    setList(foundList);
   }, [id, userLists]);
-  
+
   const handleToggleVisibility = () => {
-    const newVisibility = !isPublic;
-    setIsPublic(newVisibility);
-    if (updateListVisibility) {
-      updateListVisibility(parseInt(id), newVisibility);
+    if (list) {
+      updateListVisibility(list.id, !list.isPublic);
+      setList({ ...list, isPublic: !list.isPublic });
     }
   };
-  
+
   const getSortedItems = () => {
     if (!list || !list.items) return [];
-    
-    const items = [...list.items];
-    
+    const itemsToSort = [...list.items];
     switch (sortMethod) {
-      case 'a-z':
-        return items.sort((a, b) => a.name.localeCompare(b.name));
-      case 'z-a':
-        return items.sort((a, b) => b.name.localeCompare(a.name));
-      case 'date':
-        return items.sort((a, b) => new Date(b.dateAdded || 0) - new Date(a.dateAdded || 0));
-      case 'default':
-      default:
-        return items;
+      case 'a-z': return itemsToSort.sort((a, b) => a.name.localeCompare(b.name));
+      case 'z-a': return itemsToSort.sort((a, b) => b.name.localeCompare(a.name));
+      case 'date': return itemsToSort.sort((a, b) => new Date(b.dateAdded || 0) - new Date(a.dateAdded || 0));
+      default: return itemsToSort;
     }
   };
-  
+
   if (!list) {
-    return <div className="p-8 text-center">List not found</div>;
+    return <div className="flex justify-center items-center h-screen"><div className="animate-pulse text-[#D1B399]">Loading...</div></div>;
   }
-  
-  const listType = list.listType || (list.items && list.items.length > 0 && list.items[0].restaurant ? 'dishes' : 'restaurants');
+
   const sortedItems = getSortedItems();
 
   return (
-    <div className="max-w-4xl mx-auto px-3 sm:px-4">
-      {/* Back button */}
+    <div className="max-w-4xl mx-auto px-3 sm:px-4 pb-12">
       <Link to="/lists" className="inline-flex items-center text-gray-600 hover:text-[#D1B399] my-4 transition-colors">
         <ChevronLeft size={20} className="mr-1" />
         Back to lists
       </Link>
-      
-      {/* List header */}
-      <div className="bg-white rounded-xl border border-[#D1B399]/20 mb-6">
-        <div className="p-4 sm:p-6 flex flex-col md:flex-row md:items-center md:justify-between">
-          <div>
-            <div className="flex items-center flex-wrap gap-2">
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{list.name}</h1>
-              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                listType === 'restaurants' 
-                  ? 'bg-pink-100 text-pink-800' 
-                  : 'bg-blue-100 text-blue-800'
-              }`}>
-                {listType === 'restaurants' ? 'Restaurants' : 'Dishes'}
-              </span>
-            </div>
-            
-            <p className="text-gray-500 mt-1">{list.items.length} {list.items.length === 1 ? 'item' : 'items'}</p>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">{list.name}</h1>
+        <p className="text-gray-600 mb-4">{list.items.length} {list.items.length === 1 ? 'item' : 'items'}</p>
+        <div className="flex flex-wrap gap-4 mb-4">
+          <button onClick={() => setSortMethod('a-z')} className={`px-3 py-1 rounded-full text-sm font-medium ${sortMethod === 'a-z' ? 'bg-[#D1B399] text-white' : 'bg-gray-100 text-gray-700 hover:bg-[#D1B399]/10'}`}>A-Z</button>
+          <button onClick={() => setSortMethod('z-a')} className={`px-3 py-1 rounded-full text-sm font-medium ${sortMethod === 'z-a' ? 'bg-[#D1B399] text-white' : 'bg-gray-100 text-gray-700 hover:bg-[#D1B399]/10'}`}>Z-A</button>
+          <button onClick={() => setSortMethod('date')} className={`px-3 py-1 rounded-full text-sm font-medium ${sortMethod === 'date' ? 'bg-[#D1B399] text-white' : 'bg-gray-100 text-gray-700 hover:bg-[#D1B399]/10'}`}>Date Added</button>
+        </div>
+        {/* Added padding */}
+        <div className="pt-6 flex items-center gap-4">
+          <div className="relative inline-block w-10 mr-2 align-middle select-none">
+            <input type="checkbox" id="togglePublic" checked={list.isPublic} onChange={handleToggleVisibility} className="toggle-checkbox absolute opacity-0 w-0 h-0" />
+            <label htmlFor="togglePublic" className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer">
+              <span className={`toggle-inner absolute block w-4 h-4 mt-1 ml-1 rounded-full bg-white shadow transition-transform duration-300 ease-in-out ${list.isPublic ? 'translate-x-4 bg-[#D1B399]' : 'translate-x-0'}`}></span>
+            </label>
           </div>
-          
-          <div className="mt-4 md:mt-0">
-            {/* Sort buttons - Wrapped for small screens */}
-            <div className="flex flex-wrap gap-2 mb-3 md:mb-0">
-              <button
-                onClick={() => setSortMethod('a-z')}
-                className={`px-2 sm:px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center ${
-                  sortMethod === 'a-z'
-                    ? 'bg-[#D1B399] text-white'
-                    : 'bg-white text-gray-700 hover:bg-[#D1B399]/10 border border-[#D1B399]/20'
-                }`}
-              >
-                <SortAsc size={16} className="mr-1" />
-                <span>A-Z</span>
-              </button>
-              <button
-                onClick={() => setSortMethod('z-a')}
-                className={`px-2 sm:px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center ${
-                  sortMethod === 'z-a'
-                    ? 'bg-[#D1B399] text-white'
-                    : 'bg-white text-gray-700 hover:bg-[#D1B399]/10 border border-[#D1B399]/20'
-                }`}
-              >
-                <SortDesc size={16} className="mr-1" />
-                <span>Z-A</span>
-              </button>
-              <button
-                onClick={() => setSortMethod('date')}
-                className={`px-2 sm:px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center ${
-                  sortMethod === 'date'
-                    ? 'bg-[#D1B399] text-white'
-                    : 'bg-white text-gray-700 hover:bg-[#D1B399]/10 border border-[#D1B399]/20'
-                }`}
-              >
-                <CalendarDays size={16} className="mr-1" />
-                <span>Date</span>
-              </button>
-            </div>
-            
-            {/* Visibility toggle and share button */}
-            <div className="flex flex-wrap items-center gap-2">
-              {/* Visibility toggle (only for owner) */}
-              {isOwner && (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600">{isPublic ? 'Public' : 'Private'}</span>
-                  <button 
-                    onClick={handleToggleVisibility} 
-                    className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors focus:outline-none ${
-                      isPublic ? 'bg-[#D1B399]' : 'bg-gray-300'
-                    }`}
-                  >
-                    <span className={`inline-block w-4 h-4 transform transition-transform bg-white rounded-full ${
-                      isPublic ? 'translate-x-6' : 'translate-x-1'
-                    }`} />
-                  </button>
-                </div>
-              )}
-              
-              {/* Share button */}
-              <button className="p-2 text-gray-600 hover:text-[#D1B399] border border-gray-200 rounded-lg hover:border-[#D1B399] transition-colors">
-                <Share2 size={18} />
-              </button>
-            </div>
-          </div>
+          <span className="text-sm text-gray-700">{list.isPublic ? 'Public' : 'Private'}</span>
+          <button className="ml-4 p-2 bg-[#D1B399] text-white rounded-full hover:bg-[#c1a389] transition-colors"><Share2 size={20} /></button>
+          {/* Modernized icons */}
+          <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="p-2 bg-[#D1B399]/10 text-[#D1B399] rounded-full hover:bg-[#D1B399]/20 transition-colors"><Instagram size={20} /></a>
+          <a href="https://yelp.com" target="_blank" rel="noopener noreferrer" className="p-2 bg-[#D1B399]/10 text-[#D1B399] rounded-full hover:bg-[#D1B399]/20 transition-colors"><Globe size={20} /></a>
+          <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer" className="p-2 bg-[#D1B399]/10 text-[#D1B399] rounded-full hover:bg-[#D1B399]/20 transition-colors"><MapPin size={20} /></a>
         </div>
       </div>
-      
-      {/* List items */}
-      <div className="space-y-3 sm:space-y-4 mb-12">
-        {sortedItems.length === 0 ? (
-          <div className="bg-white p-8 text-center rounded-xl border border-[#D1B399]/20">
-            <p className="text-gray-500">This list is empty</p>
-          </div>
-        ) : (
-          sortedItems.map((item, index) => (
-            <div key={item.name} className="bg-white p-3 sm:p-4 rounded-xl border border-[#D1B399]/20 flex justify-between">
-              <div className="flex">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 bg-[#D1B399]/10 rounded-full flex items-center justify-center mr-2 sm:mr-3 text-[#D1B399] font-medium text-sm sm:text-base">
-                  {index + 1}
-                </div>
-                <div className="pr-2">
-                  <h3 className="font-bold text-gray-900 text-sm sm:text-base">{item.name}</h3>
-                  {item.restaurant ? (
-                    <p className="text-xs sm:text-sm text-gray-600">at {item.restaurant}</p>
-                  ) : (
-                    <p className="text-xs sm:text-sm text-gray-600">{item.neighborhood}, {item.city}</p>
-                  )}
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {item.tags && item.tags.slice(0, 3).map(tag => (
-                      <span key={tag} className="text-xs text-gray-500">#{tag}</span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              
-              {/* External links */}
-              <div className="flex items-start">
-                <a 
-                  href={`https://maps.google.com/?q=${item.name} ${item.city || ''}`} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="p-1 sm:p-1.5 text-gray-500 hover:text-[#D1B399] transition-colors" 
-                  title="View on Google Maps"
-                >
-                  <MapPin size={14} className="sm:size-16" />
-                </a>
-                <a 
-                  href={`https://www.instagram.com/explore/tags/${encodeURIComponent(item.name.replace(/\s+/g, ''))}`} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="p-1 sm:p-1.5 text-gray-500 hover:text-[#D1B399] transition-colors" 
-                  title="Find on Instagram"
-                >
-                  <Instagram size={14} className="sm:size-16" />
-                </a>
-                <a 
-                  href={`https://www.yelp.com/search?find_desc=${encodeURIComponent(item.name)}&find_loc=${encodeURIComponent(item.city || '')}`} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="p-1 sm:p-1.5 text-gray-500 hover:text-[#D1B399] transition-colors" 
-                  title="Find on Yelp"
-                >
-                  <ExternalLink size={14} className="sm:size-16" />
-                </a>
-              </div>
+      <div className="space-y-4">
+        {sortedItems.map((item, index) => (
+          <div key={index} className="bg-white rounded-xl border border-[#D1B399]/20 p-4 flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-medium text-gray-900">{item.name}</h3>
+              {item.restaurant && <p className="text-sm text-gray-600">at {item.restaurant}</p>}
+              {item.neighborhood && <p className="text-sm text-gray-600">{item.neighborhood}, {item.city}</p>}
             </div>
-          ))
-        )}
+            <div className="flex items-center gap-2">
+              {item.tags && item.tags.map(tag => (
+                <span key={tag} className="px-2 py-0.5 border border-[#D1B399] rounded-full text-xs text-gray-600">#{tag}</span>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
