@@ -3,13 +3,12 @@ import { Link } from 'react-router-dom';
 import { Utensils, Users, Plus } from "lucide-react";
 import QuickAddPopup from '../QuickAdd/QuickAddPopup';
 
-const DishCard = ({ id = 1, name, restaurant, restaurantId, tags, price = "$$ â€¢ ", followers = Math.floor(Math.random() * 700) + 50 }) => {
+const DishCard = ({ id = 1, name, restaurant, restaurantId, tags, price = "$$ â€¢ ", followers = Math.floor(Math.random() * 700) + 50, city, neighborhood }) => {
   const [showQuickAdd, setShowQuickAdd] = useState(false);
 
   return (
     <>
       <div className="w-72 h-64 bg-[#D1B399] bg-opacity-10 border border-[#D1B399] rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow relative">
-        {/* Updated QuickAdd button */}
         <button
           onClick={() => setShowQuickAdd(true)}
           className="absolute top-3 right-3 w-10 h-10 bg-[#D1B399] rounded-full flex items-center justify-center text-white shadow hover:bg-[#b89e89] transition-colors"
@@ -33,7 +32,7 @@ const DishCard = ({ id = 1, name, restaurant, restaurantId, tags, price = "$$ â€
             
             <div className="flex items-center text-gray-500 text-sm mt-1">
               <Users size={14} className="mr-1" />
-              <span>{followers.toLocaleString()} adds</span> {/* Changed from followers */}
+              <span>{followers.toLocaleString()} adds</span>
             </div>
           </div>
           
@@ -63,7 +62,7 @@ const DishCard = ({ id = 1, name, restaurant, restaurantId, tags, price = "$$ â€
       
       {showQuickAdd && (
         <QuickAddPopup 
-          item={{ id, name, restaurant, tags, type: 'dish' }} 
+          item={{ id, name, restaurant, tags, city, neighborhood, type: 'dish' }} 
           onClose={() => setShowQuickAdd(false)} 
         />
       )}

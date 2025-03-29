@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useMemo, useCallback } from 'react';
 import { Search, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
 import useAppStore from '../../hooks/useAppStore';
 import FilterSection from './FilterSection';
@@ -6,6 +6,7 @@ import RestaurantCard from './RestaurantCard';
 import DishCard from './DishCard';
 import ListCard from './ListCard';
 import doofLogo from '../../assets/doof.svg';
+import { shallow } from 'zustand/shallow';
 
 const Home = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -15,78 +16,27 @@ const Home = () => {
     restaurants: false,
     lists: false
   });
-  
-  const trendingItems = useAppStore((state) => state.trendingItems);
-  const setTrendingItems = useAppStore((state) => state.setTrendingItems);
-  const activeFilters = useAppStore((state) => state.activeFilters || { city: null, neighborhood: null, tags: [] });
-  const setSearchQuery_store = useAppStore((state) => state.setSearchQuery || (() => {}));
 
-  const [trendingDishes, setTrendingDishes] = useState([]);
-  const [popularLists, setPopularLists] = useState([]);
-  
+  const { trendingItems, trendingDishes, popularLists, activeFilters } = useAppStore(
+    state => ({
+      trendingItems: state.trendingItems,
+      trendingDishes: state.trendingDishes,
+      popularLists: state.popularLists,
+      activeFilters: state.activeFilters || { city: null, neighborhood: null, tags: [] }
+    }),
+    shallow
+  );
+
   const dishesRef = useRef(null);
   const restaurantsRef = useRef(null);
   const listsRef = useRef(null);
 
-  useEffect(() => {
-    console.log('activeFilters updated:', JSON.stringify(activeFilters));
-  }, [activeFilters]);
-
-  useEffect(() => {
-    const fetchAllData = async () => {
-      const restaurantData = [
-        { name: "Joe's Pizza", neighborhood: 'Greenwich Village', city: 'New York', tags: ['pizza', 'italian'] },
-        { name: "Shake Shack", neighborhood: 'Midtown', city: 'New York', tags: ['burgers', 'fast-food'] },
-        { name: "Katz's Delicatessen", neighborhood: 'Lower East Side', city: 'New York', tags: ['deli', 'sandwiches'] },
-        { name: "Blue Ribbon Sushi", neighborhood: 'SoHo', city: 'New York', tags: ['sushi', 'japanese'] },
-        { name: "The Halal Guys", neighborhood: 'Upper West Side', city: 'New York', tags: ['middle-eastern', 'street-food'] },
-        { name: "In-N-Out Burger", neighborhood: 'Hollywood', city: 'Los Angeles', tags: ['burgers', 'fast-food'] },
-        { name: "Pizzeria Mozza", neighborhood: 'Hollywood', city: 'Los Angeles', tags: ['pizza', 'italian'] },
-        { name: "Gjelina", neighborhood: 'Venice', city: 'Los Angeles', tags: ['american', 'vegetarian'] },
-        { name: "Grand Central Market", neighborhood: 'Downtown', city: 'Los Angeles', tags: ['food-hall', 'variety'] },
-        { name: "Au Cheval", neighborhood: 'Loop', city: 'Chicago', tags: ['burgers', 'american'] },
-        { name: "Lou Malnati's", neighborhood: 'River North', city: 'Chicago', tags: ['pizza', 'deep-dish'] },
-        { name: "Joe's Stone Crab", neighborhood: 'South Beach', city: 'Miami', tags: ['seafood', 'upscale'] }
-      ];
-      
-      const dishData = [
-        { name: "Margherita Pizza", restaurant: "Joe's Pizza", tags: ['pizza', 'vegetarian'], city: 'New York', neighborhood: 'Greenwich Village' },
-        { name: "ShackBurger", restaurant: "Shake Shack", tags: ['burger', 'beef'], city: 'New York', neighborhood: 'Midtown' },
-        { name: "Pastrami Sandwich", restaurant: "Katz's Delicatessen", tags: ['sandwich', 'meat'], city: 'New York', neighborhood: 'Lower East Side' },
-        { name: "Dragon Roll", restaurant: "Blue Ribbon Sushi", tags: ['sushi', 'spicy'], city: 'New York', neighborhood: 'SoHo' },
-        { name: "Chicken Over Rice", restaurant: "The Halal Guys", tags: ['halal', 'chicken'], city: 'New York', neighborhood: 'Upper West Side' },
-        { name: "Double-Double", restaurant: "In-N-Out Burger", tags: ['burger', 'beef'], city: 'Los Angeles', neighborhood: 'Hollywood' },
-        { name: "Butterscotch Budino", restaurant: "Pizzeria Mozza", tags: ['dessert', 'italian'], city: 'Los Angeles', neighborhood: 'Hollywood' },
-        { name: "Braised Short Ribs", restaurant: "Gjelina", tags: ['meat', 'dinner'], city: 'Los Angeles', neighborhood: 'Venice' },
-        { name: "Chicago-style Hot Dog", restaurant: "Portillo's", tags: ['hot-dog', 'beef'], city: 'Chicago', neighborhood: 'River North' },
-        { name: "Deep Dish Pizza", restaurant: "Lou Malnati's", tags: ['pizza', 'cheese'], city: 'Chicago', neighborhood: 'River North' },
-        { name: "Stone Crab Claws", restaurant: "Joe's Stone Crab", tags: ['seafood', 'signature'], city: 'Miami', neighborhood: 'South Beach' }
-      ];
-      
-      const listData = [
-        { id: 101, name: "NYC Pizza Tour", itemCount: 8, savedCount: 245, isPublic: true, city: 'New York', tags: ['pizza', 'italian'] },
-        { id: 102, name: "Best Burgers in Manhattan", itemCount: 12, savedCount: 187, isPublic: true, city: 'New York', tags: ['burgers', 'beef'] },
-        { id: 103, name: "Late Night Eats", itemCount: 5, savedCount: 92, isPublic: true, city: 'Los Angeles', tags: ['late-night', 'casual'] },
-        { id: 104, name: "Michelin Star Experience", itemCount: 7, savedCount: 156, isPublic: true, city: 'Chicago', tags: ['fine-dining', 'upscale'] },
-        { id: 105, name: "Budget-Friendly Bites", itemCount: 15, savedCount: 201, isPublic: true, city: 'New York', tags: ['cheap-eats', 'casual'] },
-        { id: 106, name: "Date Night Spots", itemCount: 10, savedCount: 172, isPublic: true, city: 'Miami', tags: ['romantic', 'dinner'] }
-      ];
-      
-      setTrendingItems(restaurantData);
-      setTrendingDishes(dishData);
-      setPopularLists(listData);
-    };
-
-    fetchAllData();
-  }, [setTrendingItems]);
-
-  const handleSearch = (query) => {
+  const handleSearch = useCallback((query) => {
     console.log('handleSearch called with query:', query);
     setSearchQuery(query);
-    if (setSearchQuery_store) setSearchQuery_store(query);
-  };
+  }, []);
 
-  const applyFilters = (items) => {
+  const applyFilters = useCallback((items) => {
     console.log('Applying filters - Active Filters:', JSON.stringify(activeFilters), 'Search Query:', searchQuery);
     return items.filter(item => {
       if (activeFilters.city && item.city !== activeFilters.city) return false;
@@ -107,7 +57,6 @@ const Home = () => {
       if (activeFilters.tags && activeFilters.tags.length > 0) {
         if (!item.tags || !Array.isArray(item.tags)) return false;
         for (const tag of activeFilters.tags) {
-          // Case-insensitive tag comparison
           if (!item.tags.some(itemTag => itemTag.toLowerCase() === tag.toLowerCase())) return false;
         }
       }
@@ -122,17 +71,29 @@ const Home = () => {
       }
       return true;
     });
-  };
+  }, [activeFilters, searchQuery]);
 
-  const filteredRestaurants = applyFilters(trendingItems);
-  const filteredDishes = applyFilters(trendingDishes);
-  const filteredLists = applyFilters(popularLists);
+  const filteredRestaurants = useMemo(() => applyFilters(trendingItems), [trendingItems, applyFilters]);
+  const filteredDishes = useMemo(() => applyFilters(trendingDishes), [trendingDishes, applyFilters]);
+  const filteredLists = useMemo(() => applyFilters(popularLists), [popularLists, applyFilters]);
 
-  const toggleSectionExpansion = (section) => {
+  const toggleSectionExpansion = useCallback((section) => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
-  };
+  }, []);
 
-  const renderSection = (title, items, renderItem, sectionKey, sectionRef) => {
+  const renderDishItem = useCallback((dish, index) => (
+    <DishCard key={`${dish.name}-${index}`} {...dish} />
+  ), []);
+
+  const renderRestaurantItem = useCallback((restaurant, index) => (
+    <RestaurantCard key={`${restaurant.name}-${index}`} {...restaurant} />
+  ), []);
+
+  const renderListItem = useCallback((list) => (
+    <ListCard key={list.id} {...list} />
+  ), []);
+
+  const renderSection = useCallback((title, items, renderItem, sectionKey, sectionRef) => {
     if (items.length === 0) return null;
     const isExpanded = expandedSections[sectionKey];
     console.log(`Rendering ${title} - Items:`, items);
@@ -167,7 +128,11 @@ const Home = () => {
         )}
       </section>
     );
-  };
+  }, [expandedSections, toggleSectionExpansion]);
+
+  const filterSectionComponent = useMemo(() => (
+    expandedFilter ? <FilterSection /> : null
+  ), [expandedFilter]);
 
   return (
     <div className="space-y-8 mx-auto px-4 sm:px-6 md:px-8 max-w-7xl">
@@ -194,11 +159,11 @@ const Home = () => {
           <span>Filters</span>
           <ChevronRight className={`ml-1 transition-transform ${expandedFilter ? 'rotate-90' : ''}`} size={18} />
         </button>
-        {expandedFilter && <FilterSection />}
+        {filterSectionComponent}
       </div>
-      {renderSection("Trending Dishes", filteredDishes, (dish, index) => <DishCard key={`${dish.name}-${index}`} {...dish} />, "dishes", dishesRef)}
-      {renderSection("Trending Restaurants", filteredRestaurants, (restaurant, index) => <RestaurantCard key={`${restaurant.name}-${index}`} {...restaurant} />, "restaurants", restaurantsRef)}
-      {renderSection("Popular Lists", filteredLists, (list) => <ListCard key={list.id} {...list} />, "lists", listsRef)}
+      {renderSection("Trending Dishes", filteredDishes, renderDishItem, "dishes", dishesRef)}
+      {renderSection("Trending Restaurants", filteredRestaurants, renderRestaurantItem, "restaurants", restaurantsRef)}
+      {renderSection("Popular Lists", filteredLists, renderListItem, "lists", listsRef)}
       {filteredRestaurants.length === 0 && filteredDishes.length === 0 && filteredLists.length === 0 && (
         <div className="text-center py-12 bg-white border border-gray-200 rounded-lg">
           <h3 className="text-xl font-medium text-gray-700 mb-2">No results found</h3>

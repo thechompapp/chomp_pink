@@ -1,4 +1,4 @@
-import React, { useState } from 'react'; // Explicitly ensure React is imported
+import React, { useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Bookmark, Users, UserPlus } from "lucide-react";
 import useAppStore from '../../hooks/useAppStore';
@@ -7,10 +7,10 @@ const ListCard = ({ id = 1, name, itemCount = 0, isPublic = true, savedCount = M
   const [isFollowing, setIsFollowing] = useState(false);
   const toggleFollowList = useAppStore((state) => state.toggleFollowList);
 
-  const handleFollow = () => {
+  const handleFollow = useCallback(() => {
     toggleFollowList(id);
-    setIsFollowing(!isFollowing);
-  };
+    setIsFollowing(prev => !prev);
+  }, [id, toggleFollowList]);
 
   return (
     <div className="w-72 h-64 bg-[#D1B399] bg-opacity-10 border border-[#D1B399] rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow relative">
@@ -19,7 +19,7 @@ const ListCard = ({ id = 1, name, itemCount = 0, isPublic = true, savedCount = M
         className="absolute top-3 right-3 w-10 h-10 bg-[#D1B399] rounded-full flex items-center justify-center text-white shadow hover:bg-[#b89e89] transition-colors"
         aria-label={isFollowing ? "Unfollow list" : "Follow list"}
       >
-        <UserPlus size={24} /> {/* Prominent Follow button */}
+        <UserPlus size={24} />
       </button>
       <div className="h-full flex flex-col justify-between">
         <div>

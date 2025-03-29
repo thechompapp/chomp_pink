@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronLeft, MapPin, Star, PlusCircle, Instagram, Globe } from 'lucide-react';
+import { ChevronLeft, MapPin, Star, PlusCircle, Instagram, Globe, ThumbsUp, ThumbsDown } from 'lucide-react';
+import useAppStore from '../../hooks/useAppStore';
 import DishCard from './DishCard';
 
 const RestaurantDetail = () => {
@@ -31,12 +32,22 @@ const RestaurantDetail = () => {
     return <div className="flex justify-center items-center h-screen"><div className="animate-pulse text-[#D1B399]">Loading...</div></div>;
   }
 
-  // Mock dishes for What to Order
+  const mockReview = {
+    text: "A cozy Italian gem with exceptional pasta dishes. The Cacio e Pepe is a must-try!",
+    author: "Maria Rossi",
+    username: "@pastaexpert",
+    verified: true,
+    date: "March 18, 2025",
+    likes: 724,
+    neutral: 53,
+    dislikes: 12
+  };
+
   const mockDishes = [
-    { id: 1, name: "Cacio e Pepe", restaurant: "Via Carota", tags: ["pasta", "italian"], price: "$24" },
-    { id: 2, name: "Svizzera", restaurant: "Via Carota", tags: ["meat", "signature"], price: "$28" },
-    { id: 3, name: "Insalata Verde", restaurant: "Via Carota", tags: ["salad", "fresh"], price: "$16" },
-    { id: 4, name: "Tiramisu", restaurant: "Via Carota", tags: ["dessert", "italian"], price: "$12" },
+    { id: 1, name: "Cacio e Pepe", restaurant: "Via Carota", tags: ["pasta", "italian"], price: "$24", followers: 850 },
+    { id: 2, name: "Svizzera", restaurant: "Via Carota", tags: ["meat", "signature"], price: "$28", followers: 620 },
+    { id: 3, name: "Insalata Verde", restaurant: "Via Carota", tags: ["salad", "fresh"], price: "$16", followers: 430 },
+    { id: 4, name: "Tiramisu", restaurant: "Via Carota", tags: ["dessert", "italian"], price: "$12", followers: 510 }
   ];
 
   return (
@@ -69,7 +80,6 @@ const RestaurantDetail = () => {
               </div>
             </div>
             <div className="flex gap-3 w-full md:w-auto">
-              {/* Replaced Visit with OpenTable */}
               <a
                 href="https://www.opentable.com"
                 target="_blank"
@@ -93,21 +103,55 @@ const RestaurantDetail = () => {
           </div>
         </div>
       </div>
-      {/* Replaced What to Order with DishCards */}
+      {mockReview && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-6 overflow-hidden">
+          <div className="p-5">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-900">The Take</h2>
+              <div className="flex items-center">
+                <span className="text-gray-700 font-medium">{mockReview.author}</span>
+                <span className="mx-1">•</span>
+                <span className="text-gray-500">{mockReview.username}</span>
+                {mockReview.verified && (
+                  <div className="ml-1 text-blue-500 bg-blue-100 rounded-full p-0.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                      <path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                )}
+              </div>
+            </div>
+            <p className="text-gray-700 mb-4">{mockReview.text}</p>
+            <div className="flex justify-between items-center text-sm">
+              <div className="text-gray-500">{mockReview.date}</div>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1"><ThumbsUp size={16} className="text-gray-500" /><span>{mockReview.likes}</span></div>
+                <div className="flex items-center gap-1"><span>—</span><span>{mockReview.neutral}</span></div>
+                <div className="flex items-center gap-1"><ThumbsDown size={16} className="text-gray-500" /><span>{mockReview.dislikes}</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-6 overflow-hidden">
         <div className="p-5">
           <h2 className="text-xl font-bold text-gray-900 mb-4">What to Order</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="flex flex-row gap-4 overflow-x-auto">
             {mockDishes.map(dish => (
               <DishCard key={dish.id} {...dish} />
             ))}
           </div>
         </div>
       </div>
-      {/* Updated modal to close on outside click */}
       {showAddToList && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setShowAddToList(false)}>
-          <div className="bg-white rounded-xl shadow-lg max-w-md w-full p-5" onClick={e => e.stopPropagation()}>
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" 
+          onClick={() => setShowAddToList(false)}
+        >
+          <div 
+            className="bg-white rounded-xl shadow-lg max-w-md w-full p-5" 
+            onClick={e => e.stopPropagation()}
+          >
             <h3 className="text-lg font-bold mb-4">Add to List</h3>
             <p className="text-gray-600 mb-4">Select a list to add {restaurant.name} to:</p>
             <div className="space-y-2 max-h-60 overflow-y-auto mb-4">

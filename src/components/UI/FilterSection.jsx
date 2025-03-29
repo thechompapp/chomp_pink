@@ -1,186 +1,106 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { X } from 'lucide-react';
 import useAppStore from '../../hooks/useAppStore';
 
 const FilterSection = () => {
-  const [selectedCity, setSelectedCity] = useState(null);
-  const [selectedNeighborhood, setSelectedNeighborhood] = useState(null);
-  const [selectedHashtags, setSelectedHashtags] = useState([]);
-  
-  // Get and set filters in the global store
-  const setFilter = useAppStore((state) => state.setFilter || (() => {}));
-  const clearFilters = useAppStore((state) => state.clearFilters || (() => {}));
   const activeFilters = useAppStore((state) => state.activeFilters || { city: null, neighborhood: null, tags: [] });
+  const [city, setCity] = useState(activeFilters.city || '');
+  const [neighborhood, setNeighborhood] = useState(activeFilters.neighborhood || '');
+  const [tags, setTags] = useState(activeFilters.tags || []);
 
-  // Sample data
-  const cities = ["New York", "Los Angeles", "Chicago", "Miami"];
+  const cities = ['New York', 'Los Angeles', 'Chicago', 'Miami'];
   const neighborhoods = {
-    "New York": ["Manhattan", "Brooklyn", "Queens", "Bronx"],
-    "Los Angeles": ["Hollywood", "Downtown", "Venice", "Silver Lake"],
-    "Chicago": ["Loop", "River North", "Wicker Park", "Logan Square"],
-    "Miami": ["South Beach", "Wynwood", "Downtown", "Brickell"]
+    'New York': ['Manhattan', 'Greenwich Village', 'Midtown', 'SoHo'],
+    'Los Angeles': ['Hollywood', 'Venice', 'Downtown'],
+    'Chicago': ['Loop', 'River North'],
+    'Miami': ['South Beach']
   };
-  const hashtags = ["Pizza", "Burgers", "Tacos", "Sushi", "Coffee", "Cocktails", "Brunch", "Vegan"];
+  const tagOptions = ['pizza', 'burgers', 'sushi', 'italian', 'fast-food', 'vegetarian'];
 
-  // Sync component state with store state on mount
-  useEffect(() => {
-    if (activeFilters) {
-      setSelectedCity(activeFilters.city);
-      setSelectedNeighborhood(activeFilters.neighborhood);
-      setSelectedHashtags(activeFilters.tags || []);
-    }
-  }, [activeFilters]);
+  const updateFilters = useAppStore((state) => state.setState);
 
-  // Update store when filters change
-  useEffect(() => {
-    if (setFilter) {
-      setFilter('city', selectedCity);
-      setFilter('neighborhood', selectedNeighborhood);
-      setFilter('tags', selectedHashtags);
-    }
-  }, [selectedCity, selectedNeighborhood, selectedHashtags, setFilter]);
+  const handleCityChange = useCallback((e) => {
+    const newCity = e.target.value;
+    setCity(newCity);
+    setNeighborhood('');
+    updateFilters({ activeFilters: { city: newCity, neighborhood: null, tags } });
+  }, [tags, updateFilters]);
 
-  const handleCitySelect = (city) => {
-    // If selecting the same city, deselect it
-    if (city === selectedCity) {
-      setSelectedCity(null);
-      setSelectedNeighborhood(null);
-      setSelectedHashtags([]);
-    } else {
-      setSelectedCity(city);
-      setSelectedNeighborhood(null);
-      setSelectedHashtags([]);
-    }
-  };
+  const handleNeighborhoodChange = useCallback((e) => {
+    const newNeighborhood = e.target.value;
+    setNeighborhood(newNeighborhood);
+    updateFilters({ activeFilters: { city, neighborhood: newNeighborhood, tags } });
+  }, [city, tags, updateFilters]);
 
-  const handleNeighborhoodSelect = (neighborhood) => {
-    // If selecting the same neighborhood, deselect it
-    setSelectedNeighborhood(neighborhood === selectedNeighborhood ? null : neighborhood);
-  };
+  const handleTagToggle = useCallback((tag) => {
+    const newTags = tags.includes(tag) ? tags.filter(t => t !== tag) : [...tags, tag];
+    setTags(newTags);
+    updateFilters({ activeFilters: { city, neighborhood, tags: newTags } });
+  }, [city, neighborhood, tags, updateFilters]);
 
-  const handleHashtagToggle = (hashtag) => {
-    setSelectedHashtags(prev => 
-      prev.includes(hashtag) ? prev.filter(h => h !== hashtag) : [...prev, hashtag]
-    );
-  };
-
-  const handleClearAll = () => {
-    setSelectedCity(null);
-    setSelectedNeighborhood(null);
-    setSelectedHashtags([]);
-    if (clearFilters) clearFilters();
-  };
-
-  // Show the appropriate filter set based on selection state
-  const renderFilterOptions = () => {
-    if (selectedNeighborhood) {
-      // Show hashtags if neighborhood is selected
-      return (
-        <div className="flex flex-wrap gap-2 mt-4">
-          {hashtags.map(tag => (
-            <button
-              key={tag}
-              onClick={() => handleHashtagToggle(tag)}
-              className={`px-3 py-1 rounded-full text-sm border ${
-                selectedHashtags.includes(tag)
-                  ? 'border-[#D1B399] bg-[#D1B399] text-white'
-                  : 'border-[#D1B399] hover:bg-[#D1B399] hover:text-white text-gray-700'
-              } transition-colors`}
-            >
-              #{tag}
-            </button>
-          ))}
-        </div>
-      );
-    } else if (selectedCity) {
-      // Show neighborhoods if city is selected
-      return (
-        <div className="flex flex-wrap gap-2 mt-4">
-          {neighborhoods[selectedCity].map(neighborhood => (
-            <button
-              key={neighborhood}
-              onClick={() => handleNeighborhoodSelect(neighborhood)}
-              className={`px-3 py-1 rounded-full text-sm border ${
-                selectedNeighborhood === neighborhood
-                  ? 'border-[#D1B399] bg-[#D1B399] text-white'
-                  : 'border-[#D1B399] hover:bg-[#D1B399] hover:text-white text-gray-700'
-              } transition-colors`}
-            >
-              {neighborhood}
-            </button>
-          ))}
-        </div>
-      );
-    } else {
-      // Show cities if nothing is selected
-      return (
-        <div className="flex flex-wrap gap-2 mt-4">
-          {cities.map(city => (
-            <button
-              key={city}
-              onClick={() => handleCitySelect(city)}
-              className={`px-3 py-1 rounded-full text-sm border ${
-                selectedCity === city
-                  ? 'border-[#D1B399] bg-[#D1B399] text-white'
-                  : 'border-[#D1B399] hover:bg-[#D1B399] hover:text-white text-gray-700'
-              } transition-colors`}
-            >
-              {city}
-            </button>
-          ))}
-        </div>
-      );
-    }
-  };
+  const clearFilters = useCallback(() => {
+    setCity('');
+    setNeighborhood('');
+    setTags([]);
+    updateFilters({ activeFilters: { city: null, neighborhood: null, tags: [] } });
+  }, [updateFilters]);
 
   return (
-    <div className="bg-white rounded-lg border border-[#D1B399] overflow-hidden mb-8 p-4">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="font-medium text-gray-800">Filters</h3>
-        
-        {/* Only show clear all if any filters are selected */}
-        {(selectedCity || selectedNeighborhood || selectedHashtags.length > 0) && (
-          <button 
-            onClick={handleClearAll}
-            className="text-sm text-[#D1B399] hover:text-[#D1B399]/80"
+    <div className="bg-white rounded-xl shadow-sm border border-[#D1B399]/20 p-4 mb-6">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
+        <button
+          onClick={clearFilters}
+          className="text-gray-500 hover:text-[#D1B399] text-sm flex items-center"
+        >
+          <X size={16} className="mr-1" /> Clear All
+        </button>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+          <select
+            value={city}
+            onChange={handleCityChange}
+            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#D1B399] focus:border-[#D1B399] outline-none"
           >
-            Clear All
-          </button>
-        )}
+            <option value="">All Cities</option>
+            {cities.map(c => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Neighborhood</label>
+          <select
+            value={neighborhood}
+            onChange={handleNeighborhoodChange}
+            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#D1B399] focus:border-[#D1B399] outline-none"
+            disabled={!city}
+          >
+            <option value="">All Neighborhoods</option>
+            {city && neighborhoods[city]?.map(n => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
+          <div className="flex flex-wrap gap-2">
+            {tagOptions.map(tag => (
+              <button
+                key={tag}
+                onClick={() => handleTagToggle(tag)}
+                className={`px-2 py-1 text-sm rounded-full transition-colors ${
+                  tags.includes(tag) ? 'bg-[#D1B399] text-white' : 'bg-gray-100 text-gray-700 hover:bg-[#D1B399]/50'
+                }`}
+              >
+                #{tag}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
-      
-      {/* Active filter pills */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        {selectedCity && (
-          <span className="px-3 py-1 text-sm rounded-full border border-[#D1B399] bg-[#D1B399] text-white flex items-center">
-            {selectedCity}
-            <button onClick={() => handleCitySelect(selectedCity)} className="ml-1 text-white hover:text-gray-200">
-              <X size={14} />
-            </button>
-          </span>
-        )}
-        
-        {selectedNeighborhood && (
-          <span className="px-3 py-1 text-sm rounded-full border border-[#D1B399] bg-[#D1B399] text-white flex items-center">
-            {selectedNeighborhood}
-            <button onClick={() => handleNeighborhoodSelect(selectedNeighborhood)} className="ml-1 text-white hover:text-gray-200">
-              <X size={14} />
-            </button>
-          </span>
-        )}
-        
-        {selectedHashtags.map(tag => (
-          <span key={tag} className="px-3 py-1 text-sm rounded-full border border-[#D1B399] bg-[#D1B399] text-white flex items-center">
-            #{tag}
-            <button onClick={() => handleHashtagToggle(tag)} className="ml-1 text-white hover:text-gray-200">
-              <X size={14} />
-            </button>
-          </span>
-        ))}
-      </div>
-      
-      {/* Dynamic filter options based on current selection */}
-      {renderFilterOptions()}
     </div>
   );
 };
