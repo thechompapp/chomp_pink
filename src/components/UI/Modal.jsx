@@ -1,27 +1,24 @@
-import React, { useEffect } from 'react';
-import { X } from 'lucide-react';
+import React from "react";
+import { X } from "lucide-react";
 
-const Modal = ({ isOpen, onClose, children, title }) => {
-  useEffect(() => {
-    const handleEscape = (event) => {
-      if (event.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
-  }, [onClose]);
+const Modal = ({ isOpen, onClose, title, children }) => {
+  console.log("Modal: isOpen =", isOpen, "title =", title);
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    console.log("Modal: Not rendering, isOpen is false");
+    return null;
+  }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md relative">
-        <button onClick={onClose} className="absolute top-2 right-2 text-gray-400 hover:text-gray-500">
-          <X size={20} />
-        </button>
-        <div className="p-6">
-          {title && <h2 className="text-xl font-bold mb-4">{title}</h2>}
-          {children}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+      <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold text-gray-800">{title}</h2>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+            <X size={24} />
+          </button>
         </div>
+        {children}
       </div>
     </div>
   );

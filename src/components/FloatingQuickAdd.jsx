@@ -5,9 +5,14 @@ import { useQuickAdd } from "@/context/QuickAddContext";
 const FloatingQuickAdd = () => {
   const { openQuickAdd } = useQuickAdd();
 
+  const handleClick = () => {
+    console.log("FloatingQuickAdd: Button clicked, calling openQuickAdd");
+    openQuickAdd({ type: "submission" });
+  };
+
   return (
     <button
-      onClick={() => openQuickAdd({ type: "submission" })}
+      onClick={handleClick}
       className="fixed bottom-6 right-6 w-14 h-14 bg-primary rounded-full flex items-center justify-center text-white shadow-lg hover:bg-primary-dark"
       aria-label="Add new restaurant or dish"
     >

@@ -1,13 +1,11 @@
 /** @type {import('tailwindcss').Config} */
-module.exports = {
-  content: ["./src/**/*.{js,jsx,ts,tsx}"], // Scan all JS/JSX/TS/TSX files in src/
+export default {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,jsx,ts,tsx}", // Include JS, JSX, TS, and TSX files, but exclude node_modules implicitly
+  ],
   theme: {
-    extend: {
-      colors: {
-        primary: '#D1B399',
-        'primary-dark': '#b89e89',
-      },
-    },
+    extend: {},
   },
   plugins: [],
-};
+}

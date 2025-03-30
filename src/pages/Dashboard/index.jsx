@@ -1,46 +1,35 @@
-import React, { useState } from "react";
-import useAppStore from "@/hooks/useAppStore"; // Use alias
-import Button from "@/components/Button"; // Use alias
+import React, { useState, useEffect } from "react";
+import useAppStore from "@/hooks/useAppStore";
+import Button from "@/components/Button";
+import { API_BASE_URL } from "@/config";
 
 const Dashboard = () => {
   const pendingSubmissions = useAppStore((state) => state.pendingSubmissions);
-  const trendingItems = useAppStore((state) => state.trendingItems);
-  const trendingDishes = useAppStore((state) => state.trendingDishes);
+  const fetchPendingSubmissions = useAppStore((state) => state.fetchPendingSubmissions);
   const approveSubmission = useAppStore((state) => state.approveSubmission);
   const rejectSubmission = useAppStore((state) => state.rejectSubmission);
   const [mergeTarget, setMergeTarget] = useState(null);
 
+  useEffect(() => {
+    fetchPendingSubmissions();
+  }, [fetchPendingSubmissions]);
+
   const findDuplicates = (item) => {
-    const existingItems = item.type === "restaurant" ? trendingItems : trendingDishes;
+    const existingItems = item.type === "restaurant" ? useAppStore.getState().trendingItems : useAppStore.getState().trendingDishes;
     return existingItems.filter((existing) =>
       existing.name.toLowerCase().includes(item.name.toLowerCase())
     );
   };
 
-  const handleMerge = (submissionId, targetId) => {
+  const handleMerge = async (submissionId, targetId) => {
     const submission = pendingSubmissions.find((s) => s.id === submissionId);
-    const target = (submission.type === "restaurant" ? trendingItems : trendingDishes).find(
+    const target = (submission.type === "restaurant" ? useAppStore.getState().trendingItems : useAppStore.getState().trendingDishes).find(
       (i) => i.id === targetId
     );
     if (submission && target) {
-      const updatedItem = { ...target, ...submission, id: target.id };
-      if (submission.type === "restaurant") {
-        useAppStore.setState((state) => ({
-          trendingItems: state.trendingItems.map((i) =>
-            i.id === targetId ? updatedItem : i
-          ),
-          pendingSubmissions: state.pendingSubmissions.filter((s) => s.id !== submissionId),
-        }));
-      } else {
-        useAppStore.setState((state) => ({
-          trendingDishes: state.trendingDishes.map((i) =>
-            i.id === targetId ? updatedItem : i
-          ),
-          pendingSubmissions: state.pendingSubmissions.filter((s) => s.id !== submissionId),
-        }));
-      }
+      await approveSubmission(submissionId); // Approve to merge into existing
+      setMergeTarget(null);
     }
-    setMergeTarget(null);
   };
 
   return (
@@ -57,10 +46,8 @@ const Dashboard = () => {
                 <div key={submission.id} className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                   <h2 className="text-xl font-bold text-gray-800 mb-2">{submission.name}</h2>
                   <p className="text-gray-600 mb-2">Type: {submission.type}</p>
-                  {submission.city && (
-                    <p className="text-gray-600 mb-2">
-                      Location: {submission.neighborhood}, {submission.city}
-                    </p>
+                  {submission.location && (
+                    <p className="text-gray-600 mb-2">Location: {submission.location}</p>
                   )}
                   {submission.restaurant && (
                     <p className="text-gray-600 mb-2">Restaurant: {submission.restaurant}</p>

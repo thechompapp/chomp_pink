@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 import useAppStore from "@/hooks/useAppStore";
 import { useQuickAdd } from "@/context/QuickAddContext";
 import Modal from "@/components/UI/Modal";
+import { API_BASE_URL } from "@/config";
 
 const QuickAddPopup = React.memo(() => {
   const { isOpen, selectedItem, closeQuickAdd } = useQuickAdd();
@@ -14,12 +15,12 @@ const QuickAddPopup = React.memo(() => {
   const [selectedTags, setSelectedTags] = useState([]);
   const [isPublic, setIsPublic] = useState(true);
   const [autoLocation, setAutoLocation] = useState("");
+  const [placeSuggestions, setPlaceSuggestions] = useState([]);
+  const [selectedPlace, setSelectedPlace] = useState(null);
+  const [useMockLocation, setUseMockLocation] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(""); // Add state for error message
 
-  const suggestedHashtags = [
-    "pizza", "burger", "sushi", "vegan", "italian", "mexican", "seafood", "dessert",
-    "brunch", "coffee", "cocktails", "bbq", "asian", "fast-food", "fine-dining"
-  ];
-
+  // Fallback mock location function
   const mockLocationApi = useCallback((name) => {
     const mockLocations = {
       "Joe's Pizza": "Greenwich Village, New York",
@@ -31,27 +32,94 @@ const QuickAddPopup = React.memo(() => {
     return mockLocations[name] || "Unknown Location";
   }, []);
 
+  // Fetch place suggestions from backend as the user types
   useEffect(() => {
+    if (mode === "submission" && newItemName) {
+      const fetchSuggestions = async () => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/places/autocomplete?input=${encodeURIComponent(newItemName)}`);
+          const data = await response.json();
+          if (response.ok) {
+            setPlaceSuggestions(data);
+            setErrorMessage(""); // Clear any previous error
+            console.log("Place suggestions fetched:", data);
+          } else {
+            console.error("Failed to fetch place suggestions:", data.error, data.message);
+            setPlaceSuggestions([]);
+            setAutoLocation(mockLocationApi(newItemName));
+            setSelectedPlace({ city: "Unknown", neighborhood: "Unknown" });
+            setUseMockLocation(true);
+            setErrorMessage("Failed to fetch place suggestions: " + (data.message || "Unknown error"));
+          }
+        } catch (error) {
+          console.error("Error fetching place suggestions:", error);
+          setPlaceSuggestions([]);
+          setAutoLocation(mockLocationApi(newItemName));
+          setSelectedPlace({ city: "Unknown", neighborhood: "Unknown" });
+          setUseMockLocation(true);
+          setErrorMessage("Error fetching place suggestions: " + error.message);
+        }
+      };
+
+      fetchSuggestions();
+    } else {
+      setPlaceSuggestions([]);
+      setErrorMessage("");
+    }
+  }, [newItemName, mode, mockLocationApi]);
+
+  // Fetch place details from backend when a suggestion is selected
+  const handlePlaceSelect = async (placeId) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/places/details?placeId=${encodeURIComponent(placeId)}`);
+      const data = await response.json();
+      if (response.ok) {
+        setAutoLocation(data.formattedAddress || "Unknown Location");
+        setSelectedPlace({ city: data.city, neighborhood: data.neighborhood });
+        setPlaceSuggestions([]);
+        setErrorMessage(""); // Clear any previous error
+        console.log("Place details fetched:", data);
+      } else {
+        console.error("Failed to fetch place details:", data.error, data.message);
+        setAutoLocation(mockLocationApi(newItemName));
+        setSelectedPlace({ city: "Unknown", neighborhood: "Unknown" });
+        setErrorMessage("Failed to fetch place details: " + (data.message || "Unknown error"));
+      }
+    } catch (error) {
+      console.error("Error fetching place details:", error);
+      setAutoLocation(mockLocationApi(newItemName));
+      setSelectedPlace({ city: "Unknown", neighborhood: "Unknown" });
+      setErrorMessage("Error fetching place details: " + error.message);
+    }
+  };
+
+  const suggestedHashtags = [
+    "pizza", "burger", "sushi", "vegan", "italian", "mexican", "seafood", "dessert",
+    "brunch", "coffee", "cocktails", "bbq", "asian", "fast-food", "fine-dining"
+  ];
+
+  useEffect(() => {
+    console.log("QuickAddPopup: useEffect triggered, isOpen =", isOpen, "selectedItem =", selectedItem);
     if (isOpen && selectedItem?.type === "submission") {
       setMode("submission");
       setNewItemName("");
       setSelectedTags([]);
       setAutoLocation("");
+      setSelectedPlace(null);
+      setPlaceSuggestions([]);
+      setErrorMessage("");
+      console.log("QuickAddPopup: Mode set to submission");
     } else if (isOpen && selectedItem) {
       setMode("addToList");
+      console.log("QuickAddPopup: Mode set to addToList");
     }
   }, [isOpen, selectedItem]);
-
-  useEffect(() => {
-    if (mode === "submission" && newItemName) {
-      setAutoLocation(mockLocationApi(newItemName));
-    }
-  }, [newItemName, mode, mockLocationApi]);
 
   const handleAddToList = useCallback((listId) => {
     if (selectedItem) {
       addToList(listId, selectedItem);
       closeQuickAdd();
+      console.log("QuickAddPopup: Added to list, listId =", listId);
     }
   }, [selectedItem, addToList, closeQuickAdd]);
 
@@ -60,26 +128,32 @@ const QuickAddPopup = React.memo(() => {
       const newListId = Date.now();
       addToList(newListId, { name: newListName, items: [selectedItem], isPublic }, true);
       closeQuickAdd();
+      console.log("QuickAddPopup: Created new list, name =", newListName, "id =", newListId);
     }
   }, [newListName, selectedItem, addToList, closeQuickAdd, isPublic]);
 
-  const handleSubmitNewItem = useCallback(() => {
+  const handleSubmitNewItem = useCallback(async () => {
     if (newItemName) {
       const newItem = {
+        id: Date.now(),
         name: newItemName,
         location: autoLocation,
         tags: selectedTags,
-        type: selectedTags.includes("pizza") || selectedTags.includes("burger") ? "dish" : "restaurant", // Simplified type inference
+        type: selectedTags.includes("pizza") || selectedTags.includes("burger") ? "dish" : "restaurant",
+        city: selectedPlace?.city || "",
+        neighborhood: selectedPlace?.neighborhood || "",
       };
-      addPendingSubmission(newItem);
+      await addPendingSubmission(newItem);
       closeQuickAdd();
+      console.log("QuickAddPopup: Submitted new item:", newItem);
     }
-  }, [newItemName, autoLocation, selectedTags, addPendingSubmission, closeQuickAdd]);
+  }, [newItemName, autoLocation, selectedTags, selectedPlace, addPendingSubmission, closeQuickAdd]);
 
   const handleTagToggle = useCallback((tag) => {
     setSelectedTags((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
     );
+    console.log("QuickAddPopup: Toggled tag:", tag);
   }, []);
 
   const filteredLists = useMemo(() => {
@@ -88,7 +162,10 @@ const QuickAddPopup = React.memo(() => {
     );
   }, [userLists, selectedItem]);
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    console.log("QuickAddPopup: Not rendering, isOpen is false");
+    return null;
+  }
 
   return (
     <Modal isOpen={isOpen} onClose={closeQuickAdd} title={mode === "submission" ? "Add New Item" : "Quick Add"}>
@@ -147,13 +224,36 @@ const QuickAddPopup = React.memo(() => {
 
       {mode === "submission" && (
         <div>
-          <input
-            type="text"
-            placeholder="Restaurant or Dish Name"
-            value={newItemName}
-            onChange={(e) => setNewItemName(e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded-lg mb-4"
-          />
+          {errorMessage && (
+            <div className="mb-4 p-2 bg-red-100 text-red-700 rounded-lg">
+              {errorMessage}
+            </div>
+          )}
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Restaurant or Dish Name"
+              value={newItemName}
+              onChange={(e) => setNewItemName(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded-lg mb-2"
+            />
+            {placeSuggestions.length > 0 && (
+              <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                {placeSuggestions.map((suggestion) => (
+                  <li
+                    key={suggestion.place_id}
+                    onClick={() => {
+                      setNewItemName(suggestion.description);
+                      handlePlaceSelect(suggestion.place_id);
+                    }}
+                    className="p-2 hover:bg-gray-100 cursor-pointer"
+                  >
+                    {suggestion.description}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
           <div className="mb-4">
             <label className="block text-gray-700 mb-1">Location (Autofilled):</label>
             <span className="text-gray-600">{autoLocation || "Enter a name to autofill"}</span>
