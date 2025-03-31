@@ -54,7 +54,7 @@ const connectDb = async () => {
 
 connectDb();
 
-// Mock data for fallback
+// Mock data for fallback (keep as is)
 const mockRestaurants = [
   { id: 1, name: "Joe's Pizza", neighborhood: "Greenwich Village", city: "New York", tags: ["pizza", "italian"], adds: 78, created_at: new Date() },
   { id: 2, name: "Shake Shack", neighborhood: "Midtown", city: "New York", tags: ["burger", "american"], adds: 52, created_at: new Date() },
@@ -68,7 +68,8 @@ const mockLists = [
   { id: 2, name: "Best Burgers NYC", items: [], item_count: 8, saved_count: 150, city: "New York", tags: ["burgers", "nyc"], is_following: false, created_by_user: false, creator_handle: "@burgerlover", created_at: new Date(), is_public: true },
 ];
 
-// Helper function to handle DB errors and fallback
+
+// Helper function to handle DB errors and fallback (keep as is)
 const handleDbQuery = async (queryFn, fallbackData) => {
   if (!dbAccessible) {
     console.warn("Database unavailable, returning mock data.");
@@ -91,7 +92,7 @@ const handleDbQuery = async (queryFn, fallbackData) => {
   }
 };
 
-// --- Admin Panel Endpoints ---
+// --- Admin Panel Endpoints --- (Keep as is)
 app.get('/api/admin/restaurants', async (req, res) => {
   try {
     const rows = await handleDbQuery(async () => {
@@ -116,15 +117,17 @@ app.put('/api/admin/restaurants/:id', async (req, res) => {
   const { id } = req.params;
   const { name, neighborhood, city, tags, adds } = req.body;
   try {
+    const listId = parseInt(id, 10); // Parse ID
+    if (isNaN(listId)) return res.status(400).json({ message: 'Invalid ID format' });
     const result = await pool.query(
       'UPDATE Restaurants SET name = $1, neighborhood = $2, city = $3, tags = $4, adds = $5 WHERE id = $6 RETURNING *',
-      [name, neighborhood, city, Array.isArray(tags) ? tags : [], adds, id]
+      [name, neighborhood, city, Array.isArray(tags) ? tags : [], adds, listId]
     );
     if (result.rows.length === 0) return res.status(404).json({ message: 'Restaurant not found' });
     res.json(result.rows[0]);
   } catch (err) {
-    console.error('Error updating restaurant:', err.stack);
-    res.status(500).json({ error: 'Database error', details: err.message });
+    console.error('Error updating restaurant:', err); // Log full error
+    res.status(500).json({ error: 'Database error', details: err.message, code: err.code });
   }
 });
 
@@ -133,17 +136,20 @@ app.delete('/api/admin/restaurants/:id', async (req, res) => {
   const { id } = req.params;
   let client;
   try {
+    const listId = parseInt(id, 10); // Parse ID
+    if (isNaN(listId)) return res.status(400).json({ message: 'Invalid ID format' });
+
     client = await pool.connect();
     await client.query('BEGIN');
-    await client.query('DELETE FROM Dishes WHERE restaurant_id = $1', [id]);
-    const result = await client.query('DELETE FROM Restaurants WHERE id = $1 RETURNING *', [id]);
+    await client.query('DELETE FROM Dishes WHERE restaurant_id = $1', [listId]);
+    const result = await client.query('DELETE FROM Restaurants WHERE id = $1 RETURNING *', [listId]);
     await client.query('COMMIT');
     if (result.rows.length === 0) return res.status(404).json({ message: 'Restaurant not found' });
     res.json({ message: 'Restaurant deleted' });
   } catch (err) {
     if (client) await client.query('ROLLBACK');
-    console.error('Error deleting restaurant:', err.stack);
-    res.status(500).json({ error: 'Database error', details: err.message });
+    console.error('Error deleting restaurant:', err); // Log full error
+    res.status(500).json({ error: 'Database error', details: err.message, code: err.code });
   } finally {
     if (client) client.release();
   }
@@ -176,17 +182,19 @@ app.put('/api/admin/dishes/:id', async (req, res) => {
   const { id } = req.params;
   const { name, restaurant_id, tags, adds } = req.body;
   try {
+    const listId = parseInt(id, 10); // Parse ID
+    if (isNaN(listId)) return res.status(400).json({ message: 'Invalid ID format' });
     const result = await pool.query(
       'UPDATE Dishes SET name = $1, restaurant_id = $2, tags = $3, adds = $4 WHERE id = $5 RETURNING *',
-      [name, restaurant_id, Array.isArray(tags) ? tags : [], adds, id]
+      [name, restaurant_id, Array.isArray(tags) ? tags : [], adds, listId]
     );
     if (result.rows.length === 0) return res.status(404).json({ message: 'Dish not found' });
     const restaurantResult = await pool.query('SELECT name FROM Restaurants WHERE id = $1', [result.rows[0].restaurant_id]);
     const responseData = { ...result.rows[0], restaurant_name: restaurantResult.rows[0]?.name || 'Unknown Restaurant' };
     res.json(responseData);
   } catch (err) {
-    console.error('Error updating dish:', err.stack);
-    res.status(500).json({ error: 'Database error', details: err.message });
+    console.error('Error updating dish:', err); // Log full error
+    res.status(500).json({ error: 'Database error', details: err.message, code: err.code });
   }
 });
 
@@ -194,12 +202,14 @@ app.delete('/api/admin/dishes/:id', async (req, res) => {
   if (!dbAccessible) return res.status(503).json({ error: 'Database unavailable' });
   const { id } = req.params;
   try {
-    const result = await pool.query('DELETE FROM Dishes WHERE id = $1 RETURNING *', [id]);
+    const listId = parseInt(id, 10); // Parse ID
+    if (isNaN(listId)) return res.status(400).json({ message: 'Invalid ID format' });
+    const result = await pool.query('DELETE FROM Dishes WHERE id = $1 RETURNING *', [listId]);
     if (result.rows.length === 0) return res.status(404).json({ message: 'Dish not found' });
     res.json({ message: 'Dish deleted' });
   } catch (err) {
-    console.error('Error deleting dish:', err.stack);
-    res.status(500).json({ error: 'Database error', details: err.message });
+    console.error('Error deleting dish:', err); // Log full error
+    res.status(500).json({ error: 'Database error', details: err.message, code: err.code });
   }
 });
 
@@ -227,6 +237,10 @@ app.put('/api/admin/lists/:id', async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
 
+  const listId = parseInt(id, 10); // Parse ID
+  if (isNaN(listId)) return res.status(400).json({ message: 'Invalid ID format' });
+
+
   const setClauses = [];
   const values = [];
   let valueIndex = 1;
@@ -248,7 +262,7 @@ app.put('/api/admin/lists/:id', async (req, res) => {
 
   if (setClauses.length === 0) return res.status(400).json({ message: 'No valid update fields provided' });
 
-  values.push(id);
+  values.push(listId); // Use parsed ID
   const queryText = `UPDATE Lists SET ${setClauses.join(', ')} WHERE id = $${valueIndex} RETURNING *`;
 
   try {
@@ -256,8 +270,8 @@ app.put('/api/admin/lists/:id', async (req, res) => {
     if (result.rows.length === 0) return res.status(404).json({ message: 'List not found' });
     res.json(result.rows[0]);
   } catch (err) {
-    console.error('Error updating list via admin:', err.stack);
-    res.status(500).json({ error: 'Database error', details: err.message });
+    console.error('Error updating list via admin:', err); // Log full error
+    res.status(500).json({ error: 'Database error', details: err.message, code: err.code });
   }
 });
 
@@ -265,17 +279,20 @@ app.delete('/api/admin/lists/:id', async (req, res) => {
   if (!dbAccessible) return res.status(503).json({ error: 'Database unavailable' });
   const { id } = req.params;
   try {
-    const result = await pool.query('DELETE FROM Lists WHERE id = $1 RETURNING *', [id]);
+    const listId = parseInt(id, 10); // Parse ID
+    if (isNaN(listId)) return res.status(400).json({ message: 'Invalid ID format' });
+
+    const result = await pool.query('DELETE FROM Lists WHERE id = $1 RETURNING *', [listId]);
     if (result.rows.length === 0) return res.status(404).json({ message: 'List not found' });
     res.json({ message: 'List deleted' });
   } catch (err) {
-    console.error('Error deleting list:', err.stack);
-    res.status(500).json({ error: 'Database error', details: err.message });
+    console.error('Error deleting list:', err); // Log full error
+    res.status(500).json({ error: 'Database error', details: err.message, code: err.code });
   }
 });
 
-// --- User-Facing Endpoints ---
 
+// --- User-Facing Endpoints --- (Keep as is)
 app.get('/api/common-dishes', async (req, res) => {
   const { input = '' } = req.query;
   try {
@@ -307,7 +324,6 @@ app.get('/api/filters', async (req, res) => {
   }
 });
 
-// --- Trending Endpoints with Enhanced Logging ---
 app.get('/api/trending/restaurants', async (req, res) => {
   console.log(`[API GET /api/trending/restaurants] Request received.`);
   try {
@@ -356,30 +372,6 @@ app.get('/api/trending/dishes', async (req, res) => {
   }
 });
 
-app.get('/api/trending/lists', async (req, res) => {
-  console.log(`[API GET /api/trending/lists] Request received.`);
-  try {
-    const queryText = 'SELECT * FROM Lists WHERE is_public = TRUE ORDER BY saved_count DESC LIMIT 15';
-    console.log(`[API GET /api/trending/lists] Executing DB query:`, queryText);
-    const result = await pool.query(queryText);
-    console.log(`[API GET /api/trending/lists] DB query successful. RowCount: ${result.rowCount}`);
-    if (result.rowCount > 0) {
-      console.log(`[API GET /api/trending/lists] First result:`, result.rows[0]);
-    }
-    console.log(`[API GET /api/trending/lists] Sending ${result.rowCount} items.`);
-    res.json(result.rows);
-  } catch (err) {
-    console.error(`[API GET /api/trending/lists] DB Error:`, err);
-    if (!dbAccessible || err.code === 'ECONNREFUSED') {
-      console.warn("[API GET /api/trending/lists] DB inaccessible, returning mock data.");
-      res.json(mockLists);
-    } else {
-      res.status(500).json({ error: 'Failed to fetch trending lists', details: err.message });
-    }
-  }
-});
-
-// --- New Popular Lists Endpoint ---
 app.get('/api/popular/lists', async (req, res) => {
   console.log(`[API GET /api/popular/lists] Request received.`);
   try {
@@ -403,14 +395,14 @@ app.get('/api/popular/lists', async (req, res) => {
   }
 });
 
-// --- Other User Endpoints ---
 app.get('/api/lists', async (req, res) => {
   console.log(`[API GET /api/lists] Request received.`);
   try {
     const rows = await handleDbQuery(async () => {
       console.log(`[API GET /api/lists] Executing DB query: SELECT * FROM Lists ORDER BY name ASC`);
-      return await pool.query('SELECT * FROM Lists ORDER BY name ASC');
-    }, mockLists);
+      // Ensure is_following is selected and defaulted if null
+      return await pool.query('SELECT id, name, items, item_count, saved_count, city, tags, is_public, created_by_user, creator_handle, COALESCE(is_following, false) as is_following, created_at FROM Lists ORDER BY name ASC');
+    }, mockLists.map(l => ({ ...l, is_following: l.is_following ?? false }))); // Add default in fallback too
     console.log(`[API GET /api/lists] Sending ${rows.length} lists.`);
     res.json(rows);
   } catch (err) {
@@ -436,7 +428,7 @@ app.post('/api/lists', async (req, res) => {
         city || null,
         Array.isArray(tags) ? tags : [],
         is_public !== undefined ? Boolean(is_public) : true,
-        created_by_user !== undefined ? Boolean(created_by_user) : false,
+        created_by_user !== undefined ? Boolean(created_by_user) : true, // Default new lists to created_by_user=true
         creator_handle || 'anonymous',
         false
       ]
@@ -444,38 +436,107 @@ app.post('/api/lists', async (req, res) => {
     console.log(`[API POST /api/lists] List created successfully with ID: ${result.rows[0]?.id}`);
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    console.error('[API POST /api/lists] Error creating list:', err);
-    res.status(500).json({ error: 'Database error', details: err.message });
+    console.error('[API POST /api/lists] Error creating list:', err); // Log full error
+    res.status(500).json({ error: 'Database error', details: err.message, code: err.code });
   }
 });
 
-app.put('/api/lists/:id', async (req, res) => {
+app.put('/api/lists/:id/visibility', async (req, res) => {
   if (!dbAccessible) return res.status(503).json({ error: 'Database unavailable' });
   const { id } = req.params;
-  const { is_following } = req.body;
-  if (is_following === undefined) return res.status(400).json({ message: 'is_following field is required' });
+  const { is_public } = req.body;
+
+  const listId = parseInt(id, 10); // Parse ID
+  if (isNaN(listId)) return res.status(400).json({ message: 'Invalid ID format' });
+
+  if (is_public === undefined) return res.status(400).json({ message: 'is_public field is required' });
   try {
-    console.log(`[API PUT /api/lists/${id}] Attempting to set is_following=${is_following}`);
+    console.log(`[API PUT /api/lists/${id}/visibility] Attempting to set is_public=${is_public}`);
     const result = await pool.query(
-      'UPDATE Lists SET is_following = $1 WHERE id = $2 RETURNING id, is_following',
-      [Boolean(is_following), id]
+      'UPDATE Lists SET is_public = $1 WHERE id = $2 RETURNING id, is_public',
+      [Boolean(is_public), listId]
     );
     if (result.rows.length === 0) {
-      console.warn(`[API PUT /api/lists/${id}] List not found.`);
+      console.warn(`[API PUT /api/lists/${id}/visibility] List not found.`);
       return res.status(404).json({ message: 'List not found' });
     }
-    console.log(`[API PUT /api/lists/${id}] Update successful.`);
+    console.log(`[API PUT /api/lists/${id}/visibility] Update successful.`);
     res.json(result.rows[0]);
   } catch (err) {
-    console.error(`[API PUT /api/lists/${id}] Database error during update:`, err);
+    console.error(`[API PUT /api/lists/${id}/visibility] Database error during update:`, err); // Log full error
     res.status(500).json({
       error: 'Database error occurred during list update.',
-      details: process.env.NODE_ENV === 'development' ? { message: err.message, code: err.code, constraint: err.constraint, detail: err.detail } : 'Internal server error.'
+      details: err.message, code: err.code
     });
   }
 });
 
-// --- Submissions Endpoints ---
+// *** UPDATED FOLLOW/UNFOLLOW Endpoints ***
+app.post('/api/lists/:id/follow', async (req, res) => {
+  if (!dbAccessible) return res.status(503).json({ error: 'Database unavailable' });
+  const { id } = req.params;
+  const listId = parseInt(id, 10); // Parse the ID to integer
+
+  if (isNaN(listId)) {
+    return res.status(400).json({ message: 'Invalid ID format' });
+  }
+
+  try {
+    console.log(`[API POST /api/lists/${listId}/follow] Following list.`);
+    const result = await pool.query(
+      'UPDATE Lists SET is_following = TRUE WHERE id = $1 RETURNING id, is_following',
+      [listId] // Use the parsed integer ID
+    );
+    if (result.rows.length === 0) {
+        return res.status(404).json({ message: 'List not found' });
+    }
+    console.log(`[API POST /api/lists/${listId}/follow] Success.`);
+    res.json(result.rows[0]);
+  } catch(err) {
+    // Log detailed error
+    console.error(`[API POST /api/lists/${listId}/follow] Error:`, {
+        message: err.message,
+        code: err.code,
+        detail: err.detail, // Often contains specifics for DB errors
+        stack: err.stack // Optional: full stack trace
+    });
+    res.status(500).json({ error: 'Database error', details: err.message, code: err.code });
+  }
+});
+
+app.delete('/api/lists/:id/follow', async (req, res) => {
+    if (!dbAccessible) return res.status(503).json({ error: 'Database unavailable' });
+    const { id } = req.params;
+    const listId = parseInt(id, 10); // Parse the ID to integer
+
+    if (isNaN(listId)) {
+      return res.status(400).json({ message: 'Invalid ID format' });
+    }
+
+    try {
+      console.log(`[API DELETE /api/lists/${listId}/follow] Unfollowing list.`);
+      const result = await pool.query(
+        'UPDATE Lists SET is_following = FALSE WHERE id = $1 RETURNING id, is_following',
+        [listId] // Use the parsed integer ID
+      );
+      if (result.rows.length === 0) {
+          return res.status(404).json({ message: 'List not found' });
+      }
+      console.log(`[API DELETE /api/lists/${listId}/follow] Success.`);
+      res.json(result.rows[0]);
+    } catch(err) {
+      // Log detailed error
+      console.error(`[API DELETE /api/lists/${listId}/follow] Error:`, {
+        message: err.message,
+        code: err.code,
+        detail: err.detail, // Often contains specifics for DB errors
+        stack: err.stack // Optional: full stack trace
+    });
+      res.status(500).json({ error: 'Database error', details: err.message, code: err.code });
+    }
+  });
+
+// --- Submissions Endpoints --- (Keep as is)
 app.post('/api/submissions', async (req, res) => {
   if (!dbAccessible) return res.status(503).json({ error: 'Database unavailable' });
   const { user_id, type, name, location, tags, place_id, city, neighborhood } = req.body;
@@ -490,13 +551,13 @@ app.post('/api/submissions', async (req, res) => {
     console.log(`[API POST /api/submissions] Submission saved with ID: ${result.rows[0]?.id}`);
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    console.error('[API POST /api/submissions] Error adding submission:', err);
-    res.status(500).json({ error: 'Database error', details: err.message });
+    console.error('[API POST /api/submissions] Error adding submission:', err); // Log full error
+    res.status(500).json({ error: 'Database error', details: err.message, code: err.code });
   }
 });
 
 app.get('/api/submissions', async (req, res) => {
-  console.log(`[API GET /api/submissions] Request received.`);
+  console.log(`[API GET /api/submissions] Request received for pending.`);
   try {
     const rows = await handleDbQuery(async () => {
       console.log(`[API GET /api/submissions] Executing DB query: SELECT * FROM Submissions WHERE status = 'pending'`);
@@ -513,11 +574,13 @@ app.get('/api/submissions', async (req, res) => {
 app.post('/api/submissions/:id/approve', async (req, res) => {
   if (!dbAccessible) return res.status(503).json({ error: 'Database unavailable' });
   const { id } = req.params;
+  const submissionId = parseInt(id, 10); // Parse ID
+  if (isNaN(submissionId)) return res.status(400).json({ message: 'Invalid ID format' });
   let client;
   try {
     client = await pool.connect();
     await client.query('BEGIN');
-    const submissionResult = await client.query('SELECT * FROM Submissions WHERE id = $1 AND status = $2', [id, 'pending']);
+    const submissionResult = await client.query('SELECT * FROM Submissions WHERE id = $1 AND status = $2', [submissionId, 'pending']);
     if (submissionResult.rows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ message: 'Submission not found or already processed' });
@@ -546,13 +609,13 @@ app.post('/api/submissions/:id/approve', async (req, res) => {
       );
       approvedItem = dishResult.rows[0];
     }
-    await client.query('UPDATE Submissions SET status = $1 WHERE id = $2', ['approved', id]);
+    await client.query('UPDATE Submissions SET status = $1 WHERE id = $2', ['approved', submissionId]);
     await client.query('COMMIT');
     res.json(approvedItem);
   } catch (err) {
     if (client) await client.query('ROLLBACK');
-    console.error('[API POST /api/submissions/:id/approve] Error:', err);
-    res.status(500).json({ error: 'Database error', details: err.message });
+    console.error(`[API POST /api/submissions/${id}/approve] Error:`, err); // Log full error
+    res.status(500).json({ error: 'Database error', details: err.message, code: err.code });
   } finally {
     if (client) client.release();
   }
@@ -561,17 +624,20 @@ app.post('/api/submissions/:id/approve', async (req, res) => {
 app.post('/api/submissions/:id/reject', async (req, res) => {
   if (!dbAccessible) return res.status(503).json({ error: 'Database unavailable' });
   const { id } = req.params;
+  const submissionId = parseInt(id, 10); // Parse ID
+  if (isNaN(submissionId)) return res.status(400).json({ message: 'Invalid ID format' });
   try {
-    const result = await pool.query('UPDATE Submissions SET status = $1 WHERE id = $2 RETURNING *', ['rejected', id]);
+    const result = await pool.query('UPDATE Submissions SET status = $1 WHERE id = $2 RETURNING *', ['rejected', submissionId]);
     if (result.rows.length === 0) return res.status(404).json({ message: 'Submission not found' });
     res.json({ message: 'Submission rejected' });
   } catch (err) {
-    console.error('[API POST /api/submissions/:id/reject] Error:', err);
-    res.status(500).json({ error: 'Database error', details: err.message });
+    console.error(`[API POST /api/submissions/${id}/reject] Error:`, err); // Log full error
+    res.status(500).json({ error: 'Database error', details: err.message, code: err.code });
   }
 });
 
-// --- Google Places API Endpoints ---
+
+// --- Google Places API Endpoints --- (Keep as is)
 app.get('/api/places/autocomplete', async (req, res) => {
   if (!googleMapsClient) return res.status(503).json({ error: 'Google Places API unavailable' });
   const { input } = req.query;
@@ -610,7 +676,8 @@ app.get('/api/places/details', async (req, res) => {
   }
 });
 
-// --- Catch-all & Error Handler ---
+
+// --- Catch-all & Error Handler --- (Keep as is)
 app.use((req, res) => {
   console.log(`[404 Not Found] ${req.method} ${req.originalUrl}`);
   res.status(404).json({ error: 'Not Found' });

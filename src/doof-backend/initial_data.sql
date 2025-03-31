@@ -1,4 +1,13 @@
--- Populate CommonDishes table with 50 common dishes
+-- src/doof-backend/initial_data.sql
+
+-- Clear existing data from tables that will be populated
+-- (Optional but ensures a clean slate if run multiple times)
+-- DELETE FROM Dishes;
+-- DELETE FROM Restaurants;
+-- DELETE FROM Lists;
+-- Keep CommonDishes, Neighborhoods, Filters data as it's static lookup data
+
+-- Populate CommonDishes table (Keep as is)
 INSERT INTO CommonDishes (name) VALUES
 ('Margherita Pizza'), ('Pepperoni Pizza'), ('Cheeseburger'), ('French Fries'), ('Caesar Salad'),
 ('Spaghetti Carbonara'), ('Chicken Alfredo'), ('Lasagna'), ('Tacos'), ('Burrito'),
@@ -12,7 +21,7 @@ INSERT INTO CommonDishes (name) VALUES
 ('Feijoada'), ('Churros'), ('Baklava'), ('Samosas'), ('Naan')
 ON CONFLICT (name) DO NOTHING;
 
--- Populate Neighborhoods table (abridged for brevity, include all from previous data)
+-- Populate Neighborhoods table (corrected)
 INSERT INTO Neighborhoods (zip_code, neighborhood, city, borough) VALUES
 ('10032', 'Washington Heights', 'New York', 'Manhattan'),
 ('10033', 'Washington Heights', 'New York', 'Manhattan'),
@@ -29,9 +38,9 @@ INSERT INTO Neighborhoods (zip_code, neighborhood, city, borough) VALUES
 ('10027', 'Manhattanville', 'New York', 'Manhattan'),
 ('10025', 'Morningside Heights', 'New York', 'Manhattan'),
 ('10027', 'Morningside Heights', 'New York', 'Manhattan'),
-('10018', "Hell's Kitchen", 'New York', 'Manhattan'),
-('10019', "Hell's Kitchen", 'New York', 'Manhattan'),
-('10036', "Hell's Kitchen", 'New York', 'Manhattan'),
+('10018', 'Hell''s Kitchen', 'New York', 'Manhattan'), -- Corrected quote
+('10019', 'Hell''s Kitchen', 'New York', 'Manhattan'), -- Corrected quote
+('10036', 'Hell''s Kitchen', 'New York', 'Manhattan'), -- Corrected quote
 ('10001', 'Chelsea', 'New York', 'Manhattan'),
 ('10011', 'Chelsea', 'New York', 'Manhattan'),
 ('10022', 'Midtown East', 'New York', 'Manhattan'),
@@ -186,3 +195,62 @@ INSERT INTO Filters (category, name) VALUES
 ('Courses', 'Raw Bar'), ('Courses', 'Oysters'), ('Courses', 'Sushi Rolls'), ('Courses', 'Nigiri'), ('Courses', 'Sashimi'),
 ('Courses', 'Cold Cuts'), ('Courses', 'Fruit Platters'), ('Courses', 'Vegetable Platters'), ('Courses', 'Charred'), ('Courses', 'Pickled')
 ON CONFLICT (category, name) DO NOTHING;
+
+-- *** ADD SAMPLE DATA FOR Restaurants, Dishes, Lists ***
+
+-- Sample Restaurants
+INSERT INTO Restaurants (id, name, neighborhood, city, tags, adds) VALUES
+(1, 'Joe''s Pizza', 'Greenwich Village', 'New York', ARRAY['pizza', 'italian', 'classic', 'slice'], 150),
+(2, 'Shake Shack', 'Midtown', 'New York', ARRAY['burger', 'american', 'fast-food', 'fries', 'shakes'], 210),
+(3, 'Katz''s Delicatessen', 'Lower East Side', 'New York', ARRAY['deli', 'sandwiches', 'pastrami', 'classic'], 180),
+(4, 'Los Tacos No. 1', 'Chelsea', 'New York', ARRAY['tacos', 'mexican', 'casual', 'quick'], 250),
+(5, 'Via Carota', 'West Village', 'New York', ARRAY['italian', 'pasta', 'cozy', 'romantic'], 195),
+(6, 'Ippudo NY', 'East Village', 'New York', ARRAY['ramen', 'japanese', 'noodles', 'pork buns'], 220),
+(7, 'Mamoun''s Falafel', 'Greenwich Village', 'New York', ARRAY['falafel', 'middle eastern', 'cheap eats', 'vegetarian'], 160)
+ON CONFLICT (id) DO UPDATE SET
+name = EXCLUDED.name,
+neighborhood = EXCLUDED.neighborhood,
+city = EXCLUDED.city,
+tags = EXCLUDED.tags,
+adds = EXCLUDED.adds;
+
+-- Reset sequence for Restaurants if needed after specifying IDs
+SELECT setval(pg_get_serial_sequence('restaurants', 'id'), COALESCE((SELECT MAX(id)+1 FROM Restaurants), 1), false);
+
+
+-- Sample Dishes (Ensure restaurant_id matches above)
+-- Need to handle potential duplicate dish names if UNIQUE constraint exists
+INSERT INTO Dishes (name, restaurant_id, tags, adds) VALUES
+('Margherita Pizza', 1, ARRAY['pizza', 'vegetarian', 'classic'], 100),
+('Pepperoni Pizza', 1, ARRAY['pizza', 'meat', 'classic'], 95),
+('ShackBurger', 2, ARRAY['burger', 'beef', 'cheeseburger'], 150),
+('Crinkle Cut Fries', 2, ARRAY['fries', 'side', 'fast-food'], 120),
+('Pastrami on Rye', 3, ARRAY['sandwich', 'pastrami', 'deli', 'classic'], 140),
+('Adobada Taco', 4, ARRAY['taco', 'pork', 'mexican', 'spicy'], 180),
+('Nopal Taco', 4, ARRAY['taco', 'cactus', 'mexican', 'vegetarian'], 110),
+('Cacio e Pepe', 5, ARRAY['pasta', 'italian', 'vegetarian', 'classic', 'cheese'], 165),
+('Akamaru Modern Ramen', 6, ARRAY['ramen', 'pork', 'japanese', 'noodles'], 170),
+('Falafel Sandwich', 7, ARRAY['sandwich', 'falafel', 'vegetarian', 'middle eastern', 'cheap eats'], 130)
+ON CONFLICT (name) DO NOTHING; -- Or specify UPDATE if needed, but might cause issues if dish exists at different restaurant
+
+-- Sample Lists
+-- Creating sample list items (JSONB array)
+-- Note: Adjust IDs/names if Dish/Restaurant IDs/Names change
+-- Creating sample list items (JSONB array)
+INSERT INTO Lists (id, name, items, item_count, saved_count, city, tags, is_public, created_by_user, creator_handle, is_following) VALUES
+(1, 'NYC Pizza Tour', '[{"id": 1, "name": "Joe''s Pizza", "type": "restaurant"}, {"id": 1, "name": "Margherita Pizza", "restaurant": "Joe''s Pizza", "type": "dish"}]', 2, 245, 'New York', ARRAY['pizza', 'italian', 'nyc'], true, false, '@pizzalover', false),
+(2, 'Iconic NYC Eats', '[{"id": 3, "name": "Katz''s Delicatessen", "type": "restaurant"}, {"id": 3, "name": "Pastrami on Rye", "restaurant": "Katz''s Delicatessen", "type": "dish"}, {"id": 7, "name": "Mamoun''s Falafel", "type": "restaurant"}]', 3, 187, 'New York', ARRAY['classic', 'deli', 'sandwiches', 'cheap eats'], true, true, '@nycfoodie', false) -- Example user-created list
+ON CONFLICT (id) DO UPDATE SET
+name = EXCLUDED.name,
+items = EXCLUDED.items,
+item_count = EXCLUDED.item_count,
+saved_count = EXCLUDED.saved_count,
+city = EXCLUDED.city,
+tags = EXCLUDED.tags,
+is_public = EXCLUDED.is_public,
+created_by_user = EXCLUDED.created_by_user,
+creator_handle = EXCLUDED.creator_handle,
+is_following = EXCLUDED.is_following;
+
+-- Reset sequence for Lists if needed after specifying IDs
+SELECT setval(pg_get_serial_sequence('lists', 'id'), COALESCE((SELECT MAX(id)+1 FROM Lists), 1), false);
