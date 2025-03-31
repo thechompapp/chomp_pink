@@ -1,9 +1,9 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { Utensils, Users, Plus } from "lucide-react";
-import { useQuickAdd } from "@/context/QuickAddContext"; // Use alias
+import { useQuickAdd } from "@/context/QuickAddContext";
+import Button from "@/components/Button";
 
-// Memoize to prevent unnecessary re-renders
 const DishCard = React.memo(
   ({ id = 1, name, restaurant, restaurantId, tags, price = "$$ • ", adds = Math.floor(Math.random() * 700) + 50 }) => {
     const { openQuickAdd } = useQuickAdd();
@@ -42,7 +42,7 @@ const DishCard = React.memo(
             </div>
 
             <div className="flex flex-wrap gap-1">
-              {tags.slice(0, 3).map((tag) => (
+              {(tags || []).slice(0, 3).map((tag) => (
                 <span
                   key={tag}
                   className="px-2 py-0.5 bg-gray-100 rounded-full text-xs text-gray-600"
@@ -54,12 +54,12 @@ const DishCard = React.memo(
           </div>
 
           <div className="mt-4">
-            <Link
-              to={`/dish/${id}`}
-              className="w-full py-2 border border-[#D1B399] text-[#D1B399] rounded-lg flex items-center justify-center font-medium hover:bg-[#D1B399] hover:text-white"
+            <Button
+              variant="tertiary"
+              className="w-full border-[#D1B399] text-[#D1B399] hover:bg-[#D1B399] hover:text-white"
             >
-              View
-            </Link>
+              <Link to={`/dish/${id}`}>View</Link>
+            </Button>
           </div>
         </div>
       </div>

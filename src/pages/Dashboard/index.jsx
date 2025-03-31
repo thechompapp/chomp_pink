@@ -4,30 +4,46 @@ import Button from "@/components/Button";
 import { API_BASE_URL } from "@/config";
 
 const Dashboard = () => {
-  const pendingSubmissions = useAppStore((state) => state.pendingSubmissions);
-  const fetchPendingSubmissions = useAppStore((state) => state.fetchPendingSubmissions);
-  const approveSubmission = useAppStore((state) => state.approveSubmission);
-  const rejectSubmission = useAppStore((state) => state.rejectSubmission);
+  const { pendingSubmissions, fetchPendingSubmissions, approveSubmission, rejectSubmission, trendingItems, setTrendingItems } = useAppStore();
   const [mergeTarget, setMergeTarget] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetchPendingSubmissions();
+    const loadSubmissions = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        await fetchPendingSubmissions();
+        console.log("Pending submissions fetched:", pendingSubmissions);
+      } catch (err) {
+        setError("Failed to fetch pending submissions: " + err.message);
+        console.error("Error fetching pending submissions:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadSubmissions();
   }, [fetchPendingSubmissions]);
 
   const findDuplicates = (item) => {
-    const existingItems = item.type === "restaurant" ? useAppStore.getState().trendingItems : useAppStore.getState().trendingDishes;
+    const existingItems = trendingItems;
     return existingItems.filter((existing) =>
-      existing.name.toLowerCase().includes(item.name.toLowerCase())
+      existing.name.toLowerCase() === item.name.toLowerCase()
     );
   };
 
   const handleMerge = async (submissionId, targetId) => {
     const submission = pendingSubmissions.find((s) => s.id === submissionId);
-    const target = (submission.type === "restaurant" ? useAppStore.getState().trendingItems : useAppStore.getState().trendingDishes).find(
-      (i) => i.id === targetId
-    );
+    const target = trendingItems.find((i) => i.id === targetId);
     if (submission && target) {
-      await approveSubmission(submissionId); // Approve to merge into existing
+      const updatedTarget = {
+        ...target,
+        adds: (target.adds || 0) + 1,
+        tags: [...new Set([...(target.tags || []), ...(submission.tags || [])])],
+      };
+      setTrendingItems(trendingItems.map(item => item.id === targetId ? updatedTarget : item));
+      await approveSubmission(submissionId);
       setMergeTarget(null);
     }
   };
@@ -36,7 +52,20 @@ const Dashboard = () => {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-12">
         <h1 className="text-3xl font-bold text-gray-800 mb-8">Pending Submissions</h1>
-        {pendingSubmissions.length === 0 ? (
+        {isLoading ? (
+          <p className="text-gray-500">Loading pending submissions...</p>
+        ) : error ? (
+          <div className="text-center">
+            <p className="text-red-500 mb-4">{error}</p>
+            <Button
+              onClick={() => fetchPendingSubmissions()}
+              variant="primary"
+              className="px-4 py-2"
+            >
+              Retry
+            </Button>
+          </div>
+        ) : pendingSubmissions.length === 0 ? (
           <p className="text-gray-500">No pending submissions to review.</p>
         ) : (
           <div className="space-y-6">
@@ -53,7 +82,7 @@ const Dashboard = () => {
                     <p className="text-gray-600 mb-2">Restaurant: {submission.restaurant}</p>
                   )}
                   <p className="text-gray-600 mb-4">
-                    Tags: {submission.tags?.join(", ") || "None"}
+                    Tags: {submission.tags?.map(tag => `#${tag}`).join(", ") || "None"}
                   </p>
 
                   {duplicates.length > 0 && (
@@ -61,7 +90,7 @@ const Dashboard = () => {
                       <p className="text-red-600 mb-2">Possible duplicates found:</p>
                       {duplicates.map((dup) => (
                         <div key={dup.id} className="flex items-center justify-between mb-2">
-                          <span>{dup.name}</span>
+                          <span>{dup.name} ({dup.neighborhood}, {dup.city})</span>
                           <Button
                             onClick={() => setMergeTarget({ submissionId: submission.id, targetId: dup.id })}
                             variant="primary"

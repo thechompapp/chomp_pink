@@ -1,58 +1,57 @@
-import React, { Suspense, lazy, useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import PageContainer from "@/layouts/PageContainer";
-import QuickAddPopup from "@/components/QuickAddPopup";
+import React, { useEffect } from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { ErrorBoundary } from "react-error-boundary";
 import useAppStore from "@/hooks/useAppStore";
 import { QuickAddProvider } from "@/context/QuickAddContext";
+import Navbar from "@/layouts/Navbar";
+import FloatingQuickAdd from "@/components/FloatingQuickAdd";
+import Home from "@/pages/Home";
+import Search from "@/pages/Search"; // This will resolve to src/pages/Search/index.jsx
+import DishDetail from "@/pages/DishDetail";
+import MyLists from "@/pages/Lists/MyLists";
+import Dashboard from "@/pages/Dashboard";
+import AdminPanel from "@/pages/AdminPanel";
 
-const Home = lazy(() => import("@/pages/Home/index.jsx"));
-const Trending = lazy(() => import("@/pages/Trending/index.jsx"));
-const Lists = lazy(() => import("@/pages/Lists/index.jsx"));
-const MyLists = lazy(() => import("@/pages/Lists/MyLists.jsx"));
-const ListDetail = lazy(() => import("@/pages/Lists/ListDetail.jsx"));
-const NightPlanner = lazy(() => import("@/pages/NightPlanner/index.jsx"));
-const Dashboard = lazy(() => import("@/pages/Dashboard/index.jsx"));
-const RestaurantDetail = lazy(() => import("@/pages/RestaurantDetail/index.jsx"));
-const DishDetail = lazy(() => import("@/pages/DishDetail/index.jsx"));
+const ErrorFallback = ({ error, resetErrorBoundary }) => (
+  <div className="text-center py-10">
+    <h1 className="text-2xl font-bold text-red-600">Something went wrong</h1>
+    <p className="text-gray-600 mb-4">{error.message}</p>
+    <button
+      onClick={resetErrorBoundary}
+      className="px-4 py-2 bg-[#D1B399] text-white rounded-lg hover:bg-[#b89e89]"
+    >
+      Try again
+    </button>
+  </div>
+);
 
-const App = React.memo(() => {
-  const setUserLists = useAppStore((state) => state.setUserLists);
-  const initializeTrendingData = useAppStore((state) => state.initializeTrendingData);
+const App = () => {
+  const { initializeTrendingData } = useAppStore();
 
   useEffect(() => {
-    const sampleLists = [
-      { id: 1, name: "My Favorites", items: [], isPublic: false, createdByUser: true },
-      { id: 2, name: "Must Try", items: [], isPublic: false, createdByUser: true },
-      { id: 3, name: "West Village Gems", items: [], isPublic: false, createdByUser: true },
-    ];
-    setUserLists(sampleLists);
     initializeTrendingData();
-  }, [setUserLists, initializeTrendingData]);
+  }, [initializeTrendingData]);
 
   return (
-    <Router>
-      <QuickAddProvider>
-        <PageContainer>
-          <Suspense fallback={<div className="flex justify-center items-center h-screen"><div className="text-primary text-lg">Loading...</div></div>}>
+    <ErrorBoundary FallbackComponent={ErrorFallback} onError={(error) => console.error("ErrorBoundary caught an error:", error)}>
+      <BrowserRouter>
+        <QuickAddProvider>
+          <div className="min-h-screen bg-gray-50">
+            <Navbar />
             <Routes>
               <Route path="/" element={<Home />} />
-              <Route path="/trending" element={<Trending />} />
-              <Route path="/lists" element={<Lists />}>
-                <Route path="my-lists" element={<MyLists />} />
-                <Route path=":id" element={<ListDetail />} />
-              </Route>
-              <Route path="/night-planner" element={<NightPlanner />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/restaurant/:id" element={<RestaurantDetail />} />
+              <Route path="/search" element={<Search />} />
               <Route path="/dish/:id" element={<DishDetail />} />
-              <Route path="/search" element={<Home />} />
+              <Route path="/lists" element={<MyLists />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/admin" element={<AdminPanel />} />
             </Routes>
-            <QuickAddPopup />
-          </Suspense>
-        </PageContainer>
-      </QuickAddProvider>
-    </Router>
+            <FloatingQuickAdd />
+          </div>
+        </QuickAddProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
-});
+};
 
 export default App;

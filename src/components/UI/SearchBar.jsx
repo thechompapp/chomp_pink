@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 
 const SearchBar = ({ onSearch }) => {
   return (
@@ -6,7 +6,7 @@ const SearchBar = ({ onSearch }) => {
       <input
         type="text"
         placeholder="Search for restaurants, dishes, or lists..."
-        className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D1B399]"
         onChange={(e) => onSearch(e.target.value)}
       />
     </div>

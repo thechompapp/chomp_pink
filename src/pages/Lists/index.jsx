@@ -1,7 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Link, Outlet } from 'react-router-dom';
-import { SortAsc, SortDesc, CalendarDays, Utensils, Store } from 'lucide-react';
-import useAppStore from '@/hooks/useAppStore';
+import React from 'react';
+import { Outlet } from 'react-router-dom';
 
 const Lists = () => {
   return (

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { Moon, Plus, MapPin, Calendar, Clock, Users, Trash, Check, Save, Edit2, X } from "lucide-react"; // Correct
-import RestaurantCard from "../RestaurantDetail/RestaurantCard"; // Correct (up one, into RestaurantDetail/)
-import { Link } from "react-router-dom"; // Correct
-import useAppStore from "../../hooks/useAppStore"; // Correct (two levels up)
-import Button from "../../components/Button"; // Correct (two levels up)
-import Modal from "../../components/UI/Modal"; // Correct (two levels up, into UI/)
+import { Moon, Plus, MapPin, Calendar, Clock, Users, Trash, Check, Save, Edit2, X } from "lucide-react";
+import RestaurantCard from "@/components/UI/RestaurantCard";
+import { Link } from "react-router-dom";
+import useAppStore from "@/hooks/useAppStore";
+import Button from "@/components/Button";
+import Modal from "@/components/UI/Modal";
 
 const NightPlanner = () => {
   const [plans, setPlans] = useState([]);

@@ -90,7 +90,7 @@ const Results = React.memo(
             <h2 className="text-2xl font-bold text-gray-800">{title}</h2>
             <button
               onClick={() => toggleSectionExpansion(sectionKey)}
-              className="flex items-center text-gray-500 hover:text-primary font-medium"
+              className="flex items-center text-gray-500 hover:text-[#D1B399] font-medium"
             >
               {isExpanded ? "Collapse" : "Expand"}
               {isExpanded ? <ChevronUp size={16} className="ml-2" /> : <ChevronDown size={16} className="ml-2" />}
@@ -148,7 +148,7 @@ const Results = React.memo(
             <p className="text-gray-500 mb-4">Try adjusting your filters or search query</p>
             <button
               onClick={clearFilters}
-              className="px-4 py-2 border border-primary text-primary rounded-lg font-medium hover:bg-primary hover:text-white"
+              className="px-4 py-2 border border-[#D1B399] text-[#D1B399] rounded-lg font-medium hover:bg-[#D1B399] hover:text-white"
             >
               Clear all filters
             </button>
