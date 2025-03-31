@@ -1,0 +1,10 @@
+// /Users/naf/downloads/doof/jsconfig.json
+{
+    "compilerOptions": {
+      "baseUrl": "src",
+      "paths": {
+        "@/*": ["*"]
+      }
+    },
+    "include": ["src"]
+  }

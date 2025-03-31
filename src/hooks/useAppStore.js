@@ -1,235 +1,295 @@
+// src/hooks/useAppStore.js
 import { create } from "zustand";
-import { API_BASE_URL } from "@/config";
+import { API_BASE_URL } from "@/config.js";
 
 const useAppStore = create((set, get) => ({
+  // State
   trendingItems: [],
-  setTrendingItems: (items) => set({ trendingItems: items }),
   trendingDishes: [],
-  setTrendingDishes: (dishes) => set({ trendingDishes: dishes }),
   popularLists: [],
-  setPopularLists: (lists) => set({ popularLists: lists }),
   userLists: [],
-  setUserLists: (lists) => set({ userLists: lists }),
   activeFilters: { city: null, neighborhood: null, tags: [] },
   searchQuery: "",
   plans: [],
   pendingSubmissions: [],
   isLoadingTrending: false,
   trendingError: null,
+  isLoadingUserLists: false,
+  userListsError: null,
+  isLoadingPending: false,
+  pendingError: null,
+  hasFetchedUserLists: false,
+  isInitializing: false,
+  initializationError: null,
 
-  updateFilters: (newFilters) => set((state) => ({
-    activeFilters: { ...state.activeFilters, ...newFilters }
-  })),
-
-  setFilter: (key, value) => set((state) => ({
-    activeFilters: { ...state.activeFilters, [key]: value }
-  })),
-
-  clearFilters: () => set({
-    activeFilters: { city: null, neighborhood: null, tags: [] }
-  }),
-
+  // Actions
+  setTrendingItems: (items) => set({ trendingItems: items }),
+  setTrendingDishes: (dishes) => set({ trendingDishes: dishes }),
+  setPopularLists: (lists) => set({ popularLists: lists }),
+  setUserLists: (lists) => set({ userLists: lists, hasFetchedUserLists: true }),
+  updateFilters: (newFilters) => set((state) => ({ activeFilters: { ...state.activeFilters, ...newFilters } })),
+  setFilter: (key, value) => set((state) => ({ activeFilters: { ...state.activeFilters, [key]: value } })),
+  clearFilters: () => set({ activeFilters: { city: null, neighborhood: null, tags: [] } }),
   setSearchQuery: (query) => set({ searchQuery: query }),
 
-  addToList: (listId, item, isNewList = false) => set((state) => {
-    const updatedLists = isNewList
-      ? [...state.userLists, { ...item, id: listId, createdByUser: true, isFollowing: false }]
-      : state.userLists.map((list) =>
-          list.id === listId ? { ...list, items: [...(list.items || []), item] } : list
-        );
-    return { userLists: updatedLists };
-  }),
+  addToList: async (listId, item, isNewList = false) => {
+    set({ isLoadingUserLists: true });
+    try {
+      const url = isNewList ? `${API_BASE_URL}/api/lists` : `${API_BASE_URL}/api/lists/${listId}/items`;
+      const method = isNewList ? 'POST' : 'PUT';
+      const body = isNewList ? { name: item.name, is_public: item.isPublic } : { item };
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Failed to add to list');
+      const updatedList = await response.json();
+      set((state) => ({
+        userLists: isNewList
+          ? [...state.userLists, updatedList]
+          : state.userLists.map((list) => (String(list.id) === String(listId) ? updatedList : list)),
+        isLoadingUserLists: false,
+      }));
+      return updatedList;
+    } catch (error) {
+      set({ userListsError: error.message, isLoadingUserLists: false });
+      return null;
+    }
+  },
 
-  toggleFollowList: (listId) => set((state) => {
-    const updatedLists = state.userLists.map((list) => {
-      if (list.id === listId) {
-        const newIsFollowing = !list.isFollowing;
-        const newSavedCount = (list.savedCount || 0) + (newIsFollowing ? 1 : -1);
-        return { ...list, isFollowing: newIsFollowing, savedCount: newSavedCount };
-      }
-      return list;
+  toggleFollowList: async (listId) => {
+    console.log(`[toggleFollowList] Action started for ID: ${listId}`);
+    const currentState = get();
+    const listToToggle = currentState.userLists.find((list) => String(list.id) === String(listId));
+
+    if (!listToToggle) {
+      console.error(`[toggleFollowList] List ${listId} not found.`);
+      set({ userListsError: `List ${listId} not found.` });
+      return;
+    }
+
+    const originalIsFollowing = listToToggle.is_following;
+    const newIsFollowing = !originalIsFollowing;
+    console.log(`[toggleFollowList] Toggling from ${originalIsFollowing} to ${newIsFollowing}`);
+
+    set((state) => ({
+      userLists: state.userLists.map((list) =>
+        String(list.id) === String(listId) ? { ...list, is_following: newIsFollowing } : list
+      ),
+    }));
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/lists/${listId}/follow`, {
+        method: newIsFollowing ? 'POST' : 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error(`Failed to ${newIsFollowing ? 'follow' : 'unfollow'} list`);
+      console.log(`[toggleFollowList] Successfully ${newIsFollowing ? 'followed' : 'unfollowed'} list ${listId}`);
+    } catch (error) {
+      console.error('[toggleFollowList] Error:', error);
+      set((state) => ({
+        userLists: state.userLists.map((list) =>
+          String(list.id) === String(listId) ? { ...list, is_following: originalIsFollowing } : list
+        ),
+        userListsError: error.message,
+      }));
+    }
+  },
+
+  fetchUserLists: async () => {
+    set({ isLoadingUserLists: true });
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/lists`, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch user lists');
+      const lists = await response.json();
+      set({ userLists: lists, hasFetchedUserLists: true, isLoadingUserLists: false, userListsError: null });
+    } catch (error) {
+      set({ userListsError: error.message, isLoadingUserLists: false });
+    }
+  },
+
+  initializeApp: async () => {
+    console.log("[useAppStore initializeApp] Starting initialization...");
+    if (get().isInitializing) {
+      console.warn("[useAppStore initializeApp] Initialization already in progress. Skipping.");
+      return;
+    }
+
+    set({
+      isInitializing: true,
+      isLoadingTrending: true,
+      initializationError: null,
+      trendingError: null,
+      userListsError: null,
     });
-    const updatedPopularLists = state.popularLists.map((list) => {
-      if (list.id === listId) {
-        const newIsFollowing = !list.isFollowing;
-        const newSavedCount = (list.savedCount || 0) + (newIsFollowing ? 1 : -1);
-        return { ...list, isFollowing: newIsFollowing, savedCount: newSavedCount };
+
+    try {
+      console.log("[useAppStore initializeApp] Fetching data in parallel...");
+      const [restaurantsRes, dishesRes, listsRes, userListsRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/trending/restaurants`, { credentials: 'include' }),
+        fetch(`${API_BASE_URL}/api/trending/dishes`, { credentials: 'include' }),
+        fetch(`${API_BASE_URL}/api/popular/lists`, { credentials: 'include' }),
+        fetch(`${API_BASE_URL}/api/lists`, { credentials: 'include' }),
+      ]);
+
+      const errors = [];
+      if (!restaurantsRes.ok) errors.push(`Restaurants: ${restaurantsRes.statusText} (${restaurantsRes.status})`);
+      if (!dishesRes.ok) errors.push(`Dishes: ${dishesRes.statusText} (${dishesRes.status})`);
+      if (!listsRes.ok) errors.push(`Popular Lists: ${listsRes.statusText} (${listsRes.status})`);
+      if (!userListsRes.ok) errors.push(`User Lists: ${userListsRes.statusText} (${userListsRes.status})`);
+
+      if (errors.length > 0) {
+        throw new Error(`Failed to fetch data: ${errors.join(', ')}`);
       }
-      return list;
-    });
-    return { userLists: updatedLists, popularLists: updatedPopularLists };
-  }),
+
+      console.log("[useAppStore initializeApp] Parsing JSON responses...");
+      const [restaurants, dishes, lists, userLists] = await Promise.all([
+        restaurantsRes.json(),
+        dishesRes.json(),
+        listsRes.json(),
+        userListsRes.json(),
+      ]);
+      console.log("[useAppStore initializeApp] Fetched data:", { restaurants: restaurants.length, dishes: dishes.length, lists: lists.length, userLists: userLists.length });
+
+      set({
+        trendingItems: Array.isArray(restaurants) ? restaurants : [],
+        trendingDishes: Array.isArray(dishes) ? dishes : [],
+        popularLists: Array.isArray(lists) ? lists : [],
+        userLists: Array.isArray(userLists) ? userLists : [],
+        hasFetchedUserLists: true,
+        isLoadingTrending: false,
+        trendingError: null,
+        initializationError: null,
+        isInitializing: false,
+      });
+      console.log('[useAppStore initializeApp] Initialization successful.');
+
+    } catch (error) {
+      console.error('[useAppStore initializeApp] Initialization Error:', error);
+      set({
+        initializationError: error.message,
+        trendingError: error.message,
+        isLoadingTrending: false,
+        isInitializing: false,
+      });
+    }
+  },
 
   checkDuplicateRestaurant: (newItem) => {
-    const { name, city, neighborhood } = newItem;
-    const state = get();
-    return state.trendingItems.some(
+    const { trendingItems } = get();
+    return trendingItems.some(
       (item) =>
-        item.name.toLowerCase() === name.toLowerCase() &&
-        item.city === city &&
-        item.neighborhood === neighborhood
+        item.name.toLowerCase() === newItem.name.toLowerCase() &&
+        item.city === newItem.city &&
+        item.neighborhood === newItem.neighborhood
     );
   },
 
   addPendingSubmission: async (item) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/submissions`, {
+      const response = await fetch(`${API_BASE_URL}/api/submissions`, { // Corrected endpoint here as well for consistency
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(item),
+        credentials: 'include',
       });
-      if (response.ok) {
-        const newSubmission = await response.json();
-        set((state) => ({
-          pendingSubmissions: [...state.pendingSubmissions, newSubmission],
-        }));
-      } else {
-        throw new Error('Failed to add submission');
-      }
+      if (!response.ok) throw new Error('Failed to add pending submission');
+      const newSubmission = await response.json();
+      set((state) => ({ pendingSubmissions: [...state.pendingSubmissions, newSubmission] }));
     } catch (error) {
-      console.error('Error adding submission:', error);
+      console.error('[addPendingSubmission] Error:', error);
+      set({ pendingError: error.message });
     }
   },
 
   fetchPendingSubmissions: async () => {
+    // Prevent fetching if already loading
+    if (get().isLoadingPending) return;
+
+    set({ isLoadingPending: true });
     try {
-      const response = await fetch(`${API_BASE_URL}/api/submissions`);
-      if (response.ok) {
-        const data = await response.json();
-        set({ pendingSubmissions: data });
-      } else {
-        throw new Error('Failed to fetch submissions');
+      // *** FIX: Use the correct endpoint /api/submissions ***
+      console.log("[fetchPendingSubmissions] Fetching from /api/submissions...");
+      const response = await fetch(`${API_BASE_URL}/api/submissions`, { credentials: 'include' });
+      if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`[fetchPendingSubmissions] Error response: ${response.status} ${response.statusText}`, errorText);
+          throw new Error(`Failed to fetch pending submissions: ${response.status} ${response.statusText}`);
       }
+      const submissions = await response.json();
+      console.log("[fetchPendingSubmissions] Success. Received submissions:", submissions.length);
+      set({ pendingSubmissions: submissions, isLoadingPending: false, pendingError: null });
     } catch (error) {
-      console.error('Error fetching submissions:', error);
+      console.error('[fetchPendingSubmissions] Fetch Error:', error);
+      set({ pendingError: error.message, isLoadingPending: false });
     }
   },
 
   approveSubmission: async (itemId) => {
     try {
+       // *** FIX: Use the correct endpoint /api/submissions/:id/approve ***
       const response = await fetch(`${API_BASE_URL}/api/submissions/${itemId}/approve`, {
         method: 'POST',
+        credentials: 'include',
       });
-      if (response.ok) {
-        set((state) => ({
-          pendingSubmissions: state.pendingSubmissions.filter((s) => s.id !== itemId),
-        }));
-      } else {
-        throw new Error('Failed to approve submission');
-      }
+      if (!response.ok) throw new Error('Failed to approve submission');
+      const approvedItem = await response.json();
+      set((state) => ({
+        pendingSubmissions: state.pendingSubmissions.filter((item) => item.id !== itemId),
+        trendingItems: approvedItem.type === 'restaurant' ? [...state.trendingItems, approvedItem] : state.trendingItems,
+        trendingDishes: approvedItem.type === 'dish' ? [...state.trendingDishes, approvedItem] : state.trendingDishes,
+      }));
     } catch (error) {
-      console.error('Error approving submission:', error);
+      console.error('[approveSubmission] Error:', error);
+      set({ pendingError: error.message });
     }
   },
 
   rejectSubmission: async (itemId) => {
     try {
+       // *** FIX: Use the correct endpoint /api/submissions/:id/reject ***
       const response = await fetch(`${API_BASE_URL}/api/submissions/${itemId}/reject`, {
         method: 'POST',
+        credentials: 'include',
       });
-      if (response.ok) {
-        set((state) => ({
-          pendingSubmissions: state.pendingSubmissions.filter((s) => s.id !== itemId),
-        }));
-      } else {
-        throw new Error('Failed to reject submission');
-      }
+      if (!response.ok) throw new Error('Failed to reject submission');
+      set((state) => ({
+        pendingSubmissions: state.pendingSubmissions.filter((item) => item.id !== itemId),
+      }));
     } catch (error) {
-      console.error('Error rejecting submission:', error);
+      console.error('[rejectSubmission] Error:', error);
+      set({ pendingError: error.message });
     }
   },
 
-  fetchUserLists: async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/lists`);
-      if (response.ok) {
-        const data = await response.json();
-        set({ userLists: data });
-      } else {
-        throw new Error('Failed to fetch user lists');
-      }
-    } catch (error) {
-      console.error('Error fetching user lists:', error);
-      set({ userLists: [] });
-    }
-  },
-
-  initializeTrendingData: async (retryCount = 0, maxRetries = 3) => {
-    if (retryCount >= maxRetries) {
-      set({
-        isLoadingTrending: false,
-        trendingError: 'Max retries reached. Using mock data.',
-        trendingItems: [
-          { id: 1, name: "Joe's Pizza", neighborhood: "Greenwich Village", city: "New York", tags: ["pizza", "italian"], adds: 78 },
-          { id: 2, name: "Shake Shack", neighborhood: "Midtown", city: "New York", tags: ["burger", "american"], adds: 52 },
-        ],
-        trendingDishes: [
-          { id: 1, name: "Margherita Pizza", restaurant: "Joe's Pizza", tags: ["pizza", "vegetarian"], price: "$$ • ", adds: 78 },
-          { id: 2, name: "ShackBurger", restaurant: "Shake Shack", tags: ["burger", "beef"], price: "$$ • ", adds: 52 },
-        ],
-        popularLists: [
-          { id: 1, name: "NYC Pizza Tour", items: [], itemCount: 5, savedCount: 120, city: "New York", tags: ["pizza", "nyc"], isFollowing: false, createdByUser: false, creatorHandle: "@foodie1" },
-          { id: 2, name: "Best Burgers NYC", items: [], itemCount: 8, savedCount: 150, city: "New York", tags: ["burgers", "nyc"], isFollowing: false, createdByUser: false, creatorHandle: "@burgerlover" },
-        ],
-      });
-      return;
-    }
-
-    set({ isLoadingTrending: true, trendingError: null });
-    try {
-      const [itemsRes, dishesRes, listsRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/trending/restaurants`),
-        fetch(`${API_BASE_URL}/api/trending/dishes`),
-        fetch(`${API_BASE_URL}/api/trending/lists`),
-      ]);
-
-      if (!itemsRes.ok || !dishesRes.ok || !listsRes.ok) {
-        throw new Error('Failed to fetch trending data');
-      }
-
-      const trendingItems = await itemsRes.json();
-      const trendingDishes = await dishesRes.json();
-      const popularLists = await listsRes.json();
-
-      set({ 
-        trendingItems, 
-        trendingDishes, 
-        popularLists, 
-        isLoadingTrending: false, 
-        trendingError: null 
-      });
-    } catch (error) {
-      console.error('Error initializing trending data:', error);
-      setTimeout(() => {
-        get().initializeTrendingData(retryCount + 1, maxRetries);
-      }, 1000);
-    }
-  },
-
-  updateListVisibility: (listId, isPublic) => set((state) => ({
-    userLists: state.userLists.map((list) =>
-      list.id === listId ? { ...list, isPublic } : list
-    ),
-  })),
-
-  initializeListsMetadata: () => set((state) => ({
-    userLists: state.userLists.map((list) => ({
-      ...list,
-      items: list.items || [],
-      dateCreated: list.dateCreated || new Date().toISOString(),
-      isPublic: list.isPublic !== undefined ? list.isPublic : true,
+  updateListVisibility: (listId, isPublic) =>
+    set((state) => ({
+      userLists: state.userLists.map((list) =>
+        String(list.id) === String(listId) ? { ...list, is_public: !!isPublic } : list
+      ),
     })),
-  })),
 
-  addPlan: (plan) => set((state) => ({
-    plans: [...state.plans, plan],
-  })),
+  initializeListsMetadata: () =>
+    set((state) => ({
+      userLists: state.userLists.map((list) => ({
+        ...list,
+        items: list.items || [],
+        is_public: list.is_public !== undefined ? list.is_public : true,
+      })),
+    })),
 
-  updatePlan: (planId, updatedPlan) => set((state) => ({
-    plans: state.plans.map((plan) =>
-      plan.id === planId ? updatedPlan : plan
-    ),
-  })),
+  addPlan: (plan) =>
+    set((state) => ({
+      plans: [...state.plans, { ...plan, id: plan.id || Date.now() }],
+    })),
+
+  updatePlan: (planId, updatedPlan) =>
+    set((state) => ({
+      plans: state.plans.map((plan) => (plan.id === planId ? updatedPlan : plan)),
+    })),
 }));
 
 export default useAppStore;

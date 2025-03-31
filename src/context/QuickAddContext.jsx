@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useCallback } from "react";
+// src/context/QuickAddContext.jsx
+import React, { createContext, useContext, useState } from "react";
 
 const QuickAddContext = createContext();
 
@@ -6,19 +7,18 @@ export const QuickAddProvider = ({ children }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
 
-  const openQuickAdd = useCallback((item) => {
-    console.log("QuickAddContext: openQuickAdd called with item:", item);
-    setIsOpen(true);
+  const openQuickAdd = (item) => {
+    console.log("QuickAddContext: Opening QuickAddPopup with item:", item);
+    console.log("QuickAddContext: item:", item); // Inspect the 'item'
     setSelectedItem(item);
-    console.log("QuickAddContext: isOpen set to true, selectedItem:", item);
-  }, []);
+    setIsOpen(true);
+  };
 
-  const closeQuickAdd = useCallback(() => {
-    console.log("QuickAddContext: closeQuickAdd called");
+  const closeQuickAdd = () => {
+    console.log("QuickAddContext: Closing QuickAddPopup");
     setIsOpen(false);
     setSelectedItem(null);
-    console.log("QuickAddContext: isOpen set to false, selectedItem cleared");
-  }, []);
+  };
 
   return (
     <QuickAddContext.Provider value={{ isOpen, selectedItem, openQuickAdd, closeQuickAdd }}>

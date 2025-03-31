@@ -1,8 +1,16 @@
-import React, { useState } from "react";
+// src/layouts/Navbar.jsx
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import useAppStore from "@/hooks/useAppStore"; // Import useAppStore
 
 const Navbar = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const { fetchPendingSubmissions } = useAppStore(); // Get fetchPendingSubmissions
+
+  useEffect(() => {
+    // Fetch pending submissions when the component mounts
+    fetchPendingSubmissions();
+  }, [fetchPendingSubmissions]);
 
   const toggleSettings = () => {
     setIsSettingsOpen((prev) => !prev);
@@ -30,13 +38,19 @@ const Navbar = () => {
           {isSettingsOpen && (
             <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10">
               <Link
+                to="/dashboard"
+                onClick={() => setIsSettingsOpen(false)}
+                className="block px-4 py-2 text-gray-800 hover:bg-gray-100"
+              >
+                Pending Submissions
+              </Link>
+              <Link
                 to="/admin"
-                onClick={() => setIsSettingsOpen(false)} // Close dropdown on click
+                onClick={() => setIsSettingsOpen(false)}
                 className="block px-4 py-2 text-gray-800 hover:bg-gray-100"
               >
                 Admin Panel
               </Link>
-              {/* Add more settings links here if needed */}
             </div>
           )}
         </div>

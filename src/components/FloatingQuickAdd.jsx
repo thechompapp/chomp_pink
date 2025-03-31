@@ -1,27 +1,31 @@
+// src/components/FloatingQuickAdd.jsx
 import React, { useState } from "react";
 import { Plus, Utensils, List, Store } from "lucide-react";
-import { useQuickAdd } from "@/context/QuickAddContext";
+import { useQuickAdd } from "@/context/QuickAddContext.jsx";
 
 const FloatingQuickAdd = () => {
   const { openQuickAdd } = useQuickAdd();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const handleToggleMenu = () => {
-    console.log("Toggling FloatingQuickAdd menu");
+    console.log("FloatingQuickAdd: handleToggleMenu");
     setIsMenuOpen((prev) => !prev);
   };
 
   const handleSubmitRestaurant = () => {
+    console.log("FloatingQuickAdd: handleSubmitRestaurant");
     openQuickAdd({ type: "submission", subtype: "restaurant" });
     setIsMenuOpen(false);
   };
 
   const handleSubmitDish = () => {
+    console.log("FloatingQuickAdd: handleSubmitDish");
     openQuickAdd({ type: "submission", subtype: "dish" });
     setIsMenuOpen(false);
   };
 
   const handleCreateList = () => {
+    console.log("FloatingQuickAdd: handleCreateList");
     openQuickAdd({ type: "createNewList" });
     setIsMenuOpen(false);
   };
