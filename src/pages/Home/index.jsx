@@ -1,5 +1,5 @@
-// src/pages/Home/index.jsx
-import React, { useState, useEffect } from "react"; // Removed useCallback as attemptInitialize is removed
+// src/pages/Home/index.jsx (Select state individually)
+import React, { useState } from "react"; // Removed useEffect as initializeApp is in App.jsx
 import useAppStore from "@/hooks/useAppStore.js";
 import SearchBar from "@/components/UI/SearchBar.jsx";
 import FilterSection from "@/pages/Home/FilterSection.jsx";
@@ -7,57 +7,64 @@ import Results from "@/pages/Home/Results.jsx";
 import Button from "@/components/Button.jsx";
 
 const Home = () => {
-  const {
-    trendingItems,
-    trendingDishes,
-    popularLists,
-    isLoadingTrending, // Use this for loading state
-    initializationError, // Use this for error state
-    searchQuery,
-    setSearchQuery,
-    initializeApp, // Keep for retry button
-    isInitializing, // Use this to check loading state
-  } = useAppStore();
+  // --- Global State ---
+  // Select necessary state slices individually
+  const trendingItems = useAppStore(state => state.trendingItems) || []; // Default to empty array
+  const trendingDishes = useAppStore(state => state.trendingDishes) || []; // Default to empty array
+  const popularLists = useAppStore(state => state.popularLists) || []; // Default to empty array
+  // Select loading/error states if needed for display within Home specifically
+  // (Currently handled primarily by initializeApp and potentially displayed globally or in Results)
+  const isLoading = useAppStore(state => state.isInitializing || state.isLoadingTrending); // Combine relevant loading flags
+  const error = useAppStore(state => state.initializationError || state.trendingError);
+  // Select search query and setter
+  const searchQuery = useAppStore(state => state.searchQuery);
+  const setSearchQuery = useAppStore(state => state.setSearchQuery);
+  // Select initializeApp for retry button if needed here
+  const initializeApp = useAppStore(state => state.initializeApp);
 
+
+  // Local state for expanding sections remains the same
   const [expandedSections, setExpandedSections] = useState({
     restaurants: false,
     dishes: false,
     lists: false,
   });
 
-  // REMOVED: useEffect hook calling initializeApp
 
+  // --- Loading / Error Handling ---
   // Display loading indicator based on global state
-  // Use isInitializing OR isLoadingTrending to cover both initial load and potential background refreshes if added later
-  if (isInitializing || isLoadingTrending) {
-    console.log("[Home] Rendering Loading State. isInitializing:", isInitializing, "isLoadingTrending:", isLoadingTrending);
+  if (isLoading) {
+    console.log("[Home] Rendering Loading State.");
     return <div className="text-center py-10 text-gray-500">Loading Trending Data...</div>;
   }
 
   // Display error message based on global state
-  if (initializationError) {
-    console.error("[Home] Rendering Error State:", initializationError);
+  if (error) {
+    console.error("[Home] Rendering Error State:", error);
     return (
       <div className="text-center py-10">
         <p className="text-red-500 mb-4">
-          Error loading data: {initializationError}. Is the backend running on localhost:5001?
+          Error loading data: {error}.
         </p>
-        {/* Directly call initializeApp for retry */}
+        {/* Provide a retry mechanism */}
         <Button onClick={initializeApp} variant="primary" className="px-4 py-2">Retry Load</Button>
       </div>
     );
   }
 
-  // Render results if no error and not loading
+  // --- Render Page ---
   console.log("[Home] Rendering Results. Data:", { items: trendingItems.length, dishes: trendingDishes.length, lists: popularLists.length });
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      {/* Search Bar - Pass stable setter */}
       <SearchBar onSearch={setSearchQuery} />
+      {/* Filter Section - Reads state internally */}
       <FilterSection />
+      {/* Results - Pass data arrays and search query */}
       <Results
-        trendingItems={Array.isArray(trendingItems) ? trendingItems : []}
-        trendingDishes={Array.isArray(trendingDishes) ? trendingDishes : []}
-        popularLists={Array.isArray(popularLists) ? popularLists : []}
+        trendingItems={trendingItems}
+        trendingDishes={trendingDishes}
+        popularLists={popularLists}
         expandedSections={expandedSections}
         setExpandedSections={setExpandedSections}
         searchQuery={searchQuery}

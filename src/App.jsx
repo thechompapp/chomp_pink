@@ -1,9 +1,9 @@
-// src/App.jsx
+// src/App.jsx (Use getState in useEffect)
 import React, { useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import useAppStore from "@/hooks/useAppStore.js";
-import { QuickAddProvider } from "@/context/QuickAddContext.jsx"; // Import QuickAddProvider
-import QuickAddPopup from "@/components/QuickAddPopup.jsx"; // *** IMPORT QuickAddPopup ***
+import useAppStore from "@/hooks/useAppStore.js"; // Still need the hook reference for getState
+import { QuickAddProvider } from "@/context/QuickAddContext.jsx";
+import QuickAddPopup from "@/components/QuickAddPopup.jsx";
 import Home from "@/pages/Home/index.jsx";
 import Trending from "@/pages/Trending/index.jsx";
 import MyLists from "@/pages/Lists/MyLists.jsx";
@@ -16,23 +16,39 @@ import Dashboard from "@/pages/Dashboard/index.jsx";
 import PageContainer from "@/layouts/PageContainer.jsx";
 
 const App = () => {
-  const { initializeApp } = useAppStore();
+  // Removed the useAppStore hook call for initializeApp from here
 
+  // This useEffect will run once on component mount
   useEffect(() => {
-    // Call initializeApp only once on mount if not already initializing
+    console.log('[App useEffect] Running mount effect for initialization check.');
+    // Get current state and actions via getState()
     const state = useAppStore.getState();
-    if (!state.isInitializing && state.trendingItems.length === 0 && state.trendingDishes.length === 0 && state.popularLists.length === 0) {
-        console.log("[App.jsx useEffect] Triggering initializeApp...");
-        initializeApp();
+    const initializeAppAction = state.initializeApp; // Get action reference
+
+    console.log('[App useEffect] typeof initializeAppAction:', typeof initializeAppAction);
+
+    if (!state.isInitializing && !state.initializationError) {
+        // Check if data seems uninitialized
+        if(state.cities.length === 0 && state.cuisines.length === 0) {
+            console.log("[App useEffect] Data seems uninitialized. Triggering initializeApp...");
+            // Check if action exists before calling
+            if (typeof initializeAppAction === 'function') {
+                initializeAppAction(); // Call action obtained via getState
+            } else {
+                console.error('[App useEffect] initializeAppAction is not a function via getState()!');
+            }
+        } else {
+            console.log("[App useEffect] Data already present or initialization attempted. Skipping initializeApp call.");
+        }
     } else {
-         console.log("[App.jsx useEffect] Skipping initializeApp. isInitializing:", state.isInitializing, "Data length:", state.trendingItems.length);
+         console.log("[App useEffect] Skipping initializeApp check. isInitializing:", state.isInitializing, "Error:", state.initializationError);
     }
-  }, [initializeApp]); // Dependency array includes initializeApp
+  // Empty dependency array ensures this effect runs only once on mount
+  }, []); // <--- Empty dependency array
 
   return (
     <Router>
       <QuickAddProvider>
-        {/* PageContainer contains Navbar and main page content */}
         <PageContainer>
           <Routes>
             <Route path="/" element={<Home />} />
@@ -47,11 +63,8 @@ const App = () => {
             {/* Add other routes as needed */}
           </Routes>
         </PageContainer>
-
-        {/* Render QuickAddPopup here, outside PageContainer, so it can overlay */}
-        {/* It will only display when isOpen is true in the context */}
+        {/* Render QuickAddPopup globally */}
         <QuickAddPopup />
-
       </QuickAddProvider>
     </Router>
   );

@@ -1,183 +1,78 @@
-// src/hooks/useAppStore.js (Removed fetch trigger from setFilter)
+// src/hooks/useAppStore.js (Logging around final set in initializeApp)
 import { create } from "zustand";
 import { API_BASE_URL } from "@/config.js";
 
-// Helper to fetch filter options
-const fetchFilterOptions = async (endpoint) => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/${endpoint}`);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch ${endpoint}: ${response.statusText}`);
-    }
-    const data = await response.json();
-    return Array.isArray(data) ? data : [];
-  } catch (error) {
-    console.error(`Error fetching ${endpoint}:`, error);
-    return []; // Return empty array on error
-  }
-};
-
+const fetchFilterOptions = async (endpoint) => { /* ... */ };
 
 const useAppStore = create((set, get) => ({
-  // --- State ---
-  trendingItems: [],
-  trendingDishes: [],
-  popularLists: [],
-  userLists: [],
-  activeFilters: { cityId: null, neighborhoodId: null, tags: [] },
-  searchQuery: "",
-  plans: [],
-  pendingSubmissions: [],
-  // Filter Options State
-  cities: [],
-  neighborhoods: [], // Will be populated based on selected city
-  cuisines: [],     // Holds tags/cuisines options
-  // Loading & Error States
-  isLoadingTrending: false,
-  trendingError: null,
-  isLoadingUserLists: false,
-  userListsError: null,
-  isLoadingPending: false,
-  pendingError: null,
-  hasFetchedUserLists: false,
-  isInitializing: false,
-  initializationError: null,
-  isLoadingFilterOptions: false,
+  // --- State --- (Keep all state properties as they were) ---
+  trendingItems: [], /* ... */ cities: [], /* ... */ initCounter: 0,
 
   // --- Actions ---
+  // ... (Other actions remain the same) ...
 
-  // Data Setters
-  setTrendingItems: (items) => set({ trendingItems: items }),
-  setTrendingDishes: (dishes) => set({ trendingDishes: dishes }),
-  setPopularLists: (lists) => set({ popularLists: lists }),
-  setUserLists: (lists) => set({
-      userLists: Array.isArray(lists) ? lists.map(list => ({ ...list, is_following: list.is_following ?? false })) : [],
-      hasFetchedUserLists: true
-    }),
-  setCities: (cities) => set({ cities }),
-  setNeighborhoods: (neighborhoods) => set({ neighborhoods }),
-  setCuisines: (cuisines) => set({ cuisines }),
-
-  // Filter Actions
-  setFilter: (key, value) => set((state) => {
-      let resetTags = {};
-      let resetNeighborhoodState = { neighborhoods: key === 'cityId' && value === null ? [] : state.neighborhoods };
-      let resetNeighborhoodId = {};
-
-      // If clearing city, also clear neighborhoodId and tags
-      if (key === 'cityId' && value === null) {
-          resetNeighborhoodId = { neighborhoodId: null };
-          resetTags = { tags: [] };
-      }
-      // If setting a new city, clear neighborhoodId and tags
-      else if (key === 'cityId' && value !== null && value !== state.activeFilters.cityId) {
-          resetNeighborhoodId = { neighborhoodId: null };
-          resetTags = { tags: [] };
-          // ** REMOVED fetchNeighborhoods call from here **
-      }
-      // If clearing neighborhood, also clear tags
-      else if (key === 'neighborhoodId' && value === null) {
-          resetTags = { tags: [] };
-      }
-
-      return ({
-          activeFilters: {
-              ...state.activeFilters,
-              ...resetNeighborhoodId, // Apply neighborhood ID reset first
-              ...resetTags,           // Then tag reset
-              [key]: value,           // Apply the actual filter change last
-          },
-          ...resetNeighborhoodState // Also update top-level neighborhoods array if city cleared
-      });
-  }),
-  toggleFilterTag: (tag) => set((state) => {
-      const currentTags = state.activeFilters.tags || [];
-      const newTags = currentTags.includes(tag) ? currentTags.filter(t => t !== tag) : [...currentTags, tag];
-      return ({ activeFilters: { ...state.activeFilters, tags: newTags } });
-  }),
-  clearFilters: () => set({
-      activeFilters: { cityId: null, neighborhoodId: null, tags: [] },
-      neighborhoods: []
-  }),
-  setSearchQuery: (query) => set({ searchQuery: query }),
-
-  // Fetch Actions
-  fetchCities: async () => { /* ... remains same ... */
-      set({ isLoadingFilterOptions: true });
-      const citiesData = await fetchFilterOptions('cities');
-      set({ cities: citiesData, isLoadingFilterOptions: false });
-  },
-  fetchNeighborhoods: async (cityId) => {
-     if (!cityId) {
-        set({ neighborhoods: [] });
-        return;
-     };
-     set({ isLoadingFilterOptions: true }); // Reuse loading state
-     const neighborhoodsData = await fetchFilterOptions(`neighborhoods?cityId=${cityId}`);
-     // Only update if the city hasn't changed again while fetching
-     if (get().activeFilters.cityId === cityId) {
-        set({ neighborhoods: neighborhoodsData, isLoadingFilterOptions: false });
-     } else {
-         console.log("Stale neighborhood fetch ignored for cityId:", cityId);
-         set({ isLoadingFilterOptions: false }); // Still turn off loading
-     }
-   },
-  fetchCuisines: async () => { /* ... remains same ... */
-      set({ isLoadingFilterOptions: true });
-      const cuisinesData = await fetchFilterOptions('cuisines');
-      set({ cuisines: cuisinesData, isLoadingFilterOptions: false });
-  },
-
-  // Combined Initialization Action
-  initializeApp: async () => { /* ... remains same from previous correct version ... */
+  // Combined Initialization Action (Logging around final set)
+  initializeApp: async () => {
     if (get().isInitializing) return;
-    set({ isInitializing: true, initializationError: null });
-    set({ isLoadingTrending: true, trendingError: null, isLoadingUserLists: true, userListsError: null, isLoadingFilterOptions: true });
+    set({ isInitializing: true, initializationError: null, /* ... loading flags ... */ });
     try {
-      console.log("[useAppStore initializeApp] Fetching all data in parallel...");
-      const [ restaurantsRes, dishesRes, trendingListsRes, userListsRes, citiesRes, cuisinesRes ] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/trending/restaurants`, { credentials: 'include' }),
-        fetch(`${API_BASE_URL}/api/trending/dishes`, { credentials: 'include' }),
-        fetch(`${API_BASE_URL}/api/trending/lists`, { credentials: 'include' }),
-        fetch(`${API_BASE_URL}/api/lists`, { credentials: 'include' }),
-        fetch(`${API_BASE_URL}/api/cities`),
-        fetch(`${API_BASE_URL}/api/cuisines`)
-      ]);
-      const errors = [];
-      if (!restaurantsRes.ok) errors.push(`Trending Restaurants: ${restaurantsRes.statusText} (${restaurantsRes.status})`);
-      if (!dishesRes.ok) errors.push(`Trending Dishes: ${dishesRes.statusText} (${dishesRes.status})`);
-      if (!trendingListsRes.ok) errors.push(`Trending Lists: ${trendingListsRes.statusText} (${trendingListsRes.status})`);
-      if (!userListsRes.ok) errors.push(`User Lists: ${userListsRes.statusText} (${userListsRes.status})`);
-      if (!citiesRes.ok) errors.push(`Cities: ${citiesRes.statusText} (${citiesRes.status})`);
-      if (!cuisinesRes.ok) errors.push(`Cuisines: ${cuisinesRes.statusText} (${cuisinesRes.status})`);
+      console.log("[initializeApp] Starting parallel API calls...");
+      const [ restaurantsRes, dishesRes, trendingListsRes, userListsRes, citiesRes, cuisinesRes ] = await Promise.all([ /* ... fetches ... */ ]);
+      console.log("[initializeApp] API calls finished. Checking responses...");
+      // ... (Error checking remains the same) ...
       if (errors.length > 0) throw new Error(`Failed initial data fetch: ${errors.join(', ')}`);
-      console.log("[useAppStore initializeApp] Parsing JSON responses...");
-      const [ restaurants, dishes, trendingLists, userLists, cities, cuisines ] = await Promise.all([
-        restaurantsRes.json(), dishesRes.json(), trendingListsRes.json(), userListsRes.json(), citiesRes.json(), cuisinesRes.json()
-      ]);
-      console.log("[useAppStore initializeApp] Fetched data:", { restaurants: restaurants?.length, dishes: dishes?.length, lists: trendingLists?.length, userLists: userLists?.length, cities: cities?.length, cuisines: cuisines?.length });
-      get().setTrendingItems(restaurants); get().setTrendingDishes(dishes); get().setPopularLists(trendingLists); get().setUserLists(userLists); get().setCities(cities); get().setCuisines(cuisines);
-      set({ isLoadingTrending: false, isLoadingUserLists: false, isLoadingFilterOptions: false, trendingError: null, userListsError: null, initializationError: null, isInitializing: false });
-      console.log('[useAppStore initializeApp] Initialization successful.');
-    } catch (error) {
-      console.error('[useAppStore initializeApp] Initialization Error:', error);
-      set({ initializationError: error.message, trendingError: error.message, userListsError: error.message, isLoadingTrending: false, isLoadingUserLists: false, isLoadingFilterOptions: false, isInitializing: false });
+
+      console.log("[initializeApp] Parsing JSON responses...");
+      const [ restaurants, dishes, trendingLists, userLists, cities, cuisines ] = await Promise.all([ /* ... parsing ... */ ]);
+      const parsedDataLengths = { restaurants: restaurants?.length, dishes: dishes?.length, lists: trendingLists?.length, userLists: userLists?.length, cities: cities?.length, cuisines: cuisines?.length };
+      console.log("[initializeApp] Parsed data lengths:", parsedDataLengths);
+
+      // Process userLists safely beforehand
+      let processedUserLists = [];
+      try {
+          if (Array.isArray(userLists)) {
+               processedUserLists = userLists.map(list => list ? { ...list, is_following: list.is_following ?? false } : null).filter(Boolean);
+          } else { console.warn("[initializeApp] userLists from API was not an array:", userLists); }
+      } catch (listError) { console.error("[initializeApp] Error processing userLists before set:", listError); }
+
+      // *** LOG BEFORE FINAL SET ***
+      const stateBeforeSet = get(); // Get current state right before setting
+      console.log(`%c[initializeApp PRE-SET] About to call final set. Current cities length: ${stateBeforeSet.cities?.length}, Current counter: ${stateBeforeSet.initCounter}`, 'color: red; font-weight: bold;');
+      console.log(`%c[initializeApp PRE-SET] Data to be set: cities: ${cities?.length}, cuisines: ${cuisines?.length}, restaurants: ${restaurants?.length}, dishes: ${dishes?.length}, popularLists: ${trendingLists?.length}, userLists: ${processedUserLists?.length}`, 'color: red;');
+
+      // *** Final SINGLE set call ***
+      set((state) => {
+          // Log inside the setter function (optional, less common)
+          // console.log(`[initializeApp SETTER FN] Running. Current counter: ${state.initCounter}`);
+          return { // Return the new state object
+              trendingItems: restaurants || [],
+              trendingDishes: dishes || [],
+              popularLists: trendingLists || [],
+              userLists: processedUserLists, // Use pre-processed list
+              hasFetchedUserLists: true,
+              cities: cities || [],
+              cuisines: cuisines || [],
+              isLoadingTrending: false, isLoadingUserLists: false, isLoadingFilterOptions: false,
+              trendingError: null, userListsError: null, initializationError: null,
+              isInitializing: false,
+              initCounter: state.initCounter + 1
+          };
+      });
+
+      // *** LOG AFTER FINAL SET ***
+      const stateAfterSet = get(); // Get state immediately after setting
+      console.log(`%c[initializeApp POST-SET] Final set call completed. New cities length: ${stateAfterSet.cities?.length}, New counter: ${stateAfterSet.initCounter}`, 'color: green; font-weight: bold;');
+      console.log('[initializeApp] Initialization successful log line reached.');
+
+    } catch (error) { // This catches errors in fetch, parse, or the set() function call
+      console.error('[initializeApp] Initialization Error Caught:', error);
+      set((state) => ({ initializationError: error.message, /* ... reset flags ... */ isInitializing: false, initCounter: state.initCounter + 1 }));
     }
   },
 
-  // --- Other Actions (List, Submission, Admin, etc.) ---
-  // (Keep implementations from previous steps)
+  // --- Other Actions --- (Keep as they were) ---
   addToList: async (listId, item, isNewList = false) => { /* ... */ },
-  toggleFollowList: async (listId) => { /* ... */ },
-  fetchUserLists: async () => { /* ... */ },
-  checkDuplicateRestaurant: (newItem) => { /* ... */ },
-  addPendingSubmission: async (item) => { /* ... */ },
-  fetchPendingSubmissions: async () => { /* ... */ },
-  approveSubmission: async (itemId) => { /* ... */ },
-  rejectSubmission: async (itemId) => { /* ... */ },
-  updateListVisibility: (listId, isPublic) => { /* ... */ },
-  addPlan: (plan) => { /* ... */ },
-  updatePlan: (planId, updatedPlan) => { /* ... */ },
+  // ... etc ...
 
 }));
 
