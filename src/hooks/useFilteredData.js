@@ -1,71 +1,73 @@
-// src/hooks/useFilteredData.js (Select state individually)
-import { useCallback, useMemo } from 'react';
+// src/hooks/useFilteredData.js
+import { useMemo } from 'react';
 import useAppStore from './useAppStore';
-// Removed shallow import
 
-const useFilteredData = (items = []) => {
-  // --- Global State ---
-  // ** CORRECTED: Select state pieces individually **
-  const activeFilters = useAppStore(state => state.activeFilters) || { cityId: null, neighborhoodId: null, tags: [] }; // Provide default
-  const cities = useAppStore(state => state.cities);
-  const neighborhoods = useAppStore(state => state.neighborhoods);
-  const searchQuery = useAppStore(state => state.searchQuery);
+/**
+ * Custom hook to filter data based on the global filters
+ * 
+ * @param {Array} data - The data array to be filtered
+ * @returns {Array} - The filtered data array
+ */
+const useFilteredData = (data) => {
+  // Get filters and options from the store
+  const filters = useAppStore(state => state.filters);
+  const cityOptions = useAppStore(state => state.cityOptions);
+  const neighborhoodOptions = useAppStore(state => state.neighborhoodOptions);
+  
+  return useMemo(() => {
+    if (!data || !Array.isArray(data) || data.length === 0) {
+      return [];
+    }
 
-  // --- Filtering Logic ---
-  // Memoize the actual filtering logic based on individual state pieces/arrays
-  const applyFilters = useCallback(() => {
-    if (!Array.isArray(items) || items.length === 0) return [];
-
-    const cityId = activeFilters.cityId;
-    const neighborhoodId = activeFilters.neighborhoodId;
-    const selectedTags = activeFilters.tags || [];
-
-    // Ensure lists are arrays before using .find()
-    const selectedCityName = Array.isArray(cities) ? cities.find(c => c.id === cityId)?.name : null;
-    const selectedNeighborhoodName = Array.isArray(neighborhoods) ? neighborhoods.find(n => n.id === neighborhoodId)?.name : null;
-
-    // console.log("Applying filters:", { cityId, neighborhoodId, selectedTags, searchQuery, selectedCityName, selectedNeighborhoodName }); // Debug Log
-
-    return items.filter((item) => {
-      if (!item) return false;
-
-      const itemCity = item.city || "";
-      const itemNeighborhood = item.neighborhood || "";
-      const itemTags = Array.isArray(item.tags) ? item.tags : [];
-      const itemName = item.name || "";
-      const itemRestaurant = item.restaurant || item.restaurant_name || "";
-
-      // City Filter
-      if (cityId && (!selectedCityName || itemCity.toLowerCase() !== selectedCityName.toLowerCase())) {
+    // Create lookup maps for city and neighborhood names by ID
+    const cityMap = cityOptions.reduce((acc, city) => {
+      acc[city.id] = city.name.toLowerCase();
+      return acc;
+    }, {});
+    
+    const neighborhoodMap = neighborhoodOptions.reduce((acc, hood) => {
+      acc[hood.id] = hood.name.toLowerCase();
+      return acc;
+    }, {});
+    
+    // Filter the data
+    return data.filter((item) => {
+      // City filter
+      if (filters.city && item.city_id !== filters.city) {
+        // Check city ID
         return false;
       }
-      // Neighborhood Filter
-      if (cityId && neighborhoodId && (!selectedNeighborhoodName || itemNeighborhood.toLowerCase() !== selectedNeighborhoodName.toLowerCase())) {
+      
+      // Neighborhood filter
+      if (filters.neighborhood && item.neighborhood_id !== filters.neighborhood) {
+        // Check neighborhood ID
         return false;
       }
-      // Tags Filter
-      if (selectedTags.length > 0) {
-        if (!itemTags.some(t => selectedTags.some(ft => String(t).toLowerCase() === String(ft).toLowerCase()))) {
+      
+      // Cuisines/tags filter
+      if (filters.cuisines && filters.cuisines.length > 0) {
+        // If item has no tags, filter it out
+        if (!item.tags || !Array.isArray(item.tags) || item.tags.length === 0) {
+          return false;
+        }
+        
+        // Convert tags to lowercase for case-insensitive comparison
+        const itemTagsLower = item.tags.map(tag => tag.toLowerCase());
+        
+        // Check if any selected cuisine exists in the item's tags
+        const hasMatchingTag = filters.cuisines.some(cuisine => 
+          itemTagsLower.includes(cuisine.toLowerCase())
+        );
+        
+        if (!hasMatchingTag) {
           return false;
         }
       }
-      // Search Query Filter
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        if (!(itemName.toLowerCase().includes(query) || itemCity.toLowerCase().includes(query) || itemNeighborhood.toLowerCase().includes(query) || itemTags.some(t => String(t).toLowerCase().includes(query)) || itemRestaurant.toLowerCase().includes(query))) {
-            return false;
-        }
-      }
+      
+      // If it passed all filters, include it
       return true;
     });
-  // Dependencies: Now depends on the raw items array and the individually selected state pieces/arrays
-  }, [items, activeFilters.cityId, activeFilters.neighborhoodId, activeFilters.tags, cities, neighborhoods, searchQuery]);
-
-  // Memoize the filtered result based on the applyFilters function
-  // applyFilters should be stable now if its dependencies are stable
-  const filteredData = useMemo(() => applyFilters(), [applyFilters]);
-
-  return filteredData;
+  }, [data, filters, cityOptions, neighborhoodOptions]);
 };
 
 export default useFilteredData;

@@ -1,75 +1,49 @@
-// src/pages/Home/index.jsx (Select state individually)
-import React, { useState } from "react"; // Removed useEffect as initializeApp is in App.jsx
-import useAppStore from "@/hooks/useAppStore.js";
-import SearchBar from "@/components/UI/SearchBar.jsx";
-import FilterSection from "@/pages/Home/FilterSection.jsx";
-import Results from "@/pages/Home/Results.jsx";
-import Button from "@/components/Button.jsx";
+// src/pages/Home/index.jsx
+import React, { useEffect } from 'react';
+import PageContainer from '../../layouts/PageContainer';
+import FilterSection from './FilterSection';
+import Results from './Results';
+import useAppStore from '../../hooks/useAppStore';
 
 const Home = () => {
-  // --- Global State ---
-  // Select necessary state slices individually
-  const trendingItems = useAppStore(state => state.trendingItems) || []; // Default to empty array
-  const trendingDishes = useAppStore(state => state.trendingDishes) || []; // Default to empty array
-  const popularLists = useAppStore(state => state.popularLists) || []; // Default to empty array
-  // Select loading/error states if needed for display within Home specifically
-  // (Currently handled primarily by initializeApp and potentially displayed globally or in Results)
-  const isLoading = useAppStore(state => state.isInitializing || state.isLoadingTrending); // Combine relevant loading flags
-  const error = useAppStore(state => state.initializationError || state.trendingError);
-  // Select search query and setter
-  const searchQuery = useAppStore(state => state.searchQuery);
-  const setSearchQuery = useAppStore(state => state.setSearchQuery);
-  // Select initializeApp for retry button if needed here
-  const initializeApp = useAppStore(state => state.initializeApp);
-
-
-  // Local state for expanding sections remains the same
-  const [expandedSections, setExpandedSections] = useState({
-    restaurants: false,
-    dishes: false,
-    lists: false,
-  });
-
-
-  // --- Loading / Error Handling ---
-  // Display loading indicator based on global state
-  if (isLoading) {
-    console.log("[Home] Rendering Loading State.");
-    return <div className="text-center py-10 text-gray-500">Loading Trending Data...</div>;
-  }
-
-  // Display error message based on global state
-  if (error) {
-    console.error("[Home] Rendering Error State:", error);
-    return (
-      <div className="text-center py-10">
-        <p className="text-red-500 mb-4">
-          Error loading data: {error}.
-        </p>
-        {/* Provide a retry mechanism */}
-        <Button onClick={initializeApp} variant="primary" className="px-4 py-2">Retry Load</Button>
-      </div>
-    );
-  }
-
-  // --- Render Page ---
-  console.log("[Home] Rendering Results. Data:", { items: trendingItems.length, dishes: trendingDishes.length, lists: popularLists.length });
+  // Use selectors from the store
+  const fetchInitialData = useAppStore(state => state.fetchInitialData);
+  const fetchTrendingData = useAppStore(state => state.fetchTrendingData);
+  const isLoading = useAppStore(state => state.isLoading);
+  const error = useAppStore(state => state.error);
+  
+  useEffect(() => {
+    // Load initial data (cities, cuisines) and trending items on mount
+    fetchInitialData();
+    fetchTrendingData();
+  }, [fetchInitialData, fetchTrendingData]);
+  
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      {/* Search Bar - Pass stable setter */}
-      <SearchBar onSearch={setSearchQuery} />
-      {/* Filter Section - Reads state internally */}
-      <FilterSection />
-      {/* Results - Pass data arrays and search query */}
-      <Results
-        trendingItems={trendingItems}
-        trendingDishes={trendingDishes}
-        popularLists={popularLists}
-        expandedSections={expandedSections}
-        setExpandedSections={setExpandedSections}
-        searchQuery={searchQuery}
-      />
-    </div>
+    <PageContainer>
+      <div className="max-w-6xl mx-auto px-4 py-6">
+        <h1 className="text-3xl font-bold mb-6">Discover What's Trending</h1>
+        
+        {/* Error Display */}
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+            <p>{error}</p>
+          </div>
+        )}
+        
+        {/* Filter Section */}
+        <FilterSection />
+        
+        {/* Loading State */}
+        {isLoading && (
+          <div className="flex justify-center my-8">
+            <div className="loader">Loading...</div>
+          </div>
+        )}
+        
+        {/* Results Grid */}
+        <Results />
+      </div>
+    </PageContainer>
   );
 };
 

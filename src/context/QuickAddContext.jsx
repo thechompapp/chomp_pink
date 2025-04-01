@@ -1,36 +1,46 @@
 // src/context/QuickAddContext.jsx
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useState, useContext } from 'react';
 
-const QuickAddContext = createContext();
+// Create Context
+export const QuickAddContext = createContext();
 
+// Custom hook for using the QuickAdd context
+export const useQuickAdd = () => {
+  const context = useContext(QuickAddContext);
+  if (!context) {
+    throw new Error('useQuickAdd must be used within a QuickAddProvider');
+  }
+  return context;
+};
+
+// Provider Component
 export const QuickAddProvider = ({ children }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState(null);
+  const [item, setItem] = useState(null);
 
-  const openQuickAdd = (item) => {
-    console.log("QuickAddContext: Opening QuickAddPopup with item:", item);
-    console.log("QuickAddContext: item:", item); // Inspect the 'item'
-    setSelectedItem(item);
+  const openQuickAdd = (itemData = null) => {
+    setItem(itemData);
     setIsOpen(true);
   };
 
   const closeQuickAdd = () => {
-    console.log("QuickAddContext: Closing QuickAddPopup");
     setIsOpen(false);
-    setSelectedItem(null);
+    // Clear item after animation would complete
+    setTimeout(() => {
+      setItem(null);
+    }, 300);
   };
 
   return (
-    <QuickAddContext.Provider value={{ isOpen, selectedItem, openQuickAdd, closeQuickAdd }}>
+    <QuickAddContext.Provider
+      value={{
+        isOpen,
+        item,
+        openQuickAdd,
+        closeQuickAdd
+      }}
+    >
       {children}
     </QuickAddContext.Provider>
   );
-};
-
-export const useQuickAdd = () => {
-  const context = useContext(QuickAddContext);
-  if (!context) {
-    throw new Error("useQuickAdd must be used within a QuickAddProvider");
-  }
-  return context;
 };

@@ -1,53 +1,159 @@
 // src/components/ItemQuickLookModal.jsx
-import React, { useState, useEffect } from 'react';
-import Modal from '@/components/UI/Modal';
-import { Loader2, AlertTriangle } from 'lucide-react';
-import { API_BASE_URL } from '@/config';
-import RestaurantCard from '@/components/UI/RestaurantCard';
-import DishCard from '@/components/UI/DishCard';
+import React from 'react';
+import { X, MapPin, Plus, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { useQuickAdd } from '../context/QuickAddContext';
+import useAppStore from '../hooks/useAppStore';
 
-// Placeholder for actual detail fetching
-const fetchItemDetails = async (itemId, itemType) => {
-  console.log(`[ItemQuickLookModal] Fetching details for ${itemType} ID: ${itemId}`);
-  // ** TODO: Replace this with actual API call **
-  // const endpoint = itemType === 'restaurant' ? \`/api/restaurants/\${itemId}\` : \`/api/dishes/\${itemId}\`;
-  // const response = await fetch(\`\${API_BASE_URL}\${endpoint}\`);
-  // if (!response.ok) throw new Error(\`Failed fetch \${itemType} details\`);
-  // return await response.json();
-
-  // Simulate API call delay and return mock data
-  await new Promise(resolve => setTimeout(resolve, 500));
-  if (itemType === 'restaurant') {
-    return { id: itemId, name: `Restaurant ${itemId} (Mock)`, neighborhood: 'Mock Hood', city: 'Mock City', tags: ['mock', 'data'], adds: 123 };
-  } else if (itemType === 'dish') {
-     return { id: itemId, name: `Dish ${itemId} (Mock)`, restaurant: `Mock Rest.`, restaurantId: `mock-rest-${itemId}`, tags: ['mock', 'data'], price: '$$', adds: 45 };
-  } else { throw new Error(`Unknown item type: ${itemType}`); }
-};
-
-const ItemQuickLookModal = ({ isOpen, onClose, item }) => {
-  const [details, setDetails] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    if (isOpen && item && item.id && item.type) {
-      setIsLoading(true); setError(null); setDetails(null);
-      console.log(`[ItemQuickLookModal useEffect] Fetch for:`, item);
-      fetchItemDetails(item.id, item.type)
-        .then(data => { setDetails(data); setError(null); })
-        .catch(err => { console.error("Err fetch quick look:", err); setError(err.message || 'Failed load.'); setDetails(null); })
-        .finally(() => setIsLoading(false));
-    } else if (!isOpen) { setDetails(null); setIsLoading(false); setError(null); }
-  }, [isOpen, item]);
-
-  const renderContent = () => {
-    if (isLoading) { return ( <div className="flex flex-col items-center justify-center h-64 text-gray-500"> <Loader2 className="animate-spin h-8 w-8 mb-2" /> Loading... </div> ); }
-    if (error) { return ( <div className="flex flex-col items-center justify-center h-64 text-red-600"> <AlertTriangle className="h-8 w-8 mb-2" /> <p>Error:</p> <p className="text-sm text-center">{error}</p> </div> ); }
-    if (!details) { return <div className="h-64 flex items-center justify-center text-gray-400">No details.</div>; }
-    return ( <div className="flex justify-center items-center p-4 min-h-[200px]"> {item?.type === 'restaurant' && <RestaurantCard {...details} />} {item?.type === 'dish' && <DishCard {...details} />} {/* Handle unknown type maybe? */} </div> );
+const ItemQuickLookModal = ({ item, onClose }) => {
+  const { openQuickAdd } = useQuickAdd();
+  const voteDish = useAppStore(state => state.voteDish);
+  
+  if (!item) return null;
+  
+  const isDish = item.type === 'dish';
+  
+  const handleQuickAdd = () => {
+    openQuickAdd({
+      id: item.id,
+      name: item.name,
+      type: item.type,
+      image_url: item.image_url,
+      restaurant_name: isDish ? item.restaurant_name : undefined
+    });
   };
-
-  return ( <Modal isOpen={isOpen} onClose={onClose} title={`Quick Look: ${item?.name || 'Item'}`}> {renderContent()} </Modal> );
+  
+  const handleVote = async (vote) => {
+    if (isDish) {
+      await voteDish(item.id, vote);
+    }
+  };
+  
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-lg overflow-hidden w-full max-w-md">
+        {/* Modal Header */}
+        <div className="relative">
+          {/* Item Image */}
+          <div className="h-56 bg-gray-200">
+            {item.image_url ? (
+              <img 
+                src={item.image_url} 
+                alt={item.name} 
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                <span className="text-gray-400">No image</span>
+              </div>
+            )}
+          </div>
+          
+          {/* Close Button */}
+          <button 
+            onClick={onClose}
+            className="absolute top-2 right-2 bg-white p-1.5 rounded-full shadow hover:bg-gray-100"
+          >
+            <X size={20} className="text-gray-700" />
+          </button>
+          
+          {/* Type Badge */}
+          <div className="absolute top-2 left-2 bg-blue-500 text-white text-xs px-2 py-1 rounded">
+            {isDish ? 'Dish' : 
+             item.type === 'restaurant' ? 'Restaurant' : 'List'}
+          </div>
+        </div>
+        
+        {/* Modal Content */}
+        <div className="p-4">
+          <h2 className="font-bold text-xl mb-1">
+            <Link 
+              to={`/${item.type}/${item.id}`} 
+              className="hover:text-blue-600"
+              onClick={onClose}
+            >
+              {item.name}
+            </Link>
+          </h2>
+          
+          {/* Restaurant (for dishes) */}
+          {isDish && item.restaurant_name && (
+            <p className="text-gray-700 mb-2">
+              <Link 
+                to={`/restaurant/${item.restaurant_id}`}
+                className="hover:text-blue-600"
+                onClick={onClose}
+              >
+                {item.restaurant_name}
+              </Link>
+            </p>
+          )}
+          
+          {/* Location */}
+          {item.location && (
+            <div className="flex items-center text-gray-600 text-sm mb-3">
+              <MapPin size={16} className="mr-1" />
+              <span>{item.location}</span>
+            </div>
+          )}
+          
+          {/* Description */}
+          {item.description && (
+            <p className="text-gray-700 text-sm mb-4">
+              {item.description}
+            </p>
+          )}
+          
+          {/* Tags */}
+          {item.tags && item.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1 mb-4">
+              {item.tags.map((tag) => (
+                <span 
+                  key={tag} 
+                  className="bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+          
+          {/* Action Buttons */}
+          <div className="flex justify-between items-center mt-2">
+            {/* Voting (for dishes) */}
+            {isDish && (
+              <div className="flex space-x-3">
+                <button 
+                  onClick={() => handleVote('up')}
+                  className="flex items-center text-gray-600 hover:text-green-600"
+                >
+                  <ThumbsUp size={18} className="mr-1" />
+                  <span>{item.votes_up || 0}</span>
+                </button>
+                
+                <button 
+                  onClick={() => handleVote('down')}
+                  className="flex items-center text-gray-600 hover:text-red-600"
+                >
+                  <ThumbsDown size={18} className="mr-1" />
+                  <span>{item.votes_down || 0}</span>
+                </button>
+              </div>
+            )}
+            
+            {/* Add to List Button */}
+            <button
+              onClick={handleQuickAdd}
+              className="bg-blue-600 text-white py-2 px-4 rounded flex items-center hover:bg-blue-700"
+            >
+              <Plus size={18} className="mr-1" />
+              <span>Add to List</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default ItemQuickLookModal;
