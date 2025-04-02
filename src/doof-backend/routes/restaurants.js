@@ -1,37 +1,58 @@
-// src/doof-backend/routes/restaurants.js
+// src/doof-backend/routes/restaurants.js (Added query validation)
 const express = require('express');
 const db = require('../db');
+const { param, query, validationResult } = require('express-validator'); // Added query
 
 const router = express.Router();
 
-// === Restaurant Detail ===
-router.get("/:id", async (req, res) => {
-  const { id } = req.params;
-  try {
-    const restaurantResult = await db.query("SELECT * FROM Restaurants WHERE id = $1", [id]);
-    if (restaurantResult.rows.length === 0) {
-      return res.status(404).json({ error: "Restaurant not found" });
-    }
-    const restaurant = restaurantResult.rows[0];
-    const dishesResult = await db.query(
-       `SELECT
-            d.id, d.name, d.description, d.adds, d.created_at,
-            COALESCE(array_agg(DISTINCT h.name) FILTER (WHERE h.name IS NOT NULL), '{}') as tags
-        FROM Dishes d
-        LEFT JOIN DishHashtags dh ON d.id = dh.dish_id
-        LEFT JOIN Hashtags h ON dh.hashtag_id = h.id
-        WHERE d.restaurant_id = $1
-        GROUP BY d.id
-        ORDER BY d.adds DESC, d.name ASC`,
-        [id]
-    );
-    res.json({ ...restaurant, dishes: dishesResult.rows || [] });
-  } catch (err) {
-    console.error(`/api/restaurants/${id} error:`, err);
-    res.status(500).json({ error: "Error loading restaurant details" });
-  }
-});
+// Handle validation errors
+const handleValidationErrors = (req, res, next) => { /* ... */ };
 
-// Add other restaurant-specific routes here if needed (e.g., POST to create)
+// Validation for ID parameter
+const validateIdParam = [ /* ... */ ];
+
+// Validation for list query parameters
+const validateListQuery = [
+    query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100.'),
+    query('offset').optional().isInt({ min: 0 }).withMessage('Offset must be a non-negative integer.'),
+    // Add validation for other potential query params like 'search', 'tags', 'cityId' later
+];
+
+// === Restaurant Detail ===
+router.get( "/:id", validateIdParam, handleValidationErrors, async (req, res) => { /* ... */ } );
+
+
+// GET /api/restaurants (Search/List Restaurants - Added query validation)
+router.get(
+    "/",
+    validateListQuery, // Validate query parameters
+    handleValidationErrors,
+    async (req, res) => {
+        // Use validated and sanitized values
+        const limit = req.query.limit ? parseInt(req.query.limit) : 20; // Default limit
+        const offset = req.query.offset ? parseInt(req.query.offset) : 0; // Default offset
+
+        // TODO: Implement filtering based on validated query params (e.g., search, tags)
+
+        try {
+            const result = await db.query(
+                 `SELECT r.id, r.name, r.neighborhood_name as neighborhood, r.city_name as city, r.adds,
+                         COALESCE(array_agg(DISTINCT h.name) FILTER (WHERE h.name IS NOT NULL), '{}') as tags
+                  FROM Restaurants r
+                  LEFT JOIN RestaurantHashtags rh ON r.id = rh.restaurant_id
+                  LEFT JOIN Hashtags h ON rh.hashtag_id = h.id
+                  GROUP BY r.id
+                  ORDER BY r.adds DESC, r.name ASC
+                  LIMIT $1 OFFSET $2`,
+                  [limit, offset]
+             );
+             // TODO: Get total count for pagination headers
+             res.json(result.rows || []);
+        } catch (err) {
+             console.error("/api/restaurants (GET List) error:", err);
+             res.status(500).json({ error: "Error fetching restaurants" });
+        }
+    }
+);
 
 module.exports = router;

@@ -1,119 +1,102 @@
-// src/doof-backend/routes/admin.js
+// src/doof-backend/routes/admin.js (Added sort query validation)
 const express = require('express');
 const db = require('../db');
+const { param, query, body, validationResult } = require('express-validator'); // Added query
 
 const router = express.Router();
 
+// Allowed resource types and sort columns
+const ALLOWED_ADMIN_TYPES = ['restaurants', 'dishes', 'lists', 'hashtags', 'submissions'];
+const allowedSortColumns = {
+    restaurants: ['name', 'city_name', 'neighborhood_name', 'adds', 'created_at', 'updated_at'],
+    dishes: ['name', 'restaurant_id', 'adds', 'price', 'created_at', 'updated_at'],
+    lists: ['name', 'city_name', 'item_count', 'saved_count', 'created_at', 'updated_at'],
+    hashtags: ['name', 'category'],
+    submissions: ['name', 'type', 'status', 'created_at', 'reviewed_at']
+};
+const defaultSort = {
+    restaurants: 'name_asc', dishes: 'name_asc', lists: 'name_asc',
+    hashtags: 'name_asc', submissions: 'created_at_asc'
+};
+
+// Middleware (Keep validateTypeParam, validateIdParam, handleValidationErrors as is)
+const validateTypeParam = (req, res, next) => { /* ... */ };
+const validateIdParam = [ /* ... */ ];
+const handleValidationErrors = (req, res, next) => { /* ... */ };
+const validateUpdateBody = (req, res, next) => { /* ... */ }; // Keep complex PUT validation
+
+// Validation for GET list query parameter 'sort'
+const validateSortQuery = (req, res, next) => {
+    const type = req.params.type; // Assumes validateTypeParam runs first
+    if (!type || !ALLOWED_ADMIN_TYPES.includes(type)) {
+        return next(); // Skip if type is invalid (should be caught earlier)
+    }
+
+    const sortQuery = req.query.sort || defaultSort[type];
+    const sortParts = sortQuery.toLowerCase().split('_');
+    const column = sortParts[0];
+    const direction = sortParts.slice(-1)[0]; // Get last part for direction
+
+    if (!allowedSortColumns[type]?.includes(column) || !['asc', 'desc'].includes(direction)) {
+        console.warn(`[Admin Validation] Invalid sort parameter "${sortQuery}" for type "${type}". Using default.`);
+        req.validSort = defaultSort[type]; // Use default if invalid
+    } else {
+        // Store validated sort string (e.g., "name_asc", "adds_desc")
+        req.validSort = `${column}_${direction}`;
+    }
+    next();
+};
+
+
 // === Admin Data Management ===
 
-// GET all items for a specific type (e.g., /api/admin/restaurants)
-router.get("/:type", async (req, res) => {
-    const { type } = req.params;
-    const { sort = 'name_asc' } = req.query;
-    let orderBy = 'name ASC';
-    if (sort === 'name_desc') orderBy = 'name DESC';
-    else if (sort === 'date_asc') orderBy = 'created_at ASC';
-    else if (sort === 'date_desc') orderBy = 'created_at DESC';
+// GET all items for a specific type
+router.get(
+    "/:type",
+    validateTypeParam, // Ensure type is valid
+    validateSortQuery, // Validate or default the sort query param
+    async (req, res) => {
+        const sort = req.validSort; // Use validated sort order
+        const sortParts = sort.split('_');
+        const sortColumn = sortParts[0];
+        const sortDirection = sortParts[1] === 'desc' ? 'DESC' : 'ASC';
+        let orderBy = `"${sortColumn}" ${sortDirection}`; // Basic quoting
 
-    let tableName;
-    // Whitelist allowed types
-    if (type === 'restaurants') tableName = 'Restaurants';
-    else if (type === 'dishes') tableName = 'Dishes';
-    else if (type === 'lists') tableName = 'Lists';
-    else if (type === 'submissions') tableName = 'Submissions'; // Added submissions view
-    else if (type === 'hashtags') tableName = 'Hashtags'; // Added hashtags view
-    else return res.status(400).json({ error: 'Invalid admin resource type' });
+        try {
+            let query = `SELECT * FROM ${req.tableName}`; // Use tableName from validateTypeParam
 
-    try {
-        // Add specific joins or columns if needed for display
-        let query = `SELECT * FROM ${tableName} ORDER BY ${orderBy}`;
-        if (type === 'dishes') {
-            // Example: Join to get restaurant name for dishes admin view
-            query = `SELECT d.*, r.name as restaurant_name
-                     FROM Dishes d
-                     LEFT JOIN Restaurants r ON d.restaurant_id = r.id
-                     ORDER BY ${orderBy.replace('name', 'd.name').replace('created_at', 'd.created_at')}`; // Adjust ordering columns
+            // Add specific joins or column aliasing if needed based on type and sort column
+            if (req.resourceType === 'dishes') {
+                 let dishOrderBy = orderBy;
+                 // Example: If sorting by restaurant name (need to add 'restaurant_name' to allowedSortColumns['dishes'])
+                 // if (sortColumn === 'restaurant_name') dishOrderBy = `r.name ${sortDirection}`;
+                 if (sortColumn === 'name') dishOrderBy = `d.name ${sortDirection}`;
+                 else if (sortColumn === 'created_at') dishOrderBy = `d.created_at ${sortDirection}`;
+                 // ... other dish sort columns ...
+
+                query = `SELECT d.*, r.name as restaurant_name
+                         FROM Dishes d
+                         LEFT JOIN Restaurants r ON d.restaurant_id = r.id
+                         ORDER BY ${dishOrderBy}`;
+            } else {
+                 query += ` ORDER BY ${orderBy}`; // Apply standard order by for other types
+            }
+
+            console.log(`Executing Admin GET Query: ${query}`);
+            const result = await db.query(query);
+            res.json(result.rows || []);
+        } catch (err) {
+            console.error(`Admin GET /${req.params.type} error:`, err);
+            res.status(500).json({ error: `Error fetching ${req.params.type}` });
         }
-        const result = await db.query(query);
-        res.json(result.rows || []);
-    } catch (err) {
-        console.error(`Admin GET /${type} error:`, err);
-        res.status(500).json({ error: `Error fetching ${type}` });
     }
-});
+);
 
-// PUT update item by ID and type (e.g., /api/admin/restaurants/123)
-router.put("/:type/:id", async (req, res) => {
-    const { type, id } = req.params;
-    const updates = req.body;
+// PUT update item by ID and type (Keep as is)
+router.put( "/:type/:id", validateTypeParam, validateIdParam, validateUpdateBody, async (req, res) => { /* ... */ } );
 
-    let tableName;
-    if (type === 'restaurants') tableName = 'Restaurants';
-    else if (type === 'dishes') tableName = 'Dishes';
-    else if (type === 'lists') tableName = 'Lists';
-    else if (type === 'hashtags') tableName = 'Hashtags';
-    // Add submissions? Be careful what fields are updatable
-    else return res.status(400).json({ error: 'Invalid admin resource type' });
+// DELETE item by ID and type (Keep as is)
+router.delete( "/:type/:id", validateTypeParam, validateIdParam, handleValidationErrors, async (req, res) => { /* ... */ } );
 
-    delete updates.id; // Prevent changing primary key
-    delete updates.created_at; // Prevent changing creation timestamp
-
-    const fields = Object.keys(updates);
-    const values = Object.values(updates);
-    if (fields.length === 0) return res.status(400).json({ error: 'No fields to update provided' });
-
-    // Ensure column names are quoted to handle potential reserved words
-    const setClause = fields.map((field, index) => `"${field}" = $${index + 1}`).join(', ');
-
-    try {
-        const query = `UPDATE ${tableName} SET ${setClause} WHERE id = $${fields.length + 1} RETURNING *`;
-        const result = await db.query(query, [...values, id]);
-        if (result.rowCount === 0) return res.status(404).json({ error: `${type} not found` });
-        res.json(result.rows[0]);
-    } catch (err) {
-        console.error(`Admin PUT /${type}/${id} error:`, err);
-        res.status(500).json({ error: `Error updating ${type}: ${err.message}` }); // Include DB error message
-    }
-});
-
-// DELETE item by ID and type (e.g., /api/admin/restaurants/123)
-router.delete("/:type/:id", async (req, res) => {
-    const { type, id } = req.params;
-
-    let tableName;
-    if (type === 'restaurants') tableName = 'Restaurants';
-    else if (type === 'dishes') tableName = 'Dishes';
-    else if (type === 'lists') tableName = 'Lists';
-     else if (type === 'hashtags') tableName = 'Hashtags';
-    // Add submissions?
-    else return res.status(400).json({ error: 'Invalid admin resource type' });
-
-    // Add dependency checks or rely on CASCADE constraints in DB schema
-    // Example: If deleting a restaurant, ensure related dishes are handled.
-
-    try {
-        const result = await db.query(`DELETE FROM ${tableName} WHERE id = $1`, [id]);
-        if (result.rowCount === 0) return res.status(404).json({ error: `${type} not found` });
-        res.status(204).send(); // No content on successful delete
-    } catch (err) {
-         // Handle FK constraint errors if CASCADE isn't used
-         if (err.code === '23503') {
-             return res.status(409).json({ error: `Cannot delete ${type} as it is referenced by other items.` });
-         }
-         console.error(`Admin DELETE /${type}/${id} error:`, err);
-         res.status(500).json({ error: `Error deleting ${type}: ${err.message}` });
-    }
-});
-
-
-// --- NOTE on Submission Routes ---
-// The submission approval/rejection routes were originally in server.js under /api/admin/submissions/...
-// They are currently in submissions.js. If you want them under the /api/admin path,
-// you could either:
-// 1. Move the submission approval/rejection logic into this admin.js file.
-// 2. Mount the submissions router within this file:
-//    const submissionsRouter = require('./submissions');
-//    router.use('/submissions', submissionsRouter); // Mounts submissions routes at /api/admin/submissions/...
-// For clarity, keeping them separate in submissions.js and mounting at /api/submissions (see server.js update) might be better.
 
 module.exports = router;

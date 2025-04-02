@@ -1,108 +1,179 @@
 // src/pages/Home/Results.jsx
-import React from 'react';
-import { Link } from 'react-router-dom';
-import useAppStore from '../../hooks/useAppStore';
-import useFilteredData from '../../hooks/useFilteredData';
+import React, { useCallback } from "react";
+import { ChevronUp, ChevronDown } from "lucide-react";
+import RestaurantCard from "@/components/UI/RestaurantCard";
+import DishCard from "@/components/UI/DishCard";
+import ListCard from "../Lists/ListCard";
+import useAppStore from "@/hooks/useAppStore";
+import useFilteredData from "@/hooks/useFilteredData";
+import Button from "@/components/Button";
 
-const Results = () => {
-  // Get trending data from the store
-  const trendingData = useAppStore(state => state.trendingData);
-  
-  // Apply filters to the data
-  const filteredData = useFilteredData(trendingData);
-  
-  // Check if we have any data to display
-  if (!filteredData || filteredData.length === 0) {
+const Results = React.memo(
+  ({
+    trendingItems = [],
+    trendingDishes = [],
+    popularLists = [],
+    expandedSections,
+    setExpandedSections,
+  }) => {
+    const clearFilters = useAppStore(state => state.clearFilters);
+
+    // Get filtered data using the hook
+    const filteredRestaurants = useFilteredData(trendingItems);
+    const filteredDishes = useFilteredData(trendingDishes);
+    const filteredLists = useFilteredData(popularLists);
+
+    const toggleSectionExpansion = useCallback((section) => {
+      setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
+    }, [setExpandedSections]);
+
+    const renderSection = useCallback((title, allItems, filteredItemsFromHook, renderItem, sectionKey) => {
+      const safeAllItems = Array.isArray(allItems) ? allItems : [];
+      const safeFilteredItemsFromHook = Array.isArray(filteredItemsFromHook) ? filteredItemsFromHook : [];
+
+      // Filter out invalid items robustly
+      const validFilteredItems = safeFilteredItemsFromHook.filter(item =>
+        item && item.id != null && item.id !== ''
+      );
+
+      const hadDataInitially = safeAllItems.length > 0;
+      const hasDataAfterFilter = validFilteredItems.length > 0;
+      const isExpanded = expandedSections[sectionKey];
+      const filtersAreActive = useAppStore.getState().activeFilters.cityId || 
+                              useAppStore.getState().activeFilters.neighborhoodId || 
+                              useAppStore.getState().activeFilters.tags.length > 0 || 
+                              !!useAppStore.getState().searchQuery;
+
+      // Robust Key Generation Function
+      const generateKey = (item, index) => {
+        if (item && item.id != null && item.id !== '') {
+          return `${sectionKey}-${item.id}`;
+        }
+        console.error(`[Results.jsx - ${sectionKey}] generateKey called with invalid item at index ${index} despite filtering:`, item);
+        return `${sectionKey}-invalid-${index}`; // Use index as last resort
+      };
+
+      return (
+        <section className="mb-12">
+          {/* Header */}
+          <div className="flex justify-between items-center mb-6 border-b border-gray-200 pb-2">
+            <h2 className="text-2xl font-bold text-gray-800">{title}</h2>
+            {(hasDataAfterFilter || (!hasDataAfterFilter && hadDataInitially && filtersAreActive)) && (
+              <button
+                onClick={() => toggleSectionExpansion(sectionKey)}
+                className="flex items-center text-gray-500 hover:text-[#D1B399] font-medium text-sm"
+                aria-expanded={isExpanded}
+                aria-controls={`${sectionKey}-content`}
+              >
+                {isExpanded ? "Collapse" : "Expand"} {isExpanded ? <ChevronUp size={16} className="ml-1" /> : <ChevronDown size={16} className="ml-1" />}
+              </button>
+            )}
+          </div>
+          {/* Content Area */}
+          <div id={`${sectionKey}-content`}>
+            {/* Empty/No Results States */}
+            {!hasDataAfterFilter && safeFilteredItemsFromHook.length > 0 && hadDataInitially && filtersAreActive && (
+              <div className="text-center py-8 px-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+                <h3 className="text-lg font-medium text-gray-700 mb-2">No valid results match your filters</h3>
+                <p className="text-gray-500 mb-4">Some data might be missing identifiers.</p>
+                <Button
+                  onClick={clearFilters}
+                  variant="tertiary"
+                  className="px-4 py-2 border-[#D1B399] text-[#D1B399] hover:bg-[#D1B399]/10"
+                >
+                  Clear all filters
+                </Button>
+              </div>
+            )}
+            {!hasDataAfterFilter && safeFilteredItemsFromHook.length === 0 && hadDataInitially && filtersAreActive && (
+              <div className="text-center py-8 px-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+                <h3 className="text-lg font-medium text-gray-700 mb-2">No results match your filters</h3>
+                <p className="text-gray-500 mb-4">Try adjusting your filters or search query.</p>
+                <Button
+                  onClick={clearFilters}
+                  variant="tertiary"
+                  className="px-4 py-2 border-[#D1B399] text-[#D1B399] hover:bg-[#D1B399]/10"
+                >
+                  Clear all filters
+                </Button>
+              </div>
+            )}
+            {!hadDataInitially && (
+              <div className="text-center py-8 px-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+                <p className="text-gray-500">No {title.toLowerCase()} available currently.</p>
+              </div>
+            )}
+
+            {/* Render Valid Items */}
+            {hasDataAfterFilter && isExpanded && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 place-items-start">
+                {validFilteredItems.map((item, index) => (
+                  <div key={generateKey(item, index)}>
+                    {renderItem(item)}
+                  </div>
+                ))}
+              </div>
+            )}
+            {hasDataAfterFilter && !isExpanded && (
+              <div className="flex overflow-x-auto space-x-6 pb-4 no-scrollbar">
+                {validFilteredItems.map((item, index) => (
+                  <div key={generateKey(item, index)} className="flex-shrink-0">
+                    {renderItem(item)}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+      );
+    }, [expandedSections, toggleSectionExpansion, clearFilters]);
+
+    // Keep safe array checks
+    const safeTrendingItems = Array.isArray(trendingItems) ? trendingItems : [];
+    const safeTrendingDishes = Array.isArray(trendingDishes) ? trendingDishes : [];
+    const safePopularLists = Array.isArray(popularLists) ? popularLists : [];
+
+    const hasAnyDataInitially = safeTrendingItems.length > 0 || safeTrendingDishes.length > 0 || safePopularLists.length > 0;
+    const filtersAreActive = useAppStore.getState().activeFilters.cityId || 
+                            useAppStore.getState().activeFilters.neighborhoodId || 
+                            useAppStore.getState().activeFilters.tags.length > 0 || 
+                            !!useAppStore.getState().searchQuery;
+
     return (
-      <div className="text-center py-8">
-        <p className="text-gray-500">No trending items match your filters. Try adjusting your criteria.</p>
-      </div>
+      <>
+        {/* Pass the original filtered data arrays from hooks into renderSection */}
+        {renderSection(
+          "Trending Dishes",
+          safeTrendingDishes,
+          filteredDishes,
+          (dish) => <DishCard {...dish} restaurant={dish.restaurant_name || dish.restaurant} restaurantId={dish.restaurant_id}/>,
+          "dishes"
+        )}
+        {renderSection(
+          "Trending Restaurants",
+          safeTrendingItems,
+          filteredRestaurants,
+          (restaurant) => <RestaurantCard {...restaurant} />,
+          "restaurants"
+        )}
+        {renderSection(
+          "Popular Lists",
+          safePopularLists,
+          filteredLists,
+          (list) => <ListCard {...list} isFollowing={list.is_following ?? false} canFollow={true} />,
+          "lists"
+        )}
+
+        {/* Fallback message if absolutely nothing is available initially and no filters active */}
+        {!hasAnyDataInitially && !filtersAreActive && (
+          <div className="text-center py-12 bg-white border border-gray-200 rounded-lg shadow-sm">
+            <h3 className="text-xl font-medium text-gray-700 mb-2">No Trending Items Found</h3>
+            <p className="text-gray-500">There's currently no trending data available.</p>
+          </div>
+        )}
+      </>
     );
   }
-  
-  return (
-    <div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredData.map((item) => (
-          <div key={`${item.type}-${item.id}`} className="bg-white rounded-lg shadow-md overflow-hidden">
-            {/* Item Image */}
-            <div className="h-48 bg-gray-200 relative">
-              {item.image_url ? (
-                <img 
-                  src={item.image_url} 
-                  alt={item.name} 
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                  <span className="text-gray-400">No image</span>
-                </div>
-              )}
-              
-              {/* Item Type Badge */}
-              <div className="absolute top-2 left-2 bg-blue-500 text-white text-xs px-2 py-1 rounded">
-                {item.type === 'dish' ? 'Dish' : 
-                 item.type === 'restaurant' ? 'Restaurant' : 'List'}
-              </div>
-            </div>
-            
-            {/* Item Content */}
-            <div className="p-4">
-              <h3 className="font-bold text-lg mb-1 truncate">
-                <Link 
-                  to={`/${item.type}/${item.id}`} 
-                  className="hover:text-blue-600"
-                >
-                  {item.name}
-                </Link>
-              </h3>
-              
-              {/* Location */}
-              {item.location && (
-                <p className="text-gray-600 text-sm mb-2">
-                  {item.location}
-                </p>
-              )}
-              
-              {/* Tags/Cuisines */}
-              {item.tags && item.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1 mb-3">
-                  {item.tags.slice(0, 3).map((tag) => (
-                    <span 
-                      key={tag} 
-                      className="bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                  {item.tags.length > 3 && (
-                    <span className="text-gray-500 text-xs">
-                      +{item.tags.length - 3} more
-                    </span>
-                  )}
-                </div>
-              )}
-              
-              {/* Trending Stats */}
-              <div className="flex items-center mt-3">
-                <div className="text-sm text-gray-600">
-                  <span className="font-medium text-green-600">
-                    {item.votes_up || 0}
-                  </span>{' '}
-                  upvotes
-                </div>
-                <span className="mx-2 text-gray-300">|</span>
-                <div className="text-sm text-gray-600">
-                  Trending in{' '}
-                  <span className="font-medium">{item.trending_location || 'NYC'}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
+);
 
 export default Results;

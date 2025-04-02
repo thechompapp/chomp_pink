@@ -1,20 +1,18 @@
-// src/config.js
+// src/config.js (Removed fallback API key)
 
-// Backend API URL - empty string for relative paths with Vite proxy
-export const API_BASE_URL = '';
+// Ensure your VITE_API_URL is set in your .env file (e.g., VITE_API_URL=http://localhost:5001)
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5001"; // Keep fallback for local dev
 
-// Google Maps API
-export const GOOGLE_MAPS_API_KEY = 'AIzaSyD_xhCWUXjhSXD4xpL-BxM5t7HfzJDf-dIY'; // Replace with your actual key
-export const GOOGLE_PLACES_API_KEY = 'AIzaSyD_xhCWUXjhSXD4xpL-BxM5t7HfzJDf-dIKEY'; // Replace with your actual key
+// Ensure your VITE_GOOGLE_PLACES_API_KEY is set in your .env file for frontend Places features
+// Remove the fallback empty string - if the key isn't set, features requiring it should handle its absence gracefully.
+const GOOGLE_PLACES_API_KEY = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
 
-// Other configuration constants
-export const DEFAULT_CITY_ID = 1;
-export const DEFAULT_PAGE_SIZE = 20;
-export const DEFAULT_LOCATION = {
-  lat: 40.7128,
-  lng: -74.0060
-}; // New York City
+// Log a warning if the Places API key is missing during development
+if (import.meta.env.DEV && !GOOGLE_PLACES_API_KEY) {
+  console.warn(
+    "config.js: VITE_GOOGLE_PLACES_API_KEY is not set in your .env file. " +
+    "Google Places features in the frontend (like Quick Add suggestions) may not work."
+  );
+}
 
-// Feature flags
-export const ENABLE_GOOGLE_MAPS = true;
-export const ENABLE_DISTANCE_SORTING = false; // Future feature
+export { API_BASE_URL, GOOGLE_PLACES_API_KEY };

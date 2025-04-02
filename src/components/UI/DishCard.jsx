@@ -1,133 +1,59 @@
 // src/components/UI/DishCard.jsx
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { MapPin, Plus, ThumbsUp, ThumbsDown } from 'lucide-react';
-import { useQuickAdd } from '../../context/QuickAddContext';
-import useAppStore from '../../hooks/useAppStore';
+import React from "react";
+import { Link } from "react-router-dom";
+import { Utensils, Users, Plus } from "lucide-react";
+import { useQuickAdd } from "@/context/QuickAddContext";
+import Button from "@/components/Button";
 
-const DishCard = ({ dish }) => {
-  const { openQuickAdd } = useQuickAdd();
-  const voteDish = useAppStore(state => state.voteDish);
-  
-  const handleQuickAdd = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    openQuickAdd({
-      id: dish.id,
-      name: dish.name,
-      type: 'dish',
-      image_url: dish.image_url,
-      restaurant_name: dish.restaurant_name
-    });
-  };
-  
-  const handleVote = async (vote) => {
-    await voteDish(dish.id, vote);
-    // Note: In a real app, you'd update the UI here or refetch data
-  };
-  
-  return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden h-full flex flex-col">
-      {/* Dish Image */}
-      <div className="h-48 bg-gray-200 relative">
-        {dish.image_url ? (
-          <img 
-            src={dish.image_url} 
-            alt={dish.name} 
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gray-200">
-            <span className="text-gray-400">No image</span>
-          </div>
-        )}
-        
-        {/* Quick Add Button */}
-        <button
-          onClick={handleQuickAdd}
-          className="absolute top-2 right-2 bg-white p-1.5 rounded-full shadow hover:bg-gray-100"
-          aria-label="Add to list"
-        >
-          <Plus size={20} className="text-blue-600" />
-        </button>
+const DishCard = React.memo(
+  ({ id = 1, name, restaurant, restaurantId, tags, price = "$$ • ", adds = Math.floor(Math.random() * 700) + 50 }) => {
+    const { openQuickAdd } = useQuickAdd();
+
+    const handleQuickAdd = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log("DishCard: handleQuickAdd called: id=", id);
+      openQuickAdd({ id, name, restaurant, tags, type: "dish" });
+    };
+
+    return (
+      // Apply w-72 and h-full for consistency
+      <div className="w-72 h-full bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md relative flex flex-col">
+         <button
+           onClick={handleQuickAdd}
+           className="absolute top-3 right-3 z-10 w-8 h-8 bg-[#D1B399] rounded-full flex items-center justify-center text-white shadow hover:bg-[#b89e89] transition-colors duration-150"
+           aria-label="Add to list"
+         >
+           <Plus size={20} />
+         </button>
+
+         <div className="flex flex-col flex-grow"> {/* Use flex-grow on inner container */}
+           <div className="flex-grow mb-4"> {/* Content pushes button down */}
+             <Link to={`/dish/${id}`} className="block focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#D1B399] rounded-md">
+               <h3 className="text-lg font-bold text-gray-900 mb-1 pr-8 truncate hover:text-[#D1B399]">{name}</h3>
+             </Link>
+             <div className="flex items-start text-gray-500 text-sm mb-1">
+               <Utensils size={14} className="mr-1.5 mt-0.5 flex-shrink-0" />
+               <span className="truncate"> {price}at <Link to={`/restaurant/${restaurantId || '#'}`} className="hover:text-[#D1B399] hover:underline">{restaurant}</Link> </span>
+             </div>
+             <div className="flex items-center text-gray-500 text-sm mb-3">
+               <Users size={14} className="mr-1.5" />
+               <span>{adds.toLocaleString()} adds</span>
+             </div>
+             <div className="flex flex-wrap gap-1">
+               {(tags || []).slice(0, 3).map((tag) => ( <span key={tag} className="px-2 py-0.5 bg-gray-100 rounded-full text-xs text-gray-600"> #{tag} </span> ))}
+               {(tags || []).length > 3 && ( <span className="px-2 py-0.5 bg-gray-100 rounded-full text-xs text-gray-600">...</span> )}
+             </div>
+           </div>
+           <div className="mt-auto"> {/* Button aligned to bottom */}
+             <Link to={`/dish/${id}`} className="block w-full">
+                <Button variant="tertiary" size="sm" className="w-full border-[#D1B399] text-[#D1B399] hover:bg-[#D1B399] hover:text-white" tabIndex={-1} > View </Button>
+              </Link>
+           </div>
+         </div>
       </div>
-      
-      {/* Dish Content */}
-      <div className="p-4 flex-1 flex flex-col">
-        <h3 className="font-bold text-lg mb-1 truncate">
-          <Link 
-            to={`/dish/${dish.id}`} 
-            className="hover:text-blue-600"
-          >
-            {dish.name}
-          </Link>
-        </h3>
-        
-        {/* Restaurant */}
-        <p className="text-gray-700 text-sm mb-2">
-          <Link 
-            to={`/restaurant/${dish.restaurant_id}`}
-            className="hover:text-blue-600"
-          >
-            {dish.restaurant_name}
-          </Link>
-        </p>
-        
-        {/* Location */}
-        {dish.neighborhood && (
-          <div className="flex items-center text-gray-600 text-sm mb-2">
-            <MapPin size={14} className="mr-1" />
-            <span>{dish.neighborhood}, {dish.city || 'NYC'}</span>
-          </div>
-        )}
-        
-        {/* Tags */}
-        {dish.tags && dish.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-3">
-            {dish.tags.slice(0, 3).map((tag) => (
-              <span 
-                key={tag} 
-                className="bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded"
-              >
-                {tag}
-              </span>
-            ))}
-            {dish.tags.length > 3 && (
-              <span className="text-gray-500 text-xs">
-                +{dish.tags.length - 3} more
-              </span>
-            )}
-          </div>
-        )}
-        
-        {/* Vote Buttons */}
-        <div className="mt-auto pt-3 flex items-center justify-between">
-          <div className="flex space-x-2">
-            <button 
-              onClick={() => handleVote('up')}
-              className="flex items-center text-sm text-gray-600 hover:text-green-600"
-            >
-              <ThumbsUp size={16} className="mr-1" />
-              <span>{dish.votes_up || 0}</span>
-            </button>
-            
-            <button 
-              onClick={() => handleVote('down')}
-              className="flex items-center text-sm text-gray-600 hover:text-red-600"
-            >
-              <ThumbsDown size={16} className="mr-1" />
-              <span>{dish.votes_down || 0}</span>
-            </button>
-          </div>
-          
-          {dish.price && (
-            <span className="text-gray-700 font-medium">${dish.price.toFixed(2)}</span>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
+    );
+  }
+);
 
 export default DishCard;

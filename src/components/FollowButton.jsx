@@ -1,59 +1,53 @@
 // src/components/FollowButton.jsx
-import React, { useState } from 'react';
-import { Heart } from 'lucide-react';
-import useAppStore from '../hooks/useAppStore';
+import React from "react";
+import useAppStore from "../hooks/useAppStore.js";
 
-const FollowButton = ({ listId, isFollowed: initialIsFollowed = false }) => {
-  const [isFollowed, setIsFollowed] = useState(initialIsFollowed);
-  const [isLoading, setIsLoading] = useState(false);
-  
-  const followList = useAppStore(state => state.followList);
-  const unfollowList = useAppStore(state => state.unfollowList);
-  
+const FollowButton = ({
+  listId,
+  isFollowing,
+  isFollowable = true // Default to true to enable by default
+}) => {
+  const toggleFollowList = useAppStore((state) => state.toggleFollowList);
+  const isLoading = useAppStore((state) => state.isLoadingUserLists || state.isInitializing);
+
   const handleToggleFollow = async (e) => {
     e.preventDefault();
     e.stopPropagation();
-    
-    if (isLoading) return;
-    
-    setIsLoading(true);
-    
+
+    if (!isFollowable) {
+      console.log(`[FollowButton] Clicked for listId: ${listId}, but action is disabled (isFollowable=false).`);
+      return;
+    }
+
+    if (listId === undefined || listId === null) {
+      console.error("[FollowButton] listId is missing or invalid!");
+      return;
+    }
+
     try {
-      if (isFollowed) {
-        await unfollowList(listId);
-        setIsFollowed(false);
-      } else {
-        await followList(listId);
-        setIsFollowed(true);
-      }
+      await toggleFollowList(listId);
+      console.log(`[FollowButton] Toggled follow for listId: ${listId}, new state: ${!isFollowing}`);
     } catch (error) {
-      console.error('Error toggling follow status:', error);
-    } finally {
-      setIsLoading(false);
+      console.error("[FollowButton] Error toggling follow:", error);
     }
   };
-  
+
+  const isDisabled = isLoading || !isFollowable || listId === undefined || listId === null;
+
   return (
     <button
       onClick={handleToggleFollow}
-      disabled={isLoading}
-      className={`
-        flex items-center px-3 py-1.5 rounded-full 
-        ${isFollowed
-          ? 'bg-red-100 text-red-600 hover:bg-red-200'
-          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-        }
-        transition-colors duration-200
-        ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}
-      `}
+      disabled={isDisabled}
+      className={`px-3 py-1.5 rounded-lg font-medium text-sm flex items-center justify-center transition-colors duration-150 ${
+        isFollowing
+          ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
+          : "bg-[#D1B399] text-white hover:bg-[#b89e89]"
+      } ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+      aria-pressed={!!isFollowing}
+      aria-label={isFollowing ? `Unfollow list ${listId}` : `Follow list ${listId}`}
+      title={!isFollowable && !isLoading ? "Manage follows in My Lists" : ""}
     >
-      <Heart
-        size={16}
-        className={`mr-1 ${isFollowed ? 'fill-red-600' : ''}`}
-      />
-      <span className="text-sm font-medium">
-        {isFollowed ? 'Following' : 'Follow'}
-      </span>
+      {isFollowing ? "Unfollow" : "Follow"}
     </button>
   );
 };

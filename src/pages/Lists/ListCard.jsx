@@ -1,78 +1,91 @@
-// src/components/UI/ListCard.jsx
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { User, ChevronRight } from 'lucide-react';
-import FollowButton from '../FollowButton';
+// src/components/ListCard.jsx
+import React from "react";
+import { Link } from "react-router-dom";
+import { List, Users } from "lucide-react";
+import FollowButton from "@/components/FollowButton";
 
-const ListCard = ({ list, showFollowButton = true }) => {
-  // Get number of items in the list
-  const itemCount = list.items ? list.items.length : 0;
-  
-  return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden">
-      {/* List Header */}
-      <div className="p-4 border-b">
-        <div className="flex justify-between items-start">
-          <h3 className="font-bold text-lg truncate pr-2">
-            <Link 
-              to={`/list/${list.id}`} 
-              className="hover:text-blue-600"
-            >
-              {list.name}
-            </Link>
-          </h3>
-          
-          {showFollowButton && (
-            <FollowButton listId={list.id} isFollowed={list.is_followed} />
+const ListCard = React.memo(
+  ({
+    id,
+    name,
+    itemCount,
+    savedCount,
+    city,
+    tags,
+    isFollowing = false,
+    canFollow = true, // Default to true to enable follow functionality
+    createdByUser = false,
+    creatorHandle = "@user",
+    isPublic
+  }) => {
+    return (
+      <div className="w-72 bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md relative flex flex-col h-full">
+        {!createdByUser && (
+          <div className="absolute top-3 right-3 z-10">
+            <FollowButton
+              listId={id}
+              isFollowing={isFollowing}
+              isFollowable={canFollow}
+            />
+          </div>
+        )}
+        <div className="flex-grow">
+          <Link to={`/lists/${id}`} className={`block mb-2 ${!createdByUser ? 'pr-12' : ''}`}>
+            <h3 className="text-lg font-bold text-gray-900 truncate hover:text-[#D1B399]">{name || "Unnamed List"}</h3>
+          </Link>
+          {!createdByUser && (
+            <div className="text-gray-500 text-sm mb-2">Created by {creatorHandle}</div>
           )}
-        </div>
-        
-        {/* List Creator */}
-        <div className="flex items-center text-gray-600 text-sm mt-1">
-          <User size={14} className="mr-1" />
-          <span>{list.created_by || 'Anonymous'}</span>
-        </div>
-      </div>
-      
-      {/* List Preview */}
-      <div className="p-4">
-        {/* List Description */}
-        {list.description && (
-          <p className="text-gray-700 text-sm mb-3 line-clamp-2">
-            {list.description}
-          </p>
-        )}
-        
-        {/* Item Count */}
-        <p className="text-sm text-gray-600">
-          {itemCount} {itemCount === 1 ? 'item' : 'items'}
-        </p>
-        
-        {/* Preview Items */}
-        {list.items && list.items.length > 0 && (
-          <ul className="mt-2 space-y-2">
-            {list.items.slice(0, 3).map((item, index) => (
-              <li key={index} className="flex items-center text-sm">
-                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-2"></span>
-                <span className="text-gray-700 truncate flex-1">
-                  {item.name}
-                </span>
-              </li>
+          <div className="flex items-start text-gray-500 text-sm mb-2">
+            <List size={14} className="mr-1 mt-0.5 flex-shrink-0" />
+            <span className="truncate">{itemCount || 0} items</span>
+          </div>
+          <div className="flex items-center text-gray-500 text-sm mb-3">
+            <Users size={14} className="mr-1" />
+            <span>{(savedCount || 0).toLocaleString()} saves</span>
+          </div>
+          {city && (
+            <div className="text-gray-500 text-sm mb-3">
+              <span>{city}</span>
+            </div>
+          )}
+          <div className="flex flex-wrap gap-1">
+            {(tags || []).slice(0, 3).map((tag) => (
+              <span key={tag} className="px-2 py-0.5 bg-gray-100 rounded-full text-xs text-gray-600">
+                #{tag}
+              </span>
             ))}
-            
-            {list.items.length > 3 && (
-              <li className="text-blue-600 text-sm flex items-center">
-                <Link to={`/list/${list.id}`} className="flex items-center">
-                  <span>View all {list.items.length} items</span>
-                  <ChevronRight size={16} className="ml-1" />
-                </Link>
-              </li>
+            {(tags || []).length > 3 && (
+              <span className="px-2 py-0.5 bg-gray-100 rounded-full text-xs text-gray-600">...</span>
             )}
-          </ul>
-        )}
+          </div>
+        </div>
+        <div className="mt-4">
+          <Link
+            to={`/lists/${id}`}
+            className="block w-full py-2 border border-[#D1B399] text-[#D1B399] rounded-lg text-center font-medium hover:bg-[#D1B399] hover:text-white transition-colors duration-150"
+          >
+            View
+          </Link>
+        </div>
       </div>
-    </div>
-  );
-};
+    );
+  },
+  (prevProps, nextProps) => {
+    return (
+      prevProps.id === nextProps.id &&
+      prevProps.name === nextProps.name &&
+      prevProps.itemCount === nextProps.itemCount &&
+      prevProps.savedCount === nextProps.savedCount &&
+      prevProps.city === nextProps.city &&
+      JSON.stringify(prevProps.tags) === JSON.stringify(nextProps.tags) &&
+      prevProps.isFollowing === nextProps.isFollowing &&
+      prevProps.canFollow === nextProps.canFollow &&
+      prevProps.createdByUser === nextProps.createdByUser &&
+      prevProps.creatorHandle === nextProps.creatorHandle &&
+      prevProps.isPublic === nextProps.isPublic
+    );
+  }
+);
 
 export default ListCard;
