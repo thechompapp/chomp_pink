@@ -1,72 +1,71 @@
-// src/App.jsx (Use getState in useEffect)
-import React, { useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import useAppStore from "@/hooks/useAppStore.js"; // Still need the hook reference for getState
+// src/App.jsx
+// Added setTimeout to the fetchUserLists call in the second useEffect
+
+import React, { useEffect, useRef } from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { QuickAddProvider } from "@/context/QuickAddContext.jsx";
-import QuickAddPopup from "@/components/QuickAddPopup.jsx";
-import Home from "@/pages/Home/index.jsx";
-import Trending from "@/pages/Trending/index.jsx";
-import MyLists from "@/pages/Lists/MyLists.jsx";
-import ListDetail from "@/pages/Lists/ListDetail.jsx";
-import RestaurantDetail from "@/pages/RestaurantDetail/index.jsx";
-import DishDetail from "@/pages/DishDetail/index.jsx";
-import Search from "@/pages/Search/index.jsx";
-import AdminPanel from "@/pages/AdminPanel/index.jsx";
-import Dashboard from "@/pages/Dashboard/index.jsx";
+import useAppStore from "@/hooks/useAppStore";
 import PageContainer from "@/layouts/PageContainer.jsx";
+import Home from "@/pages/Home/index.jsx";
+import Lists from "@/pages/Lists/index.jsx";
+import ListDetail from "@/pages/Lists/ListDetail.jsx";
+// Import other page components as needed
 
 const App = () => {
-  // Removed the useAppStore hook call for initializeApp from here
+  // Select actions and states needed
+  const initializeApp = useAppStore(state => state.initializeApp);
+  const fetchUserLists = useAppStore(state => state.fetchUserLists);
+  const isInitializing = useAppStore(state => state.isInitializing);
+  const initializationError = useAppStore(state => state.initializationError);
+  // Removed hasFetchedUserLists dependency here as we use a ref guard now
 
-  // This useEffect will run once on component mount
+  const hasCalledInitialize = useRef(false);
+  const hasCalledFetchUserLists = useRef(false);
+
+  // Effect for Core Initialization (runs once on mount)
   useEffect(() => {
-    console.log('[App useEffect] Running mount effect for initialization check.');
-    // Get current state and actions via getState()
-    const state = useAppStore.getState();
-    const initializeAppAction = state.initializeApp; // Get action reference
-
-    console.log('[App useEffect] typeof initializeAppAction:', typeof initializeAppAction);
-
-    if (!state.isInitializing && !state.initializationError) {
-        // Check if data seems uninitialized
-        if(state.cities.length === 0 && state.cuisines.length === 0) {
-            console.log("[App useEffect] Data seems uninitialized. Triggering initializeApp...");
-            // Check if action exists before calling
-            if (typeof initializeAppAction === 'function') {
-                initializeAppAction(); // Call action obtained via getState
-            } else {
-                console.error('[App useEffect] initializeAppAction is not a function via getState()!');
-            }
-        } else {
-            console.log("[App useEffect] Data already present or initialization attempted. Skipping initializeApp call.");
-        }
-    } else {
-         console.log("[App useEffect] Skipping initializeApp check. isInitializing:", state.isInitializing, "Error:", state.initializationError);
+    if (!hasCalledInitialize.current) {
+      console.log("[App Core Init Effect] Triggering initializeApp...");
+      initializeApp();
+      hasCalledInitialize.current = true;
     }
-  // Empty dependency array ensures this effect runs only once on mount
-  }, []); // <--- Empty dependency array
+  }, [initializeApp]); // Dependency: initializeApp action
+
+  // Effect for Fetching User Lists (runs AFTER core init finishes successfully)
+  useEffect(() => {
+    // Check conditions: core init done, no error, fetch not already attempted
+    if (!isInitializing && !initializationError && !hasCalledFetchUserLists.current) {
+       console.log("[App User List Effect] Core init complete. Triggering fetchUserLists with delay...");
+       hasCalledFetchUserLists.current = true; // Mark as attempted immediately
+
+       // Add a short delay before fetching user lists
+       const timerId = setTimeout(() => {
+           console.log("[App User List Effect] setTimeout finished. Calling fetchUserLists.");
+           fetchUserLists();
+       }, 100); // 100ms delay
+
+       // Cleanup function to clear the timeout if the component unmounts
+       // or dependencies change before the timeout finishes
+       return () => clearTimeout(timerId);
+    }
+  // Dependencies: Watch core init status, error, and the fetch action itself
+  }, [isInitializing, initializationError, fetchUserLists]);
+
 
   return (
-    <Router>
-      <QuickAddProvider>
-        <PageContainer>
-          <Routes>
+    <QuickAddProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route element={<PageContainer />}>
             <Route path="/" element={<Home />} />
-            <Route path="/trending" element={<Trending />} />
-            <Route path="/lists" element={<MyLists />} />
-            <Route path="/lists/:id" element={<ListDetail />} />
-            <Route path="/restaurant/:id" element={<RestaurantDetail />} />
-            <Route path="/dish/:id" element={<DishDetail />} />
-            <Route path="/search" element={<Search />} />
-            <Route path="/admin" element={<AdminPanel />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            {/* Add other routes as needed */}
-          </Routes>
-        </PageContainer>
-        {/* Render QuickAddPopup globally */}
-        <QuickAddPopup />
-      </QuickAddProvider>
-    </Router>
+            <Route path="/lists" element={<Lists />}>
+              <Route path=":id" element={<ListDetail />} />
+            </Route>
+            {/* Other routes */}
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </QuickAddProvider>
   );
 };
 

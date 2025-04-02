@@ -1,73 +1,77 @@
-// src/pages/Home/index.jsx (Select state individually)
-import React, { useState } from "react"; // Removed useEffect as initializeApp is in App.jsx
+// src/pages/Home/index.jsx
+import React, { useMemo } from "react"; // Removed useEffect, useRef
 import useAppStore from "@/hooks/useAppStore.js";
 import SearchBar from "@/components/UI/SearchBar.jsx";
 import FilterSection from "@/pages/Home/FilterSection.jsx";
 import Results from "@/pages/Home/Results.jsx";
 import Button from "@/components/Button.jsx";
+import { Loader2, AlertTriangle } from "lucide-react"; // Import icons
 
 const Home = () => {
-  // --- Global State ---
-  // Select necessary state slices individually
-  const trendingItems = useAppStore(state => state.trendingItems) || []; // Default to empty array
-  const trendingDishes = useAppStore(state => state.trendingDishes) || []; // Default to empty array
-  const popularLists = useAppStore(state => state.popularLists) || []; // Default to empty array
-  // Select loading/error states if needed for display within Home specifically
-  // (Currently handled primarily by initializeApp and potentially displayed globally or in Results)
-  const isLoading = useAppStore(state => state.isInitializing || state.isLoadingTrending); // Combine relevant loading flags
-  const error = useAppStore(state => state.initializationError || state.trendingError);
-  // Select search query and setter
-  const searchQuery = useAppStore(state => state.searchQuery);
+  // Select state slices individually - No change needed here
+  const trendingItems = useAppStore(state => state.trendingItems);
+  const trendingDishes = useAppStore(state => state.trendingDishes);
+  const popularLists = useAppStore(state => state.popularLists);
+  const isInitializing = useAppStore(state => state.isInitializing);
+  const initializationError = useAppStore(state => state.initializationError);
   const setSearchQuery = useAppStore(state => state.setSearchQuery);
-  // Select initializeApp for retry button if needed here
-  const initializeApp = useAppStore(state => state.initializeApp);
+  const initializeApp = useAppStore(state => state.initializeApp); // Keep for Retry button
+  // Check if data has been loaded at least once (even if empty or error occurred)
+  const hasAttemptedInit = useAppStore(state => !state.isInitializing); // Can likely be simplified now
 
+  // --- REMOVED useEffect hook that called initializeApp ---
 
-  // Local state for expanding sections remains the same
-  const [expandedSections, setExpandedSections] = useState({
-    restaurants: false,
-    dishes: false,
-    lists: false,
-  });
+  // --- Loading State ---
+  // Show loading indicator if initialization is in progress
+  if (isInitializing) {
+     console.log("[Home Render] Showing Loading State");
+     return (
+       <div className="flex justify-center items-center h-[calc(100vh-200px)]">
+         <div className="text-center text-gray-500">
+           <Loader2 className="animate-spin h-10 w-10 mx-auto mb-3" />
+           Loading Trending Data...
+         </div>
+       </div>
+     );
+   }
 
+  // --- Error State ---
+  // Show error if initialization finished AND resulted in an error
+  // Note: !isInitializing is implicitly true if we reach this point
+  if (initializationError) {
+     console.error("[Home Render] Showing Error State:", initializationError);
+     return (
+       <div className="max-w-2xl mx-auto text-center py-10 px-4">
+          <AlertTriangle className="h-12 w-12 text-red-400 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-red-700 mb-2">Failed to Load Data</h2>
+          <p className="text-red-600 mb-6">{initializationError || "An unknown error occurred."}</p>
+          <Button
+            onClick={() => {
+               console.log("[Home] Retry button clicked.");
+               // Directly call initializeApp - App.jsx's guard should prevent duplicates if needed
+               initializeApp();
+            }}
+            variant="primary"
+            className="px-6 py-2"
+          >
+             Retry Load
+           </Button>
+       </div>
+     );
+   }
 
-  // --- Loading / Error Handling ---
-  // Display loading indicator based on global state
-  if (isLoading) {
-    console.log("[Home] Rendering Loading State.");
-    return <div className="text-center py-10 text-gray-500">Loading Trending Data...</div>;
-  }
-
-  // Display error message based on global state
-  if (error) {
-    console.error("[Home] Rendering Error State:", error);
-    return (
-      <div className="text-center py-10">
-        <p className="text-red-500 mb-4">
-          Error loading data: {error}.
-        </p>
-        {/* Provide a retry mechanism */}
-        <Button onClick={initializeApp} variant="primary" className="px-4 py-2">Retry Load</Button>
-      </div>
-    );
-  }
-
-  // --- Render Page ---
-  console.log("[Home] Rendering Results. Data:", { items: trendingItems.length, dishes: trendingDishes.length, lists: popularLists.length });
+  // --- Success/Content State ---
+  // Render content if initialization is finished (isInitializing is false) and there's no error
+  console.log("[Home Render] Rendering Main Content.");
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      {/* Search Bar - Pass stable setter */}
       <SearchBar onSearch={setSearchQuery} />
-      {/* Filter Section - Reads state internally */}
       <FilterSection />
-      {/* Results - Pass data arrays and search query */}
       <Results
-        trendingItems={trendingItems}
-        trendingDishes={trendingDishes}
-        popularLists={popularLists}
-        expandedSections={expandedSections}
-        setExpandedSections={setExpandedSections}
-        searchQuery={searchQuery}
+        // Ensure arrays are passed, even if empty
+        trendingItems={Array.isArray(trendingItems) ? trendingItems : []}
+        trendingDishes={Array.isArray(trendingDishes) ? trendingDishes : []}
+        popularLists={Array.isArray(popularLists) ? popularLists : []}
       />
     </div>
   );

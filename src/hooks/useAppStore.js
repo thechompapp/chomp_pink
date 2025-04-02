@@ -1,138 +1,143 @@
 // src/hooks/useAppStore.js
-// MODIFIED: initializeApp fetches sequentially with logging for debugging hangs
+// REMOVED /api/lists fetch from initializeApp
+// Kept sequential fetching for other initial data
+// Kept simplified fetch helper
+
 import { create } from 'zustand';
 import { API_BASE_URL } from '@/config';
 
-// Helper function to check response status and parse JSON
-const checkOk = async (res, name) => {
-    if (!res.ok) {
-        const errorBody = await res.text().catch(() => 'Failed to read error body');
-        console.error(`Workspace failed for ${name}: ${res.status} ${res.statusText}`, errorBody);
-        throw new Error(`Failed to fetch ${name}: ${res.status}`);
+// Simplified fetch helper (keep from previous step)
+const simpleFetchAndParse = async (url, resourceName) => {
+  console.log(`[simpleFetchAndParse] Fetching ${resourceName} from ${url}`);
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      let errorDetails = `Failed to fetch ${resourceName} (${response.status})`;
+      try { const errorData = await response.json(); errorDetails = errorData.error || errorDetails; } catch (jsonError) { /* Ignore */ }
+      console.error(`[simpleFetchAndParse] Fetch failed for ${resourceName}: ${errorDetails}`);
+      throw new Error(errorDetails);
     }
-    // console.log(`Workspace successful for ${name}, parsing JSON...`); // Optional success log
-    try {
-        return await res.json();
-    } catch (jsonError) {
-         console.error(`Failed to parse JSON for ${name}:`, jsonError);
-         throw new Error(`Failed to parse response for ${name}`);
+    const data = await response.json();
+    console.log(`[simpleFetchAndParse] Successfully fetched and parsed ${resourceName}.`);
+    if ((url.includes('/lists') || url.includes('/cities') || url.includes('/cuisines') || url.includes('/trending')) && !Array.isArray(data)) {
+        console.warn(`[simpleFetchAndParse] Expected array but received ${typeof data} for ${resourceName}. Returning empty array.`);
+        return [];
     }
+    return data;
+  } catch (error) {
+    console.error(`[simpleFetchAndParse] Error for ${resourceName} (${url}):`, error);
+    throw new Error(`Error processing ${resourceName}: ${error.message}`);
+  }
 };
 
-
 const useAppStore = create((set, get) => ({
-  // State slices...
+  // State
   trendingItems: [],
   trendingDishes: [],
   popularLists: [],
   cities: [],
-  neighborhoods: [],
   cuisines: [],
-  userLists: [],
-  pendingSubmissions: [],
-  searchQuery: '',
+  userLists: [], // User lists state
   activeFilters: { cityId: null, neighborhoodId: null, tags: [] },
-  isInitializing: false,
-  isLoadingTrending: false,
-  isLoadingFilterOptions: false,
+  searchQuery: '',
+  neighborhoods: [],
+  isInitializing: false, // Main app init state
   initializationError: null,
-  trendingError: null,
-  isLoadingUserLists: false,
-  hasFetchedUserLists: false,
+  isLoadingUserLists: false, // Separate loading state for user lists
   userListsError: null,
+  hasFetchedUserLists: false, // Track if user lists have been fetched
 
-  // Actions...
+  // Actions
   setSearchQuery: (query) => set({ searchQuery: query }),
-  clearFilters: () => set({ /* ... */ }),
-  setFilter: (key, value) => set(state => ({ /* ... */ })),
-  toggleFilterTag: (tag) => set(state => { /* ... */ }),
+  setActiveFilters: (filters) => set({ activeFilters: filters }),
+  clearFilters: () => set({ activeFilters: { cityId: null, neighborhoodId: null, tags: [] }, searchQuery: '' }),
+  setFilter: (key, value) => set(state => ({ activeFilters: { ...state.activeFilters, [key]: value } })),
+  toggleFilterTag: (tag) => set(state => ({ /* ... */ })),
   fetchNeighborhoods: async (cityId) => { /* ... */ },
-  fetchPendingSubmissions: async () => { /* ... */ },
-  approveSubmission: async (submissionId) => { /* ... */ },
-  rejectSubmission: async (submissionId) => { /* ... */ },
-  fetchTrendingData: async () => { /* ... */ },
-  addToList: async (listId, payload, isNewList = false) => { /* Correct version from response #37 */ },
-  addPendingSubmission: async (submission) => { /* ... */ },
-  checkDuplicateRestaurant: async (placeId) => { /* ... */ },
-  fetchUserLists: async (force = false) => { /* ... */ },
-  toggleFollowList: async (listId) => { /* ... */ },
-  removeFromList: async (listId, listItemId) => { /* ... */ },
-  updateListVisibility: async (listId, is_public) => { /* Correct version from response #37 */ },
+  clearUserListsError: () => set({ userListsError: null }),
 
-
-  // --- Modified initializeApp (Sequential Fetching) ---
+  // initializeApp - Fetches CORE data needed for homepage (NO USER LISTS)
   initializeApp: async () => {
-    if (get().isInitializing) {
-      console.log('[initializeApp SKIP] Already initializing.');
-      return;
-    }
-    console.log('[initializeApp START]');
-    // Ensure flags indicate loading
-    set({ isInitializing: true, initializationError: null, hasFetchedUserLists: false, isLoadingUserLists: true, userListsError: null });
+    const { isInitializing } = get();
+    if (isInitializing) return; // Already running
+
+    console.log("[initializeApp START] Fetching core data sequentially...");
+    set({ isInitializing: true, initializationError: null });
+
+    let coreData = {
+        trendingItems: [], trendingDishes: [], popularLists: [],
+        cities: [], cuisines: []
+        // No userLists here
+    };
+    let errorMsg = null;
 
     try {
-        let trendingRestaurants, trendingDishes, popularLists, cities, cuisines, userLists;
+        // Fetch only core data needed for immediate display
+        coreData.trendingItems = await simpleFetchAndParse(`${API_BASE_URL}/api/trending/restaurants`, 'trending restaurants');
+        coreData.trendingDishes = await simpleFetchAndParse(`${API_BASE_URL}/api/trending/dishes`, 'trending dishes');
+        coreData.popularLists = await simpleFetchAndParse(`${API_BASE_URL}/api/trending/lists`, 'popular lists');
+        coreData.cities = await simpleFetchAndParse(`${API_BASE_URL}/api/cities`, 'cities');
+        coreData.cuisines = await simpleFetchAndParse(`${API_BASE_URL}/api/cuisines`, 'cuisines');
 
-        console.log('[initializeApp] Fetching trending restaurants...');
-        const trendingRestaurantsRes = await fetch(`${API_BASE_URL}/api/trending/restaurants`);
-        trendingRestaurants = await checkOk(trendingRestaurantsRes, 'trending restaurants');
-        console.log('[initializeApp] Fetched trending restaurants OK.');
+        console.log("[initializeApp] Core sequential fetches attempted.");
 
-        console.log('[initializeApp] Fetching trending dishes...');
-        const trendingDishesRes = await fetch(`${API_BASE_URL}/api/trending/dishes`);
-        trendingDishes = await checkOk(trendingDishesRes, 'trending dishes');
-        console.log('[initializeApp] Fetched trending dishes OK.');
-
-        console.log('[initializeApp] Fetching popular lists...');
-        const popularListsRes = await fetch(`${API_BASE_URL}/api/trending/lists`);
-        popularLists = await checkOk(popularListsRes, 'popular lists');
-        console.log('[initializeApp] Fetched popular lists OK.');
-
-        console.log('[initializeApp] Fetching cities...');
-        const citiesRes = await fetch(`${API_BASE_URL}/api/cities`);
-        cities = await checkOk(citiesRes, 'cities');
-        console.log('[initializeApp] Fetched cities OK.');
-
-        console.log('[initializeApp] Fetching cuisines...');
-        const cuisinesRes = await fetch(`${API_BASE_URL}/api/cuisines`);
-        cuisines = await checkOk(cuisinesRes, 'cuisines');
-        console.log('[initializeApp] Fetched cuisines OK.');
-
-        // Fetch user lists as part of initialization
-        console.log('[initializeApp] Fetching user lists...');
-        const userListsRes = await fetch(`${API_BASE_URL}/api/lists`);
-        userLists = await checkOk(userListsRes, 'user lists');
-        console.log('[initializeApp] Fetched user lists OK.');
-
-        // If all fetches succeeded:
+    } catch (error) {
+        console.error("[initializeApp] Error during core sequential fetch:", error);
+        errorMsg = error.message || "An error occurred during core data fetching.";
+    } finally {
+        console.log(`[initializeApp finally] Updating state. ErrorMsg: ${errorMsg}`);
         set({
-            trendingItems: trendingRestaurants || [],
-            trendingDishes: trendingDishes || [],
-            popularLists: popularLists || [],
-            cities: cities || [],
-            cuisines: cuisines || [],
-            userLists: userLists || [],
-            isInitializing: false, // Finish initialization
-            isLoadingUserLists: false, // Finish user lists loading
-            hasFetchedUserLists: true, // Mark lists as fetched
-            userListsError: null,
-            initializationError: null, // Clear any previous init error
+            isInitializing: false, // Core init finished
+            initializationError: errorMsg,
+            trendingItems: Array.isArray(coreData.trendingItems) ? coreData.trendingItems : [],
+            trendingDishes: Array.isArray(coreData.trendingDishes) ? coreData.trendingDishes : [],
+            popularLists: Array.isArray(coreData.popularLists) ? coreData.popularLists : [],
+            cities: Array.isArray(coreData.cities) ? coreData.cities : [],
+            cuisines: Array.isArray(coreData.cuisines) ? coreData.cuisines : [],
+            // userLists is NOT set here
         });
-        console.log('[initializeApp SUCCESS] Initialization complete.');
-
-    } catch (err) {
-        // This will catch the first error thrown by checkOk
-        console.error('[initializeApp ERROR] Failure during initialization fetch sequence:', err);
-        set({
-            initializationError: err.message || 'Initialization failed', // Store specific error
-            isInitializing: false, // Stop initializing on error
-            isLoadingUserLists: false, // Also stop user list loading if it failed there
-            userListsError: get().userListsError || err.message, // Keep existing list error or set new one
-         });
-         // Keep partially fetched data, don't clear everything
+        if (!errorMsg) console.log("[initializeApp SUCCESS] Core state updated.");
+        else console.log("[initializeApp FINISHED WITH ERROR] Core state updated.");
     }
-  }, // End initializeApp
+  },
 
-})); // End create
+  // fetchUserLists - Separate action to fetch user lists
+  fetchUserLists: async () => {
+      // Prevent re-fetching if already loading or fetched (optional, depends on desired behavior)
+      // if (get().isLoadingUserLists || get().hasFetchedUserLists) return;
+      if (get().isLoadingUserLists) {
+          console.log("[fetchUserLists SKIP] Already fetching user lists.");
+          return;
+      }
+
+      console.log("[fetchUserLists START] Fetching user lists separately...");
+      set({ isLoadingUserLists: true, userListsError: null });
+      try {
+          // Use the same fetch helper
+          const userListsData = await simpleFetchAndParse(`${API_BASE_URL}/api/lists`, 'user lists');
+          set({
+              userLists: Array.isArray(userListsData) ? userListsData : [],
+              isLoadingUserLists: false,
+              hasFetchedUserLists: true, // Mark as fetched
+              userListsError: null,
+          });
+          console.log("[fetchUserLists SUCCESS] User lists state updated.");
+      } catch (error) {
+          console.error("[fetchUserLists ERROR]:", error);
+          set({
+              userListsError: error.message || "Failed to fetch user lists",
+              isLoadingUserLists: false,
+              hasFetchedUserLists: false, // Mark as not successfully fetched
+              // userLists: [] // Optionally clear on error
+          });
+          console.log("[fetchUserLists FINISHED WITH ERROR] State updated.");
+      }
+  },
+
+  // Keep other actions
+  updateListVisibility: async (listId, isPublic) => { /* ... */ },
+  removeFromList: async (listId, listItemId) => { /* ... */ },
+  // ... other actions ...
+}));
 
 export default useAppStore;

@@ -1,114 +1,123 @@
-// src/doof-backend/routes/restaurants.js
-// REFACTORED: GET /:id handler to use explicit client and query object format
-const express = require('express');
-const db = require('../db'); // db object now exports getClient and query
-const { param, query, validationResult } = require('express-validator');
+// src/pages/Home/Results.jsx
+import React, { useCallback, useState } from "react";
+import { ChevronUp, ChevronDown } from "lucide-react";
+import RestaurantCard from "@/components/UI/RestaurantCard";
+import DishCard from "@/components/UI/DishCard";
+import ListCard from "@/pages/Lists/ListCard.jsx"; // Updated to global import
+import useAppStore from "@/hooks/useAppStore";
+import useFilteredData from "@/hooks/useFilteredData";
+import Button from "@/components/Button";
 
-const router = express.Router();
+// Rest of the file remains unchanged
+const Results = React.memo(
+  ({
+    trendingItems = [],
+    trendingDishes = [],
+    popularLists = [],
+  }) => {
+    const [expandedSections, setExpandedSections] = useState({
+      restaurants: false,
+      dishes: false,
+      lists: false,
+    });
 
-// --- Middleware (Keep as is) ---
-const handleValidationErrors = (req, res, next) => { /* ... */ };
-const validateIdParam = [ /* ... */ ];
-const validateListQuery = [ /* ... */ ];
+    const clearFilters = useAppStore(state => state.clearFilters);
+    const filteredRestaurants = useFilteredData(trendingItems);
+    const filteredDishes = useFilteredData(trendingDishes);
+    const filteredLists = useFilteredData(popularLists);
 
+    const toggleSectionExpansion = useCallback((section) => {
+      setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
+    }, []);
 
-// === Restaurant Detail (Refactored Handler) ===
-router.get(
-    "/:id",
-    // Remove middleware logging if desired
-    // (req, res, next) => { console.log(`... Before validateIdParam ...`); next(); },
-    validateIdParam,
-    // (req, res, next) => { console.log(`... After validateIdParam ...`); next(); },
-    handleValidationErrors,
-    // (req, res, next) => { console.log(`... After handleValidationErrors ...`); next(); },
-    async (req, res) => {
-        console.log(`[RESTAURANTS GET /:id] Route handler function entered for ID: ${req.params.id}`);
-        const { id } = req.params;
-        let client; // Define client variable outside try
-
-        try {
-            // --- Acquire Client ---
-            client = await db.getClient();
-            console.log(`[RESTAURANTS GET /:id] Acquired DB client for ID: ${id}`);
-
-            // --- Fetch restaurant details ---
-            const restaurantQueryText = `
-                SELECT
-                    r.id, r.name, r.address, r.neighborhood_name, r.city_name,
-                    r.zip_code, r.borough, r.phone, r.website, r.google_place_id,
-                    r.latitude, r.longitude, r.adds, r.created_at, r.updated_at,
-                    COALESCE(array_agg(DISTINCT h.name) FILTER (WHERE h.name IS NOT NULL), '{}') as tags
-                FROM Restaurants r
-                LEFT JOIN RestaurantHashtags rh ON r.id = rh.restaurant_id
-                LEFT JOIN Hashtags h ON rh.hashtag_id = h.id
-                WHERE r.id = $1
-                GROUP BY r.id;
-            `;
-            console.log(`[RESTAURANTS GET /:id] Executing restaurant query for ID: ${id}`);
-            // Use client.query with object format
-            const restaurantResult = await client.query({
-                text: restaurantQueryText,
-                values: [id]
-             });
-
-            if (restaurantResult.rows.length === 0) {
-                console.log(`[RESTAURANTS GET /:id] Restaurant not found for ID: ${id}`);
-                // Release client before sending response
-                if (client) await client.release();
-                console.log(`[RESTAURANTS GET /:id] Released DB client for ID: ${id} (Not Found)`);
-                return res.status(404).json({ error: "Restaurant not found" });
-            }
-            const restaurant = restaurantResult.rows[0];
-            console.log(`[RESTAURANTS GET /:id] Found restaurant: ${restaurant.name}`);
-
-            // --- Fetch associated dishes ---
-            const dishesQueryText = `
-                SELECT
-                    d.id, d.name, d.description, d.price, d.adds,
-                    COALESCE(array_agg(DISTINCT h.name) FILTER (WHERE h.name IS NOT NULL), '{}') as tags
-                FROM Dishes d
-                LEFT JOIN DishHashtags dh ON d.id = dh.dish_id
-                LEFT JOIN Hashtags h ON dh.hashtag_id = h.id
-                WHERE d.restaurant_id = $1
-                GROUP BY d.id
-                ORDER BY d.adds DESC, d.name ASC;
-            `;
-            console.log(`[RESTAURANTS GET /:id] Executing dishes query for Restaurant ID: ${id}`);
-             // Use client.query with object format
-            const dishesResult = await client.query({
-                 text: dishesQueryText,
-                 values: [id]
-            });
-            restaurant.dishes = dishesResult.rows || []; // Add dishes to the restaurant object
-            console.log(`[RESTAURANTS GET /:id] Found ${restaurant.dishes.length} dishes for Restaurant ID: ${id}`);
-
-            res.json(restaurant); // Send final response
-
-        } catch (err) {
-            console.error(`[RESTAURANTS GET /:id] Error fetching details for ID ${id}:`, err);
-             if (err.message && (err.message.includes('timeout') || err.message.includes('timed out'))) {
-                 return res.status(504).json({ error: "Database timeout fetching restaurant details." });
-             }
-             // Check for the specific bind error code again
-             if (err.code === '08P01') {
-                  console.error(`!!! Bind error 08P01 occurred despite explicit client handling !!!`);
-                  return res.status(500).json({ error: "Internal server error during database query preparation." });
-             }
-            res.status(500).json({ error: "Error loading restaurant details" });
-        } finally {
-            // --- Release Client ---
-            if (client) {
-                await client.release();
-                console.log(`[RESTAURANTS GET /:id] Released DB client for ID: ${id} in finally block`);
-            } else {
-                 console.log(`[RESTAURANTS GET /:id] No client to release for ID: ${id} (likely failed before acquisition)`);
-            }
+    const renderSection = useCallback((title, allItems, filteredItemsFromHook, renderItem, sectionKey) => {
+      const generateKey = (item, index) => {
+        if (item && item.id != null && item.id !== '') {
+          return `${sectionKey}-${item.id}`;
         }
-    }
+        console.error(`[Results.jsx - ${sectionKey}] generateKey called with invalid item at index ${index}:`, item);
+        return `${sectionKey}-invalid-${index}`;
+      };
+
+      const safeAllItems = Array.isArray(allItems) ? allItems : [];
+      const safeFilteredItemsFromHook = Array.isArray(filteredItemsFromHook) ? filteredItemsFromHook : [];
+      const validFilteredItems = safeFilteredItemsFromHook.filter(item => item && item.id != null && item.id !== '');
+      const hadDataInitially = safeAllItems.length > 0;
+      const hasDataAfterFilter = validFilteredItems.length > 0;
+      const safeExpandedSections = expandedSections || { restaurants: false, dishes: false, lists: false };
+      const isExpanded = safeExpandedSections[sectionKey];
+      console.log(`[Results] Rendering section: ${title}, expandedSections:`, safeExpandedSections);
+      const activeGlobalFilters = useAppStore.getState().activeFilters;
+      const searchQuery = useAppStore.getState().searchQuery;
+      const filtersAreActive = activeGlobalFilters.cityId || activeGlobalFilters.neighborhoodId || activeGlobalFilters.tags.length > 0 || !!searchQuery;
+
+      return (
+        <section className="mb-12">
+          <div className="flex justify-between items-center mb-6 border-b border-gray-200 pb-2">
+            <h2 className="text-2xl font-bold text-gray-800">{title}</h2>
+            {(hasDataAfterFilter || (hadDataInitially && filtersAreActive)) && (
+              <button onClick={() => toggleSectionExpansion(sectionKey)} className="flex items-center text-gray-500 hover:text-[#D1B399] font-medium text-sm" aria-expanded={isExpanded} aria-controls={`${sectionKey}-content`}>
+                {isExpanded ? "Collapse" : "Expand"} {isExpanded ? <ChevronUp size={16} className="ml-1" /> : <ChevronDown size={16} className="ml-1" />}
+              </button>
+            )}
+          </div>
+          <div id={`${sectionKey}-content`}>
+            {!hasDataAfterFilter && filtersAreActive && hadDataInitially && (
+              <div className="text-center py-8 px-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+                <h3 className="text-lg font-medium text-gray-700 mb-2">No {title.toLowerCase()} match your filters</h3>
+                <p className="text-gray-500 mb-4">Try adjusting your filters or search query.</p>
+                <Button onClick={clearFilters} variant="tertiary" className="px-4 py-2 border-[#D1B399] text-[#D1B399] hover:bg-[#D1B399]/10"> Clear all filters </Button>
+              </div>
+            )}
+            {!hadDataInitially && !filtersAreActive && (
+              <div className="text-center py-8 px-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+                <p className="text-gray-500">No {title.toLowerCase()} available currently.</p>
+              </div>
+            )}
+            {hasDataAfterFilter && isExpanded && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 place-items-start">
+                {validFilteredItems.map((item, index) => ( <div key={generateKey(item, index)}> {renderItem(item)} </div> ))}
+              </div>
+            )}
+            {hasDataAfterFilter && !isExpanded && (
+              <div className="flex overflow-x-auto space-x-6 pb-4 no-scrollbar">
+                {validFilteredItems.map((item, index) => ( <div key={generateKey(item, index)} className="flex-shrink-0"> {renderItem(item)} </div> ))}
+                <div className="flex-shrink-0 w-1"></div>
+              </div>
+            )}
+          </div>
+        </section>
+      );
+    }, [expandedSections, toggleSectionExpansion, clearFilters]);
+
+    const safeTrendingItems = Array.isArray(trendingItems) ? trendingItems : [];
+    const safeTrendingDishes = Array.isArray(trendingDishes) ? trendingDishes : [];
+    const safePopularLists = Array.isArray(popularLists) ? popularLists : [];
+    const hasAnyDataInitially = safeTrendingItems.length > 0 || safeTrendingDishes.length > 0 || safePopularLists.length > 0;
+    const filtersAreActive = useAppStore.getState().activeFilters.cityId || useAppStore.getState().activeFilters.neighborhoodId || useAppStore.getState().activeFilters.tags.length > 0 || !!useAppStore.getState().searchQuery;
+    const hasDataAfterFilter = filteredRestaurants.length > 0 || filteredDishes.length > 0 || filteredLists.length > 0;
+
+    return (
+      <>
+        {renderSection("Trending Dishes", safeTrendingDishes, filteredDishes, (dish) => <DishCard {...dish} restaurant={dish.restaurant_name || dish.restaurant} restaurantId={dish.restaurant_id}/>, "dishes")}
+        {renderSection("Trending Restaurants", safeTrendingItems, filteredRestaurants, (restaurant) => <RestaurantCard {...restaurant} />, "restaurants")}
+        {renderSection("Popular Lists", safePopularLists, filteredLists, (list) => <ListCard {...list} isFollowing={list.is_following ?? false} canFollow={true} />, "lists")}
+        {!hasAnyDataInitially && !filtersAreActive && (
+          <div className="text-center py-12 bg-white border border-gray-200 rounded-lg shadow-sm">
+            <h3 className="text-xl font-medium text-gray-700 mb-2">No Trending Items Found</h3>
+            <p className="text-gray-500">There's currently no trending data available.</p>
+          </div>
+        )}
+        {filtersAreActive && !hasDataAfterFilter && hasAnyDataInitially && (
+          <div className="text-center py-12 bg-white border border-gray-200 rounded-lg shadow-sm">
+            <h3 className="text-xl font-medium text-gray-700 mb-2">No results match your filters</h3>
+            <p className="text-gray-500 mb-4">Try adjusting your filters or search query.</p>
+            <Button onClick={clearFilters} variant="tertiary" className="px-4 py-2 border-[#D1B399] text-[#D1B399] hover:bg-[#D1B399]/10"> Clear all filters </Button>
+          </div>
+        )}
+      </>
+    );
+  }
 );
 
-
-// GET /api/restaurants (List Restaurants)
-router.get( "/", validateListQuery, handleValidationErrors, async (req, res) => { /* ... Original logic ... */ } );
-
-module.exports = router;
+export default Results;
