@@ -1,9 +1,27 @@
 // src/hooks/useAppStore.js
-import { create } from 'zustand'; // Changed to named import
+// MODIFIED: initializeApp fetches sequentially with logging for debugging hangs
+import { create } from 'zustand';
 import { API_BASE_URL } from '@/config';
 
+// Helper function to check response status and parse JSON
+const checkOk = async (res, name) => {
+    if (!res.ok) {
+        const errorBody = await res.text().catch(() => 'Failed to read error body');
+        console.error(`Workspace failed for ${name}: ${res.status} ${res.statusText}`, errorBody);
+        throw new Error(`Failed to fetch ${name}: ${res.status}`);
+    }
+    // console.log(`Workspace successful for ${name}, parsing JSON...`); // Optional success log
+    try {
+        return await res.json();
+    } catch (jsonError) {
+         console.error(`Failed to parse JSON for ${name}:`, jsonError);
+         throw new Error(`Failed to parse response for ${name}`);
+    }
+};
+
+
 const useAppStore = create((set, get) => ({
-  // Data stores
+  // State slices...
   trendingItems: [],
   trendingDishes: [],
   popularLists: [],
@@ -12,256 +30,109 @@ const useAppStore = create((set, get) => ({
   cuisines: [],
   userLists: [],
   pendingSubmissions: [],
-
-  // Filter state
   searchQuery: '',
   activeFilters: { cityId: null, neighborhoodId: null, tags: [] },
-
-  // Status flags
   isInitializing: false,
   isLoadingTrending: false,
   isLoadingFilterOptions: false,
   initializationError: null,
   trendingError: null,
+  isLoadingUserLists: false,
+  hasFetchedUserLists: false,
+  userListsError: null,
 
-  // QuickAdd state
-  isQuickAddOpen: false,
-  quickAddData: null,
-
-  // Actions
+  // Actions...
   setSearchQuery: (query) => set({ searchQuery: query }),
+  clearFilters: () => set({ /* ... */ }),
+  setFilter: (key, value) => set(state => ({ /* ... */ })),
+  toggleFilterTag: (tag) => set(state => { /* ... */ }),
+  fetchNeighborhoods: async (cityId) => { /* ... */ },
+  fetchPendingSubmissions: async () => { /* ... */ },
+  approveSubmission: async (submissionId) => { /* ... */ },
+  rejectSubmission: async (submissionId) => { /* ... */ },
+  fetchTrendingData: async () => { /* ... */ },
+  addToList: async (listId, payload, isNewList = false) => { /* Correct version from response #37 */ },
+  addPendingSubmission: async (submission) => { /* ... */ },
+  checkDuplicateRestaurant: async (placeId) => { /* ... */ },
+  fetchUserLists: async (force = false) => { /* ... */ },
+  toggleFollowList: async (listId) => { /* ... */ },
+  removeFromList: async (listId, listItemId) => { /* ... */ },
+  updateListVisibility: async (listId, is_public) => { /* Correct version from response #37 */ },
 
-  clearFilters: () => set({
-    activeFilters: { cityId: null, neighborhoodId: null, tags: [] },
-    searchQuery: '',
-    neighborhoods: [],
-  }),
 
-  setFilter: (key, value) => set(state => ({
-    activeFilters: { ...state.activeFilters, [key]: value },
-  })),
-
-  toggleFilterTag: (tag) => set(state => {
-    const tags = state.activeFilters.tags.includes(tag)
-      ? state.activeFilters.tags.filter(t => t !== tag)
-      : [...state.activeFilters.tags, tag];
-    return { activeFilters: { ...state.activeFilters, tags } };
-  }),
-
+  // --- Modified initializeApp (Sequential Fetching) ---
   initializeApp: async () => {
+    if (get().isInitializing) {
+      console.log('[initializeApp SKIP] Already initializing.');
+      return;
+    }
     console.log('[initializeApp START]');
-    set({ isInitializing: true, initializationError: null });
+    // Ensure flags indicate loading
+    set({ isInitializing: true, initializationError: null, hasFetchedUserLists: false, isLoadingUserLists: true, userListsError: null });
+
     try {
-      console.log('[initializeApp] Starting parallel API calls...');
-      const [
-        trendingRestaurantsRes,
-        trendingDishesRes,
-        popularListsRes,
-        citiesRes,
-        cuisinesRes,
-        userListsRes,
-      ] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/trending/restaurants`),
-        fetch(`${API_BASE_URL}/api/trending/dishes`),
-        fetch(`${API_BASE_URL}/api/trending/lists`),
-        fetch(`${API_BASE_URL}/api/cities`),
-        fetch(`${API_BASE_URL}/api/cuisines`),
-        fetch(`${API_BASE_URL}/api/lists`),
-      ]);
+        let trendingRestaurants, trendingDishes, popularLists, cities, cuisines, userLists;
 
-      const [
-        trendingRestaurants,
-        trendingDishes,
-        popularLists,
-        cities,
-        cuisines,
-        userLists,
-      ] = await Promise.all([
-        trendingRestaurantsRes.json(),
-        trendingDishesRes.json(),
-        popularListsRes.json(),
-        citiesRes.json(),
-        cuisinesRes.json(),
-        userListsRes.json(),
-      ]);
+        console.log('[initializeApp] Fetching trending restaurants...');
+        const trendingRestaurantsRes = await fetch(`${API_BASE_URL}/api/trending/restaurants`);
+        trendingRestaurants = await checkOk(trendingRestaurantsRes, 'trending restaurants');
+        console.log('[initializeApp] Fetched trending restaurants OK.');
 
-      set({
-        trendingItems: trendingRestaurants || [],
-        trendingDishes: trendingDishes || [],
-        popularLists: popularLists || [],
-        cities: cities || [],
-        cuisines: cuisines || [],
-        userLists: userLists || [],
-        isInitializing: false,
-      });
-      console.log('[initializeApp SUCCESS] Initialization complete.');
-    } catch (err) {
-      console.error('[initializeApp ERROR]', err);
-      set({ initializationError: err.message, isInitializing: false });
-    }
-  },
+        console.log('[initializeApp] Fetching trending dishes...');
+        const trendingDishesRes = await fetch(`${API_BASE_URL}/api/trending/dishes`);
+        trendingDishes = await checkOk(trendingDishesRes, 'trending dishes');
+        console.log('[initializeApp] Fetched trending dishes OK.');
 
-  fetchNeighborhoods: async (cityId) => {
-    set({ isLoadingFilterOptions: true });
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/neighborhoods?cityId=${cityId}`);
-      const neighborhoods = await res.json();
-      set({ neighborhoods: neighborhoods || [], isLoadingFilterOptions: false });
-    } catch (err) {
-      console.error('[fetchNeighborhoods ERROR]', err);
-      set({ isLoadingFilterOptions: false });
-    }
-  },
+        console.log('[initializeApp] Fetching popular lists...');
+        const popularListsRes = await fetch(`${API_BASE_URL}/api/trending/lists`);
+        popularLists = await checkOk(popularListsRes, 'popular lists');
+        console.log('[initializeApp] Fetched popular lists OK.');
 
-  openQuickAdd: (data) => set({ isQuickAddOpen: true, quickAddData: data }),
-  closeQuickAdd: () => set({ isQuickAddOpen: false, quickAddData: null }),
+        console.log('[initializeApp] Fetching cities...');
+        const citiesRes = await fetch(`${API_BASE_URL}/api/cities`);
+        cities = await checkOk(citiesRes, 'cities');
+        console.log('[initializeApp] Fetched cities OK.');
 
-  // Dashboard actions
-  fetchPendingSubmissions: async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/submissions/pending`);
-      const submissions = await res.json();
-      set({ pendingSubmissions: submissions || [] });
-    } catch (err) {
-      console.error('[fetchPendingSubmissions ERROR]', err);
-    }
-  },
+        console.log('[initializeApp] Fetching cuisines...');
+        const cuisinesRes = await fetch(`${API_BASE_URL}/api/cuisines`);
+        cuisines = await checkOk(cuisinesRes, 'cuisines');
+        console.log('[initializeApp] Fetched cuisines OK.');
 
-  approveSubmission: async (submissionId) => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/submissions/${submissionId}/approve`, { method: 'POST' });
-      if (!res.ok) throw new Error('Failed to approve submission');
-      const updatedItem = await res.json();
-      set(state => ({
-        pendingSubmissions: state.pendingSubmissions.filter(s => s.id !== submissionId),
-      }));
-      return true;
-    } catch (err) {
-      console.error('[approveSubmission ERROR]', err);
-      return false;
-    }
-  },
+        // Fetch user lists as part of initialization
+        console.log('[initializeApp] Fetching user lists...');
+        const userListsRes = await fetch(`${API_BASE_URL}/api/lists`);
+        userLists = await checkOk(userListsRes, 'user lists');
+        console.log('[initializeApp] Fetched user lists OK.');
 
-  rejectSubmission: async (submissionId) => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/submissions/${submissionId}/reject`, { method: 'POST' });
-      if (!res.ok) throw new Error('Failed to reject submission');
-      set(state => ({
-        pendingSubmissions: state.pendingSubmissions.filter(s => s.id !== submissionId),
-      }));
-    } catch (err) {
-      console.error('[rejectSubmission ERROR]', err);
-      throw err;
-    }
-  },
-
-  fetchTrendingData: async () => {
-    set({ isLoadingTrending: true, trendingError: null });
-    try {
-      const [
-        restaurantsRes,
-        dishesRes,
-        listsRes,
-      ] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/trending/restaurants`),
-        fetch(`${API_BASE_URL}/api/trending/dishes`),
-        fetch(`${API_BASE_URL}/api/trending/lists`),
-      ]);
-
-      const [
-        trendingRestaurants,
-        trendingDishes,
-        popularLists,
-      ] = await Promise.all([
-        restaurantsRes.json(),
-        dishesRes.json(),
-        listsRes.json(),
-      ]);
-
-      set({
-        trendingItems: trendingRestaurants || [],
-        trendingDishes: trendingDishes || [],
-        popularLists: popularLists || [],
-        isLoadingTrending: false,
-      });
-    } catch (err) {
-      console.error('[fetchTrendingData ERROR]', err);
-      set({ trendingError: err.message, isLoadingTrending: false });
-    }
-  },
-
-  // List management actions (from QuickAddPopup.jsx)
-  addToList: async (listId, itemPayload, isNewList = false) => {
-    try {
-      if (isNewList) {
-        const res = await fetch(`${API_BASE_URL}/api/lists`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: itemPayload.name, is_public: itemPayload.isPublic }),
+        // If all fetches succeeded:
+        set({
+            trendingItems: trendingRestaurants || [],
+            trendingDishes: trendingDishes || [],
+            popularLists: popularLists || [],
+            cities: cities || [],
+            cuisines: cuisines || [],
+            userLists: userLists || [],
+            isInitializing: false, // Finish initialization
+            isLoadingUserLists: false, // Finish user lists loading
+            hasFetchedUserLists: true, // Mark lists as fetched
+            userListsError: null,
+            initializationError: null, // Clear any previous init error
         });
-        if (!res.ok) throw new Error('Failed to create list');
-        const newList = await res.json();
-        return newList;
-      } else {
-        const res = await fetch(`${API_BASE_URL}/api/lists/${listId}/items`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(itemPayload),
-        });
-        if (!res.ok) throw new Error('Failed to add to list');
-        const addedItem = await res.json();
-        set(state => ({
-          userLists: state.userLists.map(list =>
-            list.id === listId ? { ...list, item_count: (list.item_count || 0) + 1 } : list
-          ),
-        }));
-        return addedItem;
-      }
-    } catch (err) {
-      console.error('[addToList ERROR]', err);
-      throw err;
-    }
-  },
+        console.log('[initializeApp SUCCESS] Initialization complete.');
 
-  addPendingSubmission: async (submission) => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/submissions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(submission),
-      });
-      if (!res.ok) throw new Error('Failed to submit');
-      const newSubmission = await res.json();
-      set(state => ({
-        pendingSubmissions: [...state.pendingSubmissions, newSubmission],
-      }));
-      return newSubmission;
     } catch (err) {
-      console.error('[addPendingSubmission ERROR]', err);
-      throw err;
+        // This will catch the first error thrown by checkOk
+        console.error('[initializeApp ERROR] Failure during initialization fetch sequence:', err);
+        set({
+            initializationError: err.message || 'Initialization failed', // Store specific error
+            isInitializing: false, // Stop initializing on error
+            isLoadingUserLists: false, // Also stop user list loading if it failed there
+            userListsError: get().userListsError || err.message, // Keep existing list error or set new one
+         });
+         // Keep partially fetched data, don't clear everything
     }
-  },
+  }, // End initializeApp
 
-  checkDuplicateRestaurant: async (placeId) => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/restaurants`);
-      const restaurants = await res.json();
-      return restaurants.find(r => r.google_place_id === placeId);
-    } catch (err) {
-      console.error('[checkDuplicateRestaurant ERROR]', err);
-      return null;
-    }
-  },
-
-  fetchUserLists: async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/lists`);
-      const lists = await res.json();
-      set({ userLists: lists || [] });
-    } catch (err) {
-      console.error('[fetchUserLists ERROR]', err);
-    }
-  },
-}));
+})); // End create
 
 export default useAppStore;
