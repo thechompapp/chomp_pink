@@ -2,7 +2,7 @@
 import { useMemo } from "react";
 import useAppStore from "./useAppStore";
 
-const useFilteredData = (data) => {
+const useFilteredData = (data, type) => {
   const searchQuery = useAppStore((state) => state.searchQuery);
   const { cityId, neighborhoodId, tags } = useAppStore((state) => state.activeFilters);
   const cities = useAppStore((state) => state.cities || []);
@@ -13,7 +13,6 @@ const useFilteredData = (data) => {
 
     let filteredData = [...data];
 
-    // Apply search query filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filteredData = filteredData.filter((item) => {
@@ -24,18 +23,15 @@ const useFilteredData = (data) => {
       });
     }
 
-    // Apply city filter
     if (cityId) {
       filteredData = filteredData.filter((item) => {
-        // Handle different field names: city (restaurants/dishes) or city_name (lists)
         const cityName = item.city || item.city_name;
         const itemCityId = item.city_id || (typeof cityName === 'string' ? cities.find(c => c.name === cityName)?.id : null);
         return itemCityId === cityId;
       });
     }
 
-    // Apply neighborhood filter
-    if (neighborhoodId) {
+    if (neighborhoodId && type !== 'list') {
       filteredData = filteredData.filter((item) => {
         const neighborhoodName = item.neighborhood || item.neighborhood_name;
         const itemNeighborhoodId = item.neighborhood_id || (typeof neighborhoodName === 'string' ? neighborhoods.find(n => n.name === neighborhoodName)?.id : null);
@@ -43,16 +39,16 @@ const useFilteredData = (data) => {
       });
     }
 
-    // Apply tags filter
     if (tags && tags.length > 0) {
       filteredData = filteredData.filter((item) => {
         if (!Array.isArray(item.tags)) return false;
-        return tags.every((tag) => item.tags.includes(tag));
+        const normalizedItemTags = item.tags.map((tag) => tag.toLowerCase().replace('#', ''));
+        return tags.some((tag) => normalizedItemTags.includes(tag.toLowerCase()));
       });
     }
 
     return filteredData;
-  }, [data, searchQuery, cityId, neighborhoodId, tags, cities, neighborhoods]);
+  }, [data, type, searchQuery, cityId, neighborhoodId, tags, cities, neighborhoods]);
 };
 
 export default useFilteredData;

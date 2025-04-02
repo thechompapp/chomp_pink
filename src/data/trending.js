@@ -1,69 +1,91 @@
-// src/doof-backend/routes/trending.js (DEBUGGING /dishes query)
+// src/doof-backend/routes/trending.js
+// Simplified the original complex queries - REMOVED joins/aggregations for tags/dish_count
+
 const express = require('express');
 const db = require('../db');
 
 const router = express.Router();
 
-// === Trending Data ===
+// GET /api/trending/dishes (Simplified Original Query)
 router.get("/dishes", async (req, res) => {
+  console.log(">>> [TRENDING DISHES - Simpler Original] Handler entered.");
   try {
-    // *** DEBUGGING: Highly simplified query - Select only ID from Dishes ***
-    console.log("Executing DEBUG query for /trending/dishes");
-    const result = await db.query(
-      `SELECT id FROM Dishes ORDER BY adds DESC, created_at DESC LIMIT 15`
-    );
-    // We need to return data that matches what the frontend expects, even if simplified
-    // Map the IDs to a minimal structure expected by the frontend card
-    const simplifiedDishes = result.rows.map(row => ({
-        id: row.id,
-        name: `Dish ID ${row.id} (Debug)`, // Placeholder name
-        restaurant: 'Debug Rest.', // Placeholder restaurant
-        restaurant_id: null,
-        neighborhood: 'Debug Hood',
-        city: 'Debug City',
-        tags: ['debug'] // Placeholder tags
-    }));
-    console.log("DEBUG query for /trending/dishes successful.");
-    res.json(simplifiedDishes);
+    // Select core dish info + necessary restaurant info, order by adds
+    // Removed joins for Hashtags
+    const query = `
+      SELECT
+         d.id, d.name, d.description, d.adds, d.price, d.created_at,
+         r.id as restaurant_id, r.name as restaurant_name,
+         r.neighborhood_name as neighborhood, r.city_name as city
+       FROM Dishes d
+       JOIN Restaurants r ON d.restaurant_id = r.id -- Use JOIN since r.id check was implicit before
+       ORDER BY d.adds DESC NULLS LAST, d.created_at DESC -- Ensure NULL adds are last
+       LIMIT 15;
+       `;
+    const result = await db.query(query);
+    console.log(`>>> [TRENDING DISHES - Simpler Original] Found ${result.rows.length} dishes.`);
+    // Add placeholder tags if needed by frontend card
+    const dishes = (result.rows || []).map(d => ({ ...d, tags: [] }));
+    res.json(dishes);
   } catch (err) {
-    console.error("/api/trending/dishes error (DEBUG query):", err); // Log the specific error
-    res.status(500).json({ error: "Error fetching trending dishes (Debug)" });
+    console.error(">>> [TRENDING DISHES - Simpler Original] Error:", err);
+    res.status(500).json({ error: "Error fetching trending dishes (Simpler Original)" });
   }
 });
 
-// --- /restaurants and /lists routes remain the same as the last correct version ---
+// GET /api/trending/restaurants (Simplified Original Query)
 router.get("/restaurants", async (req, res) => {
+   console.log(">>> [TRENDING RESTAURANTS - Simpler Original] Handler entered.");
   try {
-    const result = await db.query(
-      `SELECT
-            r.id, r.name, r.address, r.neighborhood_name as neighborhood, r.city_name as city,
-            r.zip_code, r.borough, r.phone, r.website, r.google_place_id, r.latitude, r.longitude,
-            r.adds, r.created_at, r.updated_at, COUNT(DISTINCT d.id) AS dish_count,
-            COALESCE(array_agg(DISTINCT h.name) FILTER (WHERE h.name IS NOT NULL), '{}') as tags
-       FROM Restaurants r
-       LEFT JOIN Dishes d ON d.restaurant_id = r.id
-       LEFT JOIN RestaurantHashtags rh ON r.id = rh.restaurant_id
-       LEFT JOIN Hashtags h ON rh.hashtag_id = h.id
-       GROUP BY r.id ORDER BY r.adds DESC, r.created_at DESC LIMIT 15`
-    );
-    res.json(result.rows || []);
-  } catch (err) {
-    console.error("/api/trending/restaurants error:", err);
-    res.status(500).json({ error: "Error fetching trending restaurants" });
-  }
-});
+     // Select core restaurant info, order by adds
+     // Removed joins for Dishes (for count) and Hashtags
+     const query = `
+       SELECT
+             r.id, r.name, r.address, r.neighborhood_name as neighborhood, r.city_name as city,
+             r.zip_code, r.borough, r.phone, r.website, r.google_place_id, r.latitude, r.longitude,
+             r.adds, r.created_at, r.updated_at
+        FROM Restaurants r
+        ORDER BY r.adds DESC NULLS LAST, r.created_at DESC -- Ensure NULL adds are last
+        LIMIT 15;
+        `;
+     const result = await db.query(query);
+     console.log(`>>> [TRENDING RESTAURANTS - Simpler Original] Found ${result.rows.length} restaurants.`);
+     // Add placeholder tags/dish_count if needed by frontend card
+     const restaurants = (result.rows || []).map(r => ({ ...r, tags: [], dish_count: 0 }));
+     res.json(restaurants);
+   } catch (err) {
+     console.error(">>> [TRENDING RESTAURANTS - Simpler Original] Error:", err);
+     res.status(500).json({ error: "Error fetching trending restaurants (Simpler Original)" });
+   }
+ });
 
+// GET /api/trending/lists (Simplified Original Query)
 router.get("/lists", async (req, res) => {
+   console.log(">>> [TRENDING LISTS - Simpler Original] Handler entered.");
   try {
-    const result = await db.query(
-      `SELECT id, name, item_count, saved_count, city_name, tags, is_public, created_by_user, creator_handle, is_following, created_at
-       FROM Lists WHERE is_public = TRUE ORDER BY saved_count DESC, created_at DESC LIMIT 15`
-    );
-    const lists = (result.rows || []).map(list => ({ ...list, city: list.city_name, is_following: list.is_following ?? false }));
+    // Select core list info, order by saved_count
+    // Removed join for ListItems (for count)
+    const query = `
+      SELECT
+          l.id, l.name, l.description, l.saved_count, l.city_name as city, l.tags, l.is_public,
+          l.created_by_user, l.creator_handle, l.is_following, l.created_at, l.updated_at
+       FROM Lists l
+       WHERE l.is_public = TRUE
+       ORDER BY l.saved_count DESC NULLS LAST, l.created_at DESC -- Ensure NULL saved_count are last
+       LIMIT 15;
+       `;
+    const result = await db.query(query);
+    console.log(`>>> [TRENDING LISTS - Simpler Original] Found ${result.rows.length} lists.`);
+    // Add placeholder item_count if needed by frontend card
+    const lists = (result.rows || []).map(l => ({
+        ...l,
+        item_count: 0, // Add placeholder
+        is_following: l.is_following ?? false
+    }));
     res.json(lists);
   } catch (err) {
-    console.error("/api/trending/lists error:", err);
-    res.status(500).json({ error: "Error fetching popular lists" });
+    console.error(">>> [TRENDING LISTS - Simpler Original] Error:", err);
+    res.status(500).json({ error: "Error fetching popular lists (Simpler Original)" });
   }
 });
 

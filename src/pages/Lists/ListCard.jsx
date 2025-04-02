@@ -1,4 +1,4 @@
-// src/components/ListCard.jsx
+// src/pages/Lists/ListCard.jsx
 import React from "react";
 import { Link } from "react-router-dom";
 import { List, Users } from "lucide-react";
@@ -13,7 +13,7 @@ const ListCard = React.memo(
     city,
     tags,
     isFollowing = false,
-    canFollow = true, // Default to true to enable follow functionality
+    canFollow = true,
     createdByUser = false,
     creatorHandle = "@user",
     isPublic
@@ -52,7 +52,7 @@ const ListCard = React.memo(
           <div className="flex flex-wrap gap-1">
             {(tags || []).slice(0, 3).map((tag) => (
               <span key={tag} className="px-2 py-0.5 bg-gray-100 rounded-full text-xs text-gray-600">
-                #{tag}
+                {tag.startsWith('#') ? tag : `#${tag}`}
               </span>
             ))}
             {(tags || []).length > 3 && (

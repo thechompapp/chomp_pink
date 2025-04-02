@@ -3,12 +3,11 @@ import React, { useCallback, useState } from "react";
 import { ChevronUp, ChevronDown } from "lucide-react";
 import RestaurantCard from "@/components/UI/RestaurantCard";
 import DishCard from "@/components/UI/DishCard";
-import ListCard from "@/pages/Lists/ListCard.jsx"; // Updated to global import
+import ListCard from "@/pages/Lists/ListCard.jsx";
 import useAppStore from "@/hooks/useAppStore";
 import useFilteredData from "@/hooks/useFilteredData";
 import Button from "@/components/Button";
 
-// Rest of the file remains unchanged
 const Results = React.memo(
   ({
     trendingItems = [],
@@ -22,9 +21,9 @@ const Results = React.memo(
     });
 
     const clearFilters = useAppStore(state => state.clearFilters);
-    const filteredRestaurants = useFilteredData(trendingItems);
-    const filteredDishes = useFilteredData(trendingDishes);
-    const filteredLists = useFilteredData(popularLists);
+    const filteredRestaurants = useFilteredData(trendingItems, 'restaurant');
+    const filteredDishes = useFilteredData(trendingDishes, 'dish');
+    const filteredLists = useFilteredData(popularLists, 'list');
 
     const toggleSectionExpansion = useCallback((section) => {
       setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
@@ -101,7 +100,14 @@ const Results = React.memo(
       <>
         {renderSection("Trending Dishes", safeTrendingDishes, filteredDishes, (dish) => <DishCard {...dish} restaurant={dish.restaurant_name || dish.restaurant} restaurantId={dish.restaurant_id}/>, "dishes")}
         {renderSection("Trending Restaurants", safeTrendingItems, filteredRestaurants, (restaurant) => <RestaurantCard {...restaurant} />, "restaurants")}
-        {renderSection("Popular Lists", safePopularLists, filteredLists, (list) => <ListCard {...list} isFollowing={list.is_following ?? false} canFollow={true} />, "lists")}
+        {renderSection("Popular Lists", safePopularLists, filteredLists, (list) => (
+          <ListCard
+            {...list}
+            itemCount={list.item_count} // Map item_count to itemCount
+            isFollowing={list.is_following ?? false}
+            canFollow={true}
+          />
+        ), "lists")}
         {!hasAnyDataInitially && !filtersAreActive && (
           <div className="text-center py-12 bg-white border border-gray-200 rounded-lg shadow-sm">
             <h3 className="text-xl font-medium text-gray-700 mb-2">No Trending Items Found</h3>
