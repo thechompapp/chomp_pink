@@ -1,46 +1,53 @@
-// src/pages/Trending/index.jsx (Use new hook)
-import React, { useState } from "react"; // Removed useMemo
-import { TrendingUp, SortAsc, SortDesc, Map } from "lucide-react";
-import useAppStore from "@/hooks/useAppStore";
-import useFilteredData from "@/hooks/useFilteredData"; // *** IMPORT THE HOOK ***
-import FilterSection from "@/pages/Home/FilterSection"; // Ensure path is correct
-import RestaurantCard from "@/components/UI/RestaurantCard"; // Ensure path is correct
-import DishCard from "@/components/UI/DishCard"; // Ensure path is correct
-import ListCard from "@/pages/Lists/ListCard"; // Ensure path is correct
-import Button from "@/components/Button"; // Ensure path is correct
+// src/pages/Trending/index.jsx
+// UPDATE: Use specific Zustand stores (useTrendingStore, useUIStateStore) instead of useAppStore
+import React, { useState, useCallback } from "react"; // Removed useMemo
+import { TrendingUp, SortAsc, SortDesc, Map, Loader2, AlertTriangle } from "lucide-react"; // Added Loader2, AlertTriangle
+
+// ** FIX: Import specific stores **
+import useTrendingStore from '@/stores/useTrendingStore.js';
+import useUIStateStore from '@/stores/useUIStateStore.js';
+// ** FIX: Import hook using correct alias **
+import useFilteredData from "@/hooks/useFilteredData.js";
+// Import components using correct alias
+import FilterSection from "@/pages/Home/FilterSection";
+import RestaurantCard from "@/components/UI/RestaurantCard";
+import DishCard from "@/components/UI/DishCard";
+import ListCard from "@/pages/Lists/ListCard";
+import Button from "@/components/Button";
 
 const Trending = () => {
-  // Get raw data and loading/error states from the store
-  const {
-    trendingItems: storeRestaurants,
-    trendingDishes: storeDishes,
-    popularLists: storeLists,
-    isLoadingTrending, // Use this for loading indicator if needed
-    initializationError, // Use this for error display
-    isInitializing,    // Use this for initial loading state
-    initializeApp      // For retry button
-  } = useAppStore(); // Select only needed data/actions
+  // ** FIX: Get data and loading/error states from specific stores **
+  const storeRestaurants = useTrendingStore((state) => state.trendingItems || []);
+  const storeDishes = useTrendingStore((state) => state.trendingDishes || []);
+  const storeLists = useTrendingStore((state) => state.popularLists || []);
+  const isLoadingTrending = useTrendingStore((state) => state.isLoading); // Loading state for trending data itself
+  const trendingError = useTrendingStore((state) => state.error); // Error state specific to trending fetch
+
+  // Get global initialization states (might be redundant if App.jsx handles this before rendering)
+  const isAppInitializing = useUIStateStore((state) => state.isInitializing);
+  const appInitializationError = useUIStateStore((state) => state.initializationError);
+  // ** REMOVE: initializeApp action seems redundant with App.jsx logic **
+  // const initializeApp = useUIStateStore((state) => state.initializeApp); // Or wherever it was moved
 
   // State for this page (tabs, sorting)
-  const [activeTab, setActiveTab] = useState("restaurants");
-  const [sortMethod, setSortMethod] = useState("popular"); // Default sort
+  const [activeTab, setActiveTab] = useState("restaurants"); // 'restaurants', 'dishes', 'lists'
+  const [sortMethod, setSortMethod] = useState("popular"); // 'popular', 'a-z', 'z-a', 'distance'
 
   // --- Filtering ---
-  // Use the hook to get filtered data for each category
-  // Pass the raw data array to the hook
-  const filteredRestaurants = useFilteredData(storeRestaurants);
-  const filteredDishes = useFilteredData(storeDishes);
-  const filteredLists = useFilteredData(storeLists);
+  // Use the hook to get filtered data for each category based on UIStateStore filters (e.g., cityId)
+  // The hook now selects trending data internally from useTrendingStore
+  const { filteredRestaurants, filteredDishes, filteredLists } = useFilteredData();
 
   // --- Sorting ---
-  // Apply sorting *after* filtering
-  const sortData = (items) => {
+  // Apply sorting *after* filtering using local state `sortMethod`
+  const sortData = useCallback((items) => {
     if (!Array.isArray(items)) return [];
     const sorted = [...items]; // Create a copy to sort
     try {
         if (sortMethod === "popular") {
-           // Sort by 'adds' for dishes/restaurants, 'savedCount' for lists
-           return sorted.sort((a, b) => (b.savedCount || b.adds || 0) - (a.savedCount || a.adds || 0));
+           // Sort by 'adds' for dishes/restaurants, 'saved_count' for lists
+           // Use optional chaining and nullish coalescing for safety
+           return sorted.sort((a, b) => (b?.saved_count ?? b?.adds ?? 0) - (a?.saved_count ?? a?.adds ?? 0));
         }
         if (sortMethod === "a-z") {
             return sorted.sort((a, b) => (a?.name || "").localeCompare(b?.name || ""));
@@ -50,100 +57,149 @@ const Trending = () => {
          }
         if (sortMethod === "distance") {
            console.warn("Distance sorting not yet implemented."); // Placeholder
-           return sorted;
+           return sorted; // Return original order for now
         }
     } catch (error) {
         console.error("Error during sorting:", error);
     }
-    return sorted; // Return original order if sort fails
-  };
+    return sorted; // Return copy of original order if sort fails
+  }, [sortMethod]); // Depend on sortMethod
 
-  // Get the active data based on the tab, already filtered by the hook
-  const getActiveData = () => {
+  // Get the active data based on the tab, already filtered by the hook, then sort it
+  const getActiveData = useCallback(() => {
+    let dataToUse = [];
     switch (activeTab) {
-      case "restaurants": return sortData(filteredRestaurants);
-      case "dishes": return sortData(filteredDishes);
-      case "lists": return sortData(filteredLists);
-      default: return [];
+      case "restaurants": dataToUse = filteredRestaurants; break;
+      case "dishes": dataToUse = filteredDishes; break;
+      case "lists": dataToUse = filteredLists; break;
+      default: dataToUse = [];
     }
-  };
+    // Ensure dataToUse is an array before sorting
+    return sortData(Array.isArray(dataToUse) ? dataToUse : []);
+  }, [activeTab, filteredRestaurants, filteredDishes, filteredLists, sortData]);
 
-  const activeData = getActiveData(); // This is now filtered AND sorted
+  const activeData = getActiveData();
 
   // --- Render Logic ---
   // Loading and Error States
-  if (isInitializing) return <div className="text-center py-10 text-gray-500">Initializing Application...</div>;
-  if (initializationError) return (
-    <div className="text-center py-10">
-      <p className="text-red-500 mb-4">Error loading data: {initializationError}</p>
-      <Button onClick={() => initializeApp()} variant="primary" className="px-4 py-2">Retry Load</Button>
-    </div>
-  );
+  // Priority: Global initialization error > Global initializing > Trending fetch error > Trending loading
+   if (appInitializationError) {
+       // This case should ideally be handled by App.jsx, but added as a fallback
+       return (
+           <div className="text-center py-10 px-4">
+               <AlertTriangle className="h-10 w-10 text-red-400 mx-auto mb-3" />
+               <p className="text-red-600">Error initializing application: {appInitializationError}</p>
+               {/* Optional: Add retry button if App.jsx doesn't handle it */}
+           </div>
+       );
+   }
+   if (isAppInitializing) {
+        // This case should ideally be handled by App.jsx
+       return (
+           <div className="flex justify-center items-center py-10">
+               <Loader2 className="h-6 w-6 animate-spin mr-2 text-gray-500"/>
+               <p className="text-gray-500">Initializing Application...</p>
+           </div>
+       );
+   }
+    if (trendingError) {
+        return (
+             <div className="text-center py-10 px-4">
+                 <AlertTriangle className="h-10 w-10 text-red-400 mx-auto mb-3" />
+                 <p className="text-red-600 mb-4">Error loading trending data: {trendingError}</p>
+                 {/* Add a retry button for the trending fetch specifically */}
+                 <Button onClick={() => useTrendingStore.getState().fetchTrendingData()} variant="primary" size="sm">Retry Load</Button>
+             </div>
+        );
+    }
+   if (isLoadingTrending && activeData.length === 0) { // Show loading only if no data is displayed yet
+      return (
+           <div className="flex justify-center items-center py-10">
+               <Loader2 className="h-6 w-6 animate-spin mr-2 text-gray-500"/>
+               <p className="text-gray-500">Loading trending items...</p>
+           </div>
+       );
+   }
+
 
   // Main component render
   return (
-    <div className="space-y-8 mx-auto px-4 sm:px-6 md:px-8 max-w-7xl">
+    <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6"> {/* Reduced spacing and padding */}
       {/* Header */}
-      <div className="pt-4 md:pt-6">
-        <div className="flex items-center gap-2 mb-6">
-          <TrendingUp size={28} className="text-[#D1B399]" />
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Trending Now</h1>
+      <div className="pt-2 md:pt-4"> {/* Reduced top padding */}
+        <div className="flex items-center gap-2 mb-4"> {/* Reduced margin */}
+          <TrendingUp size={24} className="text-[#D1B399]" /> {/* Slightly smaller icon */}
+          <h1 className="text-xl md:text-2xl font-bold text-gray-800">Trending Now</h1> {/* Slightly smaller heading */}
         </div>
       </div>
 
-      {/* Filter Component */}
+      {/* Filter Component - Renders city/neighborhood filters */}
       <FilterSection />
 
       {/* Tabs & Sorting Controls */}
-      <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm mb-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm mb-4"> {/* Reduced padding and margin */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           {/* Tabs */}
           <div className="flex justify-center">
-            <div className="inline-flex rounded-md border border-[#D1B399] p-1">
-              <Button onClick={() => setActiveTab("restaurants")} variant={activeTab === "restaurants" ? "primary" : "tertiary"} size="sm" className={`rounded ${activeTab === "restaurants" ? "" : "text-[#D1B399] hover:bg-[#D1B399]/10"}`}>Restaurants</Button>
-              <Button onClick={() => setActiveTab("dishes")} variant={activeTab === "dishes" ? "primary" : "tertiary"} size="sm" className={`rounded ${activeTab === "dishes" ? "" : "text-[#D1B399] hover:bg-[#D1B399]/10"}`}>Dishes</Button>
-              <Button onClick={() => setActiveTab("lists")} variant={activeTab === "lists" ? "primary" : "tertiary"} size="sm" className={`rounded ${activeTab === "lists" ? "" : "text-[#D1B399] hover:bg-[#D1B399]/10"}`}>Lists</Button>
+             {/* Use Radix UI Tabs or similar for better accessibility if needed, or keep simple buttons */}
+            <div className="inline-flex rounded-md border border-[#D1B399]/50 p-0.5">
+              <Button onClick={() => setActiveTab("restaurants")} variant={activeTab === "restaurants" ? "primary" : "tertiary"} size="sm" className={`rounded-sm !text-xs flex-1 justify-center ${activeTab === "restaurants" ? "" : "text-[#A78B71] bg-transparent hover:bg-[#D1B399]/10 border-none shadow-none"}`}>Restaurants</Button>
+              <Button onClick={() => setActiveTab("dishes")} variant={activeTab === "dishes" ? "primary" : "tertiary"} size="sm" className={`rounded-sm !text-xs flex-1 justify-center ${activeTab === "dishes" ? "" : "text-[#A78B71] bg-transparent hover:bg-[#D1B399]/10 border-none shadow-none"}`}>Dishes</Button>
+              <Button onClick={() => setActiveTab("lists")} variant={activeTab === "lists" ? "primary" : "tertiary"} size="sm" className={`rounded-sm !text-xs flex-1 justify-center ${activeTab === "lists" ? "" : "text-[#A78B71] bg-transparent hover:bg-[#D1B399]/10 border-none shadow-none"}`}>Lists</Button>
             </div>
           </div>
-          {/* Sorting */}
-          <div className="flex flex-wrap justify-center gap-2">
-            <Button onClick={() => setSortMethod("popular")} variant={sortMethod === "popular" ? "primary" : "tertiary"} size="sm" className="rounded-full">Popular</Button>
-            <Button onClick={() => setSortMethod("a-z")} variant={sortMethod === "a-z" ? "primary" : "tertiary"} size="sm" className="rounded-full flex items-center"><SortAsc size={12} className="mr-1" />A-Z</Button>
-            <Button onClick={() => setSortMethod("z-a")} variant={sortMethod === "z-a" ? "primary" : "tertiary"} size="sm" className="rounded-full flex items-center"><SortDesc size={12} className="mr-1" />Z-A</Button>
-            <Button onClick={() => setSortMethod("distance")} variant={sortMethod === "distance" ? "primary" : "tertiary"} size="sm" className="rounded-full flex items-center"><Map size={12} className="mr-1" />Distance</Button>
+          {/* Sorting Buttons */}
+          <div className="flex flex-wrap justify-center gap-1.5"> {/* Reduced gap */}
+            <Button onClick={() => setSortMethod("popular")} variant={sortMethod === "popular" ? "primary" : "tertiary"} size="sm" className="!rounded-full !text-xs !px-2.5">Popular</Button>
+            <Button onClick={() => setSortMethod("a-z")} variant={sortMethod === "a-z" ? "primary" : "tertiary"} size="sm" className="!rounded-full !text-xs !px-2.5 flex items-center"><SortAsc size={12} className="mr-0.5" />A-Z</Button>
+            <Button onClick={() => setSortMethod("z-a")} variant={sortMethod === "z-a" ? "primary" : "tertiary"} size="sm" className="!rounded-full !text-xs !px-2.5 flex items-center"><SortDesc size={12} className="mr-0.5" />Z-A</Button>
+            <Button onClick={() => setSortMethod("distance")} variant={sortMethod === "distance" ? "primary" : "tertiary"} size="sm" className="!rounded-full !text-xs !px-2.5 flex items-center" disabled><Map size={12} className="mr-0.5" />Distance</Button> {/* Disabled distance sort */}
           </div>
         </div>
       </div>
 
       {/* Results Display */}
-      <div className="mt-6">
-        {/* Check if initial data was empty */}
-        {(storeRestaurants.length === 0 && storeDishes.length === 0 && storeLists.length === 0) ? (
-          <div className="text-center py-12 bg-white border border-gray-200 rounded-lg">
-            <h3 className="text-xl font-medium text-gray-700 mb-2">No Trending Items Found</h3>
-            <p className="text-gray-500">No trending data seems to be available.</p>
-          </div>
-        ) : activeData.length === 0 ? ( // Check if filtered & sorted data is empty
-          <div className="text-center py-12 bg-white border border-gray-200 rounded-lg">
-            <h3 className="text-xl font-medium text-gray-700 mb-2">No results match your filters</h3>
-            <p className="text-gray-500">Try adjusting your filters or search criteria.</p>
-            {/* Consider adding a clear filters button here too */}
+      <div className="mt-4">
+        {/* Check if filtered & sorted data is empty */}
+        {activeData.length === 0 ? (
+          <div className="text-center py-10 bg-white border border-gray-200 rounded-lg shadow-sm">
+            <h3 className="text-lg font-medium text-gray-700 mb-1">No results found</h3>
+            <p className="text-sm text-gray-500">Try adjusting your city/neighborhood filter.</p>
+            {/* Consider adding a clear filters button here */}
           </div>
         ) : (
           // Render the filtered and sorted data
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 place-items-center">
+          // Use grid layout consistent with Results.jsx or MyLists.jsx
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 place-items-start">
             {activeData.map((item, index) => {
-              const key = `${activeTab}-${item?.id || index}`; // Generate unique key
-              if (!item) return null; // Skip rendering null items
+              // Ensure item and id are valid
+              if (!item || typeof item.id === 'undefined') {
+                  console.warn("[Trending Render] Skipping invalid item:", item);
+                  return null;
+              }
+              const key = `${activeTab}-${item.id}`; // Generate unique key
 
+              // Render appropriate card based on active tab
               if (activeTab === "restaurants") return <RestaurantCard key={key} {...item} />;
-              if (activeTab === "dishes") return <DishCard key={key} {...item} restaurant={item.restaurant_name || item.restaurant} />; // Pass restaurant name
-              if (activeTab === "lists") return (
-                 <ListCard key={key} {...item} isFollowing={item.is_following} canFollow={false} /> // Disable follow button on trending page? Or keep enabled?
-              );
+              if (activeTab === "dishes") {
+                  // Ensure restaurant name is passed correctly to DishCard
+                  const restaurantName = item.restaurant_name || item.restaurant; // Check both potential fields
+                  return <DishCard key={key} {...item} restaurant={restaurantName} />;
+              }
+              if (activeTab === "lists") {
+                  // Pass relevant props to ListCard, including follow state
+                  return <ListCard key={key} {...item} isFollowing={item.is_following ?? false} />;
+              }
               return null; // Should not happen
             })}
           </div>
+        )}
+        {/* Show loading indicator subtly if loading more data in background? */}
+        {isLoadingTrending && activeData.length > 0 && (
+            <div className="flex justify-center items-center pt-4">
+                <Loader2 className="h-4 w-4 animate-spin mr-1 text-gray-400"/>
+                <p className="text-xs text-gray-400">Updating...</p>
+            </div>
         )}
       </div>
     </div>

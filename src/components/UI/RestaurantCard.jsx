@@ -1,70 +1,68 @@
-import React from "react";
-import { Link } from "react-router-dom";
-import { MapPin, Users, Plus } from "lucide-react";
-import { useQuickAdd } from "@/context/QuickAddContext";
-import Button from "@/components/Button";
+// src/components/UI/RestaurantCard.jsx
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { MapPin, Users, Plus } from 'lucide-react';
+import { useQuickAdd } from '@/context/QuickAddContext';
+import Button from '@/components/Button'; // Assuming Button component is styled appropriately
 
 const RestaurantCard = React.memo(
-  ({ id = 1, name, neighborhood, city, tags, adds = Math.floor(Math.random() * 900) + 100 }) => {
+  ({ id, name, neighborhood, city, tags = [], adds = 0 }) => { // Default tags to empty array and adds to 0
     const { openQuickAdd } = useQuickAdd();
 
-    const handleQuickAdd = () => {
+    const handleQuickAdd = (e) => {
+       e.stopPropagation(); // Prevent triggering link navigation
+       e.preventDefault();
       console.log("RestaurantCard: handleQuickAdd called: id=", id);
       openQuickAdd({ id, name, neighborhood, city, tags, type: "restaurant" });
     };
 
-    // Remove street address from name if present (e.g., "Rosa Mexicano, East 18th" -> "Rosa Mexicano")
-    const cleanName = name.split(',')[0].trim();
+    const cleanName = name?.split(',')[0].trim() || "Unnamed Restaurant"; // Handle potential undefined name
 
     return (
-      <div className="w-72 bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md relative">
+      <div className="group relative flex flex-col w-full h-56 bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden transition-shadow hover:shadow-md">
+        {/* Quick Add Button */}
         <button
           onClick={handleQuickAdd}
-          className="absolute top-3 right-3 w-10 h-10 bg-[#D1B399] rounded-full flex items-center justify-center text-white shadow hover:bg-[#b89e89]"
-          aria-label="Add to list"
+          className="absolute top-2 right-2 z-10 w-8 h-8 bg-[#D1B399] rounded-full flex items-center justify-center text-white shadow-md hover:bg-[#b89e89] transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-[#D1B399]"
+          aria-label="Add restaurant to list"
         >
-          <Plus size={24} />
+          <Plus size={20} />
         </button>
 
-        <div className="flex flex-col h-full">
-          <div className="flex-1">
-            <Link to={`/restaurant/${id}`} className="block">
-              <h3 className="text-lg font-bold text-gray-900 mb-2 truncate hover:text-[#D1B399]">{cleanName}</h3>
-            </Link>
-
-            <div className="flex items-start text-gray-500 text-sm mb-2">
-              <MapPin size={14} className="mr-1 mt-0.5 flex-shrink-0" />
+        {/* Card Content */}
+        <Link to={`/restaurant/${id}`} className="flex flex-col flex-grow p-4 text-left">
+          {/* Top section */}
+          <div className="flex-grow mb-2">
+            <h3 className="text-base font-semibold text-gray-900 mb-1.5 line-clamp-2 group-hover:text-[#A78B71] transition-colors">
+              {cleanName}
+            </h3>
+            <div className="flex items-center text-gray-500 text-xs mb-1.5">
+              <MapPin size={12} className="mr-1 flex-shrink-0" />
               <span className="truncate">
-                {neighborhood ? `${neighborhood}, ${city}` : city}
+                {neighborhood ? `${neighborhood}, ${city}` : city || "Unknown Location"}
               </span>
             </div>
-
-            <div className="flex items-center text-gray-500 text-sm mb-3">
-              <Users size={14} className="mr-1" />
-              <span>{adds.toLocaleString()} adds</span>
-            </div>
-
-            <div className="flex flex-wrap gap-1">
-              {(tags || []).slice(0, 3).map((tag) => (
-                <span
-                  key={tag}
-                  className="px-2 py-0.5 bg-gray-100 rounded-full text-xs text-gray-600"
-                >
-                  #{tag}
-                </span>
-              ))}
-            </div>
+             <div className="flex items-center text-gray-500 text-xs">
+               <Users size={12} className="mr-1 flex-shrink-0" />
+               <span>{adds.toLocaleString()} adds</span>
+             </div>
           </div>
 
-          <div className="mt-4">
-            <Button
-              variant="tertiary"
-              className="w-full border-[#D1B399] text-[#D1B399] hover:bg-[#D1B399] hover:text-white"
-            >
-              <Link to={`/restaurant/${id}`}>View</Link>
-            </Button>
+          {/* Tags section - appears at bottom */}
+          <div className="flex flex-wrap gap-1 mt-auto pt-2 border-t border-gray-100">
+            {tags.slice(0, 2).map((tag) => ( // Show max 2 tags
+              <span
+                key={tag}
+                className="px-1.5 py-0.5 bg-gray-100 rounded-full text-[10px] text-gray-600 whitespace-nowrap"
+              >
+                #{tag}
+              </span>
+            ))}
+             {tags.length > 2 && (
+                 <span className="px-1.5 py-0.5 bg-gray-100 rounded-full text-[10px] text-gray-600">+{tags.length - 2} more</span>
+             )}
           </div>
-        </div>
+        </Link>
       </div>
     );
   }

@@ -1,101 +1,168 @@
 // src/pages/Home/FilterSection.jsx
-import React, { useEffect } from "react";
-import useAppStore from "@/hooks/useAppStore";
-import PillButton from "@/components/UI/PillButton";
+// UPDATE: Add useEffect to fetch cities/cuisines on mount
+import React, { useState, useEffect, useCallback } from 'react'; // Added useEffect
+// Import stores
+import useConfigStore from '@/stores/useConfigStore.js';
+import useUIStateStore from '@/stores/useUIStateStore.js';
+// Other imports
+import PillButton from '@/components/UI/PillButton.jsx';
+import { API_BASE_URL } from '@/config.js'; // Keep if fetchNeighborhoods uses it
+import { ChevronLeft, XCircle, Loader2 } from 'lucide-react';
 
-const FilterSection = () => {
-  const cities = useAppStore((state) => state.cities);
-  const cuisines = useAppStore((state) => state.cuisines);
-  const activeFilters = useAppStore((state) => state.activeFilters);
-  const setFilter = useAppStore((state) => state.setFilter);
-  const fetchNeighborhoods = useAppStore((state) => state.fetchNeighborhoods);
-  const neighborhoods = useAppStore((state) => state.neighborhoods);
-  const isInitializing = useAppStore((state) => state.isInitializing);
-  const initializationError = useAppStore((state) => state.initializationError);
+const FilterSection = React.memo(() => {
+  // Select state/actions from specific stores
+  const cities = useConfigStore((state) => state.cities);
+  const isLoadingCities = useConfigStore((state) => state.isLoadingCities);
+  const errorCities = useConfigStore((state) => state.errorCities); // Get error state
+  const fetchCities = useConfigStore((state) => state.fetchCities); // Get fetch action
+  // Fetch cuisines action - not strictly needed by this component display, but fetch on init
+  const fetchCuisines = useConfigStore((state) => state.fetchCuisines);
 
+  const selectedCityId = useUIStateStore((state) => state.cityId);
+  const setCityId = useUIStateStore((state) => state.setCityId);
+
+  // Local state for UI levels and neighborhoods
+  const [showLevel, setShowLevel] = useState('cities'); // 'cities' or 'neighborhoods'
+  const [neighborhoods, setNeighborhoods] = useState([]);
+  const [isLoadingNeighborhoods, setIsLoadingNeighborhoods] = useState(false);
+  const [fetchError, setFetchError] = useState(''); // Combined local error state
+
+  const hasCities = Array.isArray(cities) && cities.length > 0;
+  const selectedCity = hasCities ? cities.find(c => c.id === selectedCityId) : undefined;
+
+  // --- Fetch Config Data ---
   useEffect(() => {
-    if (activeFilters.cityId) {
-      fetchNeighborhoods(activeFilters.cityId);
-    } else {
-      setFilter("neighborhoodId", null);
-      setFilter("tags", []);
+    // Fetch cities and cuisines only if not already loaded/loading
+    if (!cities || cities.length === 0) {
+        console.log("[FilterSection useEffect] Fetching cities...");
+        fetchCities().catch(err => {
+            console.error("[FilterSection] Error fetching cities:", err);
+            setFetchError(errorCities || "Failed to load cities."); // Show store error or fallback
+        });
     }
-  }, [activeFilters.cityId, fetchNeighborhoods, setFilter]);
+    // Fetch cuisines too, perhaps - or move this elsewhere if not needed here
+    // const cuisines = useConfigStore.getState().cuisines; // Check without subscribing if needed
+    // if (!cuisines || cuisines.length === 0) {
+    //    fetchCuisines().catch(err => console.error("[FilterSection] Error fetching cuisines:", err));
+    // }
+  }, [fetchCities, fetchCuisines, cities, errorCities]); // Add errorCities to dependencies to allow clearing error display
 
-  useEffect(() => {
-    if (!activeFilters.neighborhoodId) {
-      setFilter("tags", []);
-    }
-  }, [activeFilters.neighborhoodId, setFilter]);
 
-  if (isInitializing) return <div className="my-6 text-gray-500">Loading filters...</div>;
-  if (initializationError) return <div className="my-6 text-red-500">Error loading filters: {initializationError}</div>;
+  // Fetch neighborhoods logic (remains mostly the same, uses local state/error)
+  const fetchNeighborhoods = useCallback(async (cityIdToFetch) => {
+      if (!cityIdToFetch) return;
+      setIsLoadingNeighborhoods(true);
+      setFetchError(''); // Clear previous errors
+      try {
+          // Assuming a backend endpoint like /api/neighborhoods?cityId=...
+          const response = await fetch(`${API_BASE_URL}/api/neighborhoods?cityId=${cityIdToFetch}`);
+          if (!response.ok) {
+              const errData = await response.json().catch(() => ({}));
+              throw new Error(errData.error || `Failed to fetch neighborhoods (${response.status})`);
+          }
+          const data = await response.json();
+          setNeighborhoods(Array.isArray(data) ? data : []);
+      } catch (err) {
+          console.error("[FilterSection] Error fetching neighborhoods:", err);
+          setFetchError(err.message || 'Could not load neighborhoods.');
+          setNeighborhoods([]); // Clear neighborhoods on error
+      } finally {
+          setIsLoadingNeighborhoods(false);
+      }
+  }, []); // API_BASE_URL could be a dependency if it changes, but likely stable
+
+  // Event Handlers using setCityId from UIStateStore
+  const handleSelectCity = (cityId) => {
+    console.log(`[FilterSection] Selected city ID: ${cityId}`);
+    setCityId(cityId); // Update global UI state
+    fetchNeighborhoods(cityId); // Fetch neighborhoods for the selected city
+    setShowLevel('neighborhoods'); // Switch view to neighborhoods
+    setFetchError(''); // Clear errors on selection
+  };
+
+  const handleGoBack = () => { // Go back from neighborhoods to cities
+    setCityId(null); // Clear selected city in global state
+    setNeighborhoods([]); // Clear local neighborhoods
+    setFetchError(''); // Clear errors
+    setShowLevel('cities'); // Show city pills again
+  };
+
+  const handleClearAll = () => { // Clear everything
+     handleGoBack(); // Use handleGoBack logic to reset city/neighborhoods
+  };
+
+  const renderCityPills = () => {
+      if (isLoadingCities) {
+          return <div className="flex items-center text-xs text-gray-500"> <Loader2 className="animate-spin h-4 w-4 mr-1.5" /> <span>Loading cities...</span> </div>;
+      }
+      if (errorCities && !hasCities) { // Show error only if loading failed and no cities are present
+           return <p className="text-xs text-red-500">Error: {errorCities}</p>;
+       }
+      if (!hasCities) {
+          return <p className="text-xs text-gray-500">No cities available.</p>;
+      }
+      return cities.map((city) => (
+          <PillButton
+              key={city.id}
+              label={city.name}
+              isActive={selectedCityId === city.id} // Should always be false here as we switch level on select
+              onClick={() => handleSelectCity(city.id)}
+          />
+      ));
+  };
+
+   const renderNeighborhoodPills = () => {
+       if (isLoadingNeighborhoods) {
+           return <div className="flex items-center text-xs text-gray-500"> <Loader2 className="animate-spin h-4 w-4 mr-1.5" /> <span>Loading neighborhoods...</span> </div>;
+       }
+        if (fetchError && neighborhoods.length === 0) { // Show error if fetch failed
+            return <p className="text-xs text-red-500">Error: {fetchError}</p>;
+        }
+       if (neighborhoods.length === 0) {
+           return <p className="text-xs text-gray-500">No neighborhoods found for {selectedCity?.name || 'this city'}.</p>;
+       }
+       // TODO: Add neighborhood selection logic similar to city selection if needed
+       return neighborhoods.map((n) => (
+           <PillButton key={n.id} label={n.name} /* Add isActive/onClick if neighborhoods are selectable */ />
+       ));
+   };
+
 
   return (
-    <div className="my-6 flex flex-col gap-4">
-      {/* City Filter (Hide after selection) */}
-      {!activeFilters.cityId && (
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
-          <div className="flex flex-wrap gap-2">
-            {cities.map((city) => (
-              <PillButton
-                key={city.id}
-                label={city.name}
-                isActive={activeFilters.cityId === city.id}
-                onClick={() => setFilter("cityId", activeFilters.cityId === city.id ? null : city.id)}
-                className="px-4 py-1.5 text-base"
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Neighborhood Filter (Show after city selection, hide after neighborhood selection) */}
-      {activeFilters.cityId && !activeFilters.neighborhoodId && (
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Neighborhood</label>
-          <div className="flex flex-wrap gap-2">
-            {neighborhoods.length > 0 ? (
-              neighborhoods.map((neighborhood) => (
-                <PillButton
-                  key={neighborhood.id}
-                  label={neighborhood.name}
-                  isActive={activeFilters.neighborhoodId === neighborhood.id}
-                  onClick={() => setFilter("neighborhoodId", activeFilters.neighborhoodId === neighborhood.id ? null : neighborhood.id)}
-                  className="px-4 py-1.5 text-base"
-                />
-              ))
-            ) : (
-              <span className="text-gray-500 text-sm">No neighborhoods available</span>
+    <div className="mb-4 p-3 bg-white shadow-sm rounded-lg border border-gray-100 min-h-[70px]">
+      {/* Header and Buttons */}
+      <div className="flex justify-between items-center mb-2 flex-wrap gap-y-1">
+        <div className="flex items-center gap-2">
+            {/* Back button only shown when viewing neighborhoods */}
+            {showLevel === 'neighborhoods' && (
+                <button onClick={handleGoBack} className="p-1 text-gray-500 hover:text-gray-800" aria-label="Back to cities">
+                    <ChevronLeft size={18} />
+                </button>
             )}
-          </div>
+            <h3 className="text-sm font-semibold text-gray-700">
+                {showLevel === 'cities' ? 'Filter by City' : `Neighborhoods in ${selectedCity?.name || 'Selected City'}`}
+            </h3>
         </div>
-      )}
+        {/* Clear button only shown when a city is selected */}
+        {selectedCityId && (
+            <button onClick={handleClearAll} className="text-xs text-red-500 hover:text-red-700 flex items-center gap-0.5">
+                 <XCircle size={14} /> Clear
+            </button>
+        )}
+      </div>
 
-      {/* Cuisine Filter (Show after neighborhood selection, hide after cuisine selection) */}
-      {activeFilters.neighborhoodId && activeFilters.tags.length === 0 && (
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Cuisine</label>
-          <div className="flex flex-wrap gap-2">
-            {cuisines.length > 0 ? (
-              cuisines.map((cuisine) => (
-                <PillButton
-                  key={cuisine.name}
-                  label={cuisine.name}
-                  isActive={activeFilters.tags.includes(cuisine.name)}
-                  onClick={() => setFilter("tags", activeFilters.tags.includes(cuisine.name) ? [] : [cuisine.name])}
-                  className="px-4 py-1.5 text-base"
-                />
-              ))
-            ) : (
-              <span className="text-gray-500 text-sm">No cuisines available</span>
-            )}
-          </div>
-        </div>
-      )}
+      {/* Display combined fetch errors if any */}
+       {(errorCities && !hasCities && showLevel === 'cities') || (fetchError && neighborhoods.length === 0 && showLevel === 'neighborhoods') ? (
+           <p className="text-xs text-red-500 mb-2">{showLevel === 'cities' ? errorCities : fetchError}</p>
+       ) : null}
+
+      {/* Pills Section */}
+      <div className="flex flex-wrap gap-1.5">
+        {showLevel === 'cities' && renderCityPills()}
+        {showLevel === 'neighborhoods' && renderNeighborhoodPills()}
+      </div>
     </div>
   );
-};
+});
 
 export default FilterSection;

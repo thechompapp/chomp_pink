@@ -1,152 +1,183 @@
 // src/pages/Lists/MyLists.jsx
-import React, { useState, useEffect, useCallback, useRef } from "react";
-import useAppStore from "@/hooks/useAppStore"; // Global import
-import ListCard from "@/pages/Lists/ListCard.jsx"; // Global import
-import { useQuickAdd } from "@/context/QuickAddContext.jsx"; // Global import
-import Button from "@/components/Button"; // Global import
+// UPDATE: Use specific Zustand stores
+import React, { useEffect, useState, useRef, useId } from 'react';
+// Import specific stores needed
+import useUserListStore from '@/stores/useUserListStore';
+// import useUIStateStore from '@/stores/useUIStateStore'; // Potentially for global loading/error, but UserListStore has its own
+import ListCard from '@/pages/Lists/ListCard'; // Use '@' alias
+import * as Tabs from '@radix-ui/react-tabs';
+import { Loader2, AlertTriangle } from 'lucide-react'; // Added AlertTriangle
+import Button from '@/components/Button'; // Added Button for retry
 
 const MyLists = () => {
-  console.log("[MyLists] Attempting to import ListCard from @/pages/Lists/ListCard.jsx");
+  // Select state and actions from useUserListStore
+  const userLists = useUserListStore(state => state.userLists);
+  const followedLists = useUserListStore(state => state.followedLists);
+  const fetchUserLists = useUserListStore(state => state.fetchUserLists);
+  const fetchFollowedLists = useUserListStore(state => state.fetchFollowedLists);
+  // Select loading/error states from the store
+  const isLoadingUser = useUserListStore(state => state.isLoadingUser);
+  const isLoadingFollowed = useUserListStore(state => state.isLoadingFollowed);
+  const errorUser = useUserListStore(state => state.errorUser);
+  const errorFollowed = useUserListStore(state => state.errorFollowed);
 
-  // Use individual selectors to avoid creating a new object
-  const userLists = useAppStore(state => state.userLists);
-  const fetchUserLists = useAppStore(state => state.fetchUserLists);
-  const isLoadingUserLists = useAppStore(state => state.isLoadingUserLists);
-  const userListsError = useAppStore(state => state.userListsError);
-  const hasFetchedUserLists = useAppStore(state => state.hasFetchedUserLists);
-  const clearUserListsError = useAppStore(state => state.clearUserListsError);
-
-  const { openQuickAdd } = useQuickAdd();
-  const [activeTab, setActiveTab] = useState("myLists");
-  const hasFetchedRef = useRef(false); // Guard against multiple fetches
-
-  const handleFetchUserLists = useCallback(() => {
-    if (hasFetchedRef.current) {
-      console.log("[MyLists] Fetch already in progress or completed");
-      return;
-    }
-
-    if (!hasFetchedUserLists && !isLoadingUserLists) {
-      console.log("[MyLists] Fetching lists.");
-      hasFetchedRef.current = true;
-      fetchUserLists();
-    } else {
-      console.log(`[MyLists] Skipping fetch. hasFetched: ${hasFetchedUserLists}, isLoading: ${isLoadingUserLists}`);
-    }
-  }, [fetchUserLists, hasFetchedUserLists, isLoadingUserLists]);
+  // Refs to track if fetches have been attempted this mount
+  const userFetchAttempted = useRef(false);
+  const followedFetchAttempted = useRef(false);
+  const instanceId = useId(); // For debugging logs
 
   useEffect(() => {
-    handleFetchUserLists();
+    console.log(`[MyLists ${instanceId}] useEffect RUNNING. userAttempted: ${userFetchAttempted.current}, followedAttempted: ${followedFetchAttempted.current}`);
+    let isMounted = true;
+
+    // Fetch User Lists only if not attempted and not already loading
+    if (!userFetchAttempted.current && !isLoadingUser) {
+        userFetchAttempted.current = true; // Mark attempt
+        console.log(`[MyLists ${instanceId}] useEffect initiating fetchUserLists.`);
+        fetchUserLists()
+          .catch(error => {
+              console.error(`[MyLists ${instanceId}] fetchUserLists failed:`, error);
+              // Error state is set within the store action
+              // Allow retry by resetting flag only if component still mounted
+              if (isMounted) userFetchAttempted.current = false;
+          })
+          .finally(() => {
+              // Loading state is set within the store action
+              console.log(`[MyLists ${instanceId}] fetchUserLists finished.`);
+          });
+    } else {
+         console.log(`[MyLists ${instanceId}] Skipping fetchUserLists (already attempted or loading).`);
+    }
+
+    // Fetch Followed Lists only if not attempted and not already loading
+    if (!followedFetchAttempted.current && !isLoadingFollowed) {
+        followedFetchAttempted.current = true; // Mark attempt
+        console.log(`[MyLists ${instanceId}] useEffect initiating fetchFollowedLists.`);
+        fetchFollowedLists()
+          .catch(error => {
+              console.error(`[MyLists ${instanceId}] fetchFollowedLists failed:`, error);
+              // Error state is set within the store action
+              if (isMounted) followedFetchAttempted.current = false;
+          })
+          .finally(() => {
+              console.log(`[MyLists ${instanceId}] fetchFollowedLists finished.`);
+          });
+    } else {
+        console.log(`[MyLists ${instanceId}] Skipping fetchFollowedLists (already attempted or loading).`);
+    }
+
     return () => {
-      hasFetchedRef.current = false; // Reset on unmount
+        console.log(`[MyLists ${instanceId}] useEffect CLEANUP.`);
+        isMounted = false;
     };
-  }, [handleFetchUserLists]);
+  // Dependencies: fetch functions trigger the effect if they change (stable refs are fine)
+  // isLoading flags prevent re-fetch while loading.
+  }, [fetchUserLists, fetchFollowedLists, isLoadingUser, isLoadingFollowed]);
 
-  const handleCreateNewList = useCallback(() => {
-    openQuickAdd({ type: "createNewList" });
-  }, [openQuickAdd]);
 
-  const myLists = Array.isArray(userLists) ? userLists.filter((list) => list.created_by_user) : [];
-  const followingLists = Array.isArray(userLists) ? userLists.filter((list) => list.is_following && !list.created_by_user) : [];
+  // Render function for list content
+  const renderListContent = (lists, isLoading, error, type, fetchAction) => {
+    const fetchAttempted = (type === 'created' && userFetchAttempted.current) || (type === 'followed' && followedFetchAttempted.current);
 
-  const renderContent = () => {
-    if (isLoadingUserLists && !hasFetchedUserLists) {
-      return <div className="text-center py-10 text-gray-500">Loading your lists...</div>;
-    }
-    if (userListsError) {
-      return (
-        <div className="text-center py-10">
-          <p className="text-red-500 mb-4">Error loading lists: {userListsError}</p>
-          <div className="flex justify-center gap-4">
-            <Button onClick={() => fetchUserLists()} variant="primary" className="px-4 py-2">Retry</Button>
-            {clearUserListsError && (
-              <Button onClick={() => clearUserListsError()} variant="tertiary" className="px-4 py-2 border-[#D1B399] text-[#D1B399] hover:bg-[#D1B399]/10">
-                Clear Error
-              </Button>
-            )}
-          </div>
-        </div>
-      );
+    // Loading State
+    if (isLoading) {
+        return (
+            <div className="flex justify-center items-center py-10">
+                <Loader2 className="h-6 w-6 animate-spin mr-2 text-gray-500"/>
+                <p className="text-gray-500">Loading {type === 'created' ? 'your' : 'followed'} lists...</p>
+            </div>
+        );
     }
 
-    const listsToDisplay = activeTab === "myLists" ? myLists : followingLists;
-    const isEmpty = listsToDisplay.length === 0;
-    const emptyStateMessage = activeTab === "myLists" 
-      ? "You haven't created any lists yet." 
-      : "You're not following any lists yet.";
-    const emptyStateButtonText = activeTab === "myLists" 
-      ? "Create Your First List" 
-      : "Discover Lists to Follow";
-    const emptyStateAction = activeTab === "myLists" 
-      ? handleCreateNewList 
-      : () => window.location.href = '/discover';
+    // Error State
+    if (error) {
+        return (
+             <div className="text-center py-10 max-w-lg mx-auto px-4">
+                 <AlertTriangle className="h-10 w-10 text-red-400 mx-auto mb-3" />
+                 <p className="text-red-600 mb-4">Error loading {type} lists: {error}</p>
+                 <Button onClick={() => {
+                     // Reset attempt flag before retrying
+                     if (type === 'created') userFetchAttempted.current = false;
+                     else followedFetchAttempted.current = false;
+                     fetchAction();
+                 }} variant="primary" size="sm">Retry</Button>
+             </div>
+        );
+    }
 
+    // Ensure lists is an array before trying to map
+    if (!Array.isArray(lists)) {
+         // This case might indicate an issue with the store state or fetch response format
+         console.error(`[MyLists renderListContent] Received non-array for ${type} lists:`, lists);
+         return <p className="text-gray-500 text-center py-10">Error: Invalid list data format.</p>;
+    }
+
+    // Empty State (Fetch attempted but returned empty)
+    if (lists.length === 0 && fetchAttempted) {
+        return (
+            <p className="text-gray-500 text-center py-10">
+                You haven't {type === 'created' ? 'created any' : 'followed any'} lists yet.
+            </p>
+        );
+    }
+
+    // Fallback/Initial state before fetch completes but not loading/error
+    if (lists.length === 0 && !fetchAttempted) {
+         return <p className="text-gray-500 text-center py-10">Checking for lists...</p>;
+    }
+
+    // Success State - Render List Cards
+    console.log(`[MyLists ${instanceId}] Rendering ${lists.length} ${type} lists.`);
     return (
-      <>
-        <div className="flex border-b border-gray-200 mb-6">
-          <button 
-            onClick={() => setActiveTab("myLists")} 
-            className={`py-2 px-4 font-medium transition-colors duration-150 ${activeTab === "myLists" ? "border-b-2 border-[#D1B399] text-[#D1B399]" : "text-gray-500 hover:text-[#D1B399] border-b-2 border-transparent"}`} 
-            aria-current={activeTab === "myLists"}
-          >
-            My Lists ({myLists.length})
-          </button>
-          <button 
-            onClick={() => setActiveTab("following")} 
-            className={`py-2 px-4 font-medium transition-colors duration-150 ${activeTab === "following" ? "border-b-2 border-[#D1B399] text-[#D1B399]" : "text-gray-500 hover:text-[#D1B399] border-b-2 border-transparent"}`} 
-            aria-current={activeTab === "following"}
-          >
-            Following ({followingLists.length})
-          </button>
-        </div>
-        <div>
-          {isEmpty ? (
-            <div className="text-center py-10">
-              <p className="text-gray-500 mb-4">{emptyStateMessage}</p>
-              {emptyStateButtonText && (
-                <Button onClick={emptyStateAction} variant="primary" className="px-4 py-2">
-                  {emptyStateButtonText}
-                </Button>
-              )}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {listsToDisplay.map((list) => {
-                if (!list || list.id === undefined || list.id === null) {
-                  console.error("[MyLists] Invalid list data encountered during map:", list);
-                  return null;
-                }
-                return (
-                  <ListCard
-                    key={`list-card-${list.id}`}
-                    id={list.id}
-                    name={list.name}
-                    itemCount={list.item_count ?? (Array.isArray(list.items) ? list.items.length : 0)} // Fixed syntax
-                    savedCount={list.saved_count ?? 0}
-                    city={list.city}
-                    tags={list.tags || []}
-                    isFollowing={list.is_following}
-                    createdByUser={list.created_by_user}
-                    creatorHandle={list.creator_handle || "@user"}
-                    isPublic={list.is_public}
-                    canFollow={true}
-                  />
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 place-items-start">
+        {lists.map(list => {
+            // Basic validation for list object and id before rendering card
+            if (!list || typeof list.id === 'undefined') {
+                console.warn(`[MyLists ${instanceId}] Skipping render for invalid list object in ${type} lists:`, list);
+                return null;
+            }
+            return (
+                <ListCard
+                    key={`${type}-${list.id}`} // Add type prefix for potential key collisions if list appears in both tabs
+                    {...list}
+                    // Explicitly set is_following based on the tab type for clarity
+                    // The ListCard itself might also check the store state for latest follow status
+                    is_following={type === 'followed'}
+                />
+            );
+        })}
+      </div>
     );
   };
 
+  // --- Main Component Render ---
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-        <h1 className="text-3xl font-bold text-gray-800">My Lists</h1>
-        <Button onClick={handleCreateNewList} variant="primary" className="px-4 py-2 w-full sm:w-auto">Create New List</Button>
-      </div>
-      {renderContent()}
+    // Removed min-h-screen bg-gray-50 to allow parent layout control
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8"> {/* Reduced py-12 to py-8 */}
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-6">My Lists</h1> {/* Reduced mb-8 to mb-6 */}
+         <Tabs.Root defaultValue="created" className="mb-6"> {/* Reduced mb-8 to mb-6 */}
+             <Tabs.List className="flex border-b border-gray-200 mb-4"> {/* Reduced mb-6 to mb-4 */}
+                 <Tabs.Trigger
+                     value="created"
+                     className="py-2 px-4 -mb-px text-sm font-medium text-gray-500 hover:text-[#A78B71] focus:outline-none data-[state=active]:border-b-2 data-[state=active]:border-[#A78B71] data-[state=active]:text-[#A78B71]"
+                 >
+                     Created Lists ({Array.isArray(userLists) ? userLists.length : 0})
+                 </Tabs.Trigger>
+                 <Tabs.Trigger
+                     value="followed"
+                     className="py-2 px-4 -mb-px text-sm font-medium text-gray-500 hover:text-[#A78B71] focus:outline-none data-[state=active]:border-b-2 data-[state=active]:border-[#A78B71] data-[state=active]:text-[#A78B71]"
+                 >
+                     Followed Lists ({Array.isArray(followedLists) ? followedLists.length : 0})
+                 </Tabs.Trigger>
+             </Tabs.List>
+             {/* Tab Content Panes */}
+             <Tabs.Content value="created" className="focus:outline-none pt-4">
+                {renderListContent(userLists, isLoadingUser, errorUser, 'created', fetchUserLists)}
+             </Tabs.Content>
+             <Tabs.Content value="followed" className="focus:outline-none pt-4">
+               {renderListContent(followedLists, isLoadingFollowed, errorFollowed, 'followed', fetchFollowedLists)}
+             </Tabs.Content>
+         </Tabs.Root>
     </div>
   );
 };

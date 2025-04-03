@@ -1,4 +1,4 @@
-// src/doof-backend/server.js (Refactored - Add test route)
+// src/doof-backend/server.js (Refactored - Update trendingRouter path)
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
@@ -8,23 +8,29 @@ const db = require('./db'); // *** ADD THIS: Import the db module ***
 
 // Import existing routers
 const filtersRouter = require('./routes/filters');
-const trendingRouter = require('./routes/trending');
+// *** CHANGE: Updated path for trendingRouter ***
+const trendingRouter = require('./routes/trending'); // Assuming src/data/trending.js is MOVED here
 const listsRouter = require('./routes/lists');
 const restaurantsRouter = require('./routes/restaurants');
 const dishesRouter = require('./routes/dishes');
 const submissionsRouter = require('./routes/submissions');
 const placesRouter = require('./routes/places');
 const adminRouter = require('./routes/admin');
+// *** Potentially remove commonDishes if that feature/table was removed ***
+const commonDishesRouter = require('./routes/commonDishes');
 
 const app = express();
 const port = process.env.PORT || 5001;
 
 // --- Core Middleware (Keep as is) ---
-const corsOptions = { /* ... */ };
+const corsOptions = { /* ... */ }; // Define or import your cors options if needed
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
-app.use((req, res, next) => { /* Logging middleware */ next(); });
+app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+    next();
+});
 
 
 // --- API Routes ---
@@ -50,23 +56,41 @@ app.get("/api/test-restaurants", async (req, res, next) => {
 });
 // *** END TEST ROUTE ***
 
-// Mount existing routers (Keep as is)
+// Mount existing routers
 app.use('/api', filtersRouter);
-app.use('/api/trending', trendingRouter); // Keep using the reverted complex queries for now
+app.use('/api/trending', trendingRouter);
 app.use('/api/lists', listsRouter);
 app.use('/api/restaurants', restaurantsRouter);
 app.use('/api/dishes', dishesRouter);
 app.use('/api/submissions', submissionsRouter);
 app.use('/api/places', placesRouter);
 app.use('/api/admin', adminRouter);
+// *** Mount commonDishes router - remove if not used ***
+app.use('/api/common-dishes', commonDishesRouter);
 
-// --- Optional: Serve Static Frontend (Keep as is) ---
-// app.use(express.static(...));
-// app.get('*', ...);
 
-// --- Not Found & Error Handlers (Keep as is) ---
-app.use((req, res, next) => { /* 404 handler */ });
-app.use((err, req, res, next) => { /* Centralized error handler */ });
+// --- Optional: Serve Static Frontend (Keep as is or configure as needed) ---
+// Example: Serve static files from a 'build' directory
+// app.use(express.static(path.join(__dirname, '../../build'))); // Adjust path as needed
+// app.get('*', (req, res) => {
+//   res.sendFile(path.resolve(__dirname, '../../build', 'index.html')); // Adjust path as needed
+// });
 
-// --- Start Server (Keep as is) ---
-app.listen(port, () => { /* ... */ });
+// --- Not Found & Error Handlers ---
+// 404 Handler (if no routes matched)
+app.use((req, res, next) => {
+    res.status(404).json({ error: `Not Found - ${req.originalUrl}` });
+});
+
+// Centralized Error Handler
+app.use((err, req, res, next) => {
+    console.error("[Central Error Handler]", err.stack);
+    const statusCode = err.status || err.statusCode || 500;
+    const message = err.message || 'Internal Server Error';
+    res.status(statusCode).json({ error: message });
+});
+
+// --- Start Server ---
+app.listen(port, () => {
+    console.log(`\x1b[36m%s\x1b[0m`, `Backend server listening on port ${port}`);
+});

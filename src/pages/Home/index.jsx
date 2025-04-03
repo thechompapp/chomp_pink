@@ -1,80 +1,42 @@
 // src/pages/Home/index.jsx
-import React, { useMemo } from "react"; // Removed useEffect, useRef
-import useAppStore from "@/hooks/useAppStore.js";
-import SearchBar from "@/components/UI/SearchBar.jsx";
-import FilterSection from "@/pages/Home/FilterSection.jsx";
-import Results from "@/pages/Home/Results.jsx";
-import Button from "@/components/Button.jsx";
-import { Loader2, AlertTriangle } from "lucide-react"; // Import icons
+// UPDATE: Remove useAppStore, use specific stores if needed
+import React, { memo } from "react"; // Removed useEffect as initial fetches are in App.jsx
+// Import specific stores if state/actions are needed DIRECTLY in Home
+// import useConfigStore from '@/stores/useConfigStore'; // Example: if cities were needed directly
+// import useTrendingStore from '@/stores/useTrendingStore'; // Example: if trending data were needed directly
+import useUIStateStore from '@/stores/useUIStateStore.js'; // For setSearchQuery action
 
-const Home = () => {
-  // Select state slices individually - No change needed here
-  const trendingItems = useAppStore(state => state.trendingItems);
-  const trendingDishes = useAppStore(state => state.trendingDishes);
-  const popularLists = useAppStore(state => state.popularLists);
-  const isInitializing = useAppStore(state => state.isInitializing);
-  const initializationError = useAppStore(state => state.initializationError);
-  const setSearchQuery = useAppStore(state => state.setSearchQuery);
-  const initializeApp = useAppStore(state => state.initializeApp); // Keep for Retry button
-  // Check if data has been loaded at least once (even if empty or error occurred)
-  const hasAttemptedInit = useAppStore(state => !state.isInitializing); // Can likely be simplified now
+// Import child components
+import SearchBar from "@/components/UI/SearchBar"; // Use '@' alias
+import FilterSection from "@/pages/Home/FilterSection"; // Use '@' alias
+import Results from "@/pages/Home/Results"; // Use '@' alias
 
-  // --- REMOVED useEffect hook that called initializeApp ---
+// Removed Button, Loader2, AlertTriangle as App.jsx handles global loading/error states before rendering Home
 
-  // --- Loading State ---
-  // Show loading indicator if initialization is in progress
-  if (isInitializing) {
-     console.log("[Home Render] Showing Loading State");
-     return (
-       <div className="flex justify-center items-center h-[calc(100vh-200px)]">
-         <div className="text-center text-gray-500">
-           <Loader2 className="animate-spin h-10 w-10 mx-auto mb-3" />
-           Loading Trending Data...
-         </div>
-       </div>
-     );
-   }
+const Home = memo(() => {
+  // Select ONLY the state/actions needed directly by the Home component itself
+  // Child components (FilterSection, Results) will select their own state from stores
+  const setSearchQuery = useUIStateStore((state) => state.setSearchQuery);
 
-  // --- Error State ---
-  // Show error if initialization finished AND resulted in an error
-  // Note: !isInitializing is implicitly true if we reach this point
-  if (initializationError) {
-     console.error("[Home Render] Showing Error State:", initializationError);
-     return (
-       <div className="max-w-2xl mx-auto text-center py-10 px-4">
-          <AlertTriangle className="h-12 w-12 text-red-400 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-red-700 mb-2">Failed to Load Data</h2>
-          <p className="text-red-600 mb-6">{initializationError || "An unknown error occurred."}</p>
-          <Button
-            onClick={() => {
-               console.log("[Home] Retry button clicked.");
-               // Directly call initializeApp - App.jsx's guard should prevent duplicates if needed
-               initializeApp();
-            }}
-            variant="primary"
-            className="px-6 py-2"
-          >
-             Retry Load
-           </Button>
-       </div>
-     );
-   }
+  // Log component render for debugging (optional)
+  console.log("[Home Render] Rendering Home component.");
 
-  // --- Success/Content State ---
-  // Render content if initialization is finished (isInitializing is false) and there's no error
-  console.log("[Home Render] Rendering Main Content.");
+  // Global loading/error states are handled by App.jsx before this component renders,
+  // so no need for loading/error checks here.
+
   return (
+    // Use max-width and padding consistent with other pages like MyLists
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      {/* SearchBar component receives the setSearchQuery action */}
       <SearchBar onSearch={setSearchQuery} />
+
+      {/* FilterSection component fetches/selects its required state (cities, selectedCityId) internally */}
       <FilterSection />
-      <Results
-        // Ensure arrays are passed, even if empty
-        trendingItems={Array.isArray(trendingItems) ? trendingItems : []}
-        trendingDishes={Array.isArray(trendingDishes) ? trendingDishes : []}
-        popularLists={Array.isArray(popularLists) ? popularLists : []}
-      />
+
+      {/* Results component fetches/selects its required state (filtered data) internally using useFilteredData hook */}
+      <Results />
     </div>
   );
-};
+});
 
 export default Home;

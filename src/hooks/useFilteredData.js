@@ -1,54 +1,33 @@
 // src/hooks/useFilteredData.js
-import { useMemo } from "react";
-import useAppStore from "./useAppStore";
+// FIX: Guarantee returning arrays even if store state is initially undefined
+import useTrendingStore from '@/stores/useTrendingStore.js';
+import useUIStateStore from '@/stores/useUIStateStore.js';
 
-const useFilteredData = (data, type) => {
-  const searchQuery = useAppStore((state) => state.searchQuery);
-  const { cityId, neighborhoodId, tags } = useAppStore((state) => state.activeFilters);
-  const cities = useAppStore((state) => state.cities || []);
-  const neighborhoods = useAppStore((state) => state.neighborhoods || []);
+const useFilteredData = () => {
+  // Select filter criteria
+  const cityId = useUIStateStore((state) => state.cityId);
 
-  return useMemo(() => {
-    if (!Array.isArray(data)) return [];
+  // Select raw data arrays, explicitly providing default empty arrays
+  // Use the optional chaining ?. and nullish coalescing ?? for extra safety
+  const trendingItems = useTrendingStore((state) => state?.trendingItems) ?? [];
+  const trendingDishes = useTrendingStore((state) => state?.trendingDishes) ?? [];
+  const popularLists = useTrendingStore((state) => state?.popularLists) ?? [];
 
-    let filteredData = [...data];
+  console.log('[useFilteredData Hook] Selecting raw data:', {
+      cityId,
+      // Ensure length check is safe even if array is somehow null/undefined initially
+      rawTrendingItemsLength: trendingItems?.length ?? 0,
+      rawTrendingDishesLength: trendingDishes?.length ?? 0,
+      rawPopularListsLength: popularLists?.length ?? 0,
+  });
 
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filteredData = filteredData.filter((item) => {
-        const nameMatch = item.name?.toLowerCase().includes(query);
-        const tagsMatch = Array.isArray(item.tags) && item.tags.some((tag) => tag.toLowerCase().includes(query));
-        const restaurantMatch = item.restaurant_name?.toLowerCase().includes(query);
-        return nameMatch || tagsMatch || restaurantMatch;
-      });
-    }
-
-    if (cityId) {
-      filteredData = filteredData.filter((item) => {
-        const cityName = item.city || item.city_name;
-        const itemCityId = item.city_id || (typeof cityName === 'string' ? cities.find(c => c.name === cityName)?.id : null);
-        return itemCityId === cityId;
-      });
-    }
-
-    if (neighborhoodId && type !== 'list') {
-      filteredData = filteredData.filter((item) => {
-        const neighborhoodName = item.neighborhood || item.neighborhood_name;
-        const itemNeighborhoodId = item.neighborhood_id || (typeof neighborhoodName === 'string' ? neighborhoods.find(n => n.name === neighborhoodName)?.id : null);
-        return itemNeighborhoodId === neighborhoodId;
-      });
-    }
-
-    if (tags && tags.length > 0) {
-      filteredData = filteredData.filter((item) => {
-        if (!Array.isArray(item.tags)) return false;
-        const normalizedItemTags = item.tags.map((tag) => tag.toLowerCase().replace('#', ''));
-        return tags.some((tag) => normalizedItemTags.includes(tag.toLowerCase()));
-      });
-    }
-
-    return filteredData;
-  }, [data, type, searchQuery, cityId, neighborhoodId, tags, cities, neighborhoods]);
+  // Return the raw data and filter criteria, ensuring they are arrays
+  return {
+    cityId,
+    rawRestaurants: Array.isArray(trendingItems) ? trendingItems : [],
+    rawDishes: Array.isArray(trendingDishes) ? trendingDishes : [],
+    rawLists: Array.isArray(popularLists) ? popularLists : [],
+  };
 };
 
 export default useFilteredData;

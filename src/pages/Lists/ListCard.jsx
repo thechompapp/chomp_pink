@@ -1,91 +1,83 @@
 // src/pages/Lists/ListCard.jsx
-import React from "react";
-import { Link } from "react-router-dom";
-import { List, Users } from "lucide-react";
-import FollowButton from "@/components/FollowButton";
+// FIX: Remove useAppStore, import and use useUserListStore for follow state
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { Users, List } from 'lucide-react'; // Using Users for saves, List for item count
+import FollowButton from '@/components/FollowButton'; // Use '@' alias
+// **FIX**: Import the specific store needed
+import useUserListStore from '@/stores/useUserListStore.js'; // Use path alias and .js extension
 
-const ListCard = React.memo(
-  ({
+const ListCard = React.memo(({
     id,
     name,
-    itemCount,
-    savedCount,
-    city,
-    tags,
-    isFollowing = false,
-    canFollow = true,
-    createdByUser = false,
-    creatorHandle = "@user",
-    isPublic
-  }) => {
-    return (
-      <div className="w-72 bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md relative flex flex-col h-full">
-        {!createdByUser && (
-          <div className="absolute top-3 right-3 z-10">
-            <FollowButton
-              listId={id}
-              isFollowing={isFollowing}
-              isFollowable={canFollow}
-            />
-          </div>
-        )}
-        <div className="flex-grow">
-          <Link to={`/lists/${id}`} className={`block mb-2 ${!createdByUser ? 'pr-12' : ''}`}>
-            <h3 className="text-lg font-bold text-gray-900 truncate hover:text-[#D1B399]">{name || "Unnamed List"}</h3>
-          </Link>
-          {!createdByUser && (
-            <div className="text-gray-500 text-sm mb-2">Created by {creatorHandle}</div>
-          )}
-          <div className="flex items-start text-gray-500 text-sm mb-2">
-            <List size={14} className="mr-1 mt-0.5 flex-shrink-0" />
-            <span className="truncate">{itemCount || 0} items</span>
-          </div>
-          <div className="flex items-center text-gray-500 text-sm mb-3">
-            <Users size={14} className="mr-1" />
-            <span>{(savedCount || 0).toLocaleString()} saves</span>
-          </div>
-          {city && (
-            <div className="text-gray-500 text-sm mb-3">
-              <span>{city}</span>
+    description,
+    saved_count = 0,
+    item_count = 0,
+    is_following, // Initial follow state passed as prop
+    // Add other props if necessary, e.g., creator_handle, tags
+}) => {
+
+   // **FIX**: Select the specific list from the appropriate store to get potentially updated state
+   // Check both userLists and followedLists for the most current data for this list card ID
+   const listFromUserStore = useUserListStore(state =>
+        state.userLists.find(list => list.id === id) || state.followedLists.find(list => list.id === id)
+   );
+
+   // Use the follow state from the store if the list exists there, otherwise fallback to the initial prop
+   const currentFollowingState = listFromUserStore ? listFromUserStore.is_following : is_following;
+
+   // Default values for display
+   const cleanName = name || "Unnamed List";
+   // Use item_count from props or store if available, default description otherwise
+   const cleanDescription = description || `${listFromUserStore?.item_count ?? item_count} ${listFromUserStore?.item_count === 1 || item_count === 1 ? 'item' : 'items'}`;
+   const displayItemCount = listFromUserStore?.item_count ?? item_count;
+   const displaySavedCount = listFromUserStore?.saved_count ?? saved_count;
+
+   // Log for debugging (optional)
+   // console.log(`[ListCard ${id}] Initial Follow: ${is_following}, Store Follow: ${listFromUserStore?.is_following}, Current Render Follow: ${currentFollowingState}`);
+
+  return (
+     // Card structure remains the same
+     <div className="group relative flex flex-col w-full min-h-[14rem] h-56 bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden transition-shadow hover:shadow-md">
+       {/* Card Content */}
+       <div className="flex flex-col flex-grow p-4 text-left">
+         {/* Top section */}
+         <div className="flex-grow mb-2">
+            {/* Link to List Detail Page */}
+            <Link to={`/lists/${id}`} className="block mb-1.5 focus:outline-none focus:ring-1 focus:ring-[#D1B399] rounded">
+               <h3 className="text-base font-semibold text-gray-900 line-clamp-2 group-hover:text-[#A78B71] transition-colors">
+                 {cleanName}
+               </h3>
+            </Link>
+           {/* Description */}
+           <p className="text-xs text-gray-500 mb-1.5 line-clamp-2">
+              {cleanDescription}
+           </p>
+            {/* Saved Count */}
+            <div className="flex items-center text-gray-500 text-xs mb-1">
+              <Users size={12} className="mr-1 flex-shrink-0" />
+              <span>{displaySavedCount.toLocaleString()} saves</span>
             </div>
-          )}
-          <div className="flex flex-wrap gap-1">
-            {(tags || []).slice(0, 3).map((tag) => (
-              <span key={tag} className="px-2 py-0.5 bg-gray-100 rounded-full text-xs text-gray-600">
-                {tag.startsWith('#') ? tag : `#${tag}`}
-              </span>
-            ))}
-            {(tags || []).length > 3 && (
-              <span className="px-2 py-0.5 bg-gray-100 rounded-full text-xs text-gray-600">...</span>
-            )}
-          </div>
-        </div>
-        <div className="mt-4">
-          <Link
-            to={`/lists/${id}`}
-            className="block w-full py-2 border border-[#D1B399] text-[#D1B399] rounded-lg text-center font-medium hover:bg-[#D1B399] hover:text-white transition-colors duration-150"
-          >
-            View
-          </Link>
-        </div>
-      </div>
-    );
-  },
-  (prevProps, nextProps) => {
-    return (
-      prevProps.id === nextProps.id &&
-      prevProps.name === nextProps.name &&
-      prevProps.itemCount === nextProps.itemCount &&
-      prevProps.savedCount === nextProps.savedCount &&
-      prevProps.city === nextProps.city &&
-      JSON.stringify(prevProps.tags) === JSON.stringify(nextProps.tags) &&
-      prevProps.isFollowing === nextProps.isFollowing &&
-      prevProps.canFollow === nextProps.canFollow &&
-      prevProps.createdByUser === nextProps.createdByUser &&
-      prevProps.creatorHandle === nextProps.creatorHandle &&
-      prevProps.isPublic === nextProps.isPublic
-    );
-  }
-);
+            {/* Item Count */}
+            <div className="flex items-center text-gray-500 text-xs">
+              <List size={12} className="mr-1 flex-shrink-0" />
+              <span>{displayItemCount.toLocaleString()} {displayItemCount === 1 ? 'item' : 'items'}</span>
+            </div>
+         </div>
+
+         {/* Follow Button section - appears at bottom */}
+         <div className="mt-auto pt-3 border-t border-gray-100">
+           <FollowButton
+             listId={id}
+             isFollowing={currentFollowingState} // Use the determined current state
+             // You can add logic here if the follow button should ever be disabled
+             // e.g., isFollowable={!listFromUserStore?.created_by_user} // Example: disable follow on own lists
+             className="w-full !py-1.5" // Example: Override default button padding if needed
+            />
+         </div>
+       </div>
+     </div>
+  );
+});
 
 export default ListCard;

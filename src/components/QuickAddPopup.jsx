@@ -1,187 +1,286 @@
 // src/components/QuickAddPopup.jsx
-// FIXED: Removed duplicate placeholder declarations causing "already been declared" error.
-import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { X, Loader2 } from "lucide-react";
-import useAppStore from "@/hooks/useAppStore.js";
+// Import specific stores needed
+import useUserListStore from '@/stores/useUserListStore.js';
 import { useQuickAdd } from "@/context/QuickAddContext.jsx";
 import Modal from "@/components/UI/Modal.jsx";
 import Button from "@/components/Button.jsx";
-import { API_BASE_URL, GOOGLE_PLACES_API_KEY } from "@/config.js";
 
 const QuickAddPopup = React.memo(() => {
-  // --- Context ---
   const { isOpen, selectedItem, closeQuickAdd } = useQuickAdd();
 
-  // --- Global State ---
-  const userLists = useAppStore((state) => state.userLists || []);
-  const addToList = useAppStore((state) => state.addToList);
-  const addPendingSubmission = useAppStore((state) => state.addPendingSubmission);
-  const checkDuplicateRestaurant = useAppStore((state) => state.checkDuplicateRestaurant);
-  const fetchUserLists = useAppStore((state) => state.fetchUserLists);
-  const cuisines = useAppStore((state) => state.cuisines || []);
+  // Select state and actions from useUserListStore
+  const userLists = useUserListStore(state => state.userLists);
+  const addToList = useUserListStore(state => state.addToList);
+  const fetchUserLists = useUserListStore(state => state.fetchUserLists);
+  // Get loading/error states specific to actions from the store
+  const isLoadingLists = useUserListStore(state => state.isLoadingUser); // Loading user lists
+  const isSubmittingList = useUserListStore(state => state.isAddingToList); // Loading state for the addToList action
+  const addListErrorMsg = useUserListStore(state => state.addToListError); // Error state for addToList action
+  const userListErrorMsg = useUserListStore(state => state.errorUser); // Error state for fetching user lists
 
-  // --- Local State ---
-  const [mode, setMode] = useState("addToList");
-  const [newItemName, setNewItemName] = useState("");
-  const [restaurantInput, setRestaurantInput] = useState("");
-  const [selectedTags, setSelectedTags] = useState([]);
-  const [manualHashtag, setManualHashtag] = useState("");
-  const [autoLocation, setAutoLocation] = useState("");
-  const [selectedPlaceDetails, setSelectedPlaceDetails] = useState(null);
-  const [placeSuggestions, setPlaceSuggestions] = useState([]);
-  const [dishSuggestions, setDishSuggestions] = useState([]);
-  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
-  const [isLoadingHashtags, setIsLoadingHashtags] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [duplicateWarning, setDuplicateWarning] = useState("");
-  const [suggestedHashtags, setSuggestedHashtags] = useState([]);
+  // Local state for the form inputs
+  const [mode, setMode] = useState("addToList"); // 'addToList' or 'createNewList'
   const [newListName, setNewListName] = useState("");
   const [isPublic, setIsPublic] = useState(true);
-  const [isSubmittingList, setIsSubmittingList] = useState(false);
+  // Local error message state specifically for *this component's* logic (e.g., empty name input)
+  const [localErrorMessage, setLocalErrorMessage] = useState("");
 
-  const debounceTimeoutRef = useRef(null);
-  const hashtagDebounceTimeoutRef = useRef(null);
+  const listsFetchInitiated = useRef(false);
 
-  // --- Callbacks & Effects ---
+  // Reset logic for local form state
   const resetForm = useCallback(() => {
-    setNewItemName("");
-    setRestaurantInput("");
-    setSelectedTags([]);
-    setManualHashtag("");
-    setAutoLocation("");
-    setSelectedPlaceDetails(null);
-    setPlaceSuggestions([]);
-    setDishSuggestions([]);
-    setIsLoadingSuggestions(false);
-    setIsLoadingHashtags(false);
-    setErrorMessage("");
-    setDuplicateWarning("");
+    setMode("addToList");
     setNewListName("");
     setIsPublic(true);
-    setIsSubmittingList(false);
-    setSuggestedHashtags(cuisines.map(c => c.name));
-    if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
-    if (hashtagDebounceTimeoutRef.current) clearTimeout(hashtagDebounceTimeoutRef.current);
-  }, [cuisines]);
+    setLocalErrorMessage(""); // Clear local errors
+    listsFetchInitiated.current = false;
+  }, []);
 
-  useEffect(() => {
-    if (!isOpen) {
-      // Keep mode as is, don't reset on close, default is set in useState
+  // Effect to set mode and fetch lists if needed
+   useEffect(() => {
+     let isMounted = true;
+     if (!isOpen) { listsFetchInitiated.current = false; return; }
+
+     resetForm(); // Reset local state first
+
+     // Determine mode based on selectedItem
+     if (selectedItem?.type === "createNewList") {
+         setMode("createNewList");
+         listsFetchInitiated.current = true; // Mark as handled, no fetch needed here
+     } else if (selectedItem && selectedItem.id && selectedItem.type) {
+        setMode("addToList");
+        // Fetch user lists only if they aren't loaded and fetch hasn't been initiated
+        if ((!userLists || userLists.length === 0) && !listsFetchInitiated.current && !isLoadingLists) {
+            listsFetchInitiated.current = true;
+            setLocalErrorMessage(''); // Clear local errors before fetch
+            console.log('[QuickAddPopup useEffect] Triggering fetchUserLists...');
+            fetchUserLists()
+              .catch(err => {
+                  if (isMounted) {
+                      console.error("[QuickAddPopup useEffect] fetchUserLists failed:", err);
+                  }
+                  if(isMounted) listsFetchInitiated.current = false;
+              });
+        } else if (userLists && userLists.length > 0) {
+            listsFetchInitiated.current = true; // Mark as initiated if lists already exist
+        }
+     } else if (isOpen) {
+         setLocalErrorMessage("Invalid item selected for Quick Add.");
+         setMode("addToList"); // Default mode
+         listsFetchInitiated.current = true; // Mark as handled
+     }
+
+     return () => { isMounted = false; };
+   }, [isOpen, selectedItem, resetForm, fetchUserLists, userLists, isLoadingLists]);
+
+
+  // Handler to add item to an existing list
+  const handleAddToListClick = useCallback(async (listId) => {
+    if (!selectedItem || !selectedItem.id || !selectedItem.type || selectedItem.type === 'createNewList') {
+      setLocalErrorMessage("No valid item selected to add.");
       return;
     }
-    // Reset form state when modal opens or selectedItem changes
-    resetForm();
-
-    if (selectedItem?.type === "submission") {
-        setMode("submission");
-        // Pre-fill form fields...
-        setNewItemName(selectedItem.name || "");
-        if(selectedItem.subtype === 'dish') { setRestaurantInput(selectedItem.restaurant || ""); }
-        setSelectedTags(Array.isArray(selectedItem.tags) ? selectedItem.tags.slice(0, 5) : []);
-        if(selectedItem.place_id && selectedItem.city) {
-             setSelectedPlaceDetails({ placeId: selectedItem.place_id, city: selectedItem.city, neighborhood: selectedItem.neighborhood });
-        }
-    } else if (selectedItem?.type === "createNewList") {
-        setMode("createNewList");
-    } else if (selectedItem && selectedItem.id && selectedItem.type) {
-        setMode("addToList");
-        if (Array.isArray(selectedItem.tags)) setSelectedTags(selectedItem.tags.slice(0, 5));
-        if (userLists.length === 0) fetchUserLists();
-    } else {
-      setMode("addToList"); // Default to a safe mode if item is invalid
-      console.warn("[QuickAddPopup useEffect] Invalid selectedItem on open.", selectedItem);
+    if (!listId) {
+      setLocalErrorMessage("Invalid list selected.");
+      return;
     }
-  // Ensure dependencies correctly reflect what should trigger the effect
-  }, [isOpen, selectedItem, resetForm, fetchUserLists, userLists.length]);
+    setLocalErrorMessage(""); // Clear local errors
+
+    try {
+      // Call the action from the store. Loading/error state is handled within the store.
+      await addToList({ item: selectedItem, listId: listId, createNew: false });
+      closeQuickAdd(); // Close modal on success
+    } catch (error) {
+      console.error("[QuickAddPopup handleAddToListClick] Error:", error);
+      // Error state is set in the store via addListErrorMsg
+    }
+  }, [addToList, closeQuickAdd, selectedItem]);
+
+  // Handler for creating a NEW list (and potentially adding the selected item)
+  const handleCreateNewListAndAdd = useCallback(async () => {
+    if (!newListName.trim()) {
+      setLocalErrorMessage("List name cannot be empty.");
+      return;
+    }
+    setLocalErrorMessage(""); // Clear local error
+
+    // *** Construct the payload for the new list data ***
+    // *** This needs to match what the addToList action expects for listData ***
+    const listDataPayload = {
+        name: newListName.trim(),
+        is_public: isPublic,
+        description: null, // Or add an input field for this
+        city_name: null,   // Or derive from selectedItem if applicable?
+        tags: []           // Or add an input field for this
+    };
+
+    console.log("[QuickAddPopup] Attempting to create list with payload:", listDataPayload);
+
+    try {
+        // Call the action from the store. Loading/error state is handled within the store.
+        await addToList({
+          // Pass the current selectedItem ONLY if it's not the 'createNewList' placeholder
+          item: (selectedItem && selectedItem.type !== 'createNewList') ? selectedItem : null,
+          listData: listDataPayload, // Pass the constructed payload for the new list
+          createNew: true
+        });
+      console.log(`[QuickAddPopup] Successfully initiated creation/addition for list "${listDataPayload.name}"`);
+      closeQuickAdd(); // Close modal on success
+    } catch (error) {
+       console.error("[QuickAddPopup handleCreateNewListAndAdd] Error:", error);
+       // Error state is set in the store via addListErrorMsg
+    }
+  }, [newListName, isPublic, selectedItem, addToList, closeQuickAdd]);
 
 
-  // --- Helper Functions (Ensure these are defined correctly) ---
-  const fetchHashtagSuggestions = useCallback(() => {/* ... */}, [cuisines]);
-  const fetchPlaceSuggestions = useCallback(async () => {/* ... */}, []);
-  const fetchDishSuggestions = useCallback(async () => {/* ... */}, []);
-  const handleItemNameChange = useCallback(() => {/* ... */}, [/* dependencies */]);
-  const handleRestaurantInputChange = useCallback(() => {/* ... */}, [fetchPlaceSuggestions]);
-  const handlePlaceSelect = useCallback(async () => {/* ... */}, []);
-  const handleDishSelect = useCallback(() => {/* ... */}, [fetchHashtagSuggestions]);
-  const handleTagToggle = useCallback(() => {/* ... */}, []);
-  const handleAddManualHashtag = useCallback(() => {/* ... */}, [manualHashtag, selectedTags]);
-  const handleAddToListClick = useCallback(async (listId) => { /* ... */ }, [addToList, closeQuickAdd, selectedItem]);
-  const handleSubmitNewItem = useCallback(async () => { /* ... */ }, [/* Add dependencies: newItemName, restaurantInput, selectedTags, selectedPlaceDetails, selectedItem, addPendingSubmission, closeQuickAdd */]);
-  const handleCreateNewList = useCallback(async () => {
-      if (!newListName.trim()) {
-        setErrorMessage("List name cannot be empty.");
-        return;
-      }
-      const newListData = { name: newListName.trim(), isPublic: isPublic };
-      setErrorMessage("");
-      setIsSubmittingList(true);
-      try {
-        const savedList = await addToList(null, newListData, true);
-        if (savedList?.id) {
-          closeQuickAdd();
-        } else {
-          throw new Error("List creation did not return a valid ID.");
-        }
-      } catch (error) {
-        console.error("[QuickAddPopup handleCreateNewList] Error:", error);
-        setErrorMessage(`Failed to create list: ${error.message || "Unknown error"}`);
-      } finally {
-         setIsSubmittingList(false);
-      }
-    }, [newListName, isPublic, addToList, closeQuickAdd]);
+  // --- RENDER LOGIC ---
 
-
-  // --- RENDER FUNCTIONS (Defined only ONCE here) ---
-  const renderSubmissionMode = () => {
-    // Actual JSX for submission mode
-    return <div>Submission Form Placeholder...</div>; // Replace with actual JSX
-  };
-
-  const renderCreateNewListMode = () => {
-      // Actual JSX for create list mode
-      return (
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">List Name*</label>
-            <input type="text" value={newListName} onChange={(e) => setNewListName(e.target.value)} placeholder="e.g., My Favorite NYC Pizza Joints" className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D1B399]" disabled={isSubmittingList}/>
-          </div>
-          <div className="flex items-center">
-             <label htmlFor="togglePublicList" className={`flex items-center mr-2 ${isSubmittingList ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
-                 <div className="relative"> <input type="checkbox" id="togglePublicList" checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} className="sr-only peer" disabled={isSubmittingList}/> <div className="block bg-gray-300 peer-checked:bg-[#D1B399] w-10 h-6 rounded-full transition"></div> <div className="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition transform peer-checked:translate-x-4"></div> </div>
-             </label>
-             <span className={`text-sm text-gray-700 select-none ${isSubmittingList ? 'opacity-50' : ''}`}>{isPublic ? 'Public List' : 'Private List'}</span>
-           </div>
-          {errorMessage && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2">{errorMessage}</p>}
-          <Button onClick={handleCreateNewList} variant="primary" className="w-full" disabled={!newListName.trim() || isSubmittingList}>
-            {isSubmittingList ? <Loader2 className="animate-spin h-5 w-5 mx-auto" /> : "Create List"}
-          </Button>
+  // Render "Create New List" Mode
+  const renderCreateNewListMode = () => (
+      <div className="space-y-4">
+        <div>
+          <label htmlFor="listNameInput" className="block text-sm font-medium text-gray-700 mb-1">List Name*</label>
+          <input
+            id="listNameInput"
+            type="text"
+            value={newListName}
+            onChange={(e) => setNewListName(e.target.value)}
+            placeholder="e.g., My Favorite NYC Pizza Joints"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#D1B399]"
+            disabled={isSubmittingList} // Use store's loading state
+          />
         </div>
-      );
-  };
+        {/* Visibility Toggle */}
+        <div className="flex items-center">
+           <label htmlFor="togglePublicList" className={`flex items-center mr-2 ${isSubmittingList ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+             <div className="relative">
+                 <input
+                    type="checkbox"
+                    id="togglePublicList"
+                    checked={isPublic}
+                    onChange={(e) => setIsPublic(e.target.checked)}
+                    className="sr-only peer"
+                    disabled={isSubmittingList} // Use store's loading state
+                 />
+                 <div className="block bg-gray-300 peer-checked:bg-[#D1B399] w-10 h-6 rounded-full transition"></div>
+                 <div className="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition transform peer-checked:translate-x-4"></div>
+             </div>
+           </label>
+           <span className={`text-sm text-gray-700 select-none ${isSubmittingList ? 'opacity-50' : ''}`}>
+             {isPublic ? 'Public List' : 'Private List'}
+           </span>
+        </div>
+        {/* Display Local or Store Error Message */}
+        {(localErrorMessage || addListErrorMsg) && (
+            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2">
+                {localErrorMessage || addListErrorMsg}
+            </p>
+        )}
+        {/* Submit Button */}
+        <Button
+            onClick={handleCreateNewListAndAdd}
+            variant="primary"
+            className="w-full"
+            disabled={!newListName.trim() || isSubmittingList} // Use store's loading state
+        >
+          {isSubmittingList ? <Loader2 className="animate-spin h-5 w-5 mx-auto" /> : "Create List"}
+        </Button>
+      </div>
+  );
 
+  // Render "Add to Existing List" Mode
   const renderAddToListMode = () => {
-     // Actual JSX for add to list mode
-     return <div>Add To List Placeholder...</div>; // Replace with actual JSX
+    // Filter lists owned by the user directly from the store state
+    const userCreatedLists = Array.isArray(userLists) ? userLists.filter(list => list.created_by_user) : [];
+
+    return (
+      <div className="space-y-4">
+        {/* Loading State for Fetching Lists */}
+        {isLoadingLists ? (
+            <div className="flex justify-center items-center py-4">
+                <Loader2 className="animate-spin h-5 w-5 mr-2 text-gray-500" />
+                <span className="text-sm text-gray-500">Loading lists...</span>
+            </div>
+        // Check if an item is actually selected before showing lists
+        ) : selectedItem && selectedItem.type !== 'createNewList' ? (
+            // Display lists if available
+            userCreatedLists.length > 0 ? (
+                <ul className="space-y-2 max-h-40 overflow-y-auto pr-2">
+                    {userCreatedLists.map((list) => (
+                        <li key={list.id}>
+                            <Button
+                                variant="tertiary"
+                                className="w-full justify-start text-left border-gray-300 hover:border-[#D1B399] hover:bg-[#D1B399]/10"
+                                onClick={() => handleAddToListClick(list.id)}
+                                // Disable button while adding to *any* list
+                                disabled={isSubmittingList}
+                            >
+                                {/* Show loading indicator on the specific button being processed? More complex state needed */}
+                                {list.name}
+                            </Button>
+                        </li>
+                    ))}
+                </ul>
+            ) : (
+                // Message if user has no created lists (and not loading/error)
+                 !userListErrorMsg && <p className="text-sm text-gray-600 text-center py-4">No lists created yet.</p>
+            )
+        ) : (
+            // Message if no item is selected (and not in create mode)
+            !userListErrorMsg && <p className="text-sm text-gray-600 text-center py-4">Select an item to add it to a list.</p>
+        )}
+
+        {/* Display Fetching or Adding Errors */}
+        {(userListErrorMsg || addListErrorMsg) && !isLoadingLists && (
+             <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2">
+                 {userListErrorMsg || addListErrorMsg}
+             </p>
+         )}
+         {/* Display Local Error (e.g., invalid item) */}
+         {localErrorMessage && (
+              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2">
+                  {localErrorMessage}
+              </p>
+          )}
+
+        {/* Button to switch to Create New List mode */}
+        <Button
+            variant="primary"
+            className="w-full"
+            onClick={() => setMode("createNewList")}
+            // Disable button while any add action (fetching lists or submitting) is in progress
+            disabled={isSubmittingList || isLoadingLists}
+        >
+             Create New List
+        </Button>
+
+      </div>
+    );
   };
 
+  // Determine Modal Title
   const getModalTitle = () => {
-    if (mode === "addToList") return "Add to List";
-    if (mode === "createNewList") return "Create New List";
-    if (mode === "submission") {
-      return selectedItem?.subtype === "dish" ? "Submit New Dish" : "Submit New Restaurant";
+    if (mode === "addToList") {
+        return selectedItem && selectedItem.type !== 'createNewList' && selectedItem.name
+            ? `Add "${selectedItem.name}" to...`
+            : "Add to List";
     }
-    return "Quick Add";
+    if (mode === "createNewList") return "Create New List";
+    return "Quick Add"; // Default title
   };
 
-  // --- Main Return ---
-  // *** REMOVED the duplicate placeholder function/state declarations ***
-
+  // Render the Modal
   return (
-    <Modal isOpen={isOpen} onClose={closeQuickAdd} title={getModalTitle()}>
-      {/* Conditional rendering based on mode state */}
+    <Modal
+        isOpen={isOpen}
+        // Prevent closing while a submission is in progress
+        onClose={!isSubmittingList ? closeQuickAdd : undefined}
+        title={getModalTitle()}
+    >
       {mode === "addToList" && renderAddToListMode()}
       {mode === "createNewList" && renderCreateNewListMode()}
-      {mode === "submission" && renderSubmissionMode()}
     </Modal>
   );
 });
