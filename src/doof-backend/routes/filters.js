@@ -1,4 +1,3 @@
-// src/doof-backend/routes/filters.js
 const express = require('express');
 const db = require('../db');
 const { query, validationResult } = require('express-validator');
@@ -26,12 +25,13 @@ const validateNeighborhoodQuery = [
 router.get("/cities", async (req, res) => {
   try {
     const query = `SELECT id, name FROM Cities ORDER BY name ASC;`;
+    console.log('[FILTERS GET /cities] Executing query:', query);
     const result = await db.query(query);
-    console.log(`[FILTERS GET /cities] Found ${result.rows.length} cities.`);
+    console.log(`[FILTERS GET /cities] Found ${result.rows.length} cities:`, result.rows);
     res.json(result.rows || []);
   } catch (err) {
-    console.error("/api/cities error:", err);
-    res.status(500).json({ error: "Error fetching cities" });
+    console.error("[FILTERS GET /cities] Error:", err);
+    res.status(500).json({ error: "Error fetching cities", details: err.message || 'Unknown database error' });
   }
 });
 
@@ -49,12 +49,13 @@ router.get(
         WHERE city_id = $1
         ORDER BY name ASC;
       `;
+      console.log('[FILTERS GET /neighborhoods] Executing query:', neighborhoodQuery, 'with cityId:', cityId);
       const result = await db.query(neighborhoodQuery, [cityId]);
-      console.log(`[FILTERS GET /neighborhoods] Found ${result.rows.length} neighborhoods for cityId: ${cityId}`);
+      console.log(`[FILTERS GET /neighborhoods] Found ${result.rows.length} neighborhoods for cityId ${cityId}:`, result.rows);
       res.json(result.rows || []);
     } catch (err) {
-      console.error("/api/neighborhoods error:", err);
-      res.status(500).json({ error: "Error fetching neighborhoods" });
+      console.error("[FILTERS GET /neighborhoods] Error:", err);
+      res.status(500).json({ error: "Error fetching neighborhoods", details: err.message || 'Unknown database error' });
     }
   }
 );
@@ -62,29 +63,39 @@ router.get(
 // GET Cuisines: Returns [{ id, name }, ...] from Hashtags table with category 'cuisine'
 router.get("/cuisines", async (req, res) => {
   try {
-    const result = await db.query(
-      `SELECT id, name FROM Hashtags WHERE category = 'cuisine' ORDER BY name ASC`
-    );
-    console.log(`[FILTERS GET /cuisines] Found ${result.rows.length} cuisines.`);
+    const query = `SELECT id, name FROM Hashtags WHERE category = 'cuisine' ORDER BY name ASC`;
+    console.log('[FILTERS GET /cuisines] Executing query:', query);
+    const result = await db.query(query);
+    console.log(`[FILTERS GET /cuisines] Found ${result.rows.length} cuisines:`, result.rows);
     res.json(result.rows || []);
   } catch (err) {
-    console.error("/api/cuisines error:", err);
-    res.status(500).json({ error: "Error fetching cuisines" });
+    console.error("[FILTERS GET /cuisines] Error:", err);
+    res.status(500).json({ error: "Error fetching cuisines", details: err.message || 'Unknown database error' });
   }
 });
 
 // GET Combined Filters: Returns { cities: [], neighborhoods: [], hashtags: [] }
 router.get("/filters", async (req, res) => {
   try {
-    const citiesPromise = db.query("SELECT id, name FROM Cities ORDER BY name ASC");
-    const neighborhoodsPromise = db.query("SELECT id, name, city_id FROM Neighborhoods ORDER BY city_id, name ASC");
-    const hashtagsPromise = db.query("SELECT id, name FROM Hashtags WHERE category = 'cuisine' ORDER BY name ASC");
+    const citiesQuery = "SELECT id, name FROM Cities ORDER BY name ASC";
+    const neighborhoodsQuery = "SELECT id, name, city_id FROM Neighborhoods ORDER BY city_id, name ASC";
+    const hashtagsQuery = "SELECT id, name FROM Hashtags WHERE category = 'cuisine' ORDER BY name ASC";
+
+    console.log('[FILTERS GET /filters] Executing queries:');
+    console.log('Cities query:', citiesQuery);
+    console.log('Neighborhoods query:', neighborhoodsQuery);
+    console.log('Hashtags query:', hashtagsQuery);
 
     const [citiesResult, neighborhoodsResult, hashtagsResult] = await Promise.all([
-      citiesPromise,
-      neighborhoodsPromise,
-      hashtagsPromise
+      db.query(citiesQuery),
+      db.query(neighborhoodsQuery),
+      db.query(hashtagsQuery)
     ]);
+
+    console.log(`[FILTERS GET /filters] Results:`);
+    console.log(`Cities: ${citiesResult.rows.length} found:`, citiesResult.rows);
+    console.log(`Neighborhoods: ${neighborhoodsResult.rows.length} found:`, neighborhoodsResult.rows);
+    console.log(`Hashtags (cuisines): ${hashtagsResult.rows.length} found:`, hashtagsResult.rows);
 
     res.json({
       cities: citiesResult.rows || [],
@@ -92,8 +103,8 @@ router.get("/filters", async (req, res) => {
       hashtags: hashtagsResult.rows || [],
     });
   } catch (err) {
-    console.error("/api/filters error:", err);
-    res.status(500).json({ error: "Error fetching all filters" });
+    console.error("[FILTERS GET /filters] Error:", err);
+    res.status(500).json({ error: "Error fetching all filters", details: err.message || 'Unknown database error' });
   }
 });
 

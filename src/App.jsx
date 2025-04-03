@@ -1,4 +1,5 @@
-import React from 'react'; // Make sure imports are present if needed
+// src/App.jsx
+import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QuickAddProvider } from './context/QuickAddContext';
 import PageContainer from './layouts/PageContainer';
@@ -12,42 +13,47 @@ import RestaurantDetail from './pages/RestaurantDetail';
 import DishDetail from './pages/DishDetail';
 import AdminPanel from './pages/AdminPanel';
 import QuickAddPopup from './components/QuickAddPopup';
+import ErrorBoundary from './components/ErrorBoundary';
 
-// Define the App component function
+import Login from './pages/Login';
+// *** IMPORT Register Page ***
+import Register from './pages/Register';
+
 const App = () => {
-  // Inside the App component function in src/App.jsx
-
-  console.log("--- App Component Mounting ---"); // Keep this log
-  console.log("[App Render] Rendering main application structure.");
+  // ... (keep console logs and potential loadUser effect) ...
 
   return (
-    <>
-      <h1>App Component Rendered</h1>
-      {/* Temporarily commented out everything else */}
-      {
-      <QuickAddProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route element={<PageContainer />}>
-              <Route path="/" element={<Home />} />
-              <Route path="/trending" element={<Trending />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/lists" element={<Lists />}>
+    <QuickAddProvider>
+      <BrowserRouter>
+        <QuickAddPopup />
+        <Routes>
+          {/* Routes within the main PageContainer */}
+          <Route element={<PageContainer />}>
+              {/* ... existing routes within PageContainer ... */}
+              <Route path="/" element={<ErrorBoundary><Home /></ErrorBoundary>} />
+              <Route path="/trending" element={<ErrorBoundary><Trending /></ErrorBoundary>} />
+              <Route path="/dashboard" element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
+              <Route path="/lists" element={<ErrorBoundary><Lists /></ErrorBoundary>}>
                   <Route index element={<MyLists />} />
                   <Route path=":id" element={<ListDetail />} />
               </Route>
-              <Route path="/restaurant/:id" element={<RestaurantDetail />} />
-              <Route path="/dish/:id" element={<DishDetail />} />
-              <Route path="/admin" element={<AdminPanel />} />
+              <Route path="/restaurant/:id" element={<ErrorBoundary><RestaurantDetail /></ErrorBoundary>} />
+              <Route path="/dish/:id" element={<ErrorBoundary><DishDetail /></ErrorBoundary>} />
+              <Route path="/admin" element={<ErrorBoundary><AdminPanel /></ErrorBoundary>} />
               <Route path="*" element={<Navigate to="/" replace />} />
-            </Route>
-          </Routes>
-          <QuickAddPopup />
-        </BrowserRouter>
-      </QuickAddProvider>
-      }
-    </>
-  );
-}; // End of App component function definition
+          </Route>
 
-export default App; // Make sure to export the component
+          {/* Routes OUTSIDE PageContainer */}
+          <Route path="/login" element={<Login />} />
+          {/* *** ADD Register Route *** */}
+          <Route path="/register" element={<Register />} />
+
+          {/* Optional top-level fallback */}
+          {/* <Route path="*" element={<Navigate to="/" replace />} /> */}
+        </Routes>
+      </BrowserRouter>
+    </QuickAddProvider>
+  );
+};
+
+export default App;
