@@ -1,22 +1,24 @@
-// src/components/UI/RestaurantCard.jsx
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, Users, Plus } from 'lucide-react';
 import { useQuickAdd } from '@/context/QuickAddContext';
-import Button from '@/components/Button'; // Assuming Button component is styled appropriately
+import Button from '@/components/Button'; // Assuming Button component exists
 
 const RestaurantCard = React.memo(
-  ({ id, name, neighborhood, city, tags = [], adds = 0 }) => { // Default tags to empty array and adds to 0
+  ({ id, name, neighborhood, city, tags = [], adds = 0 }) => {
     const { openQuickAdd } = useQuickAdd();
 
     const handleQuickAdd = (e) => {
-       e.stopPropagation(); // Prevent triggering link navigation
+       e.stopPropagation();
        e.preventDefault();
-      console.log("RestaurantCard: handleQuickAdd called: id=", id);
-      openQuickAdd({ id, name, neighborhood, city, tags, type: "restaurant" });
+       // *** ADDED LOGS ***
+       console.log(`[${name} Card] handleQuickAdd: Calling openQuickAdd...`);
+       openQuickAdd({ id, name, neighborhood, city, tags, type: "restaurant" });
+       console.log(`[${name} Card] handleQuickAdd: Called openQuickAdd.`);
+       // *** END LOGS ***
     };
 
-    const cleanName = name?.split(',')[0].trim() || "Unnamed Restaurant"; // Handle potential undefined name
+    const cleanName = name?.split(',')[0].trim() || "Unnamed Restaurant";
 
     return (
       <div className="group relative flex flex-col w-full h-56 bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden transition-shadow hover:shadow-md">
@@ -48,9 +50,9 @@ const RestaurantCard = React.memo(
              </div>
           </div>
 
-          {/* Tags section - appears at bottom */}
+          {/* Tags section */}
           <div className="flex flex-wrap gap-1 mt-auto pt-2 border-t border-gray-100">
-            {tags.slice(0, 2).map((tag) => ( // Show max 2 tags
+            {tags.slice(0, 2).map((tag) => (
               <span
                 key={tag}
                 className="px-1.5 py-0.5 bg-gray-100 rounded-full text-[10px] text-gray-600 whitespace-nowrap"

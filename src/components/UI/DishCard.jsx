@@ -9,8 +9,11 @@ const DishCard = React.memo(({ id, name, restaurant, tags = [] }) => {
   const handleQuickAdd = (e) => {
     e.stopPropagation();
     e.preventDefault();
-    console.log(`DishCard: handleQuickAdd called: id=${id}, restaurant=${restaurant}`);
+    // *** ADDED LOGS ***
+    console.log(`[${name} Card] handleQuickAdd: Calling openQuickAdd...`);
     openQuickAdd({ id, name, restaurant: restaurant, tags, type: 'dish' });
+    console.log(`[${name} Card] handleQuickAdd: Called openQuickAdd.`);
+    // *** END LOGS ***
   };
 
   const cleanName = name || "Unnamed Dish";
@@ -34,8 +37,10 @@ const DishCard = React.memo(({ id, name, restaurant, tags = [] }) => {
             <Utensils size={12} className="mr-1 flex-shrink-0" />
             <span className="truncate">at {cleanRestaurant}</span>
           </div>
+          {/* Placeholder for potential future content like price/adds */}
           <div className="h-4"></div>
         </div>
+        {/* Tags section */}
         <div className="flex flex-wrap gap-1 mt-auto pt-2 border-t border-gray-100">
           {tags.slice(0, 2).map((tag) => (
             <span

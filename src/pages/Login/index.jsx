@@ -1,32 +1,59 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import useAuthStore from '@/stores/useAuthStore'; // Default export
-import Button from '@/components/Button'; // Default export
+import useAuthStore from '@/stores/useAuthStore'; // Re-enable import
+import Button from '@/components/Button';
 import { Loader2 } from 'lucide-react';
 
+// Keep selector commented out for now
+// const authSelector = (state) => ({...});
+
 const Login = () => {
+  console.log("[Login Page RENDER START] - Reintroducing store actions only.");
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
 
-  const { login, isLoading, error, clearError } = useAuthStore((state) => ({
-    login: state.login,
-    isLoading: state.isLoading,
-    error: state.error,
-    clearError: state.clearError,
-  }));
+  // *** FIX: Reintroduce ONLY store actions ***
+  const login = useAuthStore((state) => state.login);
+  const clearError = useAuthStore((state) => state.clearError);
+  // *** Keep state selection commented out ***
+  // const isLoading = useAuthStore((state) => state.isLoading);
+  // const error = useAuthStore((state) => state.error);
+  // const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isLoading = false; // Use dummy value
+  const error = null; // Use dummy value
+  // *** End FIX ***
+
+  // Run clearError on mount (using the reintroduced action)
+  useEffect(() => {
+    clearError();
+  }, [clearError]);
+
+  // Keep redirect effect commented out for now
+  // useEffect(() => { ... });
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    clearError();
+    // Use the re-introduced login action
     const success = await login(email, password);
     if (success) {
       console.log("Login successful, navigating home.");
-      navigate('/'); // Redirect to home page on successful login
+      navigate('/'); // Navigate after successful login
     } else {
-      console.log("Login failed.");
+      console.log("Login failed (error state not subscribed yet).");
+      // We aren't subscribing to 'error' yet, so can't display it
     }
   };
+
+   const handleInputChange = (setter) => (e) => {
+      setter(e.target.value);
+      // Use the re-introduced clearError action
+      // Call it cautiously - maybe only if an error state *was* being displayed
+      // if (error) { // We can't check error state yet
+         clearError(); // Clear error optimistically
+      // }
+   };
 
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-150px)] bg-gray-50">
@@ -46,8 +73,8 @@ const Login = () => {
               required
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#D1B399] focus:border-[#D1B399] sm:text-sm"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={isLoading}
+              onChange={handleInputChange(setEmail)}
+              disabled={isLoading} // Using dummy value
             />
           </div>
 
@@ -64,17 +91,13 @@ const Login = () => {
               required
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#D1B399] focus:border-[#D1B399] sm:text-sm"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={isLoading}
+              onChange={handleInputChange(setPassword)}
+              disabled={isLoading} // Using dummy value
             />
           </div>
 
-          {/* Display Login Error */}
-          {error && (
-            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2 text-center">
-              {error}
-            </p>
-          )}
+          {/* Display Login Error (Error state not available yet) */}
+          {/* {error && ( ... )} */}
 
           {/* Submit Button */}
           <div>
@@ -82,7 +105,7 @@ const Login = () => {
               type="submit"
               variant="primary"
               className="w-full flex justify-center py-2 px-4"
-              disabled={isLoading}
+              disabled={isLoading} // Using dummy value
             >
               {isLoading ? <Loader2 className="animate-spin h-5 w-5" /> : 'Log in'}
             </Button>
