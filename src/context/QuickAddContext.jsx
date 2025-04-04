@@ -1,5 +1,7 @@
 // src/context/QuickAddContext.jsx
-import React, { createContext, useContext, useState, useCallback, useMemo } from "react"; // Added useCallback, useMemo
+import React, { createContext, useContext, useState, useCallback, useMemo } from "react";
+import useUserListStore from '../stores/useUserListStore'; // Import user list store
+import useAuthStore from '../stores/useAuthStore'; // Import auth store
 
 const QuickAddContext = createContext();
 
@@ -7,26 +9,39 @@ export const QuickAddProvider = ({ children }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
 
-  // *** ADDED LOG: Log when the Provider renders ***
-  console.log(`[QuickAddProvider Render] Current state - isOpen: ${isOpen}, selectedItem:`, selectedItem);
+  // Get necessary functions/state from stores
+  const fetchUserLists = useUserListStore((state) => state.fetchUserLists);
+  const isLoadingUser = useUserListStore((state) => state.isLoadingUser);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const userLists = useUserListStore((state) => state.userLists); // Get lists to check if fetch needed
 
   const openQuickAdd = useCallback((item) => {
-    console.log("[QuickAddContext] openQuickAdd function entered. Item:", item);
+    console.log("[QuickAddContext] openQuickAdd called. Item:", item);
     setSelectedItem(item);
-    setIsOpen(true); // Set open *after* setting item
-    console.log("[QuickAddContext] openQuickAdd function: Set isOpen=true, selectedItem=", item);
-  }, []); // useCallback ensures stable function reference if needed
+    setIsOpen(true);
+
+    // --- Trigger fetch from here ---
+    const isCreateMode = !!(item?.createNew && item?.type === 'list');
+    // Fetch only if: authenticated, not create mode, not already loading, and maybe lists are empty
+    if (isAuthenticated && !isCreateMode && !isLoadingUser && userLists.length === 0) {
+      console.log("[QuickAddContext openQuickAdd] Triggering fetchUserLists...");
+      fetchUserLists().catch(err => {
+          console.error("[QuickAddContext openQuickAdd] Error fetching lists:", err);
+          // Error is handled in the store
+      });
+    } else {
+        console.log(`[QuickAddContext openQuickAdd] Not triggering fetch. Auth=${isAuthenticated}, CreateMode=${isCreateMode}, Loading=${isLoadingUser}, ListsPresent=${userLists.length > 0}`);
+    }
+    // -----------------------------
+
+  }, [fetchUserLists, isLoadingUser, isAuthenticated, userLists]); // Add dependencies
 
   const closeQuickAdd = useCallback(() => {
-    // *** ADDED LOG: Log when closeQuickAdd is CALLED ***
-    console.log("[QuickAddContext] closeQuickAdd function CALLED.");
+    console.log("[QuickAddContext] closeQuickAdd called.");
     setIsOpen(false);
     setSelectedItem(null);
-    console.log("[QuickAddContext] closeQuickAdd function: Set isOpen=false, selectedItem=null");
-    // *** END LOG ***
-  }, []); // useCallback ensures stable function reference
+  }, []);
 
-  // Use useMemo to stabilize the context value object if children re-render often
   const contextValue = useMemo(() => ({
     isOpen,
     item: selectedItem,
@@ -35,7 +50,6 @@ export const QuickAddProvider = ({ children }) => {
   }), [isOpen, selectedItem, openQuickAdd, closeQuickAdd]);
 
   return (
-    // Pass the memoized value
     <QuickAddContext.Provider value={contextValue}>
       {children}
     </QuickAddContext.Provider>

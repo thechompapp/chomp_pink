@@ -1,166 +1,121 @@
 // src/stores/useAuthStore.js
 import { create } from 'zustand';
-import { devtools } from 'zustand/middleware';
-import { API_BASE_URL } from '@/config';
+import { devtools, persist, createJSONStorage } from 'zustand/middleware';
+import { jwtDecode } from 'jwt-decode';
+import { API_BASE_URL } from '@/config'; // Assuming config is in src folder relative to stores
 
-// Helper to get token from storage (adjust key as needed)
-const getTokenFromStorage = () => localStorage.getItem('doof_token');
-// Helper to set token in storage
-const setTokenInStorage = (token) => localStorage.setItem('doof_token', token);
-// Helper to remove token from storage
-const removeTokenFromStorage = () => localStorage.removeItem('doof_token');
+// --- Helper Function ---
+const isTokenValid = (token) => {
+  if (!token) return false;
+  try {
+    const decoded = jwtDecode(token);
+    const currentTime = Date.now() / 1000;
+    if (decoded.exp && decoded.exp > currentTime) return true;
+    console.warn('[AuthStore isTokenValid] Token is expired.');
+    return false;
+  } catch (error) {
+    // console.error('[AuthStore isTokenValid] Error decoding token:', error);
+    return false;
+  }
+};
 
+// Define the store logic
+const authStore = (set, get) => ({
+  token: null, // Initial state null, persist middleware hydrates
+  user: null,  // Initial state null, persist middleware hydrates
+  // Initial state false. Will be updated by checkAuthStatus after hydration.
+  isAuthenticated: false,
+  isLoading: false,
+  error: null,
+
+  // --- Actions ---
+  login: async (email, password) => {
+    if (get().isLoading) return false;
+    set({ isLoading: true, error: null });
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.errors?.[0]?.msg || `Login failed (${response.status})`);
+      // Set state, persist middleware saves token and user
+      set({ token: data.token, user: data.user, isAuthenticated: true, isLoading: false, error: null });
+      return true;
+    } catch (error) {
+      get().logout(); // Logout clears persisted state via set
+      set({ error: error.message }); // Set error after logout
+      return false;
+    }
+  },
+
+  register: async (username, email, password) => {
+     if (get().isLoading) return false;
+     set({ isLoading: true, error: null });
+     try {
+         const response = await fetch(`${API_BASE_URL}/api/auth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, email, password }) });
+         const data = await response.json();
+         if (!response.ok) throw new Error(data.errors?.[0]?.msg || `Registration failed (${response.status})`);
+         // Set state, persist middleware saves token and user
+         set({ token: data.token, user: data.user, isAuthenticated: true, isLoading: false, error: null });
+         return true;
+     } catch (error) {
+         get().logout(); // Logout clears persisted state via set
+         set({ error: error.message }); // Set error after logout
+         return false;
+     }
+  },
+
+  logout: () => {
+    const wasAuthenticated = get().isAuthenticated;
+    if (wasAuthenticated) {
+        console.log('[AuthStore] Logging out user.');
+    }
+    // Setting state triggers persist to clear storage for token/user
+    set({ token: null, user: null, isAuthenticated: false, error: null, isLoading: false });
+    // No console log here, can be misleading if called during init errors
+  },
+
+  clearError: () => set({ error: null }),
+
+  // --- Action to check status explicitly after hydration ---
+  checkAuthStatus: () => {
+      // This function assumes the store has been hydrated by persist middleware
+      const token = get().token;
+      const user = get().user;
+      const isValid = isTokenValid(token);
+
+      console.log(`[AuthStore checkAuthStatus] Running check. Token Valid: ${isValid}, User Exists: ${!!user}`);
+
+      if (isValid && user) {
+          // Only update if the current state is incorrect
+          if (!get().isAuthenticated) {
+                console.log("[AuthStore checkAuthStatus] Setting isAuthenticated = true");
+                set({ isAuthenticated: true });
+          }
+      } else {
+          // If token/user is invalid/missing, ensure logged out state
+          if (get().isAuthenticated) {
+               console.warn("[AuthStore checkAuthStatus] Token/User invalid or missing. Correcting state via logout.");
+               get().logout();
+          }
+      }
+  }
+});
+
+// Create the store with persist middleware
 const useAuthStore = create(
   devtools(
-    (set, get) => ({
-      token: getTokenFromStorage(), // Load initial token from storage
-      user: null,                   // User details { id, username, email, createdAt }
-      isAuthenticated: !!getTokenFromStorage(), // Initial auth state based on token presence
-      isLoading: false,
-      error: null,                   // Stores login/registration errors
-
-      // --- Login Action ---
-      login: async (email, password) => {
-        if (get().isLoading) return;
-        set({ isLoading: true, error: null });
-        console.log(`[AuthStore] Attempting login for: ${email}`);
-
-        try {
-          const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password }),
-          });
-
-          const data = await response.json();
-
-          if (!response.ok) {
-             // Use error message from backend response if available
-             const errorMsg = data.errors?.[0]?.msg || `Login failed (${response.status})`;
-             console.error(`[AuthStore] Login failed: ${errorMsg}`);
-             throw new Error(errorMsg);
-          }
-
-          console.log(`[AuthStore] Login successful for: ${data.user?.email}`);
-          setTokenInStorage(data.token); // Store token
-          set({
-            token: data.token,
-            user: data.user,
-            isAuthenticated: true,
-            isLoading: false,
-            error: null,
-          });
-          return true; // Indicate success
-
-        } catch (error) {
-          console.error('[AuthStore] Login error:', error);
-          removeTokenFromStorage(); // Ensure token is removed on error
-          set({
-            token: null,
-            user: null,
-            isAuthenticated: false,
-            isLoading: false,
-            error: error.message || 'An unknown error occurred during login.',
-          });
-          return false; // Indicate failure
-        }
-      },
-
-      // --- Registration Action ---
-      register: async (username, email, password) => {
-          if (get().isLoading) return;
-          set({ isLoading: true, error: null });
-          console.log(`[AuthStore] Attempting registration for: ${email}`);
-
-          try {
-              const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ username, email, password }),
-              });
-
-              const data = await response.json();
-
-              if (!response.ok) {
-                  const errorMsg = data.errors?.[0]?.msg || `Registration failed (${response.status})`;
-                  console.error(`[AuthStore] Registration failed: ${errorMsg}`);
-                  throw new Error(errorMsg);
-              }
-
-              console.log(`[AuthStore] Registration successful for: ${data.user?.email}`);
-              setTokenInStorage(data.token); // Store token upon successful registration
-              set({
-                  token: data.token,
-                  user: data.user,
-                  isAuthenticated: true,
-                  isLoading: false,
-                  error: null,
-              });
-              return true; // Indicate success
-
-          } catch (error) {
-              console.error('[AuthStore] Registration error:', error);
-              removeTokenFromStorage(); // Ensure token is removed on error
-              set({
-                  token: null,
-                  user: null,
-                  isAuthenticated: false,
-                  isLoading: false,
-                  error: error.message || 'An unknown error occurred during registration.',
-              });
-              return false; // Indicate failure
-          }
-      },
-
-
-      // --- Logout Action ---
-      logout: () => {
-        console.log('[AuthStore] Logging out user.');
-        removeTokenFromStorage(); // Remove token
-        set({
-          token: null,
-          user: null,
-          isAuthenticated: false,
-          error: null,
-          isLoading: false, // Ensure loading is reset
-        });
-        // Optional: Add logic to clear other user-related state/caches
-        // e.g., queryClient.clear(); from React Query
-      },
-
-      // --- Action to potentially load user data if token exists but user state is lost ---
-      // (Could be called on app load)
-      loadUser: async () => {
-          const token = get().token;
-          if (!token || get().user) {
-              // No token or user already loaded
-              if (!token) set({ isAuthenticated: false }); // Ensure consistency
-              return;
-          }
-          // TODO: Implement an endpoint like GET /api/auth/me to fetch user data using the token
-          // For now, we just set isAuthenticated based on token presence
-          // set({ isLoading: true });
-          // try {
-          //    const response = await fetch(`${API_BASE_URL}/api/auth/me`, { headers: { 'Authorization': `Bearer ${token}` }});
-          //    // ... handle response, set user ...
-          // } catch (error) {
-          //    // ... handle error, potentially logout ...
-          // } finally {
-          //    set({ isLoading: false });
-          // }
-          console.log("[AuthStore] Token found, assuming authenticated (loadUser action needs backend endpoint).");
-          set({ isAuthenticated: true }); // Assume authenticated if token exists
-      },
-
-      // Utility to clear errors
-      clearError: () => set({ error: null }),
-
-    }),
+    persist(
+      authStore,
+      {
+        name: 'auth-storage', // LocalStorage key
+        storage: createJSONStorage(() => localStorage),
+        partialize: (state) => ({ token: state.token, user: state.user }), // Only persist token and user
+        // Removed the problematic onRehydrateStorage option
+      }
+    ),
     { name: 'AuthStore' }
   )
 );
 
-// Call loadUser on initial store creation/load (optional, needs backend endpoint)
-// useAuthStore.getState().loadUser();
+// We no longer use setTimeout here. Validation is triggered by App.jsx
 
 export default useAuthStore;

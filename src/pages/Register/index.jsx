@@ -1,180 +1,141 @@
 // src/pages/Register/index.jsx
-import React, { useState, useEffect } from 'react'; // Added useEffect
+import React, { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import useAuthStore from '@/stores/useAuthStore'; // Import auth store
+import useAuthStore from '@/stores/useAuthStore';
+import useFormHandler from '@/hooks/useFormHandler'; // Import the custom hook
 import Button from '@/components/Button';
 import { Loader2 } from 'lucide-react';
 
 const Register = () => {
-    const [username, setUsername] = useState('');
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
-    const [localError, setLocalError] = useState(''); // For local validation like password match
-    const navigate = useNavigate();
+  const navigate = useNavigate();
 
-    // *** FIX: Select state and actions correctly using Zustand's selector pattern ***
-    // This prevents re-renders just because the store object reference changes.
-    const register = useAuthStore((state) => state.register);
-    const isLoading = useAuthStore((state) => state.isLoading);
-    const authError = useAuthStore((state) => state.error);
-    const clearError = useAuthStore((state) => state.clearError);
-    // *** END FIX ***
+  // Get actions and auth state from the store
+  const registerAction = useAuthStore((state) => state.register);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const clearAuthError = useAuthStore((state) => state.clearError);
 
-    // *** FIX: Clear errors when the component mounts or when inputs change significantly ***
-    // This helps prevent stale errors from persisting if the user navigates away and back.
-    useEffect(() => {
-        clearError();
-        setLocalError(''); // Clear local errors on mount as well
-    }, [clearError]); // Depend on clearError function reference
+  // Initialize the form handler hook
+  const {
+    formData,       // Contains { username, email, password, confirmPassword }
+    handleChange,   // Handles onChange for inputs
+    handleSubmit,   // Wraps the form submission logic
+    isSubmitting,   // Loading state from the hook
+    submitError,    // Error message from hook (catches submission & local validation errors)
+    setSubmitError, // Function to manually set errors (for local validation)
+  } = useFormHandler({
+    username: '',
+    email: '',
+    password: '',
+    confirmPassword: '', // Add confirmPassword to initial state
+  });
 
-    const handleInputChange = (setter) => (e) => {
-        setter(e.target.value);
-        // Optionally clear errors when user starts typing again
-        if (localError || authError) {
-            clearError();
-            setLocalError('');
-        }
-    };
-    // *** END FIX ***
+  // Clear any lingering auth errors from the store when the component mounts
+  // Note: The hook's handleChange clears submitError automatically on input change
+  useEffect(() => {
+    clearAuthError();
+    // Clear hook error on mount as well
+    setSubmitError(null);
+  }, [clearAuthError, setSubmitError]);
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        // It's good practice to clear errors at the start of submission attempt
-        clearError();
-        setLocalError('');
+  // Redirect if user is already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      console.log("[Register Page] Already authenticated, redirecting to home.");
+      navigate('/', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
-        // Local validation
-        if (password !== confirmPassword) {
-            setLocalError("Passwords do not match.");
-            return;
-        }
-        if (password.length < 6) {
-            setLocalError("Password must be at least 6 characters long.");
-            return;
-        }
+  // Define the actual registration logic to be passed to the hook's handleSubmit
+  const performRegistration = async (currentFormData) => {
+    console.log('[Register Page] performRegistration called with:', { ...currentFormData, password: '***', confirmPassword: '***' });
 
-        // Call the register action from the store
-        const success = await register(username, email, password);
-        if (success) {
-            console.log("Registration successful, navigating home.");
-            navigate('/'); // Redirect to home page on successful registration
-        } else {
-            // Auth error state (authError) is updated by the store action and will be displayed
-            console.log("Registration failed.");
-        }
-    };
+    // --- Local Validation ---
+    if (currentFormData.password !== currentFormData.confirmPassword) {
+      setSubmitError("Passwords do not match.");
+      // Throwing an error stops the handleSubmit process in the hook
+      throw new Error("Passwords do not match.");
+    }
+    if (currentFormData.password.length < 6) {
+      setSubmitError("Password must be at least 6 characters long.");
+      throw new Error("Password must be at least 6 characters long.");
+    }
+    // --- End Local Validation ---
 
-    // Combine local and auth errors for display
-    const displayError = localError || authError;
-
-    return (
-        // Keep existing outer div structure
-        <div className="flex items-center justify-center min-h-[calc(100vh-150px)] bg-gray-50 py-12">
-            <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md border border-gray-100">
-                <h2 className="text-2xl font-bold text-center text-gray-900">Create your DOOF Account</h2>
-                <form className="space-y-4" onSubmit={handleSubmit}>
-                    {/* Username Input - Use handleInputChange */}
-                    <div>
-                        <label htmlFor="username" className="block text-sm font-medium text-gray-700">
-                            Username
-                        </label>
-                        <input
-                            id="username"
-                            name="username"
-                            type="text"
-                            autoComplete="username"
-                            required
-                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#D1B399] focus:border-[#D1B399] sm:text-sm"
-                            value={username}
-                            onChange={handleInputChange(setUsername)} // FIX: Use change handler
-                            disabled={isLoading}
-                        />
-                    </div>
-
-                    {/* Email Input - Use handleInputChange */}
-                    <div>
-                        <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                            Email address
-                        </label>
-                        <input
-                            id="email"
-                            name="email"
-                            type="email"
-                            autoComplete="email"
-                            required
-                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#D1B399] focus:border-[#D1B399] sm:text-sm"
-                            value={email}
-                            onChange={handleInputChange(setEmail)} // FIX: Use change handler
-                            disabled={isLoading}
-                        />
-                    </div>
-
-                    {/* Password Input - Use handleInputChange */}
-                    <div>
-                        <label htmlFor="password"className="block text-sm font-medium text-gray-700">
-                            Password (min. 6 characters)
-                        </label>
-                        <input
-                            id="password"
-                            name="password"
-                            type="password"
-                            autoComplete="new-password"
-                            required
-                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#D1B399] focus:border-[#D1B399] sm:text-sm"
-                            value={password}
-                            onChange={handleInputChange(setPassword)} // FIX: Use change handler
-                            disabled={isLoading}
-                        />
-                    </div>
-
-                    {/* Confirm Password Input - Use handleInputChange */}
-                     <div>
-                        <label htmlFor="confirm-password"className="block text-sm font-medium text-gray-700">
-                            Confirm Password
-                        </label>
-                        <input
-                            id="confirm-password"
-                            name="confirm-password"
-                            type="password"
-                            autoComplete="new-password"
-                            required
-                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#D1B399] focus:border-[#D1B399] sm:text-sm"
-                            value={confirmPassword}
-                            onChange={handleInputChange(setConfirmPassword)} // FIX: Use change handler
-                            disabled={isLoading}
-                        />
-                    </div>
-
-                    {/* Display Combined Error */}
-                    {displayError && (
-                        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2 text-center">
-                            {displayError}
-                        </p>
-                    )}
-
-                    {/* Submit Button */}
-                    <div>
-                        <Button
-                            type="submit"
-                            variant="primary"
-                            className="w-full flex justify-center py-2 px-4"
-                            disabled={isLoading}
-                        >
-                            {isLoading ? <Loader2 className="animate-spin h-5 w-5" /> : 'Create Account'}
-                        </Button>
-                    </div>
-                </form>
-                {/* Keep existing link */}
-                <p className="text-sm text-center text-gray-600">
-                    Already have an account?{' '}
-                    <Link to="/login" className="font-medium text-[#A78B71] hover:text-[#D1B399]">
-                        Log in
-                    </Link>
-                </p>
-            </div>
-        </div>
+    // Call the register action from the store
+    const success = await registerAction(
+      currentFormData.username,
+      currentFormData.email,
+      currentFormData.password
     );
+
+    if (success) {
+      console.log("Registration successful (via hook), redirecting home.");
+      // Navigation happens automatically due to the isAuthenticated useEffect
+    } else {
+      console.log("Registration failed (via hook). Error should be in hook state or auth store.");
+      // Throw the error from the auth store so the hook's handleSubmit catches it
+      throw new Error(useAuthStore.getState().error || 'Registration failed.');
+    }
+  };
+
+  // Wrapper function for the form's onSubmit event
+  const handleFormSubmit = (e) => {
+    e.preventDefault();
+    handleSubmit(performRegistration); // Pass the registration logic
+  };
+
+  return (
+    <div className="flex items-center justify-center min-h-[calc(100vh-150px)] bg-gray-50 py-12">
+      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md border border-gray-100">
+        <h2 className="text-2xl font-bold text-center text-gray-900">Create your DOOF Account</h2>
+        <form className="space-y-4" onSubmit={handleFormSubmit}>
+          {/* Username Input */}
+          <div>
+            <label htmlFor="username" className="block text-sm font-medium text-gray-700"> Username </label>
+            <input id="username" name="username" type="text" autoComplete="username" required
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#D1B399] focus:border-[#D1B399] sm:text-sm"
+              value={formData.username} onChange={handleChange} disabled={isSubmitting}
+            />
+          </div>
+          {/* Email Input */}
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700"> Email address </label>
+            <input id="email" name="email" type="email" autoComplete="email" required
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#D1B399] focus:border-[#D1B399] sm:text-sm"
+              value={formData.email} onChange={handleChange} disabled={isSubmitting}
+            />
+          </div>
+          {/* Password Input */}
+          <div>
+            <label htmlFor="password"className="block text-sm font-medium text-gray-700"> Password (min. 6 characters) </label>
+            <input id="password" name="password" type="password" autoComplete="new-password" required
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#D1B399] focus:border-[#D1B399] sm:text-sm"
+              value={formData.password} onChange={handleChange} disabled={isSubmitting}
+            />
+          </div>
+          {/* Confirm Password Input */}
+           <div>
+              <label htmlFor="confirmPassword"className="block text-sm font-medium text-gray-700"> Confirm Password </label>
+              <input id="confirmPassword" name="confirmPassword" type="password" autoComplete="new-password" required
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#D1B399] focus:border-[#D1B399] sm:text-sm"
+                  value={formData.confirmPassword} onChange={handleChange} disabled={isSubmitting}
+              />
+          </div>
+          {/* Display Error from hook */}
+          {submitError && (
+              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2 text-center"> {submitError} </p>
+          )}
+          {/* Submit Button */}
+          <div>
+              <Button type="submit" variant="primary" className="w-full flex justify-center py-2 px-4" disabled={isSubmitting} >
+                  {isSubmitting ? <Loader2 className="animate-spin h-5 w-5" /> : 'Create Account'}
+              </Button>
+          </div>
+        </form>
+        <p className="text-sm text-center text-gray-600"> Already have an account?{' '} <Link to="/login" className="font-medium text-[#A78B71] hover:text-[#D1B399]"> Log in </Link> </p>
+      </div>
+    </div>
+  );
 };
 
 export default Register;

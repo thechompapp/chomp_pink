@@ -1,7 +1,8 @@
+// src/components/UI/DishCard.jsx
 import React from 'react';
-import { Link } from 'react-router-dom';
-import { Utensils, Plus } from 'lucide-react';
-import { useQuickAdd } from '@/context/QuickAddContext'; // Named export
+import { Utensils } from 'lucide-react';
+import { useQuickAdd } from '@/context/QuickAddContext';
+import BaseCard from '@/components/UI/BaseCard'; // Corrected import path
 
 const DishCard = React.memo(({ id, name, restaurant, tags = [] }) => {
   const { openQuickAdd } = useQuickAdd();
@@ -9,26 +10,23 @@ const DishCard = React.memo(({ id, name, restaurant, tags = [] }) => {
   const handleQuickAdd = (e) => {
     e.stopPropagation();
     e.preventDefault();
-    // *** ADDED LOGS ***
     console.log(`[${name} Card] handleQuickAdd: Calling openQuickAdd...`);
+     // Pass all relevant data for the popup
     openQuickAdd({ id, name, restaurant: restaurant, tags, type: 'dish' });
     console.log(`[${name} Card] handleQuickAdd: Called openQuickAdd.`);
-    // *** END LOGS ***
   };
 
   const cleanName = name || "Unnamed Dish";
   const cleanRestaurant = restaurant || "Unknown Restaurant";
+  const linkDestination = `/dish/${id}`;
 
   return (
-    <div className="group relative flex flex-col w-full h-56 bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden transition-shadow hover:shadow-md">
-      <button
-        onClick={handleQuickAdd}
-        className="absolute top-2 right-2 z-10 w-8 h-8 bg-[#D1B399] rounded-full flex items-center justify-center text-white shadow-md hover:bg-[#b89e89] transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-[#D1B399]"
-        aria-label="Add dish to list"
+    <BaseCard
+        linkTo={linkDestination}
+        onQuickAdd={handleQuickAdd}
+        quickAddLabel={`Add dish ${cleanName} to list`}
       >
-        <Plus size={20} />
-      </button>
-      <Link to={`/dish/${id}`} className="flex flex-col flex-grow p-4 text-left">
+        {/* Content specific to Dish Card */}
         <div className="flex-grow mb-2">
           <h3 className="text-base font-semibold text-gray-900 mb-1.5 line-clamp-2 group-hover:text-[#A78B71] transition-colors">
             {cleanName}
@@ -37,9 +35,10 @@ const DishCard = React.memo(({ id, name, restaurant, tags = [] }) => {
             <Utensils size={12} className="mr-1 flex-shrink-0" />
             <span className="truncate">at {cleanRestaurant}</span>
           </div>
-          {/* Placeholder for potential future content like price/adds */}
+          {/* Placeholder - DishCard currently has less info than RestaurantCard */}
           <div className="h-4"></div>
         </div>
+
         {/* Tags section */}
         <div className="flex flex-wrap gap-1 mt-auto pt-2 border-t border-gray-100">
           {tags.slice(0, 2).map((tag) => (
@@ -56,8 +55,7 @@ const DishCard = React.memo(({ id, name, restaurant, tags = [] }) => {
             </span>
           )}
         </div>
-      </Link>
-    </div>
+      </BaseCard>
   );
 });
 
