@@ -1,36 +1,36 @@
 // src/layouts/Navbar.jsx
-// UPDATE: Corrected Zustand selector to prevent infinite loop.
 import React, { useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import { Settings, ChevronDown, LogOut, UserCircle, LogIn } from 'lucide-react';
+import { Settings, ChevronDown, LogOut, UserCircle, LogIn, ShieldCheck } from 'lucide-react'; // Added ShieldCheck for admin
 import useAuthStore from '@/stores/useAuthStore';
 
 const Navbar = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const navigate = useNavigate();
 
-  // *** Select state individually from the store ***
+  // Select state and actions individually
   const isAuthenticated = useAuthStore(state => state.isAuthenticated);
   const user = useAuthStore(state => state.user);
   const logout = useAuthStore(state => state.logout);
-  // *** End corrected selector ***
+  const isAdmin = useAuthStore(state => state.isAdmin()); // Get admin status using the store function
 
   const toggleSettings = () => {
     setIsSettingsOpen((prev) => !prev);
   };
 
   const handleLogout = () => {
-      console.log("Logging out...");
       logout();
       setIsSettingsOpen(false); // Close dropdown
       navigate('/'); // Navigate to home page after logout
   };
 
-  // NavLink class function (keep as is)
+  const closeDropdown = () => setIsSettingsOpen(false);
+
+  // NavLink class function
   const getNavLinkClass = ({ isActive }) => {
     return isActive
-      ? "text-white bg-[#b89e89] px-3 py-2 rounded-md text-sm font-medium"
-      : "text-white hover:bg-[#c1a389]/50 hover:text-white px-3 py-2 rounded-md text-sm font-medium";
+      ? "text-white bg-[#b89e89] px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150"
+      : "text-white hover:bg-[#c1a389]/50 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150";
   };
 
   return (
@@ -46,6 +46,7 @@ const Navbar = () => {
         <NavLink to="/trending" className={getNavLinkClass}>
           Trending
         </NavLink>
+        {/* Add other public links here if needed */}
 
         {/* Conditional Links based on Auth State */}
         {isAuthenticated ? (
@@ -53,6 +54,9 @@ const Navbar = () => {
             {/* Links for logged-in users */}
             <NavLink to="/lists" className={getNavLinkClass}>
               My Lists
+            </NavLink>
+            <NavLink to="/dashboard" className={getNavLinkClass}>
+              Submissions
             </NavLink>
 
             {/* User/Settings Dropdown */}
@@ -73,38 +77,47 @@ const Navbar = () => {
                   role="menu"
                   aria-orientation="vertical"
                   tabIndex="-1"
-                  onBlur={(e) => {
-                      if (!e.currentTarget.contains(e.relatedTarget)) {
-                          setIsSettingsOpen(false);
-                      }
-                  }}
+                  // Optional: Add onBlur to close dropdown
+                  // onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) { closeDropdown(); } }}
                 >
                   {/* Display username */}
                   {user?.username && (
-                      <span className="block px-4 py-2 text-sm text-gray-500 truncate" role="menuitem" tabIndex="-1">
+                      <span className="block px-4 py-2 text-sm text-gray-500 truncate border-b border-gray-100 mb-1" role="none">
                           Hi, {user.username}
                       </span>
                   )}
-                  <Link
-                    to="/dashboard"
-                    onClick={() => setIsSettingsOpen(false)}
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    role="menuitem"
-                    tabIndex="-1"
-                  >
-                    Submissions
-                  </Link>
-                  <Link
-                    to="/admin"
-                    onClick={() => setIsSettingsOpen(false)}
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    role="menuitem"
-                    tabIndex="-1"
-                  >
-                    Admin Panel
-                  </Link>
-                  {/* Separator */}
-                  <div className="border-t border-gray-100 my-1" role="separator"></div>
+                  {/* Admin Panel Link - Conditionally Rendered */}
+                  {isAdmin && (
+                     <Link
+                       to="/admin"
+                       onClick={closeDropdown} // Close dropdown on click
+                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                       role="menuitem"
+                       tabIndex="-1"
+                     >
+                        <span className="flex items-center gap-2">
+                            <ShieldCheck size={16} className="text-blue-600"/> Admin Panel
+                        </span>
+                     </Link>
+                  )}
+
+                  {/* Separator if admin link was shown */}
+                  {isAdmin && <div className="border-t border-gray-100 my-1" role="separator"></div>}
+
+                  {/* Standard Settings/Profile Link (Example) */}
+                   {/*
+                   <Link
+                     to="/settings" // Example path
+                     onClick={closeDropdown}
+                     className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                     role="menuitem"
+                     tabIndex="-1"
+                   >
+                      <span className="flex items-center gap-2"><Settings size={16} /> Settings</span>
+                   </Link>
+                   */}
+
+                  {/* Logout Button */}
                   <button
                     onClick={handleLogout}
                     className="w-full text-left flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"

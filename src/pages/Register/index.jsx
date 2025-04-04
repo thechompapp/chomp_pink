@@ -2,7 +2,7 @@
 import React, { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '@/stores/useAuthStore';
-import useFormHandler from '@/hooks/useFormHandler'; // Import the custom hook
+import useFormHandler from '@/hooks/useFormHandler';
 import Button from '@/components/Button';
 import { Loader2 } from 'lucide-react';
 
@@ -16,43 +16,40 @@ const Register = () => {
 
   // Initialize the form handler hook
   const {
-    formData,       // Contains { username, email, password, confirmPassword }
-    handleChange,   // Handles onChange for inputs
-    handleSubmit,   // Wraps the form submission logic
-    isSubmitting,   // Loading state from the hook
-    submitError,    // Error message from hook (catches submission & local validation errors)
-    setSubmitError, // Function to manually set errors (for local validation)
+    formData,
+    handleChange,
+    handleSubmit,
+    isSubmitting,
+    submitError,
+    setSubmitError,
   } = useFormHandler({
     username: '',
     email: '',
     password: '',
-    confirmPassword: '', // Add confirmPassword to initial state
+    confirmPassword: '',
   });
 
   // Clear any lingering auth errors from the store when the component mounts
-  // Note: The hook's handleChange clears submitError automatically on input change
   useEffect(() => {
     clearAuthError();
-    // Clear hook error on mount as well
     setSubmitError(null);
   }, [clearAuthError, setSubmitError]);
 
   // Redirect if user is already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      console.log("[Register Page] Already authenticated, redirecting to home.");
+      // Removed console.log for redirect
       navigate('/', { replace: true });
     }
   }, [isAuthenticated, navigate]);
 
   // Define the actual registration logic to be passed to the hook's handleSubmit
   const performRegistration = async (currentFormData) => {
-    console.log('[Register Page] performRegistration called with:', { ...currentFormData, password: '***', confirmPassword: '***' });
+    // Removed console.log for performRegistration call
 
     // --- Local Validation ---
     if (currentFormData.password !== currentFormData.confirmPassword) {
       setSubmitError("Passwords do not match.");
-      // Throwing an error stops the handleSubmit process in the hook
       throw new Error("Passwords do not match.");
     }
     if (currentFormData.password.length < 6) {
@@ -69,11 +66,9 @@ const Register = () => {
     );
 
     if (success) {
-      console.log("Registration successful (via hook), redirecting home.");
-      // Navigation happens automatically due to the isAuthenticated useEffect
+       // Removed console.log for successful registration
     } else {
-      console.log("Registration failed (via hook). Error should be in hook state or auth store.");
-      // Throw the error from the auth store so the hook's handleSubmit catches it
+      // Removed console.log for failed registration
       throw new Error(useAuthStore.getState().error || 'Registration failed.');
     }
   };
@@ -81,7 +76,7 @@ const Register = () => {
   // Wrapper function for the form's onSubmit event
   const handleFormSubmit = (e) => {
     e.preventDefault();
-    handleSubmit(performRegistration); // Pass the registration logic
+    handleSubmit(performRegistration);
   };
 
   return (

@@ -4,77 +4,75 @@ import { Plus, Utensils, Store, List, X, Loader2, Send } from 'lucide-react';
 import { useQuickAdd } from '@/context/QuickAddContext';
 import Button from '@/components/Button';
 import useSubmissionStore from '@/stores/useSubmissionStore';
-import useConfigStore from '@/stores/useConfigStore';
-import useFormHandler from '@/hooks/useFormHandler'; // Import the hook
+// REMOVED: import useConfigStore from '@/stores/useConfigStore';
+import useUIStateStore from '@/stores/useUIStateStore'; // Import the consolidated store
+import useFormHandler from '@/hooks/useFormHandler';
 
 const FloatingQuickAdd = () => {
   // --- State ---
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [formType, setFormType] = useState(null); // 'dish', 'restaurant', or null
-  // Tag-specific state remains local
+  const [formType, setFormType] = useState(null);
   const [tagInput, setTagInput] = useState("");
   const [selectedTags, setSelectedTags] = useState([]);
-
   const fetchAttemptedRef = useRef(false);
 
   // --- Hooks and Store Selections ---
   const { openQuickAdd } = useQuickAdd();
   const { addPendingSubmission } = useSubmissionStore();
-  const fetchCuisines = useConfigStore((state) => state.fetchCuisines);
-  const isLoadingCuisines = useConfigStore((state) => state.isLoadingCuisines);
+  // Select cuisine fetching logic from the consolidated UI store
+  const fetchCuisines = useUIStateStore((state) => state.fetchCuisines);
+  const isLoadingCuisines = useUIStateStore((state) => state.isLoadingCuisines);
+  // You might also want cuisines list from here if needed:
+  // const cuisines = useUIStateStore((state) => state.cuisines);
 
-  // Initialize Form Handler for text inputs and submission status
+  // Initialize Form Handler
   const {
-    formData,        // Contains { newItemName, restaurantInput }
-    handleChange,    // Handles onChange for text inputs
-    handleSubmit,    // Wraps form submission
-    isSubmitting,    // Submission loading state from hook
-    submitError,     // Submission error message from hook
-    setSubmitError,  // To manually set errors (e.g., for validation)
-    resetForm: resetHookForm // Rename to avoid conflict with local resetForm function
+    formData,
+    handleChange,
+    handleSubmit,
+    isSubmitting,
+    submitError,
+    setSubmitError,
+    resetForm: resetHookForm
   } = useFormHandler({
     newItemName: '',
-    restaurantInput: '', // Only used for 'dish' type, but initialize anyway
+    restaurantInput: '',
   });
 
-  // Fetch cuisines (remains same)
+  // Fetch cuisines (uses fetchCuisines from useUIStateStore now)
   useEffect(() => {
+     // Trigger fetch only once if not already loading
      if (!fetchAttemptedRef.current && !isLoadingCuisines) {
-       fetchAttemptedRef.current = true; // Mark attempt immediately
-       console.log('[FloatingQuickAdd] useEffect: Attempting to fetch cuisines...');
+       fetchAttemptedRef.current = true;
        fetchCuisines()
          .catch(err => console.error('[FloatingQuickAdd] useEffect: Cuisine fetch failed.', err))
-         .then(() => console.log('[FloatingQuickAdd] useEffect: Cuisine fetch attempt finished.'));
+         .then(() => { /* Optional: handle success logging */ });
      }
-   }, [fetchCuisines, isLoadingCuisines]);
+   }, [fetchCuisines, isLoadingCuisines]); // Dependencies updated
 
   // --- Reset/Close Logic ---
-  // Expanded reset function to include hook reset and local tag reset
   const resetAllFormState = useCallback(() => {
-    resetHookForm(); // Reset hook state (newItemName, restaurantInput)
+    resetHookForm();
     setTagInput("");
     setSelectedTags([]);
-    setSubmitError(null); // Also clear hook error state
+    setSubmitError(null);
   }, [resetHookForm, setSubmitError]);
 
   const closeMenuAndForm = useCallback(() => {
     setIsMenuOpen(false);
-    setFormType(null); // Hide the form view
-    resetAllFormState(); // Use expanded reset
+    setFormType(null);
+    resetAllFormState();
   }, [resetAllFormState]);
 
-  // --- Action Button Handlers (Remain mostly the same) ---
+  // --- Action Button Handlers ---
   const handleOpenMainButton = useCallback(() => {
      setIsMenuOpen((prev) => {
          const nextIsOpen = !prev;
-         if (!nextIsOpen) { // If closing
-              setFormType(null); resetAllFormState();
-         } else { // If opening
-              setFormType(null); // Show menu first
-         }
+         if (!nextIsOpen) { closeMenuAndForm(); } // Use combined close/reset
+         else { setFormType(null); } // Show menu first when opening
          return nextIsOpen;
      });
-   }, [resetAllFormState]);
+   }, [closeMenuAndForm]); // Dependency updated
 
   const handleOpenDishForm = useCallback(() => { resetAllFormState(); setFormType("dish"); }, [resetAllFormState]);
   const handleOpenRestaurantForm = useCallback(() => { resetAllFormState(); setFormType("restaurant"); }, [resetAllFormState]);
@@ -91,15 +89,12 @@ const FloatingQuickAdd = () => {
   const handleRemoveTag = useCallback((tagToRemove) => { setSelectedTags(prev => prev.filter(tag => tag !== tagToRemove)); }, []);
 
   // --- Submit Handler ---
-  // This function contains the core logic to run on submit
-  const performSubmit = async (currentHookFormData) => { // Renamed arg for clarity
-    console.log('[FloatingQuickAdd] performSubmit called with hook data:', currentHookFormData);
-    // Basic Validation (using hook's error reporting)
+  const performSubmit = async (currentHookFormData) => {
     if (!currentHookFormData.newItemName?.trim()) {
-      setSubmitError("Please provide a name."); throw new Error("Name required.");
+      throw new Error("Please provide a name."); // Throw error for hook
     }
     if (formType === "dish" && !currentHookFormData.restaurantInput?.trim()) {
-      setSubmitError("Please provide the restaurant name."); throw new Error("Restaurant required for dish.");
+      throw new Error("Please provide the restaurant name."); // Throw error for hook
     }
 
     try {
@@ -107,23 +102,19 @@ const FloatingQuickAdd = () => {
         type: formType,
         name: currentHookFormData.newItemName.trim(),
         location: formType === 'dish' ? currentHookFormData.restaurantInput.trim() : null,
-        tags: selectedTags, // Use local state for tags
+        tags: selectedTags,
       };
-      console.log('[FloatingQuickAdd] Submitting via store action:', submissionData);
-      await addPendingSubmission(submissionData); // Call store action
-      console.log('[FloatingQuickAdd] Submission successful via store action.');
+      await addPendingSubmission(submissionData);
       closeMenuAndForm(); // Close and reset on success
     } catch (error) {
       console.error('[FloatingQuickAdd] Submission error caught:', error);
-      // Re-throw error so the hook's handleSubmit catches it and sets submitError
-      throw error;
+      throw error; // Re-throw for hook
     }
   };
 
-  // Wrapper for form's onSubmit
   const handleFormSubmit = (e) => {
     e.preventDefault();
-    handleSubmit(performSubmit); // Pass the core logic to the hook's handler
+    handleSubmit(performSubmit);
   };
 
   return (

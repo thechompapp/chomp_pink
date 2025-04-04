@@ -1,8 +1,11 @@
 // src/stores/useTrendingStore.js
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import apiClient from '../utils/apiClient'; // Import the new client
+import apiClient from '../utils/apiClient';
 
+// Note: Data fetching logic was moved to Trending.jsx using useQuery.
+// This store might be redundant unless it handles other trending-related state.
+// Keeping it for now but adding the consistent error handling pattern.
 const useTrendingStore = create(
   devtools(
     (set, get) => ({
@@ -10,42 +13,40 @@ const useTrendingStore = create(
       trendingDishes: [],
       popularLists: [],
       isLoading: false,
-      error: null,
+      error: null, // Unified error state
 
+      // Action to clear error
+      clearError: () => set({ error: null }),
+
+      // Fetch action remains, uses unified error state
       fetchTrendingData: async () => {
-        console.log('[TrendingStore] fetchTrendingData action CALLED.');
+        // Removed console.log
         if (get().isLoading) {
-          console.log('[TrendingStore] fetchTrendingData already loading, returning.');
           return;
         }
-        console.log('[TrendingStore] fetchTrendingData setting isLoading = true.');
-        set({ isLoading: true, error: null });
+        set({ isLoading: true, error: null }); // Clear error on new fetch
         try {
-          console.log('[TrendingStore] Fetching all trending data via Promise.all...');
-          // Use apiClient for each parallel request
+          // Removed console.log
           const [items, dishes, lists] = await Promise.all([
-            apiClient('/api/trending/restaurants', 'Trending Restaurants'),
-            apiClient('/api/trending/dishes', 'Trending Dishes'),
-            apiClient('/api/trending/lists', 'Trending Popular Lists'),
+            apiClient('/api/trending/restaurants', 'Trending Restaurants Store'),
+            apiClient('/api/trending/dishes', 'Trending Dishes Store'),
+            apiClient('/api/trending/lists', 'Trending Popular Lists Store'),
           ]);
-          console.log(`[TrendingStore] Fetched Data - Restaurants: ${items?.length}, Dishes: ${dishes?.length}, Lists: ${lists?.length}`);
+          // Removed console.log
           set({
-            // Ensure results are arrays even if API returns null/undefined on success
             trendingItems: Array.isArray(items) ? items : [],
             trendingDishes: Array.isArray(dishes) ? dishes : [],
             popularLists: Array.isArray(lists) ? lists : [],
             isLoading: false,
           });
-          console.log('[TrendingStore] Trending data state updated successfully.');
+          // Removed console.log
         } catch (error) {
           console.error('[TrendingStore] fetchTrendingData action caught error:', error);
-          // apiClient handles logout on 401
           if (error.message !== 'Session expired or invalid. Please log in again.') {
-              set({ error: error.message || 'Failed to fetch trending data', isLoading: false });
+              set({ error: error.message || 'Failed to fetch trending data', isLoading: false }); // Set unified error
           } else {
-              set({ isLoading: false }); // Stop loading on 401
+              set({ isLoading: false, error: error.message });
           }
-          // Optional re-throw
         }
       },
     }),

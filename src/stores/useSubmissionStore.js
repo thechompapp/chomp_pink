@@ -1,93 +1,102 @@
 // src/stores/useSubmissionStore.js
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import apiClient from '../utils/apiClient'; // Import the new client
+import apiClient from '../utils/apiClient';
 
 const useSubmissionStore = create(
   devtools(
     (set, get) => ({
       pendingSubmissions: [],
       isLoading: false,
-      error: null,
+      error: null, // Keep unified error state
 
-      // Note: Fetching submissions might eventually need auth if only admins can see them
+      // Action to clear error
+      clearError: () => set({ error: null }),
+
       fetchPendingSubmissions: async () => {
         if (get().isLoading) return;
-        set({ isLoading: true, error: null });
+        set({ isLoading: true, error: null }); // Clear error on new fetch
         try {
-          // Use apiClient, expect array back
           const submissions = await apiClient('/api/submissions', 'Pending Submissions') || [];
           set({ pendingSubmissions: submissions, isLoading: false });
-          console.log('[SubmissionStore] Pending submissions fetched successfully.');
+          // Removed console.log
           return submissions;
         } catch (error) {
           console.error('[SubmissionStore] Error fetching pending submissions:', error);
-           // apiClient handles logout on 401
            if (error.message !== 'Session expired or invalid. Please log in again.') {
               set({ error: error.message, isLoading: false, pendingSubmissions: [] });
            } else {
-              set({ isLoading: false });
+              set({ isLoading: false, error: error.message });
            }
-           // Optional re-throw
         }
       },
 
-      // Adding a submission might require auth depending on app logic
       addPendingSubmission: async (submissionData) => {
-        console.log("[SubmissionStore] Adding submission:", submissionData);
-        // Consider adding loading/error state for this specific action if needed
+        // Consider adding specific loading/error state for this action if needed
+        // set({ isAdding: true, error: null }); // Example
+        set({ error: null }); // Clear previous general errors
+        // Removed console.log
         try {
-          // Use apiClient for POST, expect created submission object
           const newSubmission = await apiClient('/api/submissions', 'Add Submission', {
             method: 'POST',
             body: JSON.stringify(submissionData),
           });
-          console.log("[SubmissionStore] Successfully added submission (status pending):", newSubmission);
-          // Optionally add to local state if fetchPendingSubmissions isn't called immediately after
-          // set((state) => ({ pendingSubmissions: [...state.pendingSubmissions, newSubmission] }));
+          // Removed console.log
+          // Optionally add to local state or rely on next fetchPendingSubmissions
           return newSubmission;
         } catch (error) {
           console.error("[SubmissionStore] Error adding submission:", error);
-           // apiClient handles logout on 401
-           // Re-throw other errors for the calling component (e.g., FloatingQuickAdd)
-           throw error;
+          if (error.message !== 'Session expired or invalid. Please log in again.') {
+              set({ error: error.message }); // Set unified error
+          } else {
+              set({ error: error.message });
+          }
+           throw error; // Re-throw for component handling
         }
+        // finally { set({ isAdding: false }); } // Example
       },
 
-      // Approving/Rejecting likely requires admin auth, handled by apiClient token sending + backend check
       approveSubmission: async (submissionId) => {
-        console.log(`[SubmissionStore] Approving submission ${submissionId}`);
-        // Consider adding loading/error state
+        // Consider adding specific loading/error state
+        set({ error: null }); // Clear previous errors
+        // Removed console.log
         try {
-          // Use apiClient for POST, expect updated submission or success message
           await apiClient(`/api/submissions/${submissionId}/approve`, 'Approve Submission', { method: 'POST' });
           set((state) => ({
             pendingSubmissions: state.pendingSubmissions.filter((s) => s.id !== submissionId),
           }));
-          console.log(`[SubmissionStore] Submission ${submissionId} approved locally.`);
+          // Removed console.log
           return true;
         } catch (error) {
           console.error(`[SubmissionStore] Error approving submission ${submissionId}:`, error);
-           // apiClient handles logout on 401
-           throw error; // Re-throw other errors
+           if (error.message !== 'Session expired or invalid. Please log in again.') {
+                set({ error: error.message }); // Set unified error
+           } else {
+                set({ error: error.message });
+           }
+           throw error;
         }
       },
 
       rejectSubmission: async (submissionId) => {
-        console.log(`[SubmissionStore] Rejecting submission ${submissionId}`);
-         // Consider adding loading/error state
+        // Consider adding specific loading/error state
+        set({ error: null }); // Clear previous errors
+        // Removed console.log
         try {
-          // Use apiClient for POST
           await apiClient(`/api/submissions/${submissionId}/reject`, 'Reject Submission', { method: 'POST' });
           set((state) => ({
             pendingSubmissions: state.pendingSubmissions.filter((s) => s.id !== submissionId),
           }));
-          console.log(`[SubmissionStore] Submission ${submissionId} rejected locally.`);
+          // Removed console.log
           return true;
         } catch (error) {
           console.error(`[SubmissionStore] Error rejecting submission ${submissionId}:`, error);
-          // apiClient handles logout on 401
-          throw error; // Re-throw other errors
+          if (error.message !== 'Session expired or invalid. Please log in again.') {
+              set({ error: error.message }); // Set unified error
+          } else {
+              set({ error: error.message });
+          }
+          throw error;
         }
       },
     }),
