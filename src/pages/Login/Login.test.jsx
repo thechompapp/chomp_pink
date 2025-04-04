@@ -1,0 +1,154 @@
+// src/pages/Login/Login.test.jsx
+import React from 'react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// --- Mock Store Setup ---
+const mockLoginAction = vi.fn();
+const mockClearError = vi.fn();
+let mockIsAuthenticated = false;
+
+// Mock state provider function - used internally by the default mock
+const mockStoreState = () => ({
+    login: mockLoginAction,
+    isAuthenticated: mockIsAuthenticated,
+    clearError: mockClearError,
+    user: null,
+    isLoading: false,
+    error: null, // Keep null, rely on action rejection for error message
+});
+
+// Mock the entire module
+vi.mock('@/stores/useAuthStore', () => ({
+  // Mock the default export (the hook)
+  // This function will be called when useAuthStore(selector) is used
+  default: (selector) => selector(mockStoreState()),
+  // --- REMOVED getState from the module mock ---
+}));
+
+// Mock useNavigate
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  };
+});
+// --- End Mock Setup ---
+
+// Component under test
+import Login from './index';
+
+// Helper function
+const renderWithRouter = (ui, { route = '/', initialEntries = [route] } = {}) => {
+  return render(
+    <MemoryRouter initialEntries={initialEntries}>
+      <Routes>
+         <Route path={route} element={ui} />
+         <Route path="/" element={<div>Home Page Mock</div>} />
+      </Routes>
+    </MemoryRouter>
+  );
+};
+
+
+describe('Login Page Integration Test', () => {
+
+    beforeEach(() => {
+        // Reset mocks and state before each test
+        vi.clearAllMocks();
+        mockIsAuthenticated = false;
+        mockLoginAction.mockReset();
+        mockClearError.mockReset();
+    });
+
+    it('should render the login form', () => {
+        renderWithRouter(<Login />, { route: '/login' });
+        expect(screen.getByRole('heading', { name: /log in to doof/i })).toBeInTheDocument();
+        // ... other render assertions ...
+    });
+
+    it('should allow typing in email and password fields', async () => {
+        const user = userEvent.setup();
+        renderWithRouter(<Login />, { route: '/login' });
+        // ... typing assertions ...
+        const emailInput = screen.getByLabelText(/email address/i);
+        const passwordInput = screen.getByLabelText(/password/i);
+        await user.type(emailInput, 'test@example.com');
+        await user.type(passwordInput, 'password123');
+        expect(emailInput).toHaveValue('test@example.com');
+        expect(passwordInput).toHaveValue('password123');
+    });
+
+    it('should call login action on successful login attempt', async () => {
+        const user = userEvent.setup();
+        mockLoginAction.mockResolvedValue(true);
+
+        renderWithRouter(<Login />, { route: '/login' });
+
+        await user.type(screen.getByLabelText(/email address/i), 'test@example.com');
+        await user.type(screen.getByLabelText(/password/i), 'password123');
+        await user.click(screen.getByRole('button', { name: /log in/i }));
+
+        expect(mockLoginAction).toHaveBeenCalledTimes(1);
+        expect(mockLoginAction).toHaveBeenCalledWith('test@example.com', 'password123');
+
+        await waitFor(() => {
+            expect(screen.queryByText(/failed/i)).not.toBeInTheDocument();
+        });
+    });
+
+    it('should display error message on failed login', async () => {
+        const user = userEvent.setup();
+        const errorMessage = 'Invalid test credentials via rejection.';
+        // Simulate failure by REJECTING the promise returned by the action
+        mockLoginAction.mockRejectedValue(new Error(errorMessage));
+
+        renderWithRouter(<Login />, { route: '/login' });
+
+        await user.type(screen.getByLabelText(/email address/i), 'wrong@example.com');
+        await user.type(screen.getByLabelText(/password/i), 'wrongpassword');
+        await user.click(screen.getByRole('button', { name: /log in/i }));
+
+        expect(mockLoginAction).toHaveBeenCalledTimes(1);
+
+        // Check if the error message (caught by useFormHandler from the rejected promise) is displayed
+        await waitFor(() => {
+            // This error comes from useFormHandler's submitError state
+            expect(screen.getByText(errorMessage)).toBeInTheDocument();
+        });
+
+        expect(mockNavigate).not.toHaveBeenCalled();
+    });
+
+     it('should disable button while submitting', async () => {
+       // ... test remains the same ...
+       const user = userEvent.setup();
+       mockLoginAction.mockImplementation(() => new Promise(resolve => setTimeout(() => resolve(true), 50)));
+       renderWithRouter(<Login />, { route: '/login' });
+       await user.type(screen.getByLabelText(/email address/i), 'test@example.com');
+       await user.type(screen.getByLabelText(/password/i), 'password123');
+       const submitButton = screen.getByRole('button', { name: /log in/i });
+       await user.click(submitButton);
+       expect(submitButton).toBeDisabled();
+       expect(submitButton.querySelector('.animate-spin')).toBeInTheDocument();
+       await waitFor(() => expect(submitButton).not.toBeDisabled());
+       expect(submitButton.querySelector('.animate-spin')).not.toBeInTheDocument();
+   });
+
+    it('should redirect if already authenticated', () => {
+        mockIsAuthenticated = true;
+        renderWithRouter(<Login />, { route: '/login' });
+        expect(mockNavigate).toHaveBeenCalledTimes(1);
+        expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true });
+    });
+
+     it('should call clearError on mount', () => {
+         renderWithRouter(<Login />, { route: '/login' });
+         expect(mockClearError).toHaveBeenCalledTimes(1);
+     });
+
+});

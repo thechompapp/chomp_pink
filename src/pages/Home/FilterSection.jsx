@@ -1,140 +1,85 @@
 // src/pages/Home/FilterSection.jsx
-import React, { useState, useCallback, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-// Keep UI store for setting selected city ID
-import useUIStateStore from '@/stores/useUIStateStore.js';
-// Other imports
+import React, { useEffect, useMemo, useCallback } from 'react'; // Removed useState
+// Removed useQuery import
+import useUIStateStore from '@/stores/useUIStateStore.js'; // Import the consolidated store
 import PillButton from '@/components/UI/PillButton.jsx';
-import { API_BASE_URL } from '@/config.js';
+// import { API_BASE_URL } from '@/config.js'; // No longer needed here
 import { ChevronLeft, XCircle } from 'lucide-react';
 import Button from '@/components/Button';
-// Import common UI components
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
 import ErrorMessage from '@/components/UI/ErrorMessage';
 
-
-// Fetcher Function for Cities
-const fetchCitiesData = async () => {
-    console.log("[fetchCitiesData] Fetching cities...");
-    const url = `${API_BASE_URL}/api/cities`;
-    try {
-        const response = await fetch(url);
-        if (!response.ok) {
-            let errorMsg = `Failed to fetch cities (${response.status})`;
-            try { const errData = await response.json(); errorMsg = errData.error || errData.message || errorMsg; } catch (e) { /* ignore */ }
-            console.error(`[fetchCitiesData] API Error Status ${response.status}: ${errorMsg}`);
-            throw new Error(errorMsg);
-        }
-        const data = await response.json();
-        if (!Array.isArray(data)) {
-             console.error(`[fetchCitiesData] Invalid data format received:`, data);
-             throw new Error("Invalid data format for cities.");
-        }
-        console.log(`[fetchCitiesData] Successfully fetched ${data.length} cities.`);
-        // Sort cities alphabetically by name
-        const sortedData = data.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-        // Explicitly return the array to avoid undefined possibility
-        return sortedData;
-    } catch (err) {
-        console.error(`[fetchCitiesData] Error fetching cities:`, err);
-        // Ensure error is thrown, React Query handles this
-        throw new Error(err.message || "Could not load cities.");
-    }
-};
-
-// Fetcher Function for Neighborhoods
-const fetchNeighborhoodsData = async (cityIdToFetch) => {
-    if (!cityIdToFetch) throw new Error("City ID is required to fetch neighborhoods.");
-    console.log(`[fetchNeighborhoodsData] Fetching neighborhoods for City ID: ${cityIdToFetch}`);
-    const url = `${API_BASE_URL}/api/neighborhoods?cityId=${cityIdToFetch}`;
-    try {
-        const response = await fetch(url);
-        if (!response.ok) {
-            let errorMsg = `Failed to fetch neighborhoods (${response.status})`;
-            try { const errData = await response.json(); errorMsg = errData.error || errData.message || errorMsg; } catch (e) { /* ignore */ }
-            throw new Error(errorMsg);
-        }
-        const data = await response.json();
-        if (!Array.isArray(data)) throw new Error("Invalid data format for neighborhoods.");
-        console.log(`[fetchNeighborhoodsData] Successfully fetched ${data.length} neighborhoods.`);
-        const sortedData = data.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-        // Explicitly return the array
-        return sortedData;
-    } catch (err) {
-        console.error(`[fetchNeighborhoodsData] Error fetching neighborhoods:`, err);
-        // Ensure error is thrown
-        throw new Error(err.message || "Could not load neighborhoods.");
-    }
-};
-
+// Removed internal fetcher functions (fetchCitiesData, fetchNeighborhoodsData)
 
 const FilterSection = React.memo(() => {
-  // --- Fetch Cities using React Query ---
+  // --- Select state and actions from the UI Store ---
   const {
-      data: cities = [], // Default to empty array remains good practice
-      isLoading: isLoadingCities,
-      isError: isErrorCities,
-      error: errorCities,
-      refetch: refetchCities
-  } = useQuery({
-      queryKey: ['cities'],
-      queryFn: fetchCitiesData, // Use the updated fetcher
-      staleTime: 1000 * 60 * 60,
-      cacheTime: 1000 * 60 * 90,
-  });
+      cityId,
+      setCityId,
+      cities,
+      isLoadingCities,
+      errorCities,
+      fetchCities,
+      neighborhoods,
+      isLoadingNeighborhoods,
+      errorNeighborhoods,
+      fetchNeighborhoodsByCity,
+      clearError // Get clearError action
+  } = useUIStateStore(state => ({
+      cityId: state.cityId,
+      setCityId: state.setCityId,
+      cities: state.cities,
+      isLoadingCities: state.isLoadingCities,
+      errorCities: state.errorCities, // Use specific error state
+      fetchCities: state.fetchCities,
+      neighborhoods: state.neighborhoods,
+      isLoadingNeighborhoods: state.isLoadingNeighborhoods,
+      errorNeighborhoods: state.errorNeighborhoods, // Use specific error state
+      fetchNeighborhoodsByCity: state.fetchNeighborhoodsByCity,
+      clearError: state.clearError,
+  }));
 
-  // Keep UI store state/actions for managing selection
-  const selectedCityId = useUIStateStore((state) => state.cityId);
-  const setCityId = useUIStateStore((state) => state.setCityId);
+  // --- Local state only for UI level control ---
+  const showLevel = cityId ? 'neighborhoods' : 'cities';
 
-  // Local state for UI levels (keep)
-  const [showLevel, setShowLevel] = useState('cities');
+  // --- Fetch initial cities on mount if needed ---
+  useEffect(() => {
+      // Fetch only if cities array is empty and not currently loading/error
+      if (cities.length === 0 && !isLoadingCities && !errorCities) {
+          fetchCities();
+      }
+  }, [cities.length, isLoadingCities, errorCities, fetchCities]); // Dependencies
 
-  // --- Fetch Neighborhoods using React Query (conditionally enabled) ---
-  const {
-      data: neighborhoods = [], // Default to empty array
-      isLoading: isLoadingNeighborhoods,
-      isError: isErrorNeighborhoods,
-      error: errorNeighborhoods,
-      refetch: refetchNeighborhoods
-  } = useQuery({
-      queryKey: ['neighborhoods', selectedCityId],
-      queryFn: () => fetchNeighborhoodsData(selectedCityId), // Use updated fetcher
-      enabled: !!selectedCityId && showLevel === 'neighborhoods',
-      staleTime: 1000 * 60 * 5,
-  });
-  // --- End Neighborhoods Fetch ---
+  // --- Find selected city name (Memoized) ---
+  const selectedCity = useMemo(() => cities.find(c => c.id === cityId), [cities, cityId]);
 
-
-  const hasCities = Array.isArray(cities) && cities.length > 0;
-  const selectedCity = useMemo(() => cities.find(c => c.id === selectedCityId), [cities, selectedCityId]);
-
-  // Event Handlers (remain the same)
-  const handleSelectCity = useCallback((cityId) => {
-    console.log(`[FilterSection] Selected city ID: ${cityId}`);
-    setCityId(cityId);
-    setShowLevel('neighborhoods');
-  }, [setCityId]);
+  // --- Event Handlers ---
+  const handleSelectCity = useCallback((selectedCityId) => {
+    setCityId(selectedCityId); // Update global UI state (clears neighborhoods in store)
+    // Fetch neighborhoods for the selected city using store action
+    fetchNeighborhoodsByCity(selectedCityId);
+  }, [setCityId, fetchNeighborhoodsByCity]);
 
   const handleGoBack = useCallback(() => {
-    setCityId(null);
-    setShowLevel('cities');
-  }, [setCityId]);
+    setCityId(null); // This clears cityId and neighborhoods in the store state
+    clearError('neighborhoods'); // Clear potential neighborhood errors
+  }, [setCityId, clearError]);
 
   const handleClearAll = useCallback(() => {
      handleGoBack();
-  }, [handleGoBack]);
+     clearError('cities'); // Clear potential city errors as well
+  }, [handleGoBack, clearError]);
 
-  // --- Render Functions using React Query state (remain the same) ---
+  // --- Render Functions using Store state ---
   const renderCityPills = () => {
       if (isLoadingCities) {
           return <LoadingSpinner size="sm" message="Loading cities..." spinnerClassName="text-gray-400" messageClassName="text-xs text-gray-400 ml-1" className="py-1" />;
       }
-      if (isErrorCities) {
+      if (errorCities) { // Check specific error state
            return (
                 <ErrorMessage
-                    message={errorCities?.message || 'Could not load cities.'}
-                    onRetry={refetchCities}
+                    message={errorCities}
+                    onRetry={fetchCities} // Retry store action
                     isLoadingRetry={isLoadingCities}
                     containerClassName="flex items-center gap-2 text-xs"
                     messageClassName="text-red-500"
@@ -142,14 +87,14 @@ const FilterSection = React.memo(() => {
                 />
            );
        }
-      if (!hasCities) {
+      if (cities.length === 0) {
           return <p className="text-xs text-gray-500">No cities available.</p>;
       }
       return cities.map((city) => (
           <PillButton
               key={city.id}
               label={city.name}
-              isActive={false}
+              isActive={false} // Always inactive in city view
               onClick={() => handleSelectCity(city.id)}
           />
       ));
@@ -159,11 +104,12 @@ const FilterSection = React.memo(() => {
        if (isLoadingNeighborhoods) {
             return <LoadingSpinner size="sm" message="Loading neighborhoods..." spinnerClassName="text-gray-400" messageClassName="text-xs text-gray-400 ml-1" className="py-1" />;
         }
-        if (isErrorNeighborhoods) {
+        if (errorNeighborhoods) { // Check specific error state
             return (
                  <ErrorMessage
-                     message={errorNeighborhoods?.message || 'Could not load neighborhoods.'}
-                     onRetry={() => refetchNeighborhoods()}
+                     message={errorNeighborhoods}
+                     // Retry fetching neighborhoods for the currently selected city
+                     onRetry={() => fetchNeighborhoodsByCity(cityId)} // Retry store action
                      isLoadingRetry={isLoadingNeighborhoods}
                      containerClassName="flex items-center gap-2 text-xs"
                      messageClassName="text-red-500"
@@ -171,10 +117,13 @@ const FilterSection = React.memo(() => {
                  />
              );
         }
-       if (!isLoadingNeighborhoods && !isErrorNeighborhoods && neighborhoods.length === 0) {
+       // Check fetched neighborhoods array from store
+       if (neighborhoods.length === 0) {
             return <p className="text-xs text-gray-500">No neighborhoods found for {selectedCity?.name || 'this city'}.</p>;
        }
+       // Render neighborhood pills from store data
         return neighborhoods.map((n) => (
+            // Make neighborhoods selectable if needed later by adding onClick
             <PillButton key={n.id} label={n.name} />
         ));
    };
@@ -185,10 +134,21 @@ const FilterSection = React.memo(() => {
       {/* Header and Buttons */}
       <div className="flex justify-between items-center mb-2 flex-wrap gap-y-1">
          <div className="flex items-center gap-2">
-             {showLevel === 'neighborhoods' && ( <button onClick={handleGoBack} className="p-1 text-gray-500 hover:text-gray-800" aria-label="Back to cities"> <ChevronLeft size={18} /> </button> )}
-             <h3 className="text-sm font-semibold text-gray-700"> {showLevel === 'cities' ? 'Filter by City' : `Neighborhoods in ${selectedCity?.name || 'Selected City'}`} </h3>
+             {showLevel === 'neighborhoods' && (
+                <button onClick={handleGoBack} className="p-1 text-gray-500 hover:text-gray-800" aria-label="Back to cities">
+                    <ChevronLeft size={18} />
+                </button>
+             )}
+             <h3 className="text-sm font-semibold text-gray-700">
+                {showLevel === 'cities' ? 'Filter by City' : `Neighborhoods in ${selectedCity?.name || 'Selected City'}`}
+             </h3>
          </div>
-         {selectedCityId && ( <button onClick={handleClearAll} className="text-xs text-red-500 hover:text-red-700 flex items-center gap-0.5"> <XCircle size={14} /> Clear </button> )}
+         {/* Show clear only if a city is selected */}
+         {cityId && (
+            <button onClick={handleClearAll} className="text-xs text-red-500 hover:text-red-700 flex items-center gap-0.5">
+                <XCircle size={14} /> Clear
+            </button>
+         )}
       </div>
 
       {/* Pills Section */}

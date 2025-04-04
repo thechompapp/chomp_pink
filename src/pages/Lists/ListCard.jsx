@@ -1,59 +1,52 @@
 // src/pages/Lists/ListCard.jsx
-// FIX: Remove useAppStore, import and use useUserListStore for follow state
 import React from 'react';
-import { Link } from 'react-router-dom';
-import { Users, List } from 'lucide-react'; // Using Users for saves, List for item count
-import FollowButton from '@/components/FollowButton'; // Use '@' alias
-// **FIX**: Import the specific store needed
-import useUserListStore from '@/stores/useUserListStore.js'; // Use path alias and .js extension
+// Removed Link import as BaseCard handles it
+import { Users, List } from 'lucide-react';
+import FollowButton from '@/components/FollowButton';
+import useUserListStore from '@/stores/useUserListStore.js';
+import BaseCard from '@/components/UI/BaseCard'; // Import BaseCard
 
 const ListCard = React.memo(({
     id,
     name,
     description,
-    saved_count = 0,
+    saved_count = 0, // Renamed from adds for clarity specific to lists
     item_count = 0,
-    is_following, // Initial follow state passed as prop
-    // Add other props if necessary, e.g., creator_handle, tags
+    is_following,
+    // Add creator_handle if needed for display
+    // creator_handle
 }) => {
 
-   // **FIX**: Select the specific list from the appropriate store to get potentially updated state
-   // Check both userLists and followedLists for the most current data for this list card ID
+   // Logic to get potentially updated state from store remains the same
    const listFromUserStore = useUserListStore(state =>
         state.userLists.find(list => list.id === id) || state.followedLists.find(list => list.id === id)
    );
-
-   // Use the follow state from the store if the list exists there, otherwise fallback to the initial prop
    const currentFollowingState = listFromUserStore ? listFromUserStore.is_following : is_following;
 
-   // Default values for display
    const cleanName = name || "Unnamed List";
-   // Use item_count from props or store if available, default description otherwise
-   const cleanDescription = description || `${listFromUserStore?.item_count ?? item_count} ${listFromUserStore?.item_count === 1 || item_count === 1 ? 'item' : 'items'}`;
    const displayItemCount = listFromUserStore?.item_count ?? item_count;
-   const displaySavedCount = listFromUserStore?.saved_count ?? saved_count;
+   const displaySavedCount = listFromUserStore?.saved_count ?? saved_count; // Use saved_count
+   // Use description prop first, fallback to item count
+   const cleanDescription = description || `${displayItemCount.toLocaleString()} ${displayItemCount === 1 ? 'item' : 'items'}`;
 
-   // Log for debugging (optional)
-   // console.log(`[ListCard ${id}] Initial Follow: ${is_following}, Store Follow: ${listFromUserStore?.is_following}, Current Render Follow: ${currentFollowingState}`);
+   const linkDestination = `/lists/${id}`;
 
   return (
-     // Card structure remains the same
-     <div className="group relative flex flex-col w-full min-h-[14rem] h-56 bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden transition-shadow hover:shadow-md">
-       {/* Card Content */}
-       <div className="flex flex-col flex-grow p-4 text-left">
+     // Use BaseCard for overall structure and link, pass null for onQuickAdd
+     <BaseCard linkTo={linkDestination} onQuickAdd={null}>
+       {/* Content specific to List Card passed as children */}
+       <>
          {/* Top section */}
          <div className="flex-grow mb-2">
-            {/* Link to List Detail Page */}
-            <Link to={`/lists/${id}`} className="block mb-1.5 focus:outline-none focus:ring-1 focus:ring-[#D1B399] rounded">
-               <h3 className="text-base font-semibold text-gray-900 line-clamp-2 group-hover:text-[#A78B71] transition-colors">
-                 {cleanName}
-               </h3>
-            </Link>
+            {/* BaseCard provides the Link, so only render content */}
+            <h3 className="text-base font-semibold text-gray-900 mb-1.5 line-clamp-2 group-hover:text-[#A78B71] transition-colors">
+              {cleanName}
+            </h3>
            {/* Description */}
            <p className="text-xs text-gray-500 mb-1.5 line-clamp-2">
               {cleanDescription}
            </p>
-            {/* Saved Count */}
+            {/* Saved Count (using Users icon like RestaurantCard for adds/saves) */}
             <div className="flex items-center text-gray-500 text-xs mb-1">
               <Users size={12} className="mr-1 flex-shrink-0" />
               <span>{displaySavedCount.toLocaleString()} saves</span>
@@ -63,20 +56,22 @@ const ListCard = React.memo(({
               <List size={12} className="mr-1 flex-shrink-0" />
               <span>{displayItemCount.toLocaleString()} {displayItemCount === 1 ? 'item' : 'items'}</span>
             </div>
+             {/* Optionally display creator handle if needed */}
+             {/* creator_handle && <p className="text-xs text-gray-400 mt-1">By {creator_handle}</p> */}
          </div>
 
-         {/* Follow Button section - appears at bottom */}
+         {/* Follow Button section */}
          <div className="mt-auto pt-3 border-t border-gray-100">
            <FollowButton
              listId={id}
-             isFollowing={currentFollowingState} // Use the determined current state
-             // You can add logic here if the follow button should ever be disabled
-             // e.g., isFollowable={!listFromUserStore?.created_by_user} // Example: disable follow on own lists
-             className="w-full !py-1.5" // Example: Override default button padding if needed
+             isFollowing={currentFollowingState}
+             // Example: disable follow on own lists (requires creator info)
+             // isFollowable={!listFromUserStore?.created_by_user}
+             className="w-full !py-1.5" // Example style override
             />
          </div>
-       </div>
-     </div>
+       </>
+     </BaseCard>
   );
 });
 

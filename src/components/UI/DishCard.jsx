@@ -1,19 +1,18 @@
 // src/components/UI/DishCard.jsx
 import React from 'react';
-import { Utensils } from 'lucide-react';
+import { Utensils, ThumbsUp } from 'lucide-react'; // Changed icon for adds count
 import { useQuickAdd } from '@/context/QuickAddContext';
-import BaseCard from '@/components/UI/BaseCard'; // Corrected import path
+import BaseCard from '@/components/UI/BaseCard';
 
-const DishCard = React.memo(({ id, name, restaurant, tags = [] }) => {
+// Added 'adds' prop with a default value
+const DishCard = React.memo(({ id, name, restaurant, tags = [], adds = 0 }) => {
   const { openQuickAdd } = useQuickAdd();
 
   const handleQuickAdd = (e) => {
     e.stopPropagation();
     e.preventDefault();
-    console.log(`[${name} Card] handleQuickAdd: Calling openQuickAdd...`);
      // Pass all relevant data for the popup
     openQuickAdd({ id, name, restaurant: restaurant, tags, type: 'dish' });
-    console.log(`[${name} Card] handleQuickAdd: Called openQuickAdd.`);
   };
 
   const cleanName = name || "Unnamed Dish";
@@ -35,8 +34,11 @@ const DishCard = React.memo(({ id, name, restaurant, tags = [] }) => {
             <Utensils size={12} className="mr-1 flex-shrink-0" />
             <span className="truncate">at {cleanRestaurant}</span>
           </div>
-          {/* Placeholder - DishCard currently has less info than RestaurantCard */}
-          <div className="h-4"></div>
+          {/* Added Adds Count Display */}
+           <div className="flex items-center text-gray-500 text-xs">
+             <ThumbsUp size={12} className="mr-1 flex-shrink-0" />
+             <span>{adds.toLocaleString()} adds</span>
+           </div>
         </div>
 
         {/* Tags section */}
