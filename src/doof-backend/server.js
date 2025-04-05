@@ -1,138 +1,135 @@
-// src/doof-backend/server.js
-const express = require("express");
-const cors = require("cors");
-const path = require("path");
-require("dotenv").config();
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+require('dotenv').config();
 
-const db = require('./db'); // Ensure db module is imported
+// Import database pool
+const db = require('./db');
 
-// Import existing routers
-const filtersRouter = require('./routes/filters');
-const trendingRouter = require('./routes/trending');
+// Import route handlers
+const authRouter = require('./routes/auth');
 const listsRouter = require('./routes/lists');
 const restaurantsRouter = require('./routes/restaurants');
 const dishesRouter = require('./routes/dishes');
+const trendingRouter = require('./routes/trending');
+const filtersRouter = require('./routes/filters');
 const submissionsRouter = require('./routes/submissions');
 const placesRouter = require('./routes/places');
-const adminRouter = require('./routes/admin');
-const commonDishesRouter = require('./routes/commonDishes'); // Keep or remove based on usage
-// *** IMPORT Auth Router ***
-const authRouter = require('./routes/auth');
+const commonDishesRouter = require('./routes/commonDishes');
+const searchRouter = require('./routes/search');
 
 const app = express();
-const port = process.env.PORT || 5001;
 
-// --- Core Middleware ---
-// Define or import your cors options if needed
-const corsOptions = {
-    origin: process.env.FRONTEND_URL || "http://localhost:5173", // Allow frontend origin
-    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
-    credentials: true, // Allow cookies/headers if needed for auth sessions
-    optionsSuccessStatus: 204
-};
-app.use(cors(corsOptions));
-app.use(express.json({ limit: '1mb' })); // For parsing application/json
-app.use(express.urlencoded({ extended: true, limit: '1mb' })); // For parsing application/x-www-form-urlencoded
+// Environment variables
+const PORT = process.env.PORT || 5001;
+const NODE_ENV = process.env.NODE_ENV || 'development';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
-// Simple request logger
+// Log environment variables for debugging
+console.log('[Server] Environment Variables:');
+console.log(`  PORT: ${PORT}`);
+console.log(`  NODE_ENV: ${NODE_ENV}`);
+console.log(`  FRONTEND_URL: ${FRONTEND_URL}`);
+
+// Middleware
+app.use(helmet());
+app.use(cors({
+    origin: (origin, callback) => {
+        console.log(`[CORS] Request Origin: ${origin}`);
+        const allowedOrigin = FRONTEND_URL;
+        if (!origin || origin === allowedOrigin) {
+            callback(null, allowedOrigin);
+        } else {
+            console.error(`[CORS] Origin ${origin} not allowed. Expected: ${allowedOrigin}`);
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Logging middleware
 app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
     next();
 });
 
+// API Routes
+app.use('/api/auth', authRouter);
+app.use('/api/lists', listsRouter);
+app.use('/api/restaurants', restaurantsRouter);
+app.use('/api/dishes', dishesRouter);
+app.use('/api/trending', trendingRouter);
+app.use('/api/filters', filtersRouter);
+app.use('/api/submissions', submissionsRouter);
+app.use('/api/places', placesRouter);
+app.use('/api/commonDishes', commonDishesRouter);
+app.use('/api/search', searchRouter);
 
-// --- API Routes ---
-app.get("/api/health", (req, res) => res.status(200).json({ status: "API healthy", timestamp: new Date().toISOString() }));
-
-// Test database connection route (optional)
-app.get("/api/test-restaurants", async (req, res, next) => {
-    console.log("[TEST ROUTE] /api/test-restaurants hit!");
+// Health check endpoint
+app.get('/api/health', async (req, res) => {
     try {
-        const result = await db.query("SELECT id, name, adds FROM Restaurants ORDER BY adds DESC NULLS LAST LIMIT 3");
-        console.log(`[TEST ROUTE] Query result rows: ${result.rowCount}`);
+        const result = await db.query('SELECT NOW()');
+        const dbTime = result.rows[0]?.now || 'Unknown';
         res.status(200).json({
-            message: "Test query executed.",
-            rowCount: result.rowCount,
-            rows: result.rows || []
+            status: 'OK',
+            environment: NODE_ENV,
+            database: 'Connected',
+            dbTime,
         });
-    } catch (error) {
-        console.error("[TEST ROUTE] Error:", error);
-        next(error); // Forward error to the centralized handler
+    } catch (err) {
+        console.error('[Health Check] DB Error:', err);
+        res.status(200).json({
+            status: 'OK',
+            environment: NODE_ENV,
+            database: 'Disconnected',
+            dbError: err.message,
+        });
     }
 });
 
-// *** Mount Auth Router ***
-// Authentication endpoints (e.g., /api/auth/register, /api/auth/login)
-app.use('/api/auth', authRouter);
-
-// Mount other routers
-// Public or partially public routes
-app.use('/api', filtersRouter); // Generic filters
-app.use('/api/trending', trendingRouter); // Trending data
-app.use('/api/restaurants', restaurantsRouter); // Public restaurant details (POST/PUT/DELETE might need auth)
-app.use('/api/dishes', dishesRouter); // Public dish details (POST/PUT/DELETE might need auth)
-app.use('/api/places', placesRouter); // Google Places proxy
-
-// Routes likely requiring authentication (apply middleware later)
-app.use('/api/lists', listsRouter); // Creating/managing lists
-app.use('/api/submissions', submissionsRouter); // Submitting requires user context
-app.use('/api/admin', adminRouter); // Admin panel access
-// Optional: common dishes route
-// app.use('/api/common-dishes', commonDishesRouter);
-
-
-// --- Optional: Serve Static Frontend ---
-// Uncomment and adjust path if needed for production deployment
-// const frontendBuildPath = path.join(__dirname, '../../dist'); // Example assuming Vite builds to 'dist'
-// console.log(`Serving static files from: ${frontendBuildPath}`);
-// app.use(express.static(frontendBuildPath));
-// Catch-all to serve index.html for client-side routing
-// app.get('*', (req, res) => {
-//   // Avoid sending index.html for API routes
-//   if (!req.originalUrl.startsWith('/api')) {
-//       res.sendFile(path.resolve(frontendBuildPath, 'index.html'));
-//   } else {
-//       // If it's an API route not matched above, let the 404 handler below take care of it
-//       res.status(404).json({ error: `API route not found: ${req.originalUrl}` });
-//   }
-// });
-
-
-// --- Not Found & Error Handlers ---
-// 404 Handler (if no routes matched)
+// 404 Handler
 app.use((req, res, next) => {
-    // Check if it was an API route that wasn't found
-    if (req.originalUrl.startsWith('/api')) {
-        console.warn(`404 Not Found: API route - ${req.method} ${req.originalUrl}`);
-        return res.status(404).json({ error: `API route not found: ${req.originalUrl}` });
-    }
-    // If not an API route, and static file serving didn't catch it,
-    // potentially let client-side routing handle it (depends on setup)
-    // For now, just send a generic 404
-    console.warn(`404 Not Found: Non-API route - ${req.method} ${req.originalUrl}`);
-    res.status(404).send('Resource not found.'); // Simple text response for non-API 404
+    res.status(404).json({ error: 'Not Found', path: req.path });
 });
 
 // Centralized Error Handler
 app.use((err, req, res, next) => {
-    console.error("[Central Error Handler] Status:", err.status || err.statusCode || 500);
-    console.error("[Central Error Handler] Message:", err.message);
-    console.error("[Central Error Handler] Stack:", err.stack);
+    console.error(`[ERROR] ${req.method} ${req.path}:`, err.stack || err.message || err);
+    const status = err.status || 500;
+    const message = status === 500 ? 'Internal Server Error' : err.message || 'Something went wrong';
+    res.status(status).json({
+        error: message,
+        ...(NODE_ENV === 'development' && { details: err.stack || err.message }),
+    });
+});
 
-    const statusCode = err.status || err.statusCode || 500;
-    const message = err.message || 'Internal Server Error';
+// Start the server
+const startServer = async () => {
+    try {
+        const result = await db.query('SELECT NOW()');
+        console.log('\x1b[32m%s\x1b[0m', `[Server] Database connection successful. DB Time: ${result.rows[0].now}`);
 
-    // Avoid sending stack trace in production
-    const errorResponse = { error: message };
-    if (process.env.NODE_ENV !== 'production') {
-        // errorResponse.stack = err.stack; // Optionally include stack in dev
+        app.listen(PORT, () => {
+            console.log(`[Server] Listening on port ${PORT} in ${NODE_ENV} mode`);
+        });
+    } catch (err) {
+        console.error('\x1b[31m%s\x1b[0m', '[Server] Failed to connect to database:', err.stack || err.message);
+        process.exit(1);
     }
+};
 
-    res.status(statusCode).json(errorResponse);
+process.on('uncaughtException', (err) => {
+    console.error('[Uncaught Exception]', err);
+    process.exit(1);
 });
 
-// --- Start Server ---
-app.listen(port, () => {
-    console.log(`\x1b[36m%s\x1b[0m`, `Backend server listening on port ${port}`);
-    console.log(`Access API at http://localhost:${port}/api`);
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[Unhandled Rejection] at:', promise, 'reason:', reason);
+    process.exit(1);
 });
+
+startServer();

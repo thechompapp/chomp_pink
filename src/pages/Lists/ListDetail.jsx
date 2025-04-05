@@ -1,186 +1,168 @@
-// src/pages/Lists/ListDetail.jsx
-import React, { useState, useCallback, useMemo } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronLeft, Instagram, Share2, Eye, Trash2, Loader2 } from 'lucide-react';
-import useUserListStore from '@/stores/useUserListStore.js';
-import ItemQuickLookModal from '@/components/ItemQuickLookModal';
-import Button from '@/components/Button';
-import LoadingSpinner from '@/components/UI/LoadingSpinner'; // Keep for specific loading states
-import ErrorMessage from '@/components/UI/ErrorMessage';
-import { API_BASE_URL } from '@/config';
+import React, { memo, useCallback, useState, useMemo } from 'react'; // Added useMemo
+import { useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/utils/apiClient';
-import SkeletonElement from '@/components/UI/SkeletonElement'; // Import base skeleton
-import ListItemSkeleton from './ListItemSkeleton'; // Import list item skeleton
+import Button from '@/components/Button';
+import { Loader2, Trash2, SortAsc, SortDesc, Eye } from 'lucide-react';
+import useUserListStore from '@/stores/useUserListStore';
+import ErrorMessage from '@/components/UI/ErrorMessage';
+import ItemQuickLookModal from '@/components/ItemQuickLookModal';
 
-// Fetch function remains the same
-const fetchListDetailsAndItems = async (listId) => { /* ... */ };
+const fetchListDetails = async (listId) => {
+    if (!listId) throw new Error('List ID is required');
+    const data = await apiClient(`/api/lists/${listId}`, 'ListDetail Fetch');
+    return data || {};
+};
 
-// List Detail Skeleton Structure
-const ListDetailSkeleton = () => (
-    <div className="max-w-4xl mx-auto px-3 sm:px-4 pb-12 animate-pulse">
-        {/* Back Link Skeleton */}
-        <SkeletonElement type="text" className="w-24 h-5 my-4" />
+const ListDetail = memo(() => {
+    const { id } = useParams();
+    const { removeFromList, isRemovingItem } = useUserListStore();
+    const [sortOrder, setSortOrder] = useState('asc');
+    const [selectedItem, setSelectedItem] = useState(null);
 
-        {/* Header Skeleton */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-5 mb-6 space-y-3">
-            <SkeletonElement type="title" className="w-1/2 h-8" />
-            <SkeletonElement type="text" className="w-full" />
-            <SkeletonElement type="text" className="w-1/4" />
-            {/* Sort buttons placeholder */}
-            <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-100">
-                <SkeletonElement type="button" className="w-16 h-6 rounded-full" />
-                <SkeletonElement type="button" className="w-24 h-6 rounded-full" />
-                <SkeletonElement type="button" className="w-24 h-6 rounded-full" />
-                <SkeletonElement type="button" className="w-32 h-6 rounded-full" />
+    console.log('[ListDetail] Rendering with ID:', id);
+
+    const { data: list, isLoading, isError, error, refetch } = useQuery({
+        queryKey: ['listDetails', id],
+        queryFn: () => fetchListDetails(id),
+        enabled: !!id,
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const handleRemoveItem = useCallback(async (listItemId) => {
+        try {
+            await removeFromList(id, listItemId);
+            refetch();
+        } catch (err) {
+            console.error(`[ListDetail] Error removing item ${listItemId}:`, err);
+        }
+    }, [id, removeFromList, refetch]);
+
+    const sortedItems = useMemo(() => {
+        if (!list?.items) return [];
+        return [...list.items].sort((a, b) => {
+            return sortOrder === 'asc'
+                ? a.name.localeCompare(b.name)
+                : b.name.localeCompare(a.name);
+        });
+    }, [list?.items, sortOrder]);
+
+    if (isLoading) {
+        return (
+            <div className="max-w-4xl mx-auto px-4 py-6">
+                <div className="flex justify-center items-center py-10">
+                    <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
+                </div>
             </div>
-            {/* Edit controls placeholder */}
-            <div className="pt-4 flex items-center flex-wrap gap-x-4 gap-y-2 border-t border-gray-100">
-                <SkeletonElement type="rect" className="w-10 h-6 rounded-full" />
-                <SkeletonElement type="text" className="w-12 h-5" />
-                <SkeletonElement type="avatar" className="w-8 h-8" />
-                <SkeletonElement type="avatar" className="w-8 h-8" />
+        );
+    }
+
+    if (isError) {
+        return (
+            <div className="max-w-4xl mx-auto px-4 py-6">
+                <ErrorMessage
+                    message={error?.message || 'Failed to load list details'}
+                    onRetry={refetch}
+                    isLoadingRetry={isLoading}
+                    containerClassName="mt-6"
+                />
             </div>
+        );
+    }
+
+    if (!list || !list.id) {
+        return (
+            <div className="max-w-4xl mx-auto px-4 py-6">
+                <p className="text-center text-gray-500 py-6">List not found.</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="max-w-4xl mx-auto px-4 py-6">
+            <div className="flex justify-between items-center mb-6">
+                <h1 className="text-2xl font-bold text-gray-800">{list.name || 'Unnamed List'}</h1>
+                <div className="flex gap-2">
+                    <Button
+                        variant="tertiary"
+                        size="sm"
+                        onClick={() => setSortOrder('asc')}
+                        className={`text-gray-600 ${sortOrder === 'asc' ? 'bg-gray-200' : ''}`}
+                    >
+                        <SortAsc size={16} />
+                    </Button>
+                    <Button
+                        variant="tertiary"
+                        size="sm"
+                        onClick={() => setSortOrder('desc')}
+                        className={`text-gray-600 ${sortOrder === 'desc' ? 'bg-gray-200' : ''}`}
+                    >
+                        <SortDesc size={16} />
+                    </Button>
+                </div>
+            </div>
+            {list.description && (
+                <p className="text-gray-600 text-sm mb-6">{list.description}</p>
+            )}
+            <div className="flex items-center text-gray-500 text-sm mb-6">
+                <span>{list.item_count || 0} {list.item_count === 1 ? 'item' : 'items'}</span>
+                <span className="mx-2">•</span>
+                <span>{list.saved_count || 0} saves</span>
+            </div>
+
+            {sortedItems.length > 0 ? (
+                <ul className="space-y-4">
+                    {sortedItems.map((item, index) => (
+                        <li
+                            key={`${item.id}-${index}`}
+                            className="flex justify-between items-center p-4 bg-white border border-gray-200 rounded-md"
+                        >
+                            <div>
+                                <h3 className="text-base font-medium text-gray-900">{item.name}</h3>
+                                {item.type === 'dish' && item.restaurant && (
+                                    <p className="text-sm text-gray-500">{item.restaurant}</p>
+                                )}
+                            </div>
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="tertiary"
+                                    size="sm"
+                                    onClick={() => setSelectedItem(item)}
+                                    className="text-gray-600 hover:text-[#A78B71]"
+                                    aria-label={`Quick look at ${item.name}`}
+                                >
+                                    <Eye size={16} />
+                                </Button>
+                                <Button
+                                    variant="tertiary"
+                                    size="sm"
+                                    onClick={() => handleRemoveItem(item.id)}
+                                    disabled={isRemovingItem}
+                                    className="text-red-500 hover:text-red-700"
+                                    aria-label={`Remove ${item.name}`}
+                                >
+                                    {isRemovingItem ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <Trash2 size={16} />
+                                    )}
+                                </Button>
+                            </div>
+                        </li>
+                    ))}
+                </ul>
+            ) : (
+                <p className="text-gray-500 text-center py-6">No items in this list yet.</p>
+            )}
+            {selectedItem && (
+                <ItemQuickLookModal
+                    item={selectedItem}
+                    isOpen={!!selectedItem}
+                    onClose={() => setSelectedItem(null)}
+                />
+            )}
         </div>
-
-        {/* List Items Skeleton */}
-        <div className="space-y-3">
-            <ListItemSkeleton />
-            <ListItemSkeleton />
-            <ListItemSkeleton />
-            <ListItemSkeleton />
-        </div>
-    </div>
-);
-
-
-// Component Definition
-const ListDetail = React.memo(() => {
-  const { id: listId } = useParams();
-  const queryClient = useQueryClient();
-
-  const {
-      data: listData, isLoading: isLoadingDetails, isError: isFetchError,
-      error: fetchError, refetch
-  } = useQuery({ /* ... query config ... */ });
-
-  // Zustand actions and local state
-  const updateListVisibility = useUserListStore(state => state.updateListVisibility);
-  const removeFromList = useUserListStore(state => state.removeFromList);
-  const isUpdatingVisibility = useUserListStore(state => state.isUpdatingVisibility);
-  const isRemovingItem = useUserListStore(state => state.isRemovingItem);
-  const error = useUserListStore(state => state.error); // Use unified error
-
-  const [sortMethod, setSortMethod] = useState('default');
-  const [isQuickLookOpen, setIsQuickLookOpen] = useState(false);
-  const [quickLookItem, setQuickLookItem] = useState(null);
-  const [isDeletingItemId, setIsDeletingItemId] = useState(null);
-  // Removed local actionError, will rely on unified store error state
-
-  // Callbacks (openQuickLook, closeQuickLook, handleToggleVisibility, handleRemoveItem) remain mostly the same,
-  // but error setting should rely on the store now. Example:
-  const handleToggleVisibility = useCallback(async () => {
-     if (!listData || isUpdatingVisibility || isDeletingItemId) return;
-     // Use clearError from store if needed, or let next action clear it
-     // get().clearError?.(); // Example if clearError was added and accessible
-     try {
-       await updateListVisibility(listData.id, !listData.is_public);
-       queryClient.invalidateQueries({ queryKey: ['listDetails', listId] });
-     } catch (error) {
-       // Error is set within the store action, no need to set local state
-       console.error("Error in handleToggleVisibility:", error);
-     }
-   }, [listData, updateListVisibility, isUpdatingVisibility, isDeletingItemId, queryClient, listId]);
-
-   const handleRemoveItem = useCallback(async (listItemIdToRemove) => {
-      if (!listId || !listItemIdToRemove || isUpdatingVisibility || isDeletingItemId || !listData) return;
-      if (!window.confirm(`Are you sure you want to remove this item from "${listData?.name || 'this list'}"?`)) return;
-      setIsDeletingItemId(listItemIdToRemove);
-      try {
-        await removeFromList(parseInt(listId), listItemIdToRemove);
-        queryClient.invalidateQueries({ queryKey: ['listDetails', listId] });
-      } catch (error) {
-        console.error("Error in handleRemoveItem:", error);
-      } finally {
-        setIsDeletingItemId(null);
-      }
-    }, [listId, listData, removeFromList, isUpdatingVisibility, isDeletingItemId, queryClient]);
-
-   const openQuickLook = useCallback((item) => { /* ... */ }, []);
-   const closeQuickLook = useCallback(() => { /* ... */ }, []);
-
-  // Sorting Logic (getSortedItems useMemo) remains the same
-  const getSortedItems = useMemo(() => { /* ... */ }, [listData?.items, sortMethod]);
-
-  // --- Render Logic ---
-
-  // Use Skeleton Component for initial loading
-  if (isLoadingDetails) {
-      return <ListDetailSkeleton />;
-  }
-
-  if (isFetchError) {
-      const allowRetry = fetchError?.message !== "Invalid List ID provided." && fetchError?.message !== "List not found.";
-      return (
-          <ErrorMessage
-              message={fetchError?.message || "Unknown error loading list."}
-              onRetry={allowRetry ? refetch : undefined}
-              isLoadingRetry={isLoadingDetails} // Still use isLoadingDetails for retry button state
-              containerClassName="py-10 px-4 max-w-lg mx-auto"
-          >
-               <div className="mt-4"> <Link to="/lists" className="text-sm text-[#D1B399] hover:underline"> Back to My Lists </Link> </div>
-           </ErrorMessage>
-      );
-  }
-
-  if (!listData) {
-      return ( <div className="text-center py-10"> <p className="text-gray-500">List not found.</p> <Link to="/lists" className="text-sm text-[#D1B399] hover:underline">Back to My Lists</Link> </div> );
-  }
-
-  // --- Main Render ---
-  const sortedItems = getSortedItems;
-  const listIsPublic = listData.is_public;
-  const canEdit = listData.created_by_user;
-  const isProcessingAnyAction = isUpdatingVisibility || !!isDeletingItemId;
-  const displayError = error; // Use unified error from store
-
-  return (
-    <div className="max-w-4xl mx-auto px-3 sm:px-4 pb-12">
-      <Link to="/lists" className="inline-flex items-center text-gray-600 hover:text-[#D1B399] my-4 transition-colors text-sm">
-          <ChevronLeft size={18} className="mr-0.5" /> Back to My Lists
-      </Link>
-
-       {/* Display unified store error */}
-       {displayError && (
-         <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm flex justify-between items-center" role="alert">
-           <span>{typeof displayError === 'string' ? displayError : 'An error occurred'}</span>
-           {/* Optionally add a clear button: <button onClick={useUserListStore(state => state.clearError)} className="...">✕</button> */}
-         </div>
-       )}
-
-      {/* List Header Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-5 mb-6">
-         {/* ... Header content remains the same ... */}
-         {/* ... Sorting controls remain the same ... */}
-         {/* ... Edit controls remain the same, using isProcessingAnyAction for disabling ... */}
-      </div>
-
-      {/* List Items Section */}
-      <div className="space-y-3">
-         {/* ... List item mapping remains the same, using isProcessingAnyAction for disabling ... */}
-          {sortedItems.length > 0 ? (
-              sortedItems.map((item) => {
-                  // ... render item div ...
-              })
-          ) : ( <div className="text-center py-12 bg-white border border-gray-200 rounded-lg shadow-sm"> <p className="text-gray-500">This list is empty.</p> </div> )}
-      </div>
-
-      {/* Quick Look Modal */}
-      {isQuickLookOpen && quickLookItem && (
-          <ItemQuickLookModal isOpen={isQuickLookOpen} onClose={closeQuickLook} item={quickLookItem} />
-      )}
-    </div>
-  );
+    );
 });
 
 export default ListDetail;
