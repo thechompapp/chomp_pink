@@ -1,20 +1,47 @@
 // src/pages/RestaurantDetail/index.jsx
-import React from "react";
-import { useParams, Link } from "react-router-dom";
+import React, { useEffect, useCallback } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronLeft, MapPin, Phone, Globe, ExternalLink } from "lucide-react";
-import DishCard from "@/components/UI/DishCard";
-import Button from "@/components/Button";
-import { useQuickAdd } from "@/context/QuickAddContext";
-// import { API_BASE_URL } from "@/config";
-import LoadingSpinner from '@/components/UI/LoadingSpinner'; // Keep for specific states if needed
-import ErrorMessage from '@/components/UI/ErrorMessage';
+import { 
+  ArrowLeft, 
+  MapPin, 
+  Star, 
+  Share2, 
+  Clock, 
+  DollarSign,
+  Tag,
+  Phone,
+  Globe,
+  Loader
+} from 'lucide-react';
 import apiClient from '@/utils/apiClient';
-import SkeletonElement from "@/components/UI/SkeletonElement"; // Import skeletons
-import DishCardSkeleton from "@/components/UI/DishCardSkeleton"; // Import skeletons
+import useAuthStore from '@/stores/useAuthStore';
+import Button from '@/components/Button';
+import { useQuickAdd } from '@/context/QuickAddContext';
+import LoadingSpinner from '@/components/UI/LoadingSpinner'; 
+import ErrorMessage from '@/components/UI/ErrorMessage';
+import SkeletonElement from "@/components/UI/SkeletonElement"; 
+import DishCardSkeleton from "@/components/UI/DishCardSkeleton";
+import DishCard from '@/components/DishCard'; // Add this import for DishCard
+import { adaptDishForCard } from '@/utils/adapters';
 
-// Fetch function remains the same
-const fetchRestaurantDetails = async (restaurantId) => { /* ... */ };
+// Fetch restaurant details with proper error handling
+const fetchRestaurantDetails = async (restaurantId) => {
+  if (!restaurantId) {
+    return { notFound: true };
+  }
+  
+  try {
+    const response = await apiClient(`/api/restaurants/${restaurantId}`, `Restaurant Details ${restaurantId}`);
+    return response || { notFound: true };
+  } catch (error) {
+    console.error(`Error fetching restaurant details for ID ${restaurantId}:`, error);
+    return { 
+      error: true, 
+      message: error.message || 'Failed to load restaurant details' 
+    };
+  }
+};
 
 // Restaurant Detail Skeleton Structure
 const RestaurantDetailSkeleton = () => (
@@ -52,52 +79,145 @@ const RestaurantDetailSkeleton = () => (
     </div>
 );
 
-
-const RestaurantDetail = React.memo(() => { // Wrap component
-  const { id: restaurantId } = useParams();
+const RestaurantDetail = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
   const { openQuickAdd } = useQuickAdd();
 
+  // Use React Query with fallbacks
   const {
-      data: restaurant, isLoading, isError, error, refetch
+    data,
+    isLoading,
+    isError,
+    error,
+    refetch
   } = useQuery({
-      queryKey: ['restaurantDetails', restaurantId],
-      queryFn: () => fetchRestaurantDetails(restaurantId),
-      enabled: !!restaurantId,
+    queryKey: ['restaurantDetails', id],
+    queryFn: () => fetchRestaurantDetails(id),
+    enabled: !!id,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: 1, // Limit retries
   });
 
-  // --- Render States ---
+  // Scroll to top on page load
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [id]);
+
+  const renderDish = useCallback((dish) => (
+    <DishCard 
+      key={dish.id} 
+      {...adaptDishForCard(dish)} 
+    />
+  ), []);
+
+  // Handle different states
   if (isLoading) {
-     return <RestaurantDetailSkeleton />; // Use skeleton
-   }
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen py-10">
+        <Loader className="h-8 w-8 animate-spin text-[#A78B71] mb-4" />
+        <p className="text-gray-500">Loading restaurant details...</p>
+      </div>
+    );
+  }
 
   if (isError) {
-    const allowRetry = error?.message !== "Invalid Restaurant ID provided." && error?.message !== "Restaurant not found.";
     return (
-        <ErrorMessage
-            message={error?.message || "Restaurant details could not be loaded."}
-            onRetry={allowRetry ? refetch : undefined}
-            isLoadingRetry={isLoading}
-            containerClassName="py-10 px-4 max-w-lg mx-auto"
-        >
-             <div className="mt-4"> <Link to="/" className="text-sm text-[#D1B399] hover:underline">Back to Home</Link> </div>
-          </ErrorMessage>
-     );
+      <div className="container mx-auto px-4 py-8">
+        <div className="bg-red-50 p-6 rounded-lg border border-red-200 text-center">
+          <h2 className="text-xl font-semibold text-red-700 mb-2">Error</h2>
+          <p className="text-red-600 mb-4">{error?.message || 'Failed to load restaurant details'}</p>
+          <Button onClick={refetch}>Retry</Button>
+        </div>
+      </div>
+    );
   }
 
-  if (!restaurant) {
-       return ( /* ... Not found message ... */ );
+  if (!data || data.notFound) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="bg-yellow-50 p-6 rounded-lg border border-yellow-200 text-center">
+          <h2 className="text-xl font-semibold text-yellow-700 mb-2">Not Found</h2>
+          <p className="text-yellow-600 mb-4">The restaurant you are looking for does not exist.</p>
+          <Button onClick={() => navigate('/')}>Back to Home</Button>
+        </div>
+      </div>
+    );
   }
 
-  // --- Main Render (remains the same structure) ---
+  // Main Render
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto text-gray-900">
-        {/* ... Back Link ... */}
-        {/* ... Header ... */}
-        {/* ... Tags Display ... */}
-        {/* ... Action Links ... */}
-        {/* ... Dishes Section ... */}
+      {/* Back Link */}
+      <Link to="/" className="flex items-center text-[#D1B399] hover:underline mb-4">
+        <ArrowLeft className="mr-2" />
+        Back to Home
+      </Link>
+      
+      {/* Header */}
+      <div className="mb-4">
+        <h1 className="text-2xl font-bold">{data.name}</h1>
+        <p className="text-gray-600">{data.description}</p>
+      </div>
+      
+      {/* Tags Display */}
+      {data.tags && data.tags.length > 0 && (
+        <div className="flex gap-2 flex-wrap mb-4">
+          {data.tags.map(tag => (
+            <span key={tag} className="bg-gray-200 text-gray-700 px-2 py-1 rounded-full text-sm">{tag}</span>
+          ))}
+        </div>
+      )}
+      
+      {/* Action Links */}
+      <div className="flex flex-wrap gap-x-6 gap-y-3 text-sm mb-6 border-b pb-6">
+        {data.phone && (
+          <a href={`tel:${data.phone}`} className="flex items-center text-[#D1B399] hover:underline">
+            <Phone className="mr-2" />
+            {data.phone}
+          </a>
+        )}
+        
+        {data.website && (
+          <a href={data.website} target="_blank" rel="noopener noreferrer" className="flex items-center text-[#D1B399] hover:underline">
+            <Globe className="mr-2" />
+            Website
+          </a>
+        )}
+        
+        {data.address && (
+          <a href={`https://maps.google.com/?q=${data.address}`} target="_blank" rel="noopener noreferrer" className="flex items-center text-[#D1B399] hover:underline">
+            <MapPin className="mr-2" />
+            {data.address}
+          </a>
+        )}
+      </div>
+      
+      {/* Dishes Section */}
+      {data.dishes && data.dishes.length > 0 && (
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold">Dishes</h2>
+            {isAuthenticated && (
+              <Button 
+                onClick={() => openQuickAdd({ 
+                  type: 'restaurant', 
+                  id: data.id, 
+                  name: data.name 
+                })}
+              >
+                Quick Add
+              </Button>
+            )}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {data.dishes.map(renderDish)}
+          </div>
+        </div>
+      )}
     </div>
   );
-}); // End memo wrap
+};
 
 export default RestaurantDetail;

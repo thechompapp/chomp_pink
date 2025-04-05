@@ -1,7 +1,7 @@
 // src/context/QuickAddContext.jsx
 import React, { createContext, useContext, useState, useCallback, useMemo } from "react";
-import useUserListStore from '../stores/useUserListStore'; // Import user list store
-import useAuthStore from '../stores/useAuthStore'; // Import auth store
+import useUserListStore from '@/stores/useUserListStore'; // Corrected import path
+import useAuthStore from '@/stores/useAuthStore'; // Corrected import path
 
 const QuickAddContext = createContext();
 
@@ -11,7 +11,7 @@ export const QuickAddProvider = ({ children }) => {
 
   // Get necessary functions/state from stores
   const fetchUserLists = useUserListStore((state) => state.fetchUserLists);
-  const isLoadingUser = useUserListStore((state) => state.isLoadingUser);
+  const isLoadingUser = useUserListStore((state) => state.isLoading); // Use general loading state if specific one DNE
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const userLists = useUserListStore((state) => state.userLists); // Get lists to check if fetch needed
 
@@ -23,6 +23,7 @@ export const QuickAddProvider = ({ children }) => {
     // --- Trigger fetch from here ---
     const isCreateMode = !!(item?.createNew && item?.type === 'list');
     // Fetch only if: authenticated, not create mode, not already loading, and maybe lists are empty
+    // Use general isLoading state from useUserListStore if isLoadingUser is not defined
     if (isAuthenticated && !isCreateMode && !isLoadingUser && userLists.length === 0) {
       console.log("[QuickAddContext openQuickAdd] Triggering fetchUserLists...");
       fetchUserLists().catch(err => {

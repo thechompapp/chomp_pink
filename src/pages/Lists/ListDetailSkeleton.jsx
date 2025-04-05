@@ -1,7 +1,7 @@
 // src/pages/Lists/ListDetailSkeleton.jsx
 import React from 'react';
-import SkeletonElement from '@/components/UI/SkeletonElement'; // Use global import
-import ListItemSkeleton from './ListItemSkeleton'; // Use existing skeleton for list items
+import SkeletonElement from '@/components/UI/SkeletonElement';
+import ListItemSkeleton from '@/pages/Lists/ListItemSkeleton'; // Corrected import path
 
 const ListDetailSkeleton = () => {
   return (

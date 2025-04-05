@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
-import { Users, List } from 'lucide-react';
+import { Users, List, User } from 'lucide-react';
 import FollowButton from '@/components/FollowButton';
 import useUserListStore from '@/stores/useUserListStore.js';
-import useAuthStore from '@/stores/useAuthStore'; // Add this import
+import useAuthStore from '@/stores/useAuthStore';
 import BaseCard from '@/components/UI/BaseCard';
 
 const ListCard = React.memo(({
@@ -12,7 +12,8 @@ const ListCard = React.memo(({
     saved_count = 0,
     item_count = 0,
     is_following,
-    created_by_user = false, // Add this prop from backend
+    created_by_user = false,
+    creator_handle = null, // Add prop for creator handle
 }) => {
     const listFromUserStore = useMemo(() => {
         const state = useUserListStore.getState();
@@ -21,7 +22,10 @@ const ListCard = React.memo(({
     }, [id]);
 
     const { user } = useAuthStore(); // Get current user
-    const isOwnList = created_by_user || (listFromUserStore && listFromUserStore.created_by_user); // Check if user created this list
+    const isOwnList = created_by_user || (listFromUserStore && listFromUserStore.created_by_user);
+
+    // Use handle from props or fallback to store data
+    const displayCreatorHandle = creator_handle || listFromUserStore?.creator_handle || null;
 
     const currentFollowingState = listFromUserStore?.is_following ?? is_following;
     const cleanName = name || "Unnamed List";
@@ -37,6 +41,15 @@ const ListCard = React.memo(({
                     <h3 className="text-base font-semibold text-gray-900 mb-1.5 line-clamp-2 group-hover:text-[#A78B71] transition-colors">
                         {cleanName}
                     </h3>
+                    
+                    {/* Add creator handle display */}
+                    {displayCreatorHandle && (
+                        <p className="text-xs text-gray-600 mb-1.5 flex items-center">
+                            <User size={12} className="mr-1 flex-shrink-0" />
+                            <span>@{displayCreatorHandle}</span>
+                        </p>
+                    )}
+                    
                     <p className="text-xs text-gray-500 mb-1.5 line-clamp-2">
                         {cleanDescription}
                     </p>

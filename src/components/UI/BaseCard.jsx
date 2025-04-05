@@ -1,38 +1,51 @@
 // src/components/UI/BaseCard.jsx
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Plus } from 'lucide-react';
+import { PlusIcon } from 'lucide-react';
 
-/**
- * BaseCard component providing common structure for item cards.
- * Includes container styling, Quick Add button, and main link area.
- * Specific content is passed via children.
- */
-const BaseCard = React.memo(({
-  linkTo,         // URL for the main link
-  onQuickAdd,     // Function to call for the Quick Add button
-  quickAddLabel,  // Aria-label for the Quick Add button
-  children        // Content specific to the card type (e.g., title, details, tags)
+const BaseCard = ({
+  linkTo,
+  onQuickAdd,
+  quickAddLabel,
+  children,
+  className = '',
+  isHighlighted = false,
+  isDisabled = false,
+  showQuickAdd = true
 }) => {
-  return (
-    <div className="group relative flex flex-col w-full h-56 bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden transition-shadow hover:shadow-md">
-      {/* Quick Add Button */}
-      {onQuickAdd && ( // Only render if handler is provided
+  const cardClasses = `
+    relative group overflow-hidden rounded-lg border 
+    ${isHighlighted ? 'border-[#A78B71]' : 'border-gray-200'} 
+    bg-white p-3 transition-all duration-200 
+    ${isDisabled ? 'opacity-60 cursor-not-allowed' : 'hover:shadow-md'} 
+    ${className}
+  `;
+
+  const CardContent = () => (
+    <div className="flex flex-col h-full relative">
+      {children}
+      
+      {showQuickAdd && onQuickAdd && !isDisabled && (
         <button
           onClick={onQuickAdd}
-          className="absolute top-2 right-2 z-10 w-8 h-8 bg-[#D1B399] rounded-full flex items-center justify-center text-white shadow-md hover:bg-[#b89e89] transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-[#D1B399]"
-          aria-label={quickAddLabel || "Add item to list"}
+          aria-label={quickAddLabel || "Quick Add"}
+          className="absolute top-0 right-0 p-1.5 bg-[#A78B71] text-white rounded-bl-lg opacity-0 group-hover:opacity-100 transition-opacity"
         >
-          <Plus size={20} />
+          <PlusIcon size={16} />
         </button>
       )}
-
-      {/* Card Content Link Area */}
-      <Link to={linkTo || '#'} className="flex flex-col flex-grow p-4 text-left">
-        {children} {/* Specific card content goes here */}
-      </Link>
     </div>
   );
-});
+
+  if (isDisabled || !linkTo) {
+    return <div className={cardClasses}><CardContent /></div>;
+  }
+
+  return (
+    <Link to={linkTo} className={cardClasses}>
+      <CardContent />
+    </Link>
+  );
+};
 
 export default BaseCard;
