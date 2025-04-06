@@ -1,4 +1,5 @@
-// src/services/restaurantService.js
+/* src/services/restaurantService.js */
+// Renamed from restauantService.js to restaurantService.js
 import apiClient from '@/services/apiClient'; // Corrected Path
 
 const getRestaurantDetails = async (restaurantId) => {
