@@ -14,10 +14,11 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 // Lazy load pages
 const Home = lazy(() => import('@/pages/Home/index'));
 const Trending = lazy(() => import('@/pages/Trending'));
-const Dashboard = lazy(() => import('@/pages/Dashboard'));
-const Lists = lazy(() => import('@/pages/Lists'));
-const MyLists = lazy(() => import('@/pages/Lists/MyLists'));
-const ListDetail = lazy(() => import('@/pages/Lists/ListDetail'));
+const Dashboard = lazy(() => import('@/pages/Dashboard')); // For submissions page
+const Lists = lazy(() => import('@/pages/Lists/index')); // Wrapper for list routes
+const MyLists = lazy(() => import('@/pages/Lists/MyLists')); // List landing page (shows user's lists)
+const NewList = lazy(() => import('@/pages/Lists/NewList')); // Page for creating a new list
+const ListDetail = lazy(() => import('@/pages/Lists/ListDetail')); // Page for viewing a specific list
 const RestaurantDetail = lazy(() => import('@/pages/RestaurantDetail'));
 const DishDetail = lazy(() => import('@/pages/DishDetail'));
 const AdminPanel = lazy(() => import('@/pages/AdminPanel'));
@@ -25,6 +26,7 @@ const Login = lazy(() => import('@/pages/Login'));
 const Register = lazy(() => import('@/pages/Register'));
 // REMOVED: NightPlanner import
 
+// Fallback component during lazy loading
 const SuspenseFallback = () => (
   <div className="flex justify-center items-center h-[calc(100vh-150px)]">
     <LoadingSpinner message="Loading page..." />
@@ -34,46 +36,31 @@ const SuspenseFallback = () => (
 const App = () => {
   // Selectors using primitives or stable functions
   const checkAuth = useAuthStore(state => state.checkAuthStatus);
-  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
+  const isAuthenticated = useAuthStore(state => state.isAuthenticated); // Get auth state
   const fetchCuisines = useUIStateStore(state => state.fetchCuisines);
   const fetchCities = useUIStateStore(state => state.fetchCities);
 
   useEffect(() => {
-    // Check auth status on initial load
     checkAuth();
-
-    // Fetch initial UI data (cities, cuisines)
-    const fetchInitialData = async () => {
-      try {
-        // Use Promise.allSettled to handle potential errors independently
-        const results = await Promise.allSettled([fetchCities(), fetchCuisines()]);
-        results.forEach((result, index) => {
-            if (result.status === 'rejected') {
-                const source = index === 0 ? 'cities' : 'cuisines';
-                console.error(`[App] Failed to fetch initial ${source}:`, result.reason);
-            }
-        });
-      } catch (error) {
-         // This catch block might not be necessary with Promise.allSettled
-         // unless the Promise.allSettled call itself throws (unlikely)
-        console.error('[App] Unexpected error during initial data fetch setup:', error);
-      }
-    };
+    const fetchInitialData = async () => { /* ... */ };
     fetchInitialData();
-  }, [checkAuth, fetchCities, fetchCuisines]); // Dependencies for initial data fetch
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // <<< Add Log Here >>>
+  console.log('[App] Rendering - isAuthenticated:', isAuthenticated);
 
   return (
     <QuickAddProvider>
       <BrowserRouter>
-        {/* QuickAddPopup renders based on context state */}
         <QuickAddPopup />
         <Suspense fallback={<SuspenseFallback />}>
           <Routes>
-            {/* Public Routes */}
+            {/* Public Routes outside PageContainer */}
             <Route path="/login" element={<ErrorBoundary><Login /></ErrorBoundary>} />
             <Route path="/register" element={<ErrorBoundary><Register /></ErrorBoundary>} />
 
-            {/* Routes within PageContainer (Navbar + Main Content Area) */}
+            {/* Routes within PageContainer (includes Navbar) */}
             <Route element={<PageContainer />}>
               {/* Publicly Accessible Content Routes */}
               <Route path="/" element={<ErrorBoundary><Home /></ErrorBoundary>} />
@@ -81,18 +68,15 @@ const App = () => {
               <Route path="/restaurant/:id" element={<ErrorBoundary><RestaurantDetail /></ErrorBoundary>} />
               <Route path="/dish/:id" element={<ErrorBoundary><DishDetail /></ErrorBoundary>} />
 
-              {/* Protected Routes (Require Authentication) */}
+              {/* Protected Routes */}
               <Route element={<ProtectedRoute />}>
-                <Route path="/dashboard" element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
-                <Route path="/lists" element={<ErrorBoundary><Lists /></ErrorBoundary>}>
-                  {/* Nested routes for lists, e.g., My Lists vs. specific list */}
-                  <Route index element={<ErrorBoundary><MyLists /></ErrorBoundary>} />
-                  <Route path=":id" element={<ErrorBoundary><ListDetail /></ErrorBoundary>} />
-                  {/* Add /lists/new route here if needed */}
-                </Route>
-                {/* Admin route should also be protected */}
-                <Route path="/admin" element={<ErrorBoundary><AdminPanel /></ErrorBoundary>} />
-                {/* REMOVED: NightPlanner Route */}
+                 <Route path="/dashboard" element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
+                 <Route path="/lists" element={<ErrorBoundary><Lists /></ErrorBoundary>}>
+                    <Route index element={<ErrorBoundary><MyLists /></ErrorBoundary>} />
+                    <Route path="new" element={<ErrorBoundary><NewList /></ErrorBoundary>} />
+                    <Route path=":id" element={<ErrorBoundary><ListDetail /></ErrorBoundary>} />
+                 </Route>
+                 <Route path="/admin" element={<ErrorBoundary><AdminPanel /></ErrorBoundary>} />
               </Route>
 
               {/* Catch-all Redirect */}
@@ -107,5 +91,5 @@ const App = () => {
   );
 };
 
-// Use React.memo if App component props rarely change (often the case for top-level App)
+// Re-add React.memo if it was removed previously, though unlikely to be the cause
 export default React.memo(App);

@@ -5,40 +5,63 @@ import useUIStateStore from '@/stores/useUIStateStore';
 import PillButton from '@/components/UI/PillButton';
 
 const FilterSection = () => {
-  // Store State & Actions (remain the same)
+  // Store State & Actions
   const cities = useUIStateStore(state => state.cities || []);
   const cuisines = useUIStateStore(state => state.cuisines || []);
   const cityId = useUIStateStore(state => state.cityId);
-  const selectedHashtags = useUIStateStore(state => state.hashtags || []);
+  const selectedHashtags = useUIStateStore(state => state.hashtags || []); // This holds selected cuisine *names*
   const fetchCities = useUIStateStore(state => state.fetchCities);
   const fetchCuisines = useUIStateStore(state => state.fetchCuisines);
   const setCityId = useUIStateStore(state => state.setCityId);
-  const setHashtags = useUIStateStore(state => state.setHashtags);
+  const setHashtags = useUIStateStore(state => state.setHashtags); // Action to set the hashtags array
   const clearAllFilters = useUIStateStore(state => state.clearAllFilters);
 
-  // Initial Data Fetch (remains the same)
-  useEffect(() => { /* ... */ }, [fetchCities, fetchCuisines, cities.length, cuisines.length]);
+  // Initial Data Fetch
+  useEffect(() => {
+    if (cities.length === 0) {
+        fetchCities();
+    }
+    if (cuisines.length === 0) {
+        fetchCuisines();
+    }
+  }, [fetchCities, fetchCuisines, cities.length, cuisines.length]);
 
-  // Derived State (remains the same)
+  // Derived State
   const selectedCity = useMemo(() => cities.find(c => c.id === cityId), [cities, cityId]);
   const hasActiveFilters = !!selectedCity || selectedHashtags.length > 0;
 
-  // Handlers (remain the same)
-  const handleCityClick = useCallback((id) => { /* ... */ }, [cityId, setCityId]);
-  const handleHashtagClick = useCallback((hashtagName) => { /* ... */ }, [selectedHashtags, setHashtags]);
-  const removeCityFilter = useCallback(() => { /* ... */ }, [setCityId]);
-  const removeHashtagFilter = useCallback((hashtagName) => { /* ... */ }, [selectedHashtags, setHashtags]);
+  // Handlers
+  const handleCityClick = useCallback((id) => {
+    // If clicking the already active city, deselect it. Otherwise, select the new one.
+    setCityId(cityId === id ? null : id);
+    // Neighborhood/Tag resets are handled within the setCityId action in the store
+  }, [cityId, setCityId]);
+
+  const handleHashtagClick = useCallback((hashtagName) => {
+    // Toggle the presence of the hashtag name in the selectedHashtags array
+    const newSelection = selectedHashtags.includes(hashtagName)
+      ? selectedHashtags.filter(h => h !== hashtagName)
+      : [...selectedHashtags, hashtagName];
+    setHashtags(newSelection); // Update the store state
+  }, [selectedHashtags, setHashtags]);
+
+  const removeCityFilter = useCallback(() => {
+    setCityId(null);
+    // Store action should handle dependent filter resets
+  }, [setCityId]);
+
+  const removeHashtagFilter = useCallback((hashtagName) => {
+    setHashtags(selectedHashtags.filter(h => h !== hashtagName)); // Update store state
+  }, [selectedHashtags, setHashtags]);
 
   // --- Render ---
   return (
-    // Centered container with max-width, adjust 'max-w-4xl' as needed for compactness
     <div className="space-y-3 mb-6 max-w-4xl mx-auto">
 
       {/* Section 1: Selected Filters Display */}
       {hasActiveFilters && (
         <div className="flex flex-wrap items-center gap-2 p-2 bg-gray-100 border border-gray-200 rounded-lg">
           <span className="text-sm font-medium text-gray-600 mr-1">Filters:</span>
-          {/* Selected City Pill */}
           {selectedCity && (
             <span className="inline-flex items-center pl-2 pr-1 py-0.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800 border border-blue-200">
               <MapPin size={13} className="mr-1 text-blue-600" />
@@ -50,7 +73,6 @@ const FilterSection = () => {
               > <X size={14} /> </button>
             </span>
           )}
-          {/* Selected Hashtag Pills */}
           {selectedHashtags.map(hashtag => (
             <span key={hashtag} className="inline-flex items-center pl-2 pr-1 py-0.5 rounded-full text-sm font-medium bg-teal-100 text-teal-800 border border-teal-200">
               <Tag size={13} className="mr-1 text-teal-600" />
@@ -62,7 +84,6 @@ const FilterSection = () => {
               > <X size={14} /> </button>
             </span>
           ))}
-          {/* Reset All Button */}
           <button
             onClick={clearAllFilters}
             className="ml-auto text-xs text-gray-500 hover:text-red-600 hover:underline font-medium px-2 py-1 flex items-center gap-1"
@@ -72,13 +93,11 @@ const FilterSection = () => {
 
       {/* Section 2: City Filter Buttons */}
       <div className="flex flex-wrap items-center gap-2">
-        {/* Optional Label */}
-        {/* <span className="text-sm font-medium text-gray-500 w-16 text-right pr-2 hidden sm:inline">City:</span> */}
         {cities.map(city => (
           <PillButton
             key={city.id} label={city.name} isActive={cityId === city.id}
             onClick={() => handleCityClick(city.id)}
-            className={cityId === city.id ? '!bg-blue-600 !border-blue-600' : ''} // Example city active style
+            // className={cityId === city.id ? '!bg-blue-600 !border-blue-600' : ''} // Custom active style
           />
         ))}
          {cities.length === 0 && <span className="text-sm text-gray-400">Loading cities...</span>}
@@ -86,14 +105,12 @@ const FilterSection = () => {
 
       {/* Section 3: Hashtag/Cuisine Filter Buttons */}
       <div className="flex flex-wrap items-center gap-2">
-         {/* Optional Label */}
-         {/* <span className="text-sm font-medium text-gray-500 w-16 text-right pr-2 hidden sm:inline">Type:</span> */}
         {cuisines.map(cuisine => (
           <PillButton
             key={cuisine.id} label={cuisine.name} prefix="#"
-            isActive={selectedHashtags.includes(cuisine.name)}
-            onClick={() => handleHashtagClick(cuisine.name)}
-             className={selectedHashtags.includes(cuisine.name) ? '!bg-teal-600 !border-teal-600' : ''} // Example hashtag active style
+            isActive={selectedHashtags.includes(cuisine.name)} // Check if cuisine name is in the selected array
+            onClick={() => handleHashtagClick(cuisine.name)} // Pass cuisine name
+            // className={selectedHashtags.includes(cuisine.name) ? '!bg-teal-600 !border-teal-600' : ''} // Custom active style
           />
         ))}
          {cuisines.length === 0 && <span className="text-sm text-gray-400">Loading filters...</span>}

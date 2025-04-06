@@ -13,42 +13,55 @@ if (!JWT_SECRET) {
     process.exit(1);
 }
 
-// Validation Middleware (Keep as is)
-const validateRegister = [ /* ... */ ];
-const validateLogin = [ /* ... */ ];
-const handleValidationErrors = (req, res, next) => { /* ... */ };
+// Validation Middleware
+const validateRegister = [
+    body('username', 'Username is required').not().isEmpty(),
+    body('email', 'Please include a valid email').isEmail(),
+    body('password', 'Please enter a password with 6 or more characters').isLength({ min: 6 })
+];
+const validateLogin = [
+    body('email', 'Please include a valid email').isEmail(),
+    body('password', 'Password is required').exists()
+];
+const handleValidationErrors = (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        // Log validation errors for debugging
+        console.warn("[Auth Validation Error]", req.path, errors.array());
+        // Return only the first error message for a cleaner response
+        return res.status(400).json({ error: errors.array()[0].msg });
+    }
+    next();
+};
 
 // --- Registration Route ---
 router.post('/register', validateRegister, handleValidationErrors, async (req, res, next) => { // Added next
     const { username, email, password } = req.body;
-    // Removed console log
 
     try {
         const userCheck = await db.query('SELECT id FROM Users WHERE email = $1 OR username = $2', [email, username]);
+
         if (userCheck.rows.length > 0) {
-            // Removed console log
-            // Use a consistent error structure
             return res.status(400).json({ error: 'User with this email or username already exists.' });
         }
 
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(password, salt);
-        // Removed console log
 
         const insertQuery = 'INSERT INTO Users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id, username, email, created_at';
         const newUserResult = await db.query(insertQuery, [username, email, passwordHash]);
         const newUser = newUserResult.rows[0];
-        // Removed console log
 
         const payload = { user: { id: newUser.id } };
-        // Consider a slightly longer expiration, e.g., '8h' or '1d'
         jwt.sign(
             payload,
             JWT_SECRET,
             { expiresIn: '8h' }, // Example: 8 hours
             (err, token) => {
-                if (err) throw err; // Let centralized handler catch JWT errors
-                // Removed console log
+                if (err) {
+                    // Let centralized handler catch JWT errors
+                    throw err;
+                }
                 res.status(201).json({
                     token,
                     user: { id: newUser.id, username: newUser.username, email: newUser.email, createdAt: newUser.created_at }
@@ -66,23 +79,20 @@ router.post('/register', validateRegister, handleValidationErrors, async (req, r
 // --- Login Route ---
 router.post('/login', validateLogin, handleValidationErrors, async (req, res, next) => { // Added next
     const { email, password } = req.body;
-    // Removed console log
 
     try {
         const userResult = await db.query('SELECT id, username, email, password_hash, created_at FROM Users WHERE email = $1', [email]);
+
         if (userResult.rows.length === 0) {
-             // Removed console log
-            // Use status 401 for authentication failures
             return res.status(401).json({ error: 'Invalid credentials.' });
         }
         const user = userResult.rows[0];
 
         const isMatch = await bcrypt.compare(password, user.password_hash);
+
         if (!isMatch) {
-             // Removed console log
             return res.status(401).json({ error: 'Invalid credentials.' });
         }
-        // Removed console log
 
         const payload = { user: { id: user.id } };
         jwt.sign(
@@ -90,8 +100,9 @@ router.post('/login', validateLogin, handleValidationErrors, async (req, res, ne
             JWT_SECRET,
             { expiresIn: '8h' }, // Match registration expiration
             (err, token) => {
-                if (err) throw err; // Let centralized handler catch JWT errors
-                // Removed console log
+                if (err) {
+                    throw err; // Let centralized handler catch JWT errors
+                }
                 res.json({
                      token,
                      user: { id: user.id, username: user.username, email: user.email, createdAt: user.created_at }
@@ -100,7 +111,7 @@ router.post('/login', validateLogin, handleValidationErrors, async (req, res, ne
         );
 
     } catch (err) {
-        console.error('[AUTH /login] Server error:', err);
+        console.error('[Auth /login] Caught error:', err); // Keep basic error logging
         // Pass error to centralized handler
         next(err);
     }

@@ -16,6 +16,7 @@ const fetchListsByType = async (fetchType) => {
     console.log(`[Fetcher] Fetching lists with type: ${fetchType} via service`);
     try {
         const params = fetchType === 'created' ? { createdByUser: true } : { followedByUser: true };
+        // Ensure the service returns the necessary fields: id, name, description, saved_count, item_count, is_following, is_public, user_id, creator_handle
         const data = await listService.getLists(params);
         console.log(`[Fetcher] Fetched ${data?.length ?? 0} lists for type: ${fetchType}`);
         return Array.isArray(data) ? data : []; // Ensure array return
@@ -28,14 +29,11 @@ const fetchListsByType = async (fetchType) => {
 const MyLists = () => {
     const queryClient = useQueryClient();
     const [activeTab, setActiveTab] = useState('created');
-    // Select auth state separately
+    // Select auth state separately - KEEP these, needed for renderListContent
     const isAuthenticated = useAuthStore(state => state.isAuthenticated);
     const user = useAuthStore(state => state.user);
 
     // --- React Query Hooks ---
-    // Ensure queryFn is a stable function reference.
-    // Using an inline arrow function is generally stable enough for queryFn,
-    // but explicitly using the stable fetcher defined outside removes any doubt.
     const {
         data: userLists = [],
         isLoading: isLoadingUser,
@@ -43,11 +41,12 @@ const MyLists = () => {
         error: errorUser,
         refetch: refetchUserLists
     } = useQuery({
-        queryKey: ['userLists', 'created'],
-        queryFn: () => fetchListsByType('created'), // Pass stable function directly
+        queryKey: ['userLists', 'created'], // Query key specific to user's created lists
+        queryFn: () => fetchListsByType('created'),
         staleTime: 5 * 60 * 1000,
         refetchOnWindowFocus: true,
         placeholderData: [],
+        enabled: isAuthenticated, // Only fetch if authenticated
     });
 
     const {
@@ -57,21 +56,30 @@ const MyLists = () => {
         error: errorFollowed,
         refetch: refetchFollowedLists
     } = useQuery({
-        queryKey: ['userLists', 'followed'],
-        queryFn: () => fetchListsByType('followed'), // Pass stable function directly
+        queryKey: ['userLists', 'followed'], // Query key specific to user's followed lists
+        queryFn: () => fetchListsByType('followed'),
         staleTime: 5 * 60 * 1000,
         refetchOnWindowFocus: true,
         placeholderData: [],
+        enabled: isAuthenticated, // Only fetch if authenticated
     });
 
     const handleTabChange = useCallback((value) => {
         setActiveTab(value);
-        // Prefetching logic (optional, keep if desired)
-        // ...
-    }, [queryClient]); // queryClient is stable
+        // Optionally prefetch other tab data on hover/focus
+        // if (value === 'followed') {
+        //    queryClient.prefetchQuery({ queryKey: ['userLists', 'followed'], queryFn: () => fetchListsByType('followed') });
+        // } else {
+        //    queryClient.prefetchQuery({ queryKey: ['userLists', 'created'], queryFn: () => fetchListsByType('created') });
+        // }
+    }, [queryClient]);
 
-    // Render function callback - Pass auth state as args
+    // Render function callback - passes necessary props to ListCard
     const renderListContent = useCallback((allLists, isLoading, isError, error, type, refetchAction, authStatus, currentUser) => {
+        if (!authStatus && (type === 'created' || type === 'followed')) {
+             return <p className="text-gray-500 text-center py-10">Please log in to view your lists.</p>;
+        }
+
         if (isLoading) {
             return (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 place-items-start">
@@ -81,35 +89,34 @@ const MyLists = () => {
         }
 
         if (isError) {
-            // Error handling...
              return ( <ErrorMessage message={error?.message || `Error loading ${type} lists.`} onRetry={refetchAction} isLoadingRetry={isLoading} containerClassName="mt-4" /> );
         }
 
         if (!allLists || allLists.length === 0) {
-            // No lists message...
-             return ( <p className="text-gray-500 text-center py-10"> /* ... */ </p> );
+             const message = type === 'created'
+                 ? "You haven't created any lists yet."
+                 : "You aren't following any lists yet.";
+             return ( <p className="text-gray-500 text-center py-10">{message}</p> );
         }
 
         return (
             <div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 place-items-start">
                     {allLists.map(list => {
-                        // Calculate showFollowButton using passed args
-                        const showFollow = authStatus && !!currentUser && list.user_id !== currentUser.id;
-                        // Logging for debug (optional)
-                        // console.log(`[MyLists render] List ID: ${list.id}, showFollow: ${showFollow}`);
+                        // Pass all necessary props to ListCard
                         return (
                             <ListCard
                                 key={`list-${type}-${list.id}`}
-                                {...list}
-                                showFollowButton={showFollow}
+                                {...list} // Spread operator passes all properties from the list object
+                                // is_following and user_id are expected to be on the list object from the API
                             />
                         );
                     })}
                 </div>
             </div>
         );
-    }, []); // No dependencies needed inside if auth state is passed as args
+    // Pass user and isAuthenticated as dependencies if they are used inside directly
+    }, []);
 
     return (
         <div className="container mx-auto px-4 py-8">
