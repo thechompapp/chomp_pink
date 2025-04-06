@@ -4,17 +4,15 @@ import { devtools, persist, createJSONStorage } from 'zustand/middleware';
 import { jwtDecode } from 'jwt-decode';
 import { queryClient } from '@/queryClient';
 import { authService } from '@/services/authService';
+import apiClient from '@/services/apiClient';
 
-// Function to check token expiration
 const isTokenValid = (token) => {
   if (!token) return false;
   try {
     const decoded = jwtDecode(token);
-    const currentTime = Date.now() / 1000; // Convert to seconds
-    // Add a small buffer (e.g., 60 seconds) to account for clock skew? Optional.
+    const currentTime = Date.now() / 1000;
     return decoded.exp > currentTime;
   } catch (error) {
-    // If decoding fails, token is invalid
     console.error("[AuthStore isTokenValid] Error decoding token:", error);
     return false;
   }
@@ -24,25 +22,20 @@ const authStore = (set, get) => ({
   token: null,
   user: null,
   isAuthenticated: false,
-  isLoading: true, // Start loading true for initial auth check
+  isLoading: true,
   error: null,
 
-  // isAdmin getter remains the same
-  isAdmin: () => get().user?.role === 'admin', // Example role check
+  isSuperuser: () => get().user?.account_type === 'superuser',
 
   login: async (email, password) => {
     set({ isLoading: true, error: null });
     try {
-      // Removed console log
       const data = await authService.login(email, password);
       if (!data || !data.token || !data.user) throw new Error("Login failed: Invalid server response.");
-      // Removed console log
-      set({ token: data.token, user: data.user, isAuthenticated: true, isLoading: false, error: null });
-      // Invalidate queries that depend on user authentication
+      set({ token: data.token, user: { ...data.user, account_type: data.user.account_type || 'user' }, isAuthenticated: true, isLoading: false, error: null });
       queryClient.invalidateQueries({ queryKey: ['userLists'] });
-      queryClient.invalidateQueries({ queryKey: ['listDetails'] }); // Invalidate specific list details too
-      queryClient.invalidateQueries({ queryKey: ['pendingSubmissions'] }); // If submissions are user-specific
-      // Removed console log
+      queryClient.invalidateQueries({ queryKey: ['listDetails'] });
+      queryClient.invalidateQueries({ queryKey: ['pendingSubmissions'] });
       return true;
     } catch (error) {
       console.error('[AuthStore Login] Error:', error);
@@ -53,92 +46,96 @@ const authStore = (set, get) => ({
   },
 
   register: async (username, email, password) => {
-     set({ isLoading: true, error: null });
-     try {
-       // Removed console log
-       const data = await authService.register(username, email, password);
-       if (!data || !data.token || !data.user) throw new Error("Registration failed: Invalid server response.");
-       // Removed console log
-       set({ token: data.token, user: data.user, isAuthenticated: true, isLoading: false, error: null });
-       queryClient.invalidateQueries({ queryKey: ['userLists'] }); // Invalidate after registration too
-       // Removed console log
-       return true;
-     } catch (error) {
-       console.error('[AuthStore Register] Error:', error);
-       const errorMessage = error.response?.data?.error || error.response?.data?.errors?.[0]?.msg || error.message || 'Registration failed. Please try again.';
-       set({ token: null, user: null, isAuthenticated: false, isLoading: false, error: errorMessage });
-       return false;
-     }
+    set({ isLoading: true, error: null });
+    try {
+      const data = await authService.register(username, email, password);
+      if (!data || !data.token || !data.user) throw new Error("Registration failed: Invalid server response.");
+      set({ token: data.token, user: { ...data.user, account_type: 'user' }, isAuthenticated: true, isLoading: false, error: null });
+      queryClient.invalidateQueries({ queryKey: ['userLists'] });
+      return true;
+    } catch (error) {
+      console.error('[AuthStore Register] Error:', error);
+      const errorMessage = error.response?.data?.error || error.response?.data?.errors?.[0]?.msg || error.message || 'Registration failed. Please try again.';
+      set({ token: null, user: null, isAuthenticated: false, isLoading: false, error: errorMessage });
+      return false;
+    }
   },
 
   logout: () => {
     set({ token: null, user: null, isAuthenticated: false, isLoading: false, error: null });
-    // Clear relevant query cache on logout
     queryClient.removeQueries({ queryKey: ['userLists'] });
     queryClient.removeQueries({ queryKey: ['listDetails'] });
     queryClient.removeQueries({ queryKey: ['pendingSubmissions'] });
-    queryClient.removeQueries({ queryKey: ['adminData'] }); // Clear admin data too
-    // Optionally clear other sensitive caches
+    queryClient.removeQueries({ queryKey: ['adminData'] });
     console.log('[AuthStore] User logged out, state reset, relevant caches cleared.');
   },
 
   clearError: () => set({ error: null }),
 
-  // Check auth status on initial load or refresh
   checkAuthStatus: () => {
     const token = get().token;
     if (token && isTokenValid(token)) {
       try {
-        // If token is valid, ensure user data is also present (might be lost on hard refresh without hydration)
-        // Usually, persisted state handles this, but as a fallback:
         if (!get().user) {
-            const decoded = jwtDecode(token);
-            // This assumes the JWT payload directly contains user info or you fetch it.
-            // If payload only has ID, you might need an API call here to get full user data.
-            // For simplicity, assuming payload is { user: { id: ..., other_fields... } }
-            if (decoded.user) {
-                 set({ user: decoded.user, isAuthenticated: true, isLoading: false });
-            } else {
-                 // Token valid but no user data? Maybe logout.
-                 console.warn("[AuthStore checkAuthStatus] Token valid but user data missing in store/token payload.");
-                 get().logout(); // Logout if user data can't be recovered
-            }
+          const decoded = jwtDecode(token);
+          if (decoded.user) {
+            set({ user: { ...decoded.user, account_type: decoded.user.account_type || 'user' }, isAuthenticated: true, isLoading: false });
+          } else {
+            console.warn("[AuthStore checkAuthStatus] Token valid but user data missing in store/token payload.");
+            get().logout();
+          }
         } else {
-            // Token valid and user exists in store
-             set({ isAuthenticated: true, isLoading: false });
+          set({ isAuthenticated: true, isLoading: false });
         }
       } catch (error) {
-          console.error("[AuthStore checkAuthStatus] Error processing valid token:", error);
-          get().logout(); // Logout if there's an error processing
+        console.error("[AuthStore checkAuthStatus] Error processing valid token:", error);
+        get().logout();
       }
     } else {
-      // Token missing or invalid
-      if (get().isAuthenticated) { // Only logout if state thought it was authenticated
-          get().logout();
-      } else {
-          set({ isLoading: false }); // Ensure loading is false if already logged out
-      }
+      if (get().isAuthenticated) get().logout();
+      else set({ isLoading: false });
     }
-  }
+  },
+
+  updateAccountType: async (userId, accountType) => {
+    if (!['user', 'contributor', 'superuser'].includes(accountType)) {
+      set({ error: 'Invalid account type' });
+      return false;
+    }
+    if (!get().isSuperuser()) {
+      set({ error: 'Only superusers can update account types' });
+      return false;
+    }
+    try {
+      const response = await apiClient(`/api/auth/update-account-type/${userId}`, 'Update Account Type', {
+        method: 'PUT',
+        body: JSON.stringify({ account_type: accountType }),
+      });
+      if (get().user?.id === userId) {
+        set({ user: { ...get().user, account_type: accountType } });
+      }
+      return true;
+    } catch (error) {
+      console.error('[AuthStore UpdateAccountType] Error:', error);
+      set({ error: error.message || 'Failed to update account type' });
+      return false;
+    }
+  },
 });
 
-// Persist options (storage changed to localStorage for web)
 const persistOptions = {
-  name: 'auth-storage', // Name of the item in storage
-  storage: createJSONStorage(() => localStorage), // Use localStorage
-  partialize: (state) => ({ token: state.token, user: state.user }), // Only persist token and user
-  // onRehydrateStorage might be needed for complex hydration logic
+  name: 'auth-storage',
+  storage: createJSONStorage(() => localStorage),
+  partialize: (state) => ({ token: state.token, user: state.user }),
 };
 
-// Create the store with middleware
 const useAuthStore = create(
   devtools(
-    persist( authStore, persistOptions ),
-    { name: 'AuthStore' } // Name for Redux DevTools
+    persist(authStore, persistOptions),
+    { name: 'AuthStore' }
   )
 );
 
-// Initialize auth status check when store is created/loaded
 useAuthStore.getState().checkAuthStatus();
 
 export default useAuthStore;

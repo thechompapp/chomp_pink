@@ -11,7 +11,8 @@ const getPendingSubmissions = async () => {
         const data = await apiClient(`${BASE_PATH}?status=pending`, 'Fetching Pending Submissions');
         // Ensure array is returned; apiClient already parses JSON or returns null/throws
         console.log(`[SubmissionService] Received ${Array.isArray(data) ? data.length : 0} pending submissions.`);
-        return Array.isArray(data) ? data : [];
+        // Filter out any potentially null/invalid submissions just in case
+        return Array.isArray(data) ? data.filter(Boolean) : [];
     } catch (err) {
         console.error('[SubmissionService] Error fetching pending submissions:', err);
         // Re-throw the error so useQuery can handle it
@@ -32,13 +33,13 @@ const addSubmission = async (submissionData) => {
 const approveSubmission = async (submissionId) => {
      if (!submissionId) throw new Error("Submission ID required.");
      // Specify expected response/behavior for approval
-    return await apiClient(`${BASE_PATH}/${submissionId}/approve`, 'SubmissionService Approve', { method: 'POST' });
+    return await apiClient(`<span class="math-inline">\{BASE\_PATH\}/</span>{submissionId}/approve`, 'SubmissionService Approve', { method: 'POST' });
 };
 
 const rejectSubmission = async (submissionId) => {
      if (!submissionId) throw new Error("Submission ID required.");
      // Specify expected response/behavior for rejection
-    return await apiClient(`${BASE_PATH}/${submissionId}/reject`, 'SubmissionService Reject', { method: 'POST' });
+    return await apiClient(`<span class="math-inline">\{BASE\_PATH\}/</span>{submissionId}/reject`, 'SubmissionService Reject', { method: 'POST' });
 };
 
 export const submissionService = {

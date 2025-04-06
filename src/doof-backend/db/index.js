@@ -1,36 +1,40 @@
-const { Pool } = require("pg");
-require('dotenv').config();
+// src/doof-backend/db/index.js
+// Corrected import for pg (CommonJS module)
+import pg from 'pg';
+const { Pool } = pg; // Destructure Pool from the default import
+
+import 'dotenv/config';
 
 const pool = new Pool({
   user: process.env.DB_USER || "doof_user",
   host: process.env.DB_HOST || "localhost",
   database: process.env.DB_DATABASE || "doof_db",
   password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT || 5432,
-
-  // Timeout configurations
+  port: parseInt(process.env.DB_PORT) || 5432, // Ensure port is number
   connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT) || 5000,
-  idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT) || 1000, // Reduced to 1 second to force fresh connections
+  idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT) || 10000, // Increased default idle timeout
   statement_timeout: parseInt(process.env.DB_STATEMENT_TIMEOUT) || 10000,
-  max: parseInt(process.env.DB_POOL_MAX) || 20, // Set a reasonable max to prevent excessive connections
+  max: parseInt(process.env.DB_POOL_MAX) || 20,
 });
 
-// Check if password is provided
+// Password check remains the same
 if (!process.env.DB_PASSWORD && process.env.NODE_ENV !== 'test') {
   console.error('\x1b[31m%s\x1b[0m', 'FATAL ERROR: Database password (DB_PASSWORD) is not set in environment variables.');
+  // Consider exiting if password is required and missing
+  // process.exit(1);
 }
 
-// Test the connection on startup
+// Startup connection test remains the same
 pool.connect((err, client, release) => {
   if (err) {
     console.error('\x1b[31m%s\x1b[0m', 'Error acquiring database client on startup:', err.stack);
   } else {
     console.log('\x1b[32m%s\x1b[0m', 'Successfully connected to the database pool (startup check).');
     client.query('SELECT NOW()', (err, result) => {
-      release();
+      release(); // Release client after query
       if (err) {
         console.error('\x1b[31m%s\x1b[0m', 'Error during startup query test:', err.stack);
-      } else if (result && result.rows && result.rows.length > 0) {
+      } else if (result?.rows?.[0]) {
         console.log('\x1b[32m%s\x1b[0m', `Database startup query test successful. DB Time: ${result.rows[0].now}`);
       } else {
         console.warn('\x1b[33m%s\x1b[0m', 'Database startup query test ran but returned no result.');
@@ -39,28 +43,43 @@ pool.connect((err, client, release) => {
   }
 });
 
-// Log pool errors
+// Pool event listeners remain the same
 pool.on('error', (err, client) => {
   console.error('\x1b[31m%s\x1b[0m', 'Unexpected error on idle database client', err);
 });
 
-// Log connection usage
 pool.on('connect', (client) => {
-  console.log('[DB Pool] New client connected to the pool');
+  // Optional: Reduce startup verbosity unless debugging
+  // console.log('[DB Pool] New client connected to the pool');
 });
 
 pool.on('remove', (client) => {
-  console.log('[DB Pool] Client removed from the pool (idle timeout or error)');
+  // Optional: Reduce shutdown verbosity unless debugging
+  // console.log('[DB Pool] Client removed from the pool (idle timeout or error)');
 });
 
-module.exports = {
-  query: (text, params) => {
-    return pool.query(text, params);
-  },
+// Export object remains the same
+export default {
+  query: (text, params) => pool.query(text, params),
+  // getClient is useful for transactions
   getClient: async () => {
     const client = await pool.connect();
+    const query = client.query;
+    const release = client.release;
+    // monkey patch the query method to keep track of the last query
+    // or handle errors differently if needed
+    client.query = (...args) => {
+      // console.log('[DB Client] Executing query:', args[0]); // Optional logging
+      return query.apply(client, args);
+    };
+    // monkey patch the release method to log released clients
+    client.release = () => {
+      // console.log('[DB Client] Releasing client'); // Optional logging
+      client.query = query; // Restore original methods
+      client.release = release;
+      return release.apply(client);
+    };
     return client;
   },
-  // Expose the pool for direct access if needed
-  pool: pool
+  pool // Expose pool directly if needed elsewhere
 };

@@ -4,11 +4,13 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'; // Import QueryClientProvider
 
 // --- Mock Store Setup ---
 const mockLoginAction = vi.fn();
 const mockClearError = vi.fn();
 let mockIsAuthenticated = false;
+let mockAuthError = null; // Added mock error state
 
 // Mock state provider function - used internally by the default mock
 const mockStoreState = () => ({
@@ -17,15 +19,18 @@ const mockStoreState = () => ({
     clearError: mockClearError,
     user: null,
     isLoading: false,
-    error: null, // Keep null, rely on action rejection for error message
+    error: mockAuthError, // Use mock error state
 });
 
 // Mock the entire module
 vi.mock('@/stores/useAuthStore', () => ({
   // Mock the default export (the hook)
-  // This function will be called when useAuthStore(selector) is used
   default: (selector) => selector(mockStoreState()),
-  // --- REMOVED getState from the module mock ---
+  // Mock getState if needed by the component (needed for error in performLogin)
+  getState: () => ({
+      error: mockAuthError, // Include error in getState
+      // Include other state properties if getState() is used to access them elsewhere
+  })
 }));
 
 // Mock useNavigate
@@ -42,15 +47,20 @@ vi.mock('react-router-dom', async (importOriginal) => {
 // Component under test
 import Login from './index';
 
-// Helper function
-const renderWithRouter = (ui, { route = '/', initialEntries = [route] } = {}) => {
+// Test Query Client
+const testQueryClient = new QueryClient();
+
+// Helper function to include QueryClientProvider
+const renderWithProviders = (ui, { route = '/', initialEntries = [route] } = {}) => {
   return render(
-    <MemoryRouter initialEntries={initialEntries}>
-      <Routes>
-         <Route path={route} element={ui} />
-         <Route path="/" element={<div>Home Page Mock</div>} />
-      </Routes>
-    </MemoryRouter>
+    <QueryClientProvider client={testQueryClient}>
+        <MemoryRouter initialEntries={initialEntries}>
+        <Routes>
+            <Route path={route} element={ui} />
+            <Route path="/" element={<div>Home Page Mock</div>} />
+        </Routes>
+        </MemoryRouter>
+    </QueryClientProvider>
   );
 };
 
@@ -61,20 +71,23 @@ describe('Login Page Integration Test', () => {
         // Reset mocks and state before each test
         vi.clearAllMocks();
         mockIsAuthenticated = false;
+        mockAuthError = null; // Reset mock error
         mockLoginAction.mockReset();
         mockClearError.mockReset();
+        testQueryClient.clear(); // Clear query client cache
     });
 
     it('should render the login form', () => {
-        renderWithRouter(<Login />, { route: '/login' });
+        renderWithProviders(<Login />, { route: '/login' });
         expect(screen.getByRole('heading', { name: /log in to doof/i })).toBeInTheDocument();
-        // ... other render assertions ...
+        expect(screen.getByLabelText(/email address/i)).toBeInTheDocument();
+        expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /log in/i })).toBeInTheDocument();
     });
 
     it('should allow typing in email and password fields', async () => {
         const user = userEvent.setup();
-        renderWithRouter(<Login />, { route: '/login' });
-        // ... typing assertions ...
+        renderWithProviders(<Login />, { route: '/login' });
         const emailInput = screen.getByLabelText(/email address/i);
         const passwordInput = screen.getByLabelText(/password/i);
         await user.type(emailInput, 'test@example.com');
@@ -85,9 +98,10 @@ describe('Login Page Integration Test', () => {
 
     it('should call login action on successful login attempt', async () => {
         const user = userEvent.setup();
+        // Simulate successful login action
         mockLoginAction.mockResolvedValue(true);
 
-        renderWithRouter(<Login />, { route: '/login' });
+        renderWithProviders(<Login />, { route: '/login' });
 
         await user.type(screen.getByLabelText(/email address/i), 'test@example.com');
         await user.type(screen.getByLabelText(/password/i), 'password123');
@@ -96,18 +110,23 @@ describe('Login Page Integration Test', () => {
         expect(mockLoginAction).toHaveBeenCalledTimes(1);
         expect(mockLoginAction).toHaveBeenCalledWith('test@example.com', 'password123');
 
+        // Should not display error
         await waitFor(() => {
-            expect(screen.queryByText(/failed/i)).not.toBeInTheDocument();
+            expect(screen.queryByRole('alert')).not.toBeInTheDocument();
         });
+        // Note: Navigation is handled by useEffect based on isAuthenticated,
+        // which we can't easily test here without more complex mock setup.
     });
 
     it('should display error message on failed login', async () => {
         const user = userEvent.setup();
         const errorMessage = 'Invalid test credentials via rejection.';
-        // Simulate failure by REJECTING the promise returned by the action
+        // Simulate failure by REJECTING the promise and setting the store error
         mockLoginAction.mockRejectedValue(new Error(errorMessage));
+        // Set the mockAuthError so getState().error returns it in performLogin
+        mockAuthError = errorMessage;
 
-        renderWithRouter(<Login />, { route: '/login' });
+        renderWithProviders(<Login />, { route: '/login' });
 
         await user.type(screen.getByLabelText(/email address/i), 'wrong@example.com');
         await user.type(screen.getByLabelText(/password/i), 'wrongpassword');
@@ -117,38 +136,44 @@ describe('Login Page Integration Test', () => {
 
         // Check if the error message (caught by useFormHandler from the rejected promise) is displayed
         await waitFor(() => {
-            // This error comes from useFormHandler's submitError state
-            expect(screen.getByText(errorMessage)).toBeInTheDocument();
+            expect(screen.getByRole('alert')).toHaveTextContent(errorMessage);
         });
 
         expect(mockNavigate).not.toHaveBeenCalled();
     });
 
-     it('should disable button while submitting', async () => {
-       // ... test remains the same ...
-       const user = userEvent.setup();
-       mockLoginAction.mockImplementation(() => new Promise(resolve => setTimeout(() => resolve(true), 50)));
-       renderWithRouter(<Login />, { route: '/login' });
-       await user.type(screen.getByLabelText(/email address/i), 'test@example.com');
-       await user.type(screen.getByLabelText(/password/i), 'password123');
-       const submitButton = screen.getByRole('button', { name: /log in/i });
-       await user.click(submitButton);
-       expect(submitButton).toBeDisabled();
-       expect(submitButton.querySelector('.animate-spin')).toBeInTheDocument();
-       await waitFor(() => expect(submitButton).not.toBeDisabled());
-       expect(submitButton.querySelector('.animate-spin')).not.toBeInTheDocument();
-   });
+    it('should disable button while submitting', async () => {
+        const user = userEvent.setup();
+        // Simulate a delay in login action
+        mockLoginAction.mockImplementation(() => new Promise(resolve => setTimeout(() => resolve(true), 50)));
+
+        renderWithProviders(<Login />, { route: '/login' });
+        await user.type(screen.getByLabelText(/email address/i), 'test@example.com');
+        await user.type(screen.getByLabelText(/password/i), 'password123');
+        const submitButton = screen.getByRole('button', { name: /log in/i });
+
+        await user.click(submitButton);
+
+        // Check if button is disabled and shows spinner
+        expect(submitButton).toBeDisabled();
+        expect(submitButton.querySelector('.animate-spin')).toBeInTheDocument();
+
+        // Wait for submission to complete and button to be enabled again
+        await waitFor(() => expect(submitButton).not.toBeDisabled());
+        expect(submitButton.querySelector('.animate-spin')).not.toBeInTheDocument();
+    });
 
     it('should redirect if already authenticated', () => {
-        mockIsAuthenticated = true;
-        renderWithRouter(<Login />, { route: '/login' });
+        mockIsAuthenticated = true; // Set authenticated state before rendering
+        renderWithProviders(<Login />, { route: '/login' });
+        // Check if navigate was called to redirect
         expect(mockNavigate).toHaveBeenCalledTimes(1);
         expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true });
     });
 
-     it('should call clearError on mount', () => {
-         renderWithRouter(<Login />, { route: '/login' });
-         expect(mockClearError).toHaveBeenCalledTimes(1);
-     });
+    it('should call clearError on mount', () => {
+        renderWithProviders(<Login />, { route: '/login' });
+        expect(mockClearError).toHaveBeenCalledTimes(1);
+    });
 
 });

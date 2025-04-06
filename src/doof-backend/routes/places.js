@@ -1,7 +1,9 @@
 // src/doof-backend/routes/places.js
-const express = require('express');
-const { Client } = require("@googlemaps/google-maps-services-js");
-require("dotenv").config(); // Ensure GOOGLE_API_KEY is loaded
+import express from 'express';
+import { Client } from "@googlemaps/google-maps-services-js";
+import dotenv from 'dotenv'; // Import dotenv
+
+dotenv.config(); // Ensure GOOGLE_API_KEY is loaded
 
 const router = express.Router();
 const googleMapsClient = new Client({});
@@ -109,4 +111,4 @@ router.get("/details", async (req, res, next) => { // Added next
     }
 });
 
-module.exports = router;
+export default router; // Changed from module.exports

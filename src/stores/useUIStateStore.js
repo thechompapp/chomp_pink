@@ -4,13 +4,11 @@ import { filterService } from '@/services/filterService';
 
 const useUIStateStore = create((set, get) => ({
   cities: [],
-  neighborhoods: [], // Keep for potential future use
+  neighborhoods: [],
   cuisines: [],
   cityId: null,
-  neighborhoodId: null, // Keep for potential future use
-  hashtags: [], // Array of selected hashtag strings
-
-  // Loading and error states...
+  neighborhoodId: null,
+  hashtags: [],
   isLoadingCities: false,
   isLoadingNeighborhoods: false,
   isLoadingCuisines: false,
@@ -23,7 +21,10 @@ const useUIStateStore = create((set, get) => ({
     set({ isLoadingCities: true, errorCities: null });
     try {
       const cities = await filterService.getCities();
-      set({ cities, isLoadingCities: false });
+      // Ensure id is an integer
+      const parsedCities = cities.map(city => ({ ...city, id: parseInt(city.id, 10) }));
+      console.log('[UIStateStore] Fetched cities:', parsedCities);
+      set({ cities: parsedCities, isLoadingCities: false });
     } catch (error) {
       console.error('[UIStateStore] Error fetching cities:', error);
       set({ cities: [], isLoadingCities: false, errorCities: error.message || 'Failed to fetch cities' });
@@ -31,10 +32,9 @@ const useUIStateStore = create((set, get) => ({
   },
 
   fetchNeighborhoods: async (cityId) => {
-    // Logic remains the same...
     if (!cityId) {
-        set({ neighborhoods: [], errorNeighborhoods: null });
-        return;
+      set({ neighborhoods: [], errorNeighborhoods: null });
+      return;
     }
     if (get().isLoadingNeighborhoods) return;
     set({ isLoadingNeighborhoods: true, errorNeighborhoods: null });
@@ -60,42 +60,35 @@ const useUIStateStore = create((set, get) => ({
   },
 
   setCityId: (cityId) => {
-    console.log(`[UIStateStore] Setting cityId to: ${cityId}`);
+    console.log(`[UIStateStore] Setting cityId to: ${cityId} (type: ${typeof cityId})`);
     set((state) => {
-        // When city changes, reset neighborhood and hashtags
-        if (state.cityId !== cityId) {
-             // No need to fetch neighborhoods here automatically, let component decide
-            return { cityId: cityId, neighborhoodId: null, hashtags: [] }; // Reset neighborhood AND hashtags
-        }
-        return { cityId: cityId };
+      if (state.cityId !== cityId) {
+        return { cityId: cityId, neighborhoodId: null, hashtags: [] };
+      }
+      return { cityId: cityId };
     });
   },
 
   setNeighborhoodId: (neighborhoodId) => {
-      console.log(`[UIStateStore] Setting neighborhoodId to: ${neighborhoodId}`);
-      // When neighborhood changes, reset hashtags
-      set({ neighborhoodId: neighborhoodId, hashtags: [] });
+    console.log(`[UIStateStore] Setting neighborhoodId to: ${neighborhoodId}`);
+    set({ neighborhoodId: neighborhoodId, hashtags: [] });
   },
 
-  // Setter for hashtags remains the same
   setHashtags: (hashtags) => {
-      console.log(`[UIStateStore] Setting hashtags to:`, hashtags);
-      set({ hashtags: Array.isArray(hashtags) ? hashtags : [] });
+    console.log(`[UIStateStore] Setting hashtags to:`, hashtags);
+    set({ hashtags: Array.isArray(hashtags) ? hashtags : [] });
   },
 
-  // Action to clear all filters - ensure this exists
   clearAllFilters: () => {
-      console.log('[UIStateStore] Clearing all filters.');
-      set({
-          cityId: null,
-          neighborhoodId: null,
-          hashtags: [],
-          // Don't clear fetched data like cities/cuisines unless needed
-          // neighborhoods: [], // Optionally clear fetched neighborhoods
-          errorCities: null,
-          errorNeighborhoods: null,
-          errorCuisines: null,
-      });
+    console.log('[UIStateStore] Clearing all filters.');
+    set({
+      cityId: null,
+      neighborhoodId: null,
+      hashtags: [],
+      errorCities: null,
+      errorNeighborhoods: null,
+      errorCuisines: null,
+    });
   },
 }));
 

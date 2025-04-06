@@ -2,43 +2,24 @@
 import React, { useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { 
-  ArrowLeft, 
-  MapPin, 
-  Star, 
-  Share2, 
-  DollarSign,
-  Tag,
-  Loader
-} from 'lucide-react';
-import { dishService } from '@/services/dishService'; // Corrected: Import service
+import { ArrowLeft, MapPin, Share2, Tag } from 'lucide-react';
+import { dishService } from '@/services/dishService';
 import useAuthStore from '@/stores/useAuthStore';
 import Button from '@/components/Button';
 import { useQuickAdd } from '@/context/QuickAddContext';
-import ErrorMessage from '@/components/UI/ErrorMessage'; // Added missing import
-import LoadingSpinner from '@/components/UI/LoadingSpinner'; // Added missing import
+import ErrorMessage from '@/components/UI/ErrorMessage';
+import LoadingSpinner from '@/components/UI/LoadingSpinner';
 
-// Fetch dish details using the service
+// Fetcher function using the service
 const fetchDishDetails = async (dishId) => {
-  if (!dishId) {
-    // Should not happen if query is enabled correctly
-    throw new Error("Dish ID is required");
-  }
+  if (!dishId) throw new Error("Dish ID is required");
   try {
-    // Use the service
     const data = await dishService.getDishDetails(dishId);
-    // Service should handle not found cases or invalid data
-    if (!data || typeof data.id === 'undefined') {
-         return { notFound: true }; // Indicate not found
-    }
+    // dishService throws specific error if not found
     return data;
   } catch (error) {
-    console.error(`Error fetching dish details for ID ${dishId}:`, error);
-    // Return an error object that useQuery can handle
-    return {
-      error: true,
-      message: error.message || 'Failed to load dish details'
-    };
+    // Re-throw service errors for React Query to handle
+    throw error;
   }
 };
 
@@ -48,218 +29,154 @@ const DishDetail = () => {
   const isAuthenticated = useAuthStore(state => state.isAuthenticated);
   const { openQuickAdd } = useQuickAdd();
 
-  // Use React Query with the service-based fetcher function
   const {
-    data,
+    data: dish, // Renamed data to dish for clarity
     isLoading,
     isError,
-    error: queryErrorObject, // Rename to avoid conflict with error property within data
-    refetch
+    error: queryError, // Renamed error to queryError
+    isSuccess,
+    refetch,
   } = useQuery({
     queryKey: ['dishDetails', id],
     queryFn: () => fetchDishDetails(id),
-    enabled: !!id, // Only run if id is available
+    enabled: !!id, // Enable query only when id is present
     staleTime: 5 * 60 * 1000, // 5 minutes
-    retry: 1, // Limit retries
+    retry: 1, // Retry once on failure
+    refetchOnWindowFocus: true,
   });
 
-  // Scroll to top on page load
+  // Scroll to top on component mount or when ID changes
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [id]);
 
-  // Handle different states
+  const handleAddToList = () => {
+    if (!dish) return; // Should not happen if rendering, but safe check
+    openQuickAdd({
+      type: 'dish',
+      id: dish.id,
+      name: dish.name,
+      // Ensure restaurant details are passed if available
+      restaurantId: dish.restaurant_id,
+      restaurantName: dish.restaurant_name,
+      tags: dish.tags || [], // Pass tags
+    });
+  };
+
+  // --- Render Logic ---
+
   if (isLoading) {
-    // Use LoadingSpinner component
     return <LoadingSpinner message="Loading dish details..." />;
   }
 
-  // Handle explicit error state from useQuery
+  // Handle specific 404 or other errors from the query
   if (isError) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        {/* Use ErrorMessage component */}
-        <ErrorMessage
-          message={queryErrorObject?.message || 'Failed to load dish details'}
-          onRetry={refetch}
-          isLoadingRetry={isLoading}
-        />
-      </div>
-    );
-  }
-
-  // Handle error or not found state within the fetched data
-  if (data?.error || data?.notFound) {
-    const message = data?.message || "The dish you're looking for doesn't exist or has been removed.";
-    const title = data?.error ? 'Error' : 'Dish Not Found';
-    const buttonText = data?.error ? 'Try Again' : 'Back to Home';
-    const onButtonClick = data?.error ? refetch : () => navigate('/');
-    const containerClasses = data?.error
-      ? "bg-red-50 border border-red-200 text-red-700"
-      : "bg-amber-50 border border-amber-200 text-amber-700";
+    const isNotFound = queryError?.message?.includes('not found');
+    const errorMessage = queryError?.message || 'Failed to load dish details.';
+    const title = isNotFound ? 'Dish Not Found' : 'Error Loading Dish';
+    const description = isNotFound
+      ? "The dish you're looking for doesn't exist or has been removed."
+      : errorMessage;
+    const buttonText = isNotFound ? 'Back to Home' : 'Try Again';
+    const onButtonClick = isNotFound ? () => navigate('/') : refetch;
+    const containerClasses = isNotFound
+      ? "bg-amber-50 border border-amber-200 text-amber-700"
+      : "bg-red-50 border border-red-200 text-red-700";
 
     return (
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className={`${containerClasses} p-6 rounded-lg text-center`}>
           <h2 className="text-xl font-semibold mb-2">{title}</h2>
-          <p className="mb-4">{message}</p>
-          <Button onClick={onButtonClick} variant="secondary" size="sm">{buttonText}</Button>
+          <p className="mb-4">{description}</p>
+          <Button onClick={onButtonClick} variant={isNotFound ? "secondary" : "primary"} size="sm">{buttonText}</Button>
+          {/* Optionally add a back button even on retryable errors */}
+          {!isNotFound && <Button onClick={() => navigate(-1)} variant="tertiary" size="sm" className="ml-2">Back</Button>}
         </div>
       </div>
     );
   }
 
-   // If data is null/undefined after loading and no error (shouldn't happen ideally)
-   if (!data) {
-        return (
-             <div className="container mx-auto px-4 py-8">
-                  <ErrorMessage message="Could not load dish data." />
-             </div>
-         );
-    }
+  // If query succeeded but data is somehow invalid (should be caught by service/fetcher)
+  if (isSuccess && !dish) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <ErrorMessage message="Could not load dish data.">
+          <Button onClick={() => navigate('/')} variant="secondary" size="sm" className="mt-2">Back to Home</Button>
+        </ErrorMessage>
+      </div>
+    );
+  }
 
-  // Now we know we have valid dish data
-  const dish = data;
-
-  const handleAddToList = () => {
-    openQuickAdd({
-      type: 'dish',
-      id: dish.id,
-      name: dish.name,
-      // Pass restaurant details if available in the fetched dish data
-      restaurantId: dish.restaurant_id,
-      restaurantName: dish.restaurant_name
-    });
-  };
-
+  // --- Successful Render ---
   return (
     <div className="container mx-auto px-4 py-4 max-w-4xl">
-      {/* Back button */}
+      {/* Back Button */}
       <button
         onClick={() => navigate(-1)}
-        className="flex items-center text-gray-600 hover:text-gray-900 mb-4"
+        className="flex items-center text-gray-600 hover:text-gray-900 mb-4 group text-sm"
       >
-        <ArrowLeft size={18} className="mr-1" />
-        <span>Back</span>
+        <ArrowLeft size={16} className="mr-1 transition-colors group-hover:text-[#A78B71]" />
+        <span className="transition-colors group-hover:text-[#A78B71]">Back</span>
       </button>
 
-      <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">{dish.name || 'Unnamed Dish'}</h1>
+      {/* Main Content Card */}
+      <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 border border-gray-100">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 break-words mb-2">{dish.name || 'Unnamed Dish'}</h1>
 
         {/* Restaurant Link */}
         {dish.restaurant_id && (
           <Link
             to={`/restaurant/${dish.restaurant_id}`}
-            className="inline-flex items-center text-[#A78B71] hover:text-[#806959] mb-4"
+            className="inline-flex items-center text-[#A78B71] hover:text-[#806959] mb-4 group"
           >
-            <span className="text-lg font-medium">at {dish.restaurant_name || 'Unknown Restaurant'}</span>
+            <span className="text-lg font-medium group-hover:underline">at {dish.restaurant_name || 'Unknown Restaurant'}</span>
           </Link>
         )}
 
-        {/* Location (prefer city/neighborhood if available) */}
+        {/* Location Info */}
         {(dish.city || dish.neighborhood) && (
-            <div className="flex items-center text-gray-600 mb-4">
-                 <MapPin size={16} className="mr-1" />
-                 <span>{dish.neighborhood ? `${dish.neighborhood}, ${dish.city}` : dish.city || 'Unknown Location'}</span>
-            </div>
-         )}
-
-
-        {/* Rating (assuming these fields might exist based on UI) */}
-        {/* If avg_rating/review_count are not in schema, remove this block */}
-        {/*
-        {dish.avg_rating && (
-          <div className="flex items-center mb-4">
-            <div className="flex items-center bg-[#A78B71] text-white px-2 py-1 rounded mr-2">
-              <Star size={14} className="mr-1" />
-              <span className="font-medium">{Number(dish.avg_rating).toFixed(1)}</span>
-            </div>
-            <span className="text-gray-600 text-sm">
-              {dish.review_count || 0} {dish.review_count === 1 ? 'review' : 'reviews'}
-            </span>
+          <div className="flex items-center text-gray-600 text-sm mb-4">
+            <MapPin size={14} className="mr-1.5 text-gray-400 flex-shrink-0" />
+            <span>{dish.neighborhood ? `${dish.neighborhood}, ${dish.city}` : dish.city || 'Unknown Location'}</span>
           </div>
         )}
-        */}
 
-
-        {/* Description (assuming this might exist based on UI) */}
-        {/* If description is not in schema, remove this block */}
-        {/*
-        {dish.description && (
-          <p className="text-gray-700 mb-6">{dish.description}</p>
-        )}
-        */}
-
-        {/* Price (assuming this might exist based on UI) */}
-        {/* If price is not in schema, remove this block */}
-        {/*
-        {dish.price && (
-          <div className="flex items-center mb-4">
-            <DollarSign size={16} className="text-gray-600 mr-1" />
-            <span className="font-medium">${Number(dish.price).toFixed(2)}</span>
-          </div>
-        )}
-        */}
-
-        {/* Categories/Tags */}
+        {/* Tags */}
         {Array.isArray(dish.tags) && dish.tags.length > 0 && (
           <div className="mb-6">
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {dish.tags.map(tag => (
                 <span
                   key={tag}
-                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
+                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200"
                 >
-                  <Tag size={12} className="mr-1" />
-                  {tag}
+                  {/* Optional: Icon per tag category? */}
+                  {/* <Tag size={12} className="mr-1" /> */}
+                  #{tag}
                 </span>
               ))}
             </div>
           </div>
         )}
 
-        {/* Action buttons */}
-        <div className="flex flex-wrap gap-3 mt-4">
+        {/* Action Buttons */}
+        <div className="flex flex-wrap gap-3 mt-4 border-t border-gray-100 pt-4">
+          {/* Add to List Button - Text changes based on auth state */}
           <Button
-            onClick={handleAddToList}
+            onClick={isAuthenticated ? handleAddToList : () => navigate('/login')}
             variant="primary"
             size="md"
-            className="flex-1"
-            // Disable if not authenticated? Context might handle this.
+            className="flex-1 min-w-[120px]" // Ensure button doesn't get too small
           >
             {isAuthenticated ? 'Add to List' : 'Log in to Save'}
           </Button>
-
-          <Button variant="secondary" size="md" className="flex items-center justify-center">
+          {/* Share Button */}
+          <Button variant="secondary" size="md" className="flex items-center justify-center min-w-[100px]" onClick={() => alert('Share function not implemented yet.')}>
             <Share2 size={16} className="mr-1" />
             Share
           </Button>
         </div>
       </div>
-
-      {/* Similar dishes section (assuming this might exist based on UI) */}
-      {/* If similar_dishes is not provided by API, remove this block */}
-      {/*
-      {dish.similar_dishes && dish.similar_dishes.length > 0 && (
-        <div className="mt-12 pt-8 border-t border-gray-200">
-          <h2 className="text-2xl font-bold mb-6">Similar Dishes</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {dish.similar_dishes.map(similarDish => (
-              <Link
-                key={similarDish.id}
-                to={`/dish/${similarDish.id}`}
-                className="block group"
-              >
-                <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200 group-hover:shadow-md transition-shadow">
-                  <h3 className="font-medium text-gray-900 group-hover:text-[#A78B71]">{similarDish.name}</h3>
-                  <p className="text-sm text-gray-600">{similarDish.restaurant_name}</p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-      */}
     </div>
   );
 };
