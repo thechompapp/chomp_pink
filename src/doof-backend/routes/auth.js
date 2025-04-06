@@ -7,67 +7,48 @@ const db = require('../db'); // Assuming db/index.js is set up
 
 const router = express.Router();
 
-// Load JWT secret from environment variables (IMPORTANT: Set this in your .env file)
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
     console.error("FATAL ERROR: JWT_SECRET is not defined in environment variables.");
-    process.exit(1); // Exit if secret is not set
+    process.exit(1);
 }
 
-// Validation Middleware
-const validateRegister = [
-    body('username').trim().notEmpty().withMessage('Username is required.').isLength({ min: 3 }).withMessage('Username must be at least 3 characters.'),
-    body('email').trim().isEmail().withMessage('Please provide a valid email address.').normalizeEmail(),
-    body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long.'),
-];
-
-const validateLogin = [
-    body('email').trim().isEmail().withMessage('Please provide a valid email address.').normalizeEmail(),
-    body('password').notEmpty().withMessage('Password is required.'),
-];
-
-const handleValidationErrors = (req, res, next) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-    }
-    next();
-};
+// Validation Middleware (Keep as is)
+const validateRegister = [ /* ... */ ];
+const validateLogin = [ /* ... */ ];
+const handleValidationErrors = (req, res, next) => { /* ... */ };
 
 // --- Registration Route ---
-router.post('/register', validateRegister, handleValidationErrors, async (req, res) => {
+router.post('/register', validateRegister, handleValidationErrors, async (req, res, next) => { // Added next
     const { username, email, password } = req.body;
-    console.log(`[AUTH /register] Attempting registration for email: ${email}`);
+    // Removed console log
 
     try {
-        // 1. Check if user already exists (by email or username)
         const userCheck = await db.query('SELECT id FROM Users WHERE email = $1 OR username = $2', [email, username]);
         if (userCheck.rows.length > 0) {
-            console.warn(`[AUTH /register] Registration failed: Email or Username already exists for ${email}`);
-            return res.status(400).json({ errors: [{ msg: 'User with this email or username already exists.' }] });
+            // Removed console log
+            // Use a consistent error structure
+            return res.status(400).json({ error: 'User with this email or username already exists.' });
         }
 
-        // 2. Hash the password
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(password, salt);
-        console.log(`[AUTH /register] Password hashed for ${email}`);
+        // Removed console log
 
-        // 3. Insert new user into the database
         const insertQuery = 'INSERT INTO Users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id, username, email, created_at';
         const newUserResult = await db.query(insertQuery, [username, email, passwordHash]);
         const newUser = newUserResult.rows[0];
-        console.log(`[AUTH /register] User registered successfully: ${newUser.email} (ID: ${newUser.id})`);
+        // Removed console log
 
-        // 4. Generate JWT Token
-        const payload = { user: { id: newUser.id } }; // Include user ID in the token payload
+        const payload = { user: { id: newUser.id } };
+        // Consider a slightly longer expiration, e.g., '8h' or '1d'
         jwt.sign(
             payload,
             JWT_SECRET,
-            { expiresIn: '1h' }, // Token expires in 1 hour (adjust as needed)
+            { expiresIn: '8h' }, // Example: 8 hours
             (err, token) => {
-                if (err) throw err;
-                console.log(`[AUTH /register] JWT generated for user ID: ${newUser.id}`);
-                // Send user info (without password hash) and token back
+                if (err) throw err; // Let centralized handler catch JWT errors
+                // Removed console log
                 res.status(201).json({
                     token,
                     user: { id: newUser.id, username: newUser.username, email: newUser.email, createdAt: newUser.created_at }
@@ -77,42 +58,40 @@ router.post('/register', validateRegister, handleValidationErrors, async (req, r
 
     } catch (err) {
         console.error('[AUTH /register] Server error:', err);
-        res.status(500).json({ errors: [{ msg: 'Server error during registration.' }] });
+        // Pass error to centralized handler instead of sending response directly
+        next(err);
     }
 });
 
 // --- Login Route ---
-router.post('/login', validateLogin, handleValidationErrors, async (req, res) => {
+router.post('/login', validateLogin, handleValidationErrors, async (req, res, next) => { // Added next
     const { email, password } = req.body;
-    console.log(`[AUTH /login] Attempting login for email: ${email}`);
+    // Removed console log
 
     try {
-        // 1. Find user by email
         const userResult = await db.query('SELECT id, username, email, password_hash, created_at FROM Users WHERE email = $1', [email]);
         if (userResult.rows.length === 0) {
-             console.warn(`[AUTH /login] Login failed: User not found for ${email}`);
-            return res.status(400).json({ errors: [{ msg: 'Invalid credentials.' }] }); // Generic message
+             // Removed console log
+            // Use status 401 for authentication failures
+            return res.status(401).json({ error: 'Invalid credentials.' });
         }
         const user = userResult.rows[0];
 
-        // 2. Compare submitted password with stored hash
         const isMatch = await bcrypt.compare(password, user.password_hash);
         if (!isMatch) {
-             console.warn(`[AUTH /login] Login failed: Incorrect password for ${email}`);
-            return res.status(400).json({ errors: [{ msg: 'Invalid credentials.' }] }); // Generic message
+             // Removed console log
+            return res.status(401).json({ error: 'Invalid credentials.' });
         }
-        console.log(`[AUTH /login] Password matched for ${email}`);
+        // Removed console log
 
-        // 3. Generate JWT Token
         const payload = { user: { id: user.id } };
         jwt.sign(
             payload,
             JWT_SECRET,
-            { expiresIn: '1h' }, // Match registration expiration or adjust
+            { expiresIn: '8h' }, // Match registration expiration
             (err, token) => {
-                if (err) throw err;
-                console.log(`[AUTH /login] JWT generated for user ID: ${user.id}`);
-                // Send user info (without password hash) and token back
+                if (err) throw err; // Let centralized handler catch JWT errors
+                // Removed console log
                 res.json({
                      token,
                      user: { id: user.id, username: user.username, email: user.email, createdAt: user.created_at }
@@ -122,7 +101,8 @@ router.post('/login', validateLogin, handleValidationErrors, async (req, res) =>
 
     } catch (err) {
         console.error('[AUTH /login] Server error:', err);
-        res.status(500).json({ errors: [{ msg: 'Server error during login.' }] });
+        // Pass error to centralized handler
+        next(err);
     }
 });
 

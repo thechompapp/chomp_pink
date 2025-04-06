@@ -1,65 +1,146 @@
 // src/pages/Lists/MyLists.jsx
-import React, { useState, useMemo, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import ListCard from '@/pages/Lists/ListCard'; // Path was correct
+import React, { useState, useCallback, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { listService } from '@/services/listService';
+import useAuthStore from '@/stores/useAuthStore';
+import Button from "@/components/Button";
 import * as Tabs from '@radix-ui/react-tabs';
 import ErrorMessage from '@/components/UI/ErrorMessage';
-import Button from '@/components/Button';
-import apiClient from '@/utils/apiClient';
-import ListCardSkeleton from '@/pages/Lists/ListCardSkeleton'; // <<< CORRECTED PATH
-import { Loader2 } from 'lucide-react';
+import ListCard from '@/pages/Lists/ListCard'; // Path verified
+import ListCardSkeleton from '@/pages/Lists/ListCardSkeleton'; // Path verified
+import { Loader2, ListPlus, Heart } from "lucide-react";
+import { Link } from 'react-router-dom';
 
-const ITEMS_PER_PAGE = 9;
-
-// Fetcher function (remains the same)
-const fetchListsByType = async (fetchType) => { /* ... */ };
+// Define fetcher function outside component for stable reference
+const fetchListsByType = async (fetchType) => {
+    console.log(`[Fetcher] Fetching lists with type: ${fetchType} via service`);
+    try {
+        const params = fetchType === 'created' ? { createdByUser: true } : { followedByUser: true };
+        const data = await listService.getLists(params);
+        console.log(`[Fetcher] Fetched ${data?.length ?? 0} lists for type: ${fetchType}`);
+        return Array.isArray(data) ? data : []; // Ensure array return
+    } catch (error) {
+        console.error(`[Fetcher] Error fetching ${fetchType} lists:`, error);
+        throw new Error(error.message || `Failed to load ${fetchType} lists.`);
+    }
+};
 
 const MyLists = () => {
-    // Hooks, state, callbacks (remain the same)
-    const [visibleCounts, setVisibleCounts] = useState({ created: ITEMS_PER_PAGE, followed: ITEMS_PER_PAGE });
+    const queryClient = useQueryClient();
     const [activeTab, setActiveTab] = useState('created');
-    const { data: userLists = [], isLoading: isLoadingUser, isError: isErrorUser, error: errorUser, refetch: refetchUserLists } = useQuery({ queryKey: ['userLists', 'created'], queryFn: () => fetchListsByType('created'), staleTime: 5 * 60 * 1000 });
-    const { data: followedLists = [], isLoading: isLoadingFollowed, isError: isErrorFollowed, error: errorFollowed, refetch: refetchFollowedLists } = useQuery({ queryKey: ['userLists', 'followed'], queryFn: () => fetchListsByType('followed'), staleTime: 5 * 60 * 1000 });
-    const visibleUserLists = useMemo(() => userLists.slice(0, visibleCounts.created), [userLists, visibleCounts.created]);
-    const visibleFollowedLists = useMemo(() => followedLists.slice(0, visibleCounts.followed), [followedLists, visibleCounts.followed]);
-    const handleLoadMore = useCallback((type) => { /* ... */ }, []);
-    const handleTabChange = useCallback((value) => { /* ... */ }, []);
+    // Select auth state separately
+    const isAuthenticated = useAuthStore(state => state.isAuthenticated);
+    const user = useAuthStore(state => state.user);
 
-    // Ensure renderListContent uses the corrected ListCardSkeleton import
-    const renderListContent = useCallback((allLists, visibleLists, isLoading, isError, error, type, refetchAction) => {
+    // --- React Query Hooks ---
+    // Ensure queryFn is a stable function reference.
+    // Using an inline arrow function is generally stable enough for queryFn,
+    // but explicitly using the stable fetcher defined outside removes any doubt.
+    const {
+        data: userLists = [],
+        isLoading: isLoadingUser,
+        isError: isErrorUser,
+        error: errorUser,
+        refetch: refetchUserLists
+    } = useQuery({
+        queryKey: ['userLists', 'created'],
+        queryFn: () => fetchListsByType('created'), // Pass stable function directly
+        staleTime: 5 * 60 * 1000,
+        refetchOnWindowFocus: true,
+        placeholderData: [],
+    });
+
+    const {
+        data: followedLists = [],
+        isLoading: isLoadingFollowed,
+        isError: isErrorFollowed,
+        error: errorFollowed,
+        refetch: refetchFollowedLists
+    } = useQuery({
+        queryKey: ['userLists', 'followed'],
+        queryFn: () => fetchListsByType('followed'), // Pass stable function directly
+        staleTime: 5 * 60 * 1000,
+        refetchOnWindowFocus: true,
+        placeholderData: [],
+    });
+
+    const handleTabChange = useCallback((value) => {
+        setActiveTab(value);
+        // Prefetching logic (optional, keep if desired)
+        // ...
+    }, [queryClient]); // queryClient is stable
+
+    // Render function callback - Pass auth state as args
+    const renderListContent = useCallback((allLists, isLoading, isError, error, type, refetchAction, authStatus, currentUser) => {
         if (isLoading) {
             return (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 place-items-start">
-                    {/* Ensure ListCardSkeleton (correctly imported) is used */}
-                    {[...Array(ITEMS_PER_PAGE)].map((_, index) => <ListCardSkeleton key={`skel-${type}-${index}`} />)}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 place-items-start">
+                    {[...Array(5)].map((_, index) => <ListCardSkeleton key={`skel-${type}-${index}`} />)}
                 </div>
             );
         }
-        // ... rest of renderListContent remains the same ...
-         if (isError) { const allowRetry = error?.message !== 'Session expired or invalid. Please log in again.'; return ( <ErrorMessage message={error?.message || `Error loading ${type} lists.`} onRetry={allowRetry ? refetchAction : undefined} isLoadingRetry={isLoading} /> ); }
-         if (!allLists || allLists.length === 0) { return ( <p className="text-gray-500 text-center py-10"> You haven't {type === 'created' ? 'created any' : 'followed any'} lists yet. </p> ); }
-         if (!Array.isArray(allLists)) { console.error(`[MyLists renderListContent] Invalid data format for ${type} lists:`, allLists); return <ErrorMessage message={`Error: Invalid list data format for ${type} lists.`} />; }
-         const canLoadMore = visibleLists.length < allLists.length;
-         return ( <div> <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 place-items-start"> {visibleLists.map(list => ( <ListCard key={`list-${type}-${list.id}`} {...list} /> ))} </div> {canLoadMore && ( <div className="text-center mt-6"> <Button variant="primary" onClick={() => handleLoadMore(type)} disabled={ (type === 'created' && isLoadingUser) || (type === 'followed' && isLoadingFollowed) } > {(type === 'created' && isLoadingUser) || (type === 'followed' && isLoadingFollowed) ? <Loader2 className="animate-spin h-5 w-5" /> : 'Load More' } </Button> </div> )} </div> );
-    }, [handleLoadMore, isLoadingUser, isLoadingFollowed]);
 
-    // Main render (remains the same)
+        if (isError) {
+            // Error handling...
+             return ( <ErrorMessage message={error?.message || `Error loading ${type} lists.`} onRetry={refetchAction} isLoadingRetry={isLoading} containerClassName="mt-4" /> );
+        }
+
+        if (!allLists || allLists.length === 0) {
+            // No lists message...
+             return ( <p className="text-gray-500 text-center py-10"> /* ... */ </p> );
+        }
+
+        return (
+            <div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 place-items-start">
+                    {allLists.map(list => {
+                        // Calculate showFollowButton using passed args
+                        const showFollow = authStatus && !!currentUser && list.user_id !== currentUser.id;
+                        // Logging for debug (optional)
+                        // console.log(`[MyLists render] List ID: ${list.id}, showFollow: ${showFollow}`);
+                        return (
+                            <ListCard
+                                key={`list-${type}-${list.id}`}
+                                {...list}
+                                showFollowButton={showFollow}
+                            />
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    }, []); // No dependencies needed inside if auth state is passed as args
+
     return (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
-            {/* ... Title, Tabs.Root, Tabs.List ... */}
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-6">My Lists</h1>
-             <Tabs.Root value={activeTab} onValueChange={handleTabChange} className="mb-6">
-                 <Tabs.List className="flex border-b border-gray-200 mb-4">
-                      <Tabs.Trigger value="created" className="py-2 px-4 text-sm font-medium text-gray-500 data-[state=active]:text-[#A78B71] data-[state=active]:border-b-2 data-[state=active]:border-[#A78B71] focus:outline-none focus:ring-1 focus:ring-[#D1B399] focus:z-10 transition-colors"> Created Lists ({isLoadingUser ? '...' : userLists.length}) </Tabs.Trigger>
-                      <Tabs.Trigger value="followed" className="py-2 px-4 text-sm font-medium text-gray-500 data-[state=active]:text-[#A78B71] data-[state=active]:border-b-2 data-[state=active]:border-[#A78B71] focus:outline-none focus:ring-1 focus:ring-[#D1B399] focus:z-10 transition-colors"> Followed Lists ({isLoadingFollowed ? '...' : followedLists.length}) </Tabs.Trigger>
-                 </Tabs.List>
-                 <Tabs.Content value="created" className="focus:outline-none pt-4">
-                    {renderListContent(userLists, visibleUserLists, isLoadingUser, isErrorUser, errorUser, 'created', refetchUserLists)}
-                 </Tabs.Content>
-                 <Tabs.Content value="followed" className="focus:outline-none pt-4">
-                   {renderListContent(followedLists, visibleFollowedLists, isLoadingFollowed, isErrorFollowed, errorFollowed, 'followed', refetchFollowedLists)}
-                 </Tabs.Content>
-             </Tabs.Root>
+        <div className="container mx-auto px-4 py-8">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">My Lists</h1>
+                 <Link to="/lists/new">
+                     <Button variant="primary" size="sm" className="flex items-center gap-1.5">
+                         <ListPlus size={16} /> Create New List
+                     </Button>
+                </Link>
+            </div>
+
+            <Tabs.Root value={activeTab} onValueChange={handleTabChange} className="mb-6">
+                <Tabs.List className="flex border-b border-gray-200 mb-4">
+                     <Tabs.Trigger value="created" className={`flex items-center gap-1.5 py-2 px-4 text-sm font-medium rounded-t-md focus:outline-none focus:ring-1 focus:ring-[#D1B399] focus:z-10 transition-colors ${activeTab === 'created' ? 'text-[#A78B71] border-b-2 border-[#A78B71]' : 'text-gray-500 hover:text-gray-700 border-b-2 border-transparent'}`}>
+                         <ListPlus size={14} /> Created ({isLoadingUser ? '...' : (userLists?.length ?? 0)})
+                    </Tabs.Trigger>
+                    <Tabs.Trigger value="followed" className={`flex items-center gap-1.5 py-2 px-4 text-sm font-medium rounded-t-md focus:outline-none focus:ring-1 focus:ring-[#D1B399] focus:z-10 transition-colors ${activeTab === 'followed' ? 'text-[#A78B71] border-b-2 border-[#A78B71]' : 'text-gray-500 hover:text-gray-700 border-b-2 border-transparent'}`}>
+                         <Heart size={14} /> Followed ({isLoadingFollowed ? '...' : (followedLists?.length ?? 0)})
+                    </Tabs.Trigger>
+                </Tabs.List>
+
+                <Tabs.Content value="created" className="focus:outline-none pt-4">
+                    {/* Pass auth state into render function */}
+                    {renderListContent(userLists, isLoadingUser, isErrorUser, errorUser, 'created', refetchUserLists, isAuthenticated, user)}
+                </Tabs.Content>
+                <Tabs.Content value="followed" className="focus:outline-none pt-4">
+                    {/* Pass auth state into render function */}
+                    {renderListContent(followedLists, isLoadingFollowed, isErrorFollowed, errorFollowed, 'followed', refetchFollowedLists, isAuthenticated, user)}
+                </Tabs.Content>
+            </Tabs.Root>
         </div>
     );
 };

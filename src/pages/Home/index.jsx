@@ -1,23 +1,21 @@
 // src/pages/Home/index.jsx
-import React, { memo } from "react";
-import useUIStateStore from '@/stores/useUIStateStore.js';
-// Removed AuthStore import as debug logs are removed
-import SearchBar from "@/components/UI/SearchBar";
-import FilterSection from "@/pages/Home/FilterSection";
-import Results from "@/pages/Home/Results";
+import React from 'react';
+import Results from './Results';
+import FilterSection from '@/components/FilterSection';
 
-const Home = memo(() => {
-  const setSearchQuery = useUIStateStore((state) => state.setSearchQuery);
-
-  // Removed console.log for debug and render
-
+const Home = () => {
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      <SearchBar onSearch={setSearchQuery} />
-      <FilterSection />
-      <Results />
+    // Add container and mx-auto here to constrain the Home page content width
+    <div className="container mx-auto px-4"> {/* Apply container centering and padding */}
+      {/* Vertical stacking layout */}
+      <div className="mb-6 lg:mb-8">
+        <FilterSection />
+      </div>
+      <div>
+        <Results />
+      </div>
     </div>
   );
-});
+};
 
 export default Home;

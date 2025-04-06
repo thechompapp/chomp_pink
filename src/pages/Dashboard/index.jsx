@@ -1,232 +1,193 @@
 // src/pages/Dashboard/index.jsx
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react"; // Added useMemo
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import useSubmissionStore from '@/stores/useSubmissionStore';
-import useTrendingStore from '@/stores/useTrendingStore';
+// Corrected: Import the service, not the store, for fetching
+import { submissionService } from '@/services/submissionService';
+// Removed apiClient import - use service instead
+// import { API_BASE_URL } from '@/config'; // No longer needed
 import Button from "@/components/Button";
-import { CheckCircle, XCircle, Loader2, AlertTriangle } from "lucide-react"; // Added AlertTriangle for error state
-import { API_BASE_URL } from '@/config';
-import LoadingSpinner from "@/components/UI/LoadingSpinner"; // Keep for specific states
+import { CheckCircle, XCircle, Loader2, AlertTriangle } from "lucide-react";
 import ErrorMessage from "@/components/UI/ErrorMessage";
-import SubmissionSkeleton from "@/pages/Dashboard/SubmissionSkeleton"; // Corrected import path
+import SubmissionSkeleton from "@/pages/Dashboard/SubmissionSkeleton";
 
-// Fetcher Function
+// Fetcher Function now uses the service
 const fetchPendingSubmissionsData = async () => {
-  console.log('[Dashboard] Fetching pending submissions...');
-  try {
-    const data = await apiClient('/api/submissions?status=pending', 'Dashboard Submissions');
-    console.log(`[Dashboard] Received ${Array.isArray(data) ? data.length : 0} pending submissions.`);
-    return Array.isArray(data) ? data : []; // Ensure array is returned
-  } catch (err) {
-    console.error('[Dashboard] Error fetching submissions:', err);
-    // Let React Query handle the error state
-    throw new Error(err.message || 'Failed to load submissions');
-  }
+  console.log('[Dashboard] Fetching pending submissions via service...');
+  // <<< USE SERVICE >>>
+  const data = await submissionService.getPendingSubmissions();
+  // Service already ensures array format and handles basic errors
+  console.log(`[Dashboard] Received ${data.length} pending submissions via service.`);
+  return data;
 };
 
 // Component Definition
 const Dashboard = React.memo(() => {
   const queryClient = useQueryClient();
 
+  // React Query setup (queryFn uses the updated fetcher)
   const {
-      data: pendingSubmissions = [], // Default to empty array
+      data: pendingSubmissions = [],
       isLoading: isLoadingSubmissions,
       isError: isFetchError,
       error: fetchError,
       refetch
   } = useQuery({
-      queryKey: ['pendingSubmissions'], // Unique query key
-      queryFn: fetchPendingSubmissionsData,
-      staleTime: 2 * 60 * 1000, // Stale after 2 minutes
+      queryKey: ['pendingSubmissions'], // Unique query key remains
+      queryFn: fetchPendingSubmissionsData, // Use the service-based fetcher
+      staleTime: 2 * 60 * 1000,
+      refetchOnWindowFocus: true, // Refetch on focus for potential updates
   });
 
   // Store actions and local state
   const approveSubmission = useSubmissionStore(state => state.approveSubmission);
   const rejectSubmission = useSubmissionStore(state => state.rejectSubmission);
-  const storeError = useSubmissionStore(state => state.error); // Error from store actions
-  const clearStoreError = useSubmissionStore(state => state.clearError); // Action to clear store error
-  // Note: trendingItems is not directly used in rendering logic anymore
-  // const trendingItems = useTrendingStore(state => state.trendingItems);
+  const storeError = useSubmissionStore(state => state.error);
+  const clearStoreError = useSubmissionStore(state => state.clearError);
 
-  // State for UI feedback/control during actions
-  const [mergeTarget, setMergeTarget] = useState(null);
+  // UI State
   const [processingId, setProcessingId] = useState(null);
-
+  // State to keep track of which action is processing for which ID
+  const [actionType, setActionType] = useState(null); // 'approve' or 'reject'
 
   // --- Callbacks ---
 
-   // Helper to find potential duplicates (using cached trending data or fetched data)
-   const findDuplicates = useCallback((submission) => {
-       // Logic might need refinement - depends on what data 'trendingItems' holds
-       // For now, assuming simple name & type matching against fetched submissions
-       return pendingSubmissions.filter(
-            (other) =>
-                other.id !== submission.id &&
-                other.type === submission.type &&
-                other.name.toLowerCase() === submission.name.toLowerCase()
-            // Optionally add city/neighborhood check
-            // && other.city?.toLowerCase() === submission.city?.toLowerCase()
-       );
-   }, [pendingSubmissions]); // Depend on fetched submissions
+  // Unified action handler
+  const handleAction = useCallback(async (type, submissionId) => {
+    if (processingId) return; // Prevent multiple actions at once
+    setProcessingId(submissionId);
+    setActionType(type); // Set the type of action being processed
+    clearStoreError();
 
-   // Unified action handler
-   const handleAction = useCallback(async (actionType, submissionId) => {
-     if (processingId) return; // Prevent multiple actions at once
-     setProcessingId(submissionId);
-     clearStoreError(); // Clear previous store errors
+    const actionFn = type === 'approve' ? approveSubmission : rejectSubmission;
 
-     const actionFn = actionType === 'approve' ? approveSubmission : rejectSubmission;
+    try {
+      // Use the store action which now calls the service internally
+      await actionFn(submissionId);
+      // Store action already invalidates queries on success
+    } catch (err) {
+      // Error state is set within the store action
+      console.error(`[Dashboard] Store Action ${type} failed for ${submissionId}:`, err.message);
+      // No need to set local error, storeError will be updated
+    } finally {
+      setProcessingId(null);
+      setActionType(null); // Clear the action type
+    }
+  }, [approveSubmission, rejectSubmission, processingId, clearStoreError]); // Dependencies
 
-     try {
-       await actionFn(submissionId);
-       // Query invalidation is good practice, but store might update pendingSubmissions directly
-       // If store removes the item on success, invalidation might not be strictly needed immediately
-       // queryClient.invalidateQueries({ queryKey: ['pendingSubmissions'] });
-     } catch (err) {
-       // Error state is set within the store action (approve/reject)
-       console.error(`[Dashboard] Action ${actionType} failed for ${submissionId}:`, err);
-     } finally {
-       setProcessingId(null);
-       setMergeTarget(null); // Reset merge target if any
-     }
-   }, [approveSubmission, rejectSubmission, processingId, clearStoreError]); // Add clearStoreError
+  const handleApprove = useCallback((submissionId) => {
+    handleAction('approve', submissionId);
+  }, [handleAction]);
 
-   const handleApprove = useCallback((submissionId) => {
-     handleAction('approve', submissionId);
-   }, [handleAction]);
-
-   const handleReject = useCallback((submissionId) => {
-     handleAction('reject', submissionId);
-   }, [handleAction]);
-
-   const handleMerge = useCallback((submission) => {
-       // Logic for handling merge (e.g., finding target, approving/rejecting)
-       // This needs further definition based on requirements
-       console.log("Merge action clicked for:", submission);
-       setMergeTarget(submission); // Example: set target for potential further actions
-       // Might need to show a modal or specific UI for merge confirmation/target selection
-   }, []);
-
+  const handleReject = useCallback((submissionId) => {
+    handleAction('reject', submissionId);
+  }, [handleAction]);
 
   // --- Render Logic ---
-  const displayError = storeError || fetchError?.message; // Show store error first, then fetch error
+  const displayError = storeError || fetchError?.message;
+
+  // Memoize the list rendering to avoid re-renders if pendingSubmissions array reference hasn't changed
+  const renderedSubmissions = useMemo(() => {
+      return pendingSubmissions.map((submission) => {
+          // Find duplicates logic can be kept if needed
+          // const duplicates = findDuplicates(submission);
+          const isProcessingThis = processingId === submission.id;
+          const isApproving = isProcessingThis && actionType === 'approve';
+          const isRejecting = isProcessingThis && actionType === 'reject';
+
+          return (
+              <div key={submission.id} className={`bg-white p-4 rounded-lg shadow-sm border border-gray-100`}>
+                  {/* Submission Info */}
+                  <div className="flex flex-col sm:flex-row justify-between sm:items-start mb-3 gap-2">
+                      <div>
+                          <h3 className="text-base font-semibold text-gray-900 break-words">{submission.name}</h3>
+                          <p className="text-sm text-gray-600 capitalize">Type: {submission.type}</p>
+                          {/* Combine location fields */}
+                          <p className="text-sm text-gray-500">
+                              Location: {submission.location || `${submission.neighborhood || ''}${submission.neighborhood && submission.city ? ', ' : ''}${submission.city || ''}` || 'N/A'}
+                          </p>
+                          {submission.place_id && <p className="text-xs text-gray-400 mt-1">Place ID: {submission.place_id}</p>}
+                      </div>
+                      <p className="text-xs text-gray-400 mt-1 sm:mt-0 flex-shrink-0">
+                          Submitted: {new Date(submission.created_at).toLocaleDateString()}
+                      </p>
+                  </div>
+
+                  {/* Tags */}
+                  {Array.isArray(submission.tags) && submission.tags.length > 0 && (
+                      <div className="mb-3 flex flex-wrap gap-1">
+                          {submission.tags.map(tag => (
+                              <span key={tag} className="px-2 py-0.5 bg-gray-100 rounded-full text-xs text-gray-600">#{tag}</span>
+                          ))}
+                      </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-100 mt-3">
+                      <Button
+                          variant="primary" size="sm"
+                          onClick={() => handleApprove(submission.id)}
+                          disabled={isProcessingThis} // Disable if *any* action on this item is processing
+                          className="flex items-center justify-center w-[100px]" // Fixed width for consistency
+                      >
+                          {isApproving ? <Loader2 className="animate-spin h-4 w-4" /> : <CheckCircle size={16} className="mr-1" />}
+                          {isApproving ? '...' : 'Approve'}
+                      </Button>
+                      <Button
+                          variant="tertiary" size="sm"
+                          onClick={() => handleReject(submission.id)}
+                          disabled={isProcessingThis} // Disable if *any* action on this item is processing
+                          className="text-red-600 hover:bg-red-50 flex items-center justify-center w-[90px]" // Fixed width
+                      >
+                          {isRejecting ? <Loader2 className="animate-spin h-4 w-4" /> : <XCircle size={16} className="mr-1" />}
+                          {isRejecting ? '...' : 'Reject'}
+                      </Button>
+                      {/* Merge button - Add logic later if needed */}
+                  </div>
+              </div>
+          );
+      });
+  }, [pendingSubmissions, processingId, actionType, handleApprove, handleReject]); // Dependencies for memoization
+
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-6">Pending Submissions</h1>
+      <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-6">Pending Submissions</h1>
 
-        {/* Display General Fetch Error (if query fails) */}
-        {isFetchError && !isLoadingSubmissions && (
-             <ErrorMessage
-                 message={fetchError?.message || 'Error loading submissions.'}
-                 onRetry={refetch}
-                 isLoadingRetry={isLoadingSubmissions}
-                 containerClassName="mb-4"
-             />
-        )}
-        {/* Display Action Error (from store) */}
-        {storeError && (
-           <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm flex justify-between items-center" role="alert">
-             <span className="flex items-center"><AlertTriangle size={16} className="mr-2"/> {storeError}</span>
-             <button
-                 onClick={clearStoreError}
-                 className="text-red-700 hover:text-red-900 font-bold text-lg"
-                 aria-label="Clear error"
-             >
-                 &times;
-             </button>
-           </div>
-         )}
+      {/* General Fetch Error */}
+      {isFetchError && !isLoadingSubmissions && (
+        <ErrorMessage
+          message={fetchError?.message || 'Error loading submissions.'}
+          onRetry={refetch}
+          isLoadingRetry={isLoadingSubmissions}
+          containerClassName="mb-4"
+        />
+      )}
+      {/* Action Error (from store) */}
+      {storeError && (
+        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm flex justify-between items-center" role="alert">
+          <span className="flex items-center"><AlertTriangle size={16} className="mr-2" /> {storeError}</span>
+          <button onClick={clearStoreError} className="text-red-700 hover:text-red-900 font-bold text-lg" aria-label="Clear error">&times;</button>
+        </div>
+      )}
 
-        {/* Loading State: Use Skeletons */}
-        {isLoadingSubmissions ? (
-          <div className="space-y-4">
-              <SubmissionSkeleton />
-              <SubmissionSkeleton />
-              <SubmissionSkeleton />
-          </div>
-        // Empty State
-        ) : !isFetchError && pendingSubmissions.length === 0 ? (
-          <div className="text-center py-10 bg-white border border-gray-200 rounded-lg shadow-sm">
-            <CheckCircle className="h-12 w-12 text-green-400 mx-auto mb-3" />
-            <p className="text-gray-500">No pending submissions to review.</p>
-          </div>
-        // Display Submissions List/Table
-        ) : (
-          <div className="space-y-4">
-            {pendingSubmissions.map((submission) => {
-               const duplicates = findDuplicates(submission);
-               const isProcessing = processingId === submission.id;
-                return (
-                     <div key={submission.id} className={`bg-white p-4 rounded-lg shadow-sm border ${duplicates.length > 0 ? 'border-amber-300 bg-amber-50' : 'border-gray-100'}`}>
-                         {/* Submission Info */}
-                         <div className="flex flex-col sm:flex-row justify-between sm:items-start mb-3 gap-2">
-                             <div>
-                                 <h3 className="text-base font-semibold text-gray-900">{submission.name}</h3>
-                                 <p className="text-sm text-gray-600 capitalize">Type: {submission.type}</p>
-                                 <p className="text-sm text-gray-500">Location: {submission.location || `${submission.neighborhood}, ${submission.city}` || 'N/A'}</p>
-                                 {submission.place_id && <p className="text-xs text-gray-400 mt-1">Place ID: {submission.place_id}</p>}
-                             </div>
-                             <p className="text-xs text-gray-400 mt-1 sm:mt-0 flex-shrink-0">
-                                 Submitted: {new Date(submission.created_at).toLocaleDateString()}
-                             </p>
-                         </div>
-
-                         {/* Tags */}
-                         {Array.isArray(submission.tags) && submission.tags.length > 0 && (
-                           <div className="mb-3 flex flex-wrap gap-1">
-                             {submission.tags.map(tag => (
-                               <span key={tag} className="px-2 py-0.5 bg-gray-100 rounded-full text-xs text-gray-600">#{tag}</span>
-                             ))}
-                           </div>
-                         )}
-
-                          {/* Duplicate Warning */}
-                         {duplicates.length > 0 && (
-                             <div className="mb-3 p-2 bg-amber-100 border border-amber-200 rounded text-xs text-amber-700 flex items-center">
-                                 <AlertTriangle size={14} className="mr-1.5 flex-shrink-0"/>
-                                 Potential duplicate found.
-                                 {/* Optionally list duplicates: {duplicates.map(d => d.id).join(', ')} */}
-                             </div>
-                         )}
-
-                         {/* Actions */}
-                         <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-100 mt-3">
-                             <Button
-                                 variant="primary" size="sm"
-                                 onClick={() => handleApprove(submission.id)}
-                                 disabled={isProcessing}
-                             >
-                                 {isProcessing && actionType === 'approve' ? <Loader2 className="animate-spin h-4 w-4 mr-1" /> : <CheckCircle size={16} className="mr-1" />}
-                                 Approve
-                             </Button>
-                             <Button
-                                 variant="tertiary" size="sm"
-                                 onClick={() => handleReject(submission.id)}
-                                 disabled={isProcessing}
-                                 className="text-red-600 hover:bg-red-50"
-                             >
-                                 {isProcessing && actionType === 'reject' ? <Loader2 className="animate-spin h-4 w-4 mr-1" /> : <XCircle size={16} className="mr-1" />}
-                                 Reject
-                             </Button>
-                              {/* Merge button - conditionally shown or always visible */}
-                             {duplicates.length > 0 && (
-                                 <Button
-                                     variant="tertiary" size="sm"
-                                     onClick={() => handleMerge(submission)}
-                                     disabled={isProcessing}
-                                     className="text-blue-600 hover:bg-blue-50"
-                                 >
-                                      {/* Add appropriate icon? */}
-                                     Merge...
-                                 </Button>
-                             )}
-                         </div>
-                     </div>
-                );
-            })}
-          </div>
-        )}
+      {/* Loading State: Skeletons */}
+      {isLoadingSubmissions ? (
+        <div className="space-y-4">
+          {[...Array(3)].map((_, i) => <SubmissionSkeleton key={i} />)}
+        </div>
+      // Empty State
+      ) : !isFetchError && pendingSubmissions.length === 0 ? (
+        <div className="text-center py-10 bg-white border border-gray-200 rounded-lg shadow-sm">
+          <CheckCircle className="h-12 w-12 text-green-400 mx-auto mb-3" />
+          <p className="text-gray-500">No pending submissions to review.</p>
+        </div>
+      // Display Submissions List
+      ) : (
+        <div className="space-y-4">
+          {renderedSubmissions}
+        </div>
+      )}
     </div>
   );
 });

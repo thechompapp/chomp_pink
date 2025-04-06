@@ -1,21 +1,16 @@
 // src/layouts/PageContainer.jsx
-import React from "react";
-import Navbar from "@/layouts/Navbar"; // Absolute import
-import FloatingQuickAdd from "@/components/FloatingQuickAdd"; // Absolute import
-import ErrorBoundary from "@/components/ErrorBoundary"; // *** IMPORT ErrorBoundary ***
-import { Outlet } from "react-router-dom";
+import React from 'react';
+import { Outlet } from 'react-router-dom';
+import Navbar from './Navbar';
 
 const PageContainer = () => {
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen bg-gray-100">
       <Navbar />
-      {/* Wrap the Outlet (which renders the page content) with ErrorBoundary */}
-      <main className="flex-1">
-        <ErrorBoundary> {/* *** WRAP Outlet *** */}
-          <Outlet />
-        </ErrorBoundary> {/* *** END WRAP *** */}
+      {/* Ensure padding exists on the main content area */}
+      <main className="flex-grow w-full p-4 md:p-6"> {/* Added responsive padding */}
+        <Outlet />
       </main>
-      <FloatingQuickAdd />
     </div>
   );
 };

@@ -1,7 +1,7 @@
 // src/stores/useTrendingStore.js
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import apiClient from '@/utils/apiClient'; // Corrected import path
+import apiClient from '@/services/apiClient.js'; // Corrected import path
 
 // Note: Data fetching logic was moved to Trending.jsx using useQuery.
 // This store might be redundant unless it handles other trending-related state.

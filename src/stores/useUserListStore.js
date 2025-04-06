@@ -1,204 +1,145 @@
 // src/stores/useUserListStore.js
 import { create } from 'zustand';
-import { devtools, persist, createJSONStorage } from 'zustand/middleware';
-import apiClient from '@/utils/apiClient';
-import { queryClient } from '@/queryClient'; // Import queryClient
+import { devtools } from 'zustand/middleware'; // Removed persist
+import { listService } from '@/services/listService';
+import { queryClient } from '@/queryClient';
 
-// Helper function to ensure safety of arrays
+// Helper functions (Keep as is)
 const ensureArray = (arr) => Array.isArray(arr) ? arr : [];
-
-// Helper to invalidate relevant list queries
-const invalidateListQueries = (listId = null) => {
-    console.log(`[UserListStore] Invalidating list queries. ListID specific: ${listId}`);
-    queryClient.invalidateQueries({ queryKey: ['userLists'] }); // Invalidate main list queries (created/followed)
-    if (listId) {
-        queryClient.invalidateQueries({ queryKey: ['listDetails', listId] }); // Invalidate specific list detail
-    }
-};
-
+const invalidateListQueries = (listId = null) => { /* ... */ };
 
 const useUserListStore = create(
-  devtools(
-    persist(
-      (set, get) => ({
-        userLists: [],
-        followedLists: [],
-        allLists: [], // Holds a combined view, potentially useful
-        isLoading: false, // General loading state for list operations
-        isAddingToList: false, // Specific state for add operation
-        isRemovingItem: false, // Specific state for remove operation
-        error: null,
+    devtools(
+        (set, get) => ({
+            // State: Removed persisted state, now relies on React Query primarily
+            // We might still keep a simple error/loading state for actions
+            isAddingToList: false,
+            isRemovingItem: null, // Store the ID of the item being removed
+            isTogglingFollow: null, // Store the ID of the list being followed/unfollowed
+            isUpdatingVisibility: null, // Store the ID of the list being updated
+            error: null, // Action-specific error
 
-        clearError: () => set({ error: null }),
+            // Actions
+            clearError: () => set({ error: null }),
 
-        fetchUserLists: async () => {
-          // ... (fetch logic remains the same) ...
-          if (get().isLoading) return; // Prevent concurrent fetches
-          console.log('[UserListStore] Fetching user lists...');
-          set({ isLoading: true, error: null });
-          try {
-            const [createdData, followedData] = await Promise.all([
-              apiClient('/api/lists?createdByUser=true', 'Fetch User Created Lists'),
-              apiClient('/api/lists?followedByUser=true', 'Fetch User Followed Lists')
-            ]);
-            const safeCreatedLists = ensureArray(createdData);
-            const safeFollowedLists = ensureArray(followedData);
-            console.log(`[UserListStore] Fetched ${safeCreatedLists.length} created, ${safeFollowedLists.length} followed lists.`);
-            const combinedMap = new Map();
-            safeCreatedLists.forEach(list => combinedMap.set(list.id, list));
-            safeFollowedLists.forEach(list => combinedMap.set(list.id, list));
-            const allCombinedLists = Array.from(combinedMap.values());
-            set({
-              userLists: safeCreatedLists,
-              followedLists: safeFollowedLists,
-              allLists: allCombinedLists,
-              isLoading: false,
-            });
-            return { created: safeCreatedLists, followed: safeFollowedLists };
-          } catch (err) {
-            console.error('[UserListStore] Error fetching user lists:', err);
-            if (err.message !== 'Session expired or invalid. Please log in again.') {
-                set({ isLoading: false, error: err.message || 'Failed to fetch lists' });
-            } else {
-                 set({ isLoading: false });
-            }
-            throw err;
-          }
-        },
+            // Note: fetchUserLists is now primarily handled by useQuery in MyLists.jsx
+            // This store focuses on MUTATIONS (add, remove, follow, visibility)
 
-        addToList: async ({ item, listId, createNew = false, listData = {} }) => {
-          // ... (logic remains the same until success) ...
-           if (!item && !createNew) {
-             throw new Error("Item or createNew flag is required.");
-          }
-          set({ isAddingToList: true, error: null });
-          console.log('[UserListStore] addToList called:', { item, listId, createNew, listData });
-          try {
-             let targetListId = listId;
-             if (createNew) {
-                 console.log('[UserListStore] Creating new list with data:', listData);
-                 const newList = await apiClient('/api/lists', 'Create List', {
-                    method: 'POST',
-                    body: JSON.stringify({ name: listData.name, description: listData.description, is_public: listData.is_public, tags: listData.tags }),
-                 });
-                 if (!newList || !newList.id) throw new Error('Failed to create new list.');
-                 targetListId = newList.id;
-                 console.log('[UserListStore] New list created, ID:', targetListId);
-                  set(state => ({
-                     userLists: [...state.userLists, newList],
-                     allLists: [...state.allLists, newList],
-                  }));
-             }
-             if (item && item.id && item.type && targetListId) {
-                  console.log(`[UserListStore] Adding item ${item.type}:${item.id} to list ${targetListId}`);
-                  await apiClient(`/api/lists/${targetListId}/items`, 'Add Item to List', {
-                     method: 'POST',
-                     body: JSON.stringify({ item_id: item.id, item_type: item.type }),
-                  });
-                   console.log(`[UserListStore] Item ${item.type}:${item.id} added successfully to list ${targetListId}`);
-                   set(state => ({ // Update count locally
-                      userLists: state.userLists.map(l => l.id === targetListId ? { ...l, item_count: (l.item_count || 0) + 1 } : l),
-                      followedLists: state.followedLists.map(l => l.id === targetListId ? { ...l, item_count: (l.item_count || 0) + 1 } : l),
-                      allLists: state.allLists.map(l => l.id === targetListId ? { ...l, item_count: (l.item_count || 0) + 1 } : l),
-                   }));
-             }
-             // --- ADDED INVALIDATION ---
-             invalidateListQueries(targetListId); // Invalidate relevant queries
-             // --- END INVALIDATION ---
-             set({ isAddingToList: false });
-             return { success: true, listId: targetListId };
-          } catch (err) {
-             console.error('[UserListStore] Error in addToList:', err);
-             set({ isAddingToList: false, error: err.message || 'Operation failed' });
-             throw err;
-          }
-        },
+            addToList: async ({ item, listId, createNew = false, listData = {} }) => {
+                if (!item && !createNew) throw new Error("Item or createNew flag is required.");
+                set({ isAddingToList: true, error: null });
+                // Removed console log
+                try {
+                    let targetListId = listId;
+                    if (createNew) {
+                        // Removed console log
+                        const newList = await listService.createList({
+                            name: listData.name, description: listData.description,
+                            is_public: listData.is_public, tags: listData.tags,
+                        });
+                        if (!newList || !newList.id) throw new Error('Failed to create new list.');
+                        targetListId = newList.id;
+                        // Removed console log
+                        // Invalidate queries to refresh lists after creation
+                        queryClient.invalidateQueries({ queryKey: ['userLists', 'created'] });
+                    }
 
-        removeFromList: async (listId, listItemId) => {
-          // ... (logic remains the same until success) ...
-            if (!listId || !listItemId) {
-              throw new Error("List ID and List Item ID are required.");
-           }
-           set({ isRemovingItem: true, error: null });
-           console.log(`[UserListStore] Removing item ${listItemId} from list ${listId}`);
-           try {
-              await apiClient(`/api/lists/${listId}/items/${listItemId}`, 'Remove Item from List', { method: 'DELETE' });
-               console.log(`[UserListStore] Item ${listItemId} removed successfully from list ${listId}`);
-               set(state => { // Update state locally
-                  const updateList = (list) => { /* ... */ };
-                   return { /* ... */ isRemovingItem: false };
-               });
-                // --- ADDED INVALIDATION ---
-                invalidateListQueries(listId); // Invalidate relevant queries
-                // --- END INVALIDATION ---
-              return true;
-           } catch (err) {
-               console.error(`[UserListStore] Error removing item ${listItemId} from list ${listId}:`, err);
-               set({ isRemovingItem: false, error: err.message || 'Failed to remove item' });
-               throw err;
-           }
-        },
+                    let addedItemData = null;
+                    if (item && item.id && item.type && targetListId) {
+                        // Removed console log
+                        addedItemData = await listService.addItemToList(targetListId, { item_id: item.id, item_type: item.type });
+                        // Removed console log
+                        // Invalidate the specific list details query to update item count/list
+                        queryClient.invalidateQueries({ queryKey: ['listDetails', targetListId] });
+                        // Optionally invalidate the main lists query if item count is displayed there
+                        queryClient.invalidateQueries({ queryKey: ['userLists'] });
+                    }
 
-         // Update Follow Status (receives API response object now)
-        updateFollowStatus: (listId, apiResponse) => {
-           // ... (state update logic remains the same) ...
-             if (!apiResponse || typeof apiResponse.id === 'undefined') return;
-             const isNowFollowing = apiResponse.is_following;
-             console.log(`[UserListStore updateFollowStatus] Updating list ${listId} to is_following: ${isNowFollowing}`);
-             set(state => { /* ... state update logic ... */ });
-            // --- ADDED INVALIDATION ---
-            // Invalidate after state is updated (or before if preferred)
-            invalidateListQueries(listId);
-            // --- END INVALIDATION ---
-        },
+                    set({ isAddingToList: false });
+                    // Return details about what was added/created
+                    return { success: true, listId: targetListId, addedItem: addedItemData };
+                } catch (err) {
+                    console.error('[UserListStore] Error in addToList:', err);
+                    const message = err.response?.data?.error || err.message || 'Operation failed';
+                    set({ isAddingToList: false, error: message });
+                    throw new Error(message); // Re-throw for component handling
+                }
+            },
 
-        updateListVisibility: async (listId, isPublic) => {
-          // ... (logic remains the same until success) ...
-           if (!listId || typeof isPublic !== 'boolean') throw new Error("List ID and visibility flag are required.");
-           set({ isLoading: true, error: null });
-           console.log(`[UserListStore] Updating visibility for list ${listId} to ${isPublic}`);
-           try {
-              const updatedList = await apiClient(`/api/lists/${listId}/visibility`, 'Update List Visibility', {
-                 method: 'PUT',
-                 body: JSON.stringify({ is_public: isPublic }),
-              });
-              if (!updatedList || updatedList.id !== listId) throw new Error("Invalid response from visibility update API.");
-              console.log(`[UserListStore] Visibility updated successfully for list ${listId}`);
-              set(state => { // Update state locally
-                    const updateList = (list) => (list.id === listId ? { ...list, ...updatedList, is_public: isPublic } : list);
-                   return { /* ... */ isLoading: false };
-               });
-                // --- ADDED INVALIDATION ---
-                invalidateListQueries(listId); // Invalidate relevant queries
-                // --- END INVALIDATION ---
-               return updatedList;
-           } catch (err) {
-               console.error(`[UserListStore] Error updating visibility for list ${listId}:`, err);
-               set({ isLoading: false, error: err.message || 'Failed to update visibility' });
-               throw err;
-           }
-        },
+            removeFromList: async (listId, listItemId) => {
+                if (!listId || !listItemId) throw new Error("List ID and List Item ID are required.");
+                set({ isRemovingItem: listItemId, error: null }); // Store ID being removed
+                // Removed console log
+                try {
+                    await listService.removeItemFromList(listId, listItemId);
+                    // Removed console log
+                    // Invalidate queries to reflect removal
+                    queryClient.invalidateQueries({ queryKey: ['listDetails', listId] });
+                    queryClient.invalidateQueries({ queryKey: ['userLists'] }); // If item counts shown in list view
+                    set({ isRemovingItem: null });
+                    return true;
+                } catch (err) {
+                    console.error(`[UserListStore] Error removing item ${listItemId} from list ${listId}:`, err);
+                     const message = err.response?.data?.error || err.message || 'Failed to remove item';
+                    set({ isRemovingItem: null, error: message });
+                    throw new Error(message); // Re-throw
+                }
+            },
 
-        // Reset Store
-        resetStore: () => {
-            // ... (reset logic remains the same) ...
-             console.log('[UserListStore] Resetting store state.');
-            set({ userLists: [], followedLists: [], allLists: [], isLoading: false, isAddingToList: false, isRemovingItem: false, error: null }, true);
-        },
+            toggleFollow: async (listId) => { // Renamed for clarity
+                 if (!listId) throw new Error("List ID required.");
+                 set({ isTogglingFollow: listId, error: null }); // Store ID being toggled
+                 // Removed console log
+                 try {
+                     const updatedList = await listService.toggleFollow(listId);
+                     if (!updatedList || typeof updatedList.id === 'undefined') {
+                         throw new Error('Invalid response from follow toggle API');
+                     }
+                     // Removed console log
 
-      }),
-      {
-        name: 'user-lists-storage',
-        storage: createJSONStorage(() => localStorage),
-        partialize: (state) => ({
-          userLists: state.userLists,
-          followedLists: state.followedLists,
-          allLists: state.allLists,
+                     // Invalidate queries - let React Query handle the state update
+                     // No need for complex manual state updates here
+                     queryClient.invalidateQueries({ queryKey: ['listDetails', listId] });
+                     queryClient.invalidateQueries({ queryKey: ['userLists'] }); // Both created and followed might need update
+                     queryClient.invalidateQueries({ queryKey: ['trendingData'] }); // Trending lists might change
+                      queryClient.invalidateQueries({ queryKey: ['trendingDataHome'] });
+
+                     set({ isTogglingFollow: null });
+                     return updatedList; // Return updated list data
+                 } catch (err) {
+                      console.error(`[UserListStore toggleFollow] Error toggling follow for ${listId}:`, err);
+                      const message = err.response?.data?.error || err.message || 'Failed to toggle follow status';
+                      set({ isTogglingFollow: null, error: message });
+                      throw new Error(message); // Re-throw
+                 }
+            },
+
+            updateListVisibility: async (listId, isPublic) => {
+                if (!listId || typeof isPublic !== 'boolean') throw new Error("List ID and visibility flag are required.");
+                set({ isUpdatingVisibility: listId, error: null }); // Store ID being updated
+                // Removed console log
+                try {
+                    const updatedList = await listService.updateVisibility(listId, { is_public: isPublic });
+                    if (!updatedList || updatedList.id !== listId) throw new Error("Invalid response from visibility update API.");
+                    // Removed console log
+                    // Invalidate queries
+                    queryClient.invalidateQueries({ queryKey: ['listDetails', listId] });
+                    queryClient.invalidateQueries({ queryKey: ['userLists'] });
+
+                    set({ isUpdatingVisibility: null });
+                    return updatedList;
+                } catch (err) {
+                    console.error(`[UserListStore] Error updating visibility for list ${listId}:`, err);
+                     const message = err.response?.data?.error || err.message || 'Failed to update visibility';
+                    set({ isUpdatingVisibility: null, error: message });
+                    throw new Error(message); // Re-throw
+                }
+            },
+
         }),
-      }
-    ),
-    { name: 'UserListStore' }
-  )
+        { name: 'UserListStore' } // Devtools name
+    )
+    // Removed Persist middleware
 );
 
 export default useUserListStore;

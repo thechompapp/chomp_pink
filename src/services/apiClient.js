@@ -1,4 +1,4 @@
-// src/utils/apiClient.js
+// src/services/apiClient.js
 // Updated imports to use @ alias
 import useAuthStore from '@/stores/useAuthStore';
 import { API_BASE_URL } from '@/config';

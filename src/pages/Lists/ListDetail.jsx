@@ -1,10 +1,10 @@
 // src/pages/Lists/ListDetail.jsx
-import React, { memo, useCallback, useState, useMemo, useEffect } from 'react'; // Added useEffect
-import { useParams, useNavigate } from 'react-router-dom'; // Added useNavigate
-import { useQuery, useQueryClient } from '@tanstack/react-query'; // Added useQueryClient
-import apiClient from '@/utils/apiClient';
+import React, { memo, useCallback, useState, useMemo, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import apiClient from '@/services/apiClient.js'; // FIXED: Corrected import path
 import Button from '@/components/Button';
-import { Loader2, Trash2, SortAsc, SortDesc, Eye, Edit } from 'lucide-react'; // Added Edit
+import { Loader2, Trash2, SortAsc, SortDesc, Eye, Edit } from 'lucide-react';
 import useUserListStore from '@/stores/useUserListStore';
 import ErrorMessage from '@/components/UI/ErrorMessage';
 import ItemQuickLookModal from '@/components/ItemQuickLookModal';

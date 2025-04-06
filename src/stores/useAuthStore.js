@@ -2,189 +2,143 @@
 import { create } from 'zustand';
 import { devtools, persist, createJSONStorage } from 'zustand/middleware';
 import { jwtDecode } from 'jwt-decode';
-import { API_BASE_URL } from '@/config';
-import { queryClient } from '@/queryClient'; // Import from the new central file
-import apiClient from '@/utils/apiClient'; // Import apiClient for consistency
+import { queryClient } from '@/queryClient';
+import { authService } from '@/services/authService';
 
-// Function to check if token is expired
+// Function to check token expiration
 const isTokenValid = (token) => {
   if (!token) return false;
   try {
     const decoded = jwtDecode(token);
     const currentTime = Date.now() / 1000; // Convert to seconds
+    // Add a small buffer (e.g., 60 seconds) to account for clock skew? Optional.
     return decoded.exp > currentTime;
   } catch (error) {
-    console.error("Error decoding token:", error);
+    // If decoding fails, token is invalid
+    console.error("[AuthStore isTokenValid] Error decoding token:", error);
     return false;
   }
 };
 
 const authStore = (set, get) => ({
-  // --- State ---
   token: null,
   user: null,
   isAuthenticated: false,
-  isLoading: false, // For login/register/check operations
-  error: null, // For login/register/check errors
+  isLoading: true, // Start loading true for initial auth check
+  error: null,
 
-  // Derived state function (selector-like)
-  isAdmin: () => {
-      const user = get().user;
-      // Example: Check for a specific role or username
-      // Adjust this logic based on how admin status is actually determined
-      return user?.role === 'admin' || user?.username === 'admin'; // Example check
-  },
+  // isAdmin getter remains the same
+  isAdmin: () => get().user?.role === 'admin', // Example role check
 
-  // --- Actions ---
   login: async (email, password) => {
     set({ isLoading: true, error: null });
     try {
-      console.log(`[AuthStore] Attempting login for: ${email}`);
-      // Use apiClient
-      // ** FIX: Ensure the response is assigned to 'data' **
-      const data = await apiClient('/api/auth/login', 'Auth Login', {
-        method: 'POST',
-        body: JSON.stringify({ email, password }),
-      });
-
-      // ** FIX: Check if data and expected properties exist **
-      if (!data || !data.token || !data.user) {
-          console.error("[AuthStore Login] Invalid response structure from API:", data);
-          throw new Error("Login failed: Invalid server response.");
-      }
-
-      console.log(`[AuthStore Login] Success for ${email}. User:`, data.user);
+      // Removed console log
+      const data = await authService.login(email, password);
+      if (!data || !data.token || !data.user) throw new Error("Login failed: Invalid server response.");
+      // Removed console log
       set({ token: data.token, user: data.user, isAuthenticated: true, isLoading: false, error: null });
-
-      // Invalidate user-specific queries after successful login
+      // Invalidate queries that depend on user authentication
       queryClient.invalidateQueries({ queryKey: ['userLists'] });
-      console.log('[AuthStore] Invalidated userLists queries after login.');
-      return true; // Indicate success
-
+      queryClient.invalidateQueries({ queryKey: ['listDetails'] }); // Invalidate specific list details too
+      queryClient.invalidateQueries({ queryKey: ['pendingSubmissions'] }); // If submissions are user-specific
+      // Removed console log
+      return true;
     } catch (error) {
       console.error('[AuthStore Login] Error:', error);
-      const errorMessage = error.message || 'Login failed. Please check your credentials.';
+      const errorMessage = error.response?.data?.error || error.message || 'Login failed. Please check your credentials.';
       set({ token: null, user: null, isAuthenticated: false, isLoading: false, error: errorMessage });
-      return false; // Indicate failure
+      return false;
     }
   },
 
   register: async (username, email, password) => {
      set({ isLoading: true, error: null });
      try {
-       console.log(`[AuthStore] Attempting registration for: ${email}`);
-       // Use apiClient
-       // ** FIX: Ensure the response is assigned to 'data' **
-       const data = await apiClient('/api/auth/register', 'Auth Register', {
-         method: 'POST',
-         body: JSON.stringify({ username, email, password }),
-       });
-
-       // ** FIX: Check if data and expected properties exist **
-       if (!data || !data.token || !data.user) {
-           console.error("[AuthStore Register] Invalid response structure from API:", data);
-           throw new Error("Registration failed: Invalid server response.");
-       }
-
-       console.log(`[AuthStore Register] Success for ${email}. User:`, data.user);
+       // Removed console log
+       const data = await authService.register(username, email, password);
+       if (!data || !data.token || !data.user) throw new Error("Registration failed: Invalid server response.");
+       // Removed console log
        set({ token: data.token, user: data.user, isAuthenticated: true, isLoading: false, error: null });
-
-       // Invalidate user-specific queries after successful registration
-       queryClient.invalidateQueries({ queryKey: ['userLists'] });
-       console.log('[AuthStore] Invalidated userLists queries after registration.');
-       return true; // Indicate success
-
+       queryClient.invalidateQueries({ queryKey: ['userLists'] }); // Invalidate after registration too
+       // Removed console log
+       return true;
      } catch (error) {
        console.error('[AuthStore Register] Error:', error);
-       const errorMessage = error.message || 'Registration failed. Please try again.';
+       const errorMessage = error.response?.data?.error || error.response?.data?.errors?.[0]?.msg || error.message || 'Registration failed. Please try again.';
        set({ token: null, user: null, isAuthenticated: false, isLoading: false, error: errorMessage });
-       return false; // Indicate failure
+       return false;
      }
   },
 
   logout: () => {
-    console.log('[AuthStore] Logging out.');
     set({ token: null, user: null, isAuthenticated: false, isLoading: false, error: null });
-    // Remove user-specific data from React Query cache
-    queryClient.removeQueries({ queryKey: ['userLists'] }); // Example user-specific query
-    queryClient.removeQueries({ queryKey: ['listDetails'] }); // May contain user-specific info
-    // Optionally clear other specific queries or the entire cache if appropriate
-    // queryClient.clear();
-    console.log('[AuthStore] Cleared user-specific queries after logout.');
-    // Note: Persisted state (token, user) will be cleared by the persist middleware on next update if configured correctly
+    // Clear relevant query cache on logout
+    queryClient.removeQueries({ queryKey: ['userLists'] });
+    queryClient.removeQueries({ queryKey: ['listDetails'] });
+    queryClient.removeQueries({ queryKey: ['pendingSubmissions'] });
+    queryClient.removeQueries({ queryKey: ['adminData'] }); // Clear admin data too
+    // Optionally clear other sensitive caches
+    console.log('[AuthStore] User logged out, state reset, relevant caches cleared.');
   },
 
   clearError: () => set({ error: null }),
 
-  // Check token validity on app load/refresh
+  // Check auth status on initial load or refresh
   checkAuthStatus: () => {
     const token = get().token;
-    console.log('[AuthStore] checkAuthStatus called. Token present:', !!token);
     if (token && isTokenValid(token)) {
-      // Token exists and is valid, ensure user data is consistent (optional: re-fetch user?)
-      console.log('[AuthStore] Token is valid.');
-      // Decode again to ensure user state matches token payload
-       try {
-           const decoded = jwtDecode(token);
-           // If user state is missing or doesn't match token, update it
-           if (!get().user || get().user.id !== decoded.user?.id) {
-               console.log('[AuthStore] Updating user state from valid token.');
-               // Ideally, fetch fresh user data here instead of relying solely on token
-               set({ user: decoded.user, isAuthenticated: true, isLoading: false, error: null });
-           } else {
-               // Already authenticated and user state seems consistent
-               set({ isAuthenticated: true, isLoading: false, error: null });
-           }
-       } catch (error) {
-           console.error("[AuthStore checkAuthStatus] Error decoding existing token:", error);
-           get().logout(); // Logout if token is invalid
-       }
-    } else if (token) {
-      // Token exists but is invalid/expired
-      console.log('[AuthStore] Token is invalid/expired. Logging out.');
-      get().logout();
+      try {
+        // If token is valid, ensure user data is also present (might be lost on hard refresh without hydration)
+        // Usually, persisted state handles this, but as a fallback:
+        if (!get().user) {
+            const decoded = jwtDecode(token);
+            // This assumes the JWT payload directly contains user info or you fetch it.
+            // If payload only has ID, you might need an API call here to get full user data.
+            // For simplicity, assuming payload is { user: { id: ..., other_fields... } }
+            if (decoded.user) {
+                 set({ user: decoded.user, isAuthenticated: true, isLoading: false });
+            } else {
+                 // Token valid but no user data? Maybe logout.
+                 console.warn("[AuthStore checkAuthStatus] Token valid but user data missing in store/token payload.");
+                 get().logout(); // Logout if user data can't be recovered
+            }
+        } else {
+            // Token valid and user exists in store
+             set({ isAuthenticated: true, isLoading: false });
+        }
+      } catch (error) {
+          console.error("[AuthStore checkAuthStatus] Error processing valid token:", error);
+          get().logout(); // Logout if there's an error processing
+      }
     } else {
-      // No token
-      console.log('[AuthStore] No token found.');
-      set({ isAuthenticated: false, isLoading: false }); // Ensure not authenticated
+      // Token missing or invalid
+      if (get().isAuthenticated) { // Only logout if state thought it was authenticated
+          get().logout();
+      } else {
+          set({ isLoading: false }); // Ensure loading is false if already logged out
+      }
     }
   }
 });
 
-// Persist configuration - only persist token and user
+// Persist options (storage changed to localStorage for web)
 const persistOptions = {
-  name: 'auth-storage', // Unique name for auth persistence
-  storage: createJSONStorage(() => localStorage), // Or sessionStorage
-  partialize: (state) => ({
-    token: state.token,
-    user: state.user, // Persist user info for rehydration
-  }),
-  // Optional: onRehydrate callback to run checkAuthStatus after state is loaded
-  onRehydrateStorage: (state) => {
-    console.log("[AuthStore Persist] Hydration finished.");
-    // Return a function to run after rehydration is complete
-    return (hydratedState, error) => {
-      if (error) {
-        console.error("[AuthStore Persist] Error during rehydration:", error);
-      } else {
-        console.log("[AuthStore Persist] Running checkAuthStatus post-hydration.");
-        // Use setTimeout to ensure it runs after initial state is set
-        setTimeout(() => useAuthStore.getState().checkAuthStatus(), 0);
-      }
-    }
-  }
+  name: 'auth-storage', // Name of the item in storage
+  storage: createJSONStorage(() => localStorage), // Use localStorage
+  partialize: (state) => ({ token: state.token, user: state.user }), // Only persist token and user
+  // onRehydrateStorage might be needed for complex hydration logic
 };
 
+// Create the store with middleware
 const useAuthStore = create(
   devtools(
     persist( authStore, persistOptions ),
-    { name: 'AuthStore' }
+    { name: 'AuthStore' } // Name for Redux DevTools
   )
 );
 
-// Initial check on load (if not handled by onRehydrate)
-// This might be redundant if onRehydrateStorage works reliably
-// setTimeout(() => useAuthStore.getState().checkAuthStatus(), 10);
-
+// Initialize auth status check when store is created/loaded
+useAuthStore.getState().checkAuthStatus();
 
 export default useAuthStore;

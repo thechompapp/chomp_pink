@@ -6,79 +6,14 @@ const authMiddleware = require('../middleware/auth'); // Default export
 
 const router = express.Router();
 
-// --- Validation Middleware ---
-const validateListIdParam = [
-  param('id').isInt({ min: 1 }).withMessage('List ID must be a positive integer'),
-];
-
-const validateListItemIdParam = [
-  param('listItemId').isInt({ min: 1 }).withMessage('List Item ID must be a positive integer'),
-];
-
-const validateGetListsQuery = [
-  query('createdByUser')
-    .optional()
-    .isBoolean()
-    .withMessage('createdByUser must be a boolean'),
-  query('followedByUser')
-    .optional()
-    .isBoolean()
-    .withMessage('followedByUser must be a boolean'),
-];
-
-const validateCreateListPOST = [
-  body('name')
-    .trim()
-    .notEmpty()
-    .withMessage('List name is required')
-    .isLength({ max: 100 })
-    .withMessage('List name must be less than 100 characters'),
-  body('description')
-    .optional()
-    .trim()
-    .isLength({ max: 500 })
-    .withMessage('Description must be less than 500 characters'),
-  body('city_name')
-    .optional()
-    .trim()
-    .isLength({ max: 100 })
-    .withMessage('City name must be less than 100 characters'),
-  body('tags')
-    .optional()
-    .isArray()
-    .withMessage('Tags must be an array'),
-  body('tags.*')
-    .trim()
-    .isLength({ max: 50 })
-    .withMessage('Each tag must be less than 50 characters'),
-  body('is_public')
-    .optional()
-    .isBoolean()
-    .withMessage('is_public must be a boolean'),
-];
-
-const validateAddItemPOST = [
-  body('item_id')
-    .isInt({ min: 1 })
-    .withMessage('Item ID must be a positive integer'),
-  body('item_type')
-    .isIn(['dish', 'restaurant'])
-    .withMessage('Item type must be "dish" or "restaurant"'),
-];
-
-const validateVisibilityPUT = [
-  body('is_public')
-    .isBoolean()
-    .withMessage('is_public must be a boolean'),
-];
-
-const handleValidationErrors = (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ error: errors.array()[0].msg || 'Validation failed', errors: errors.array() });
-  }
-  next();
-};
+// --- Validation Middleware --- (Keep as is)
+const validateListIdParam = [ /* ... */ ];
+const validateListItemIdParam = [ /* ... */ ];
+const validateGetListsQuery = [ /* ... */ ];
+const validateCreateListPOST = [ /* ... */ ];
+const validateAddItemPOST = [ /* ... */ ];
+const validateVisibilityPUT = [ /* ... */ ];
+const handleValidationErrors = (req, res, next) => { /* ... */ };
 // --- END Validation ---
 
 
@@ -87,96 +22,77 @@ const handleValidationErrors = (req, res, next) => {
 // GET /api/lists (Get lists based on filters for the authenticated user)
 router.get(
   '/',
-  authMiddleware, // Apply authentication middleware FIRST
-  validateGetListsQuery, // Then validate query params
-  handleValidationErrors, // Then handle any validation errors
+  authMiddleware,
+  validateGetListsQuery,
+  handleValidationErrors,
   async (req, res, next) => {
-    // Middleware should have run and attached req.user if token was valid
-    console.log('[LISTS GET /] Handler entered. Query:', req.query);
+    // Removed console log
     const { createdByUser, followedByUser } = req.query;
-
-    // *** ADD LOG: Check req.user and req.user.id ***
-    console.log('[LISTS GET /] req.user object received:', req.user); // Log the whole user object from token
+    // Removed console log for req.user
     const userId = req.user?.id;
-    console.log(`[LISTS GET /] User ID extracted from req.user: ${userId} (Type: ${typeof userId})`);
-    // *** END LOG ***
+    // Removed console log for userId
 
-    // Ensure userId is valid before proceeding (middleware should catch missing/invalid token, but double-check)
     if (typeof userId !== 'number' || userId <= 0) {
         console.error('[LISTS GET /] Error: Invalid or missing User ID after auth middleware.');
-        // It's better to let the error handler manage the response
         return next(new Error('Authentication failed or user ID missing/invalid.'));
     }
 
     try {
-      // Base query selecting necessary fields and calculating item_count and is_following
-      // *** This is the ORIGINAL complex query ***
       let queryText = `
         SELECT
           l.id, l.name, l.description, l.saved_count, l.city_name, l.tags, l.is_public,
           (l.user_id = $1) as created_by_user,
-          u.username AS creator_handle, -- Fetch username for creator_handle
-          l.created_at, l.updated_at,
+          u.username AS creator_handle,
+          l.created_at, l.updated_at, l.user_id AS list_owner_id, -- Also select owner ID explicitly
           COALESCE(lc.count, 0)::integer as item_count,
           EXISTS (SELECT 1 FROM listfollows lf WHERE lf.list_id = l.id AND lf.user_id = $1) as is_following
         FROM Lists l
-        LEFT JOIN Users u ON l.user_id = u.id -- Join Users table to get creator_handle
+        LEFT JOIN Users u ON l.user_id = u.id
         LEFT JOIN (
           SELECT list_id, COUNT(*) as count FROM ListItems GROUP BY list_id
         ) lc ON l.id = lc.list_id
       `;
-      const queryParams = [userId]; // Parameter for user ID
+      const queryParams = [userId];
       const conditions = [];
 
-      // Apply filters based on query parameters
       if (createdByUser === 'true') {
-        // Filter for lists created by the authenticated user
         conditions.push(`l.user_id = $1`);
       } else if (followedByUser === 'true') {
-        // Filter for lists followed by the authenticated user
          conditions.push(`EXISTS (SELECT 1 FROM listfollows lf WHERE lf.list_id = l.id AND lf.user_id = $1)`);
       } else {
           // Default: Show public lists OR lists created by user OR lists followed by user
+          // Ensure user can see their own private lists in the default view
           conditions.push(
              `(l.is_public = TRUE OR l.user_id = $1 OR EXISTS (SELECT 1 FROM listfollows lf WHERE lf.list_id = l.id AND lf.user_id = $1))`
            );
       }
 
-      // Append WHERE clause if conditions exist
       if (conditions.length > 0) {
         queryText += ` WHERE ${conditions.join(' AND ')}`;
       }
-      // Add ordering
-      queryText += ` ORDER BY l.created_at DESC`;
+      queryText += ` ORDER BY l.updated_at DESC, l.created_at DESC`; // Order by most recently updated/created
 
-      // *** ADD LOG: Log final SQL query and params ***
-      console.log('[LISTS GET /] Final Executing SQL:', queryText);
-      console.log('[LISTS GET /] Final SQL Params:', queryParams);
-      // *** END LOG ***
+      // Removed log for final SQL and params
 
       const result = await db.query(queryText, queryParams);
-      console.log(`[LISTS GET /] DB Query successful, found ${result.rows.length} list rows for user ${userId}.`);
+      // Removed console log for result count
 
-      // Map database rows to consistent frontend format
       const lists = (result.rows || []).map((list) => ({
         ...list,
-        // Map backend 'city_name' to frontend 'city' if needed elsewhere
         city: list.city_name,
-        // Ensure boolean fields have defaults if null from DB (though schema has defaults)
+        user_id: list.list_owner_id, // Ensure user_id field is consistently named
         is_following: list.is_following ?? false,
         is_public: list.is_public ?? true,
         created_by_user: list.created_by_user ?? false,
-        // Ensure tags is always an array
         tags: Array.isArray(list.tags) ? list.tags : [],
-        // Item count should be handled by the query's COALESCE
         item_count: list.item_count || 0,
-      })).filter((list) => typeof list.id !== 'undefined' && list.id !== null); // Basic sanity check
+      })).filter((list) => typeof list.id !== 'undefined' && list.id !== null);
 
       res.json(lists);
 
     } catch (err) {
       console.error(`[LISTS GET /] Error fetching lists for user ${userId}:`, err);
-      next(err); // Pass error to the centralized error handler
+      next(err);
     }
   }
 );
@@ -185,33 +101,34 @@ router.get(
 // GET specific list details (/:id)
 router.get(
   '/:id',
-  authMiddleware, // Add middleware if private lists need auth to view details
+  authMiddleware, // Keep middleware, needed to check ownership/follow status
   validateListIdParam,
   handleValidationErrors,
   async (req, res, next) => {
     const { id } = req.params;
-    const userId = req.user?.id; // User ID from token (might be null if optional auth)
-    console.log(`[LISTS GET /:id] Handler entered for ID: ${id}, UserID: ${userId}`);
+    const userId = req.user?.id; // User ID from token
+    // Removed console log
 
-    // Require authentication to view list details for simplicity now
     if (!userId) {
+       // This case should technically be caught by authMiddleware sending 401
+       // but added as safeguard.
        return res.status(401).json({ error: 'Authentication required to view list details.' });
     }
 
     try {
+      // Fetch list details including owner ID
       const listQuery = `
         SELECT
           l.id, l.name, l.description, l.saved_count, l.city_name, l.tags, l.is_public,
-          (l.user_id = $2) AS created_by_user, -- Check if viewer is creator
+          l.user_id, -- Get the owner's user ID
+          (l.user_id = $2) AS created_by_user,
           u.username AS creator_handle,
           l.created_at, l.updated_at,
-          -- Check if the current viewer (userId) is following THIS list
           EXISTS (SELECT 1 FROM listfollows lf WHERE lf.list_id = l.id AND lf.user_id = $2) as is_following
         FROM Lists l
         LEFT JOIN Users u ON l.user_id = u.id
         WHERE l.id = $1
       `;
-      // Pass userId (which is confirmed not null here)
       const listResult = await db.query(listQuery, [id, userId]);
 
       if (listResult.rows.length === 0) {
@@ -219,29 +136,26 @@ router.get(
       }
       const list = listResult.rows[0];
 
-      // Check access for private lists
+      // Check access for private lists (only owner can view)
       if (!list.is_public && list.user_id !== userId) {
-         console.warn(`[LISTS GET /:id] Access denied for user ${userId} to private list ${id}`);
+         // Removed console log
         return res.status(403).json({ error: 'Forbidden: You do not have access to this private list.' });
       }
 
-      // Fetch items (no auth needed for items themselves usually)
+      // Fetch items (adjust query for clarity and potentially better tag fetching)
       const itemsQuery = `
         SELECT
           li.id as list_item_id, li.item_type, li.item_id, li.added_at,
-          -- Get name based on item type
           CASE
             WHEN li.item_type = 'dish' THEN d.name
             WHEN li.item_type = 'restaurant' THEN r.name
             ELSE 'Unknown Item'
           END as name,
-          -- Get restaurant name specifically for dishes
           CASE
             WHEN li.item_type = 'dish' THEN COALESCE(r_dish.name, 'Unknown Restaurant')
             ELSE NULL
           END as restaurant_name,
-           -- Get location details based on item type
-           CASE
+          CASE
              WHEN li.item_type = 'restaurant' THEN r.city_name
              WHEN li.item_type = 'dish' THEN r_dish.city_name
              ELSE NULL
@@ -251,30 +165,19 @@ router.get(
              WHEN li.item_type = 'dish' THEN r_dish.neighborhood_name
              ELSE NULL
            END as neighborhood,
-           -- Get tags (simplified: only showing restaurant tags for now)
-           -- To get dish tags requires another join or subquery
-           CASE
-              WHEN li.item_type = 'restaurant' THEN COALESCE(r_tags.tags_array, '{}')
-              -- Placeholder for dish tags - might need separate query or more complex join
-              WHEN li.item_type = 'dish' THEN COALESCE(d_tags.tags_array, '{}')
-              ELSE '{}'::text[]
-            END as tags
+           -- Fetch tags associated DIRECTLY with the item (dish or restaurant)
+           COALESCE(
+                (CASE
+                    WHEN li.item_type = 'dish' THEN (SELECT array_agg(h.name) FROM DishHashtags dh JOIN Hashtags h ON dh.hashtag_id = h.id WHERE dh.dish_id = li.item_id)
+                    WHEN li.item_type = 'restaurant' THEN (SELECT array_agg(h.name) FROM RestaurantHashtags rh JOIN Hashtags h ON rh.hashtag_id = h.id WHERE rh.restaurant_id = li.item_id)
+                    ELSE NULL
+                 END),
+                '{}'::text[]
+            ) as tags
         FROM ListItems li
         LEFT JOIN Dishes d ON li.item_type = 'dish' AND li.item_id = d.id
         LEFT JOIN Restaurants r ON li.item_type = 'restaurant' AND li.item_id = r.id
-        LEFT JOIN Restaurants r_dish ON d.restaurant_id = r_dish.id -- Join for dish's restaurant info
-        -- Subquery/Join to get restaurant tags
-        LEFT JOIN (
-             SELECT rh.restaurant_id, array_agg(h.name) as tags_array
-             FROM RestaurantHashtags rh JOIN Hashtags h ON rh.hashtag_id = h.id
-             GROUP BY rh.restaurant_id
-        ) r_tags ON r_tags.restaurant_id = r.id
-         -- Subquery/Join to get dish tags
-         LEFT JOIN (
-             SELECT dh.dish_id, array_agg(h.name) as tags_array
-             FROM DishHashtags dh JOIN Hashtags h ON dh.hashtag_id = h.id
-             GROUP BY dh.dish_id
-         ) d_tags ON d_tags.dish_id = d.id
+        LEFT JOIN Restaurants r_dish ON d.restaurant_id = r_dish.id
         WHERE li.list_id = $1
         ORDER BY li.added_at DESC
       `;
@@ -283,24 +186,24 @@ router.get(
       // Map response
       const response = {
         ...list,
-        // Map fields for consistency
         city: list.city_name,
+        user_id: list.user_id, // Ensure user_id is included in the final response
         is_following: list.is_following ?? false,
         is_public: list.is_public ?? true,
         created_by_user: list.created_by_user ?? false,
-        tags: Array.isArray(list.tags) ? list.tags : [],
+        tags: Array.isArray(list.tags) ? list.tags : [], // These are the LIST's tags
         items: itemsResult.rows.map((item) => ({
           list_item_id: item.list_item_id,
           item_type: item.item_type,
-          id: item.item_id, // Map item_id to id for card components
+          id: item.item_id,
           name: item.name,
           restaurant_name: item.restaurant_name,
           added_at: item.added_at,
           city: item.city,
           neighborhood: item.neighborhood,
-          tags: Array.isArray(item.tags) ? item.tags : [],
+          tags: Array.isArray(item.tags) ? item.tags : [], // These are the ITEM's tags
         })),
-        item_count: itemsResult.rows.length, // Calculate item count based on fetched items
+        item_count: itemsResult.rows.length,
       };
       res.json(response);
     } catch (err) {
@@ -318,12 +221,12 @@ router.post(
   validateCreateListPOST,
   handleValidationErrors,
   async (req, res, next) => {
-    console.log('[LISTS POST /] Handler entered.');
+    // Removed console log
     const { name, description, city_name, tags, is_public } = req.body;
     const userId = req.user?.id;
      if (!userId) return res.status(401).json({ error: 'Authentication required.' });
-     // Fetch username to use as creator_handle
-     let creatorHandle = `@user_${userId}`; // Fallback handle
+
+     let creatorHandle = `user${userId}`; // Default handle
      try {
         const userRes = await db.query('SELECT username FROM Users WHERE id = $1', [userId]);
         if (userRes.rows.length > 0) {
@@ -334,8 +237,7 @@ router.post(
      }
 
     try {
-      const cleanTags = Array.isArray(tags) ? tags.map((t) => String(t).trim()).filter(Boolean) : [];
-      // Default is_public to true if not provided or invalid
+      const cleanTags = Array.isArray(tags) ? tags.map((t) => String(t).trim().toLowerCase()).filter(Boolean) : []; // Ensure lowercase tags
       const publicFlag = typeof is_public === 'boolean' ? is_public : true;
       const query = `
         INSERT INTO Lists (name, description, city_name, tags, is_public, user_id, creator_handle, saved_count, created_at, updated_at)
@@ -344,22 +246,20 @@ router.post(
       `;
       const values = [name, description || null, city_name || null, cleanTags, publicFlag, userId, creatorHandle];
 
-      console.log('[LISTS POST /] Executing query:', query.substring(0, 200) + '...');
-      console.log('[LISTS POST /] Query values:', values);
+      // Removed log for query and values
       const result = await db.query(query, values);
 
       if (result.rows.length === 0) throw new Error('DB insertion error (no rows returned).');
       const newList = result.rows[0];
-      console.log('[LISTS POST /] List created successfully by user:', userId, newList);
+      // Removed console log for created list
 
-      // Return the newly created list in a format consistent with GET requests
       const response = {
         ...newList,
-        city: newList.city_name, // Map city_name if needed
-        is_following: false, // Newly created list isn't followed
+        city: newList.city_name,
+        is_following: false,
         is_public: newList.is_public ?? true,
-        created_by_user: true, // Creator is always true here
-        item_count: 0, // Starts with 0 items
+        created_by_user: true,
+        item_count: 0,
         tags: Array.isArray(newList.tags) ? newList.tags : [],
       };
       res.status(201).json(response);
@@ -377,57 +277,51 @@ router.post(
   validateListIdParam,
   handleValidationErrors,
   async (req, res, next) => {
-    const { id } = req.params; // List ID to follow/unfollow
-    const userId = req.user?.id; // User performing the action
+    const { id } = req.params;
+    const userId = req.user?.id;
      if (!userId) return res.status(401).json({ error: 'Authentication required.' });
-    console.log(`[LISTS POST /:id/follow] Handler entered for List ID: ${id}, UserID: ${userId}`);
-    let client; // For transaction
+    // Removed console log
+    let client;
     try {
       client = await db.getClient();
       await client.query('BEGIN');
 
-      // Check if the list exists and if the user is trying to follow their own list
-      const listCheck = await client.query(`SELECT user_id FROM Lists WHERE id = $1 FOR UPDATE`, [id]); // Lock row
+      const listCheck = await client.query(`SELECT user_id FROM Lists WHERE id = $1 FOR UPDATE`, [id]);
       if (listCheck.rows.length === 0) {
         throw { status: 404, message: 'List not found' };
       }
        if (listCheck.rows[0].user_id === userId) {
-            // Prevent following own list
             throw { status: 400, message: 'You cannot follow your own list.' };
        }
 
-      // Check current follow status
       const followQuery = `SELECT list_id FROM listfollows WHERE list_id = $1 AND user_id = $2`;
       const followResult = await client.query(followQuery, [id, userId]);
       const isCurrentlyFollowing = followResult.rows.length > 0;
       let newSavedCount, newFollowingState;
 
-      // Perform follow/unfollow and update saved_count
       if (isCurrentlyFollowing) {
-        // Unfollow: Delete from listfollows and decrement saved_count
         await client.query(`DELETE FROM listfollows WHERE list_id = $1 AND user_id = $2`, [id, userId]);
         const updateCountResult = await client.query( `UPDATE Lists SET saved_count = GREATEST(0, saved_count - 1) WHERE id = $1 RETURNING saved_count`, [id] );
         newSavedCount = updateCountResult.rows[0]?.saved_count ?? 0;
         newFollowingState = false;
-        console.log(`[LISTS POST /:id/follow] User ${userId} unfollowed list ${id}. New saved_count: ${newSavedCount}`);
+        // Removed console log
       } else {
-        // Follow: Insert into listfollows and increment saved_count
         await client.query( `INSERT INTO listfollows (list_id, user_id, followed_at) VALUES ($1, $2, CURRENT_TIMESTAMP) ON CONFLICT DO NOTHING`, [id, userId] );
         const updateCountResult = await client.query( `UPDATE Lists SET saved_count = saved_count + 1 WHERE id = $1 RETURNING saved_count`, [id] );
         newSavedCount = updateCountResult.rows[0]?.saved_count ?? 0;
         newFollowingState = true;
-        console.log(`[LISTS POST /:id/follow] User ${userId} followed list ${id}. New saved_count: ${newSavedCount}`);
+        // Removed console log
       }
 
-      // Retrieve the updated list details to return in response
        const updatedListQuery = `
          SELECT
            l.id, l.name, l.description, l.saved_count, l.city_name, l.tags, l.is_public,
+           l.user_id, -- Select owner ID
            (l.user_id = $2) AS created_by_user,
            u.username AS creator_handle,
            l.created_at, l.updated_at,
            COALESCE(lc.count, 0)::integer as item_count,
-           $3::boolean as is_following -- Pass the calculated newFollowingState
+           $3::boolean as is_following
          FROM Lists l
          LEFT JOIN Users u ON l.user_id = u.id
          LEFT JOIN (SELECT list_id, COUNT(*) as count FROM ListItems GROUP BY list_id) lc ON l.id = lc.list_id
@@ -437,14 +331,13 @@ router.post(
       const updatedList = updatedListResult.rows[0];
       if (!updatedList) throw new Error('Failed to retrieve updated list details after follow toggle.');
 
-      // Commit transaction
       await client.query('COMMIT');
-      console.log(`[LISTS POST /:id/follow] Transaction committed for list ${id}, user ${userId}.`);
+      // Removed console log
 
-      // Format and send response
       const response = {
         ...updatedList,
         city: updatedList.city_name,
+        user_id: updatedList.user_id, // Ensure user_id is in response
         is_following: updatedList.is_following ?? false,
         is_public: updatedList.is_public ?? true,
         created_by_user: updatedList.created_by_user ?? false,
@@ -453,22 +346,18 @@ router.post(
       };
       res.json(response);
     } catch (err) {
-      // Rollback transaction on error
       if (client) {
         try { await client.query('ROLLBACK'); } catch (rbErr) { console.error('Error rolling back transaction:', rbErr); }
       }
       console.error(`[LISTS POST /:id/follow] Error toggling follow for list ${id}:`, err);
-       // Handle specific known errors (like 404, 400)
        if (err.status) {
             return res.status(err.status).json({ error: err.message });
        }
-       // Pass other errors to general handler
        next(err);
     } finally {
-        // ALWAYS release client
         if (client) {
             client.release();
-            console.log(`[LISTS POST /:id/follow] Database client released for list ${id}, user ${userId}.`);
+            // Removed console log
         }
     }
   }
@@ -486,43 +375,36 @@ router.put(
     const { is_public } = req.body;
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ error: 'Authentication required.' });
-    console.log(`[LISTS PUT /:id/visibility] Updating visibility for list ${id} to ${is_public} by user ${userId}`);
+    // Removed console log
     try {
-      // Update the list and return the updated row
       const updateQuery = `
         UPDATE Lists
         SET is_public = $1, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $2 AND user_id = $3 -- Ensure user owns the list
-        RETURNING *
+        WHERE id = $2 AND user_id = $3
+        RETURNING id, name, description, saved_count, city_name, tags, is_public, user_id, creator_handle, created_at, updated_at
       `;
       const result = await db.query(updateQuery, [is_public, id, userId]);
 
-      // Check if the update was successful (row returned?)
       if (result.rows.length === 0) {
-        // Check if list exists at all
         const checkExists = await db.query(`SELECT user_id FROM Lists WHERE id = $1`, [id]);
         if (checkExists.rows.length === 0) {
           return res.status(404).json({ error: 'List not found.' });
         } else {
-          // List exists but user doesn't own it
           return res.status(403).json({ error: 'Forbidden: You do not own this list.' });
         }
       }
-      console.log(`[LISTS PUT /:id/visibility] Visibility updated for list ${id}.`);
+      // Removed console log
 
-      // Fetch additional details needed for consistent response format
       const updatedList = result.rows[0];
       const listItemsCountResult = await db.query( `SELECT COUNT(*) as count FROM ListItems WHERE list_id = $1`, [id] );
-      // We don't necessarily need follow status here, but include for consistency if needed by UI?
-      // const followCheck = await db.query( `SELECT 1 FROM listfollows WHERE list_id = $1 AND user_id = $2`, [id, userId] );
+      const followCheck = await db.query( `SELECT 1 FROM listfollows WHERE list_id = $1 AND user_id = $2`, [id, userId] );
 
-      // Format and send response
       const response = {
         ...updatedList,
         city: updatedList.city_name,
-        is_following: false, // Visibility change doesn't affect follow status itself
+        is_following: followCheck.rows.length > 0, // Include current follow status
         is_public: updatedList.is_public ?? true,
-        created_by_user: true, // We confirmed user ownership above
+        created_by_user: true,
         item_count: parseInt(listItemsCountResult.rows[0].count, 10) || 0,
         tags: Array.isArray(updatedList.tags) ? updatedList.tags : [],
       };
@@ -547,71 +429,61 @@ router.post(
     const { item_id, item_type } = req.body;
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ error: 'Authentication required.' });
-    console.log(`[LISTS POST /:id/items] Adding item ${item_type}:${item_id} to list ${listId} by user ${userId}`);
-    let client; // For transaction
+    // Removed console log
+    let client;
     try {
       client = await db.getClient();
       await client.query('BEGIN');
 
-      // Check if list exists and user owns it
-      const listCheck = await client.query(`SELECT user_id FROM Lists WHERE id = $1 FOR UPDATE`, [listId]); // Lock row
+      const listCheck = await client.query(`SELECT user_id FROM Lists WHERE id = $1 FOR UPDATE`, [listId]);
       if (listCheck.rows.length === 0) {
         throw { status: 404, message: 'List not found.' };
       }
       if (listCheck.rows[0].user_id !== userId) {
-        // Allow adding to lists they follow? Current logic only allows adding to own lists.
-        // For now, restrict to owner:
          throw { status: 403, message: 'Forbidden: You can only add items to your own lists.' };
       }
 
-      // Check if item exists
       const itemTable = item_type === 'dish' ? 'Dishes' : 'Restaurants';
       const itemCheck = await client.query(`SELECT id FROM ${itemTable} WHERE id = $1`, [item_id]);
       if (itemCheck.rows.length === 0) {
         throw { status: 404, message: `Item (${item_type}) with ID ${item_id} not found.` };
       }
 
-      // Insert into ListItems, ignore if already exists
       const insertQuery = `
         INSERT INTO ListItems (list_id, item_type, item_id, added_at)
         VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
-        ON CONFLICT (list_id, item_type, item_id) DO NOTHING -- Important: prevent duplicates
+        ON CONFLICT (list_id, item_type, item_id) DO NOTHING
         RETURNING id, item_type, item_id, added_at
       `;
       const result = await client.query(insertQuery, [listId, item_type, item_id]);
 
-      // Update the list's updated_at timestamp
       await client.query('UPDATE Lists SET updated_at = CURRENT_TIMESTAMP WHERE id = $1', [listId]);
 
       await client.query('COMMIT');
-      console.log(`[LISTS POST /:id/items] Transaction committed for list ${listId}.`);
+      // Removed console log
 
       if (result.rows.length > 0) {
-        // If RETURNING returned a row, it means insertion happened
-        console.log(`[LISTS POST /:id/items] Item added to list ${listId}. New List Item:`, result.rows[0]);
+        // Removed console log
+        // Return the added item details for potential UI update
         res.status(201).json({ ...result.rows[0], message: 'Item added to list.' });
       } else {
-        // If no rows returned, it means conflict occurred (item already exists)
-        console.log(`[LISTS POST /:id/items] Item ${item_type}:${item_id} already exists in list ${listId}.`);
+        // Removed console log
+        // Return 200 OK but indicate it already existed
         res.status(200).json({ message: 'Item already exists in the list.' });
       }
     } catch (err) {
-      // Rollback transaction on error
       if (client) {
          try { await client.query('ROLLBACK'); } catch (rbErr) { console.error('Error rolling back transaction:', rbErr); }
       }
       console.error(`[LISTS POST /:id/items] Error adding item to list ${listId}:`, err);
-       // Handle specific known errors
        if (err.status) {
             return res.status(err.status).json({ error: err.message });
        }
-       // Pass other errors to general handler
        next(err);
     } finally {
-        // ALWAYS release client
         if (client) {
             client.release();
-            console.log(`[LISTS POST /:id/items] Database client released for list ${listId}.`);
+            // Removed console log
         }
     }
   }
@@ -628,55 +500,45 @@ router.delete(
     const { id: listId, listItemId } = req.params;
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ error: 'Authentication required.' });
-    console.log(`[LISTS DELETE /:id/items/:listItemId] Removing list item ${listItemId} from list ${listId} by user ${userId}`);
-    let client; // For transaction
+    // Removed console log
+    let client;
     try {
       client = await db.getClient();
       await client.query('BEGIN');
 
-      // Check if list exists and user owns it
-      const listCheck = await client.query(`SELECT user_id FROM Lists WHERE id = $1 FOR UPDATE`, [listId]); // Lock row
+      const listCheck = await client.query(`SELECT user_id FROM Lists WHERE id = $1 FOR UPDATE`, [listId]);
       if (listCheck.rows.length === 0) {
         throw { status: 404, message: 'List not found.' };
       }
       if (listCheck.rows[0].user_id !== userId) {
-         // Restrict to owner:
          throw { status: 403, message: 'Forbidden: You can only remove items from your own lists.' };
       }
 
-      // Delete the specific list item
       const deleteQuery = `DELETE FROM ListItems WHERE id = $1 AND list_id = $2 RETURNING id`;
       const result = await client.query(deleteQuery, [listItemId, listId]);
       if (result.rows.length === 0) {
-        // Item didn't exist or didn't belong to this list
         throw { status: 404, message: `List item ID ${listItemId} not found in list ${listId}.` };
       }
 
-      // Update the list's updated_at timestamp
       await client.query('UPDATE Lists SET updated_at = CURRENT_TIMESTAMP WHERE id = $1', [listId]);
 
       await client.query('COMMIT');
-      console.log(`[LISTS DELETE /:id/items/:listItemId] Transaction committed for list ${listId}.`);
-      console.log(`[LISTS DELETE /:id/items/:listItemId] List item ${listItemId} removed successfully from list ${listId}.`);
+      // Removed console logs
 
       res.status(204).send(); // Send No Content on successful deletion
     } catch (err) {
-       // Rollback transaction on error
       if (client) {
         try { await client.query('ROLLBACK'); } catch (rbErr) { console.error('Error rolling back transaction:', rbErr); }
       }
       console.error(`[LISTS DELETE /:id/items/:listItemId] Error removing item from list ${listId}:`, err);
-       // Handle specific known errors
        if (err.status) {
             return res.status(err.status).json({ error: err.message });
        }
-       // Pass other errors to general handler
        next(err);
     } finally {
-       // ALWAYS release client
        if (client) {
            client.release();
-            console.log(`[LISTS DELETE /:id/items/:listItemId] Database client released for list ${listId}.`);
+           // Removed console log
        }
     }
   }

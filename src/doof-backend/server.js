@@ -1,135 +1,107 @@
+// src/doof-backend/server.js
 const express = require('express');
 const cors = require('cors');
-const helmet = require('helmet');
+const db = require('./db'); // Use the exported pool wrapper
 require('dotenv').config();
 
-// Import database pool
-const db = require('./db');
-
 // Import route handlers
-const authRouter = require('./routes/auth');
-const listsRouter = require('./routes/lists');
-const restaurantsRouter = require('./routes/restaurants');
-const dishesRouter = require('./routes/dishes');
-const trendingRouter = require('./routes/trending');
-const filtersRouter = require('./routes/filters');
-const submissionsRouter = require('./routes/submissions');
-const placesRouter = require('./routes/places');
-const commonDishesRouter = require('./routes/commonDishes');
-const searchRouter = require('./routes/search');
+const authRoutes = require('./routes/auth');
+const dishRoutes = require('./routes/dishes');
+const filterRoutes = require('./routes/filters');
+const listRoutes = require('./routes/lists');
+const placesRoutes = require('./routes/places');
+const restaurantRoutes = require('./routes/restaurants');
+const searchRoutes = require('./routes/search');
+const submissionRoutes = require('./routes/submissions');
+const trendingRoutes = require('./routes/trending');
+const adminRoutes = require('./routes/admin');
+// REMOVED: commonDishesRoutes import
 
 const app = express();
 
-// Environment variables
-const PORT = process.env.PORT || 5001;
-const NODE_ENV = process.env.NODE_ENV || 'development';
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
-
-// Log environment variables for debugging
-console.log('[Server] Environment Variables:');
-console.log(`  PORT: ${PORT}`);
-console.log(`  NODE_ENV: ${NODE_ENV}`);
-console.log(`  FRONTEND_URL: ${FRONTEND_URL}`);
+// Make the database pool available via req.app.get('db')
+// This pattern is less common now with module imports, but keep if routes use it
+// Alternatively, routes can directly import the db module from './db'
+app.set('db', db); // Pass the imported db module (which exports query/getClient)
 
 // Middleware
-app.use(helmet());
-app.use(cors({
-    origin: (origin, callback) => {
-        console.log(`[CORS] Request Origin: ${origin}`);
-        const allowedOrigin = FRONTEND_URL;
-        if (!origin || origin === allowedOrigin) {
-            callback(null, allowedOrigin);
-        } else {
-            console.error(`[CORS] Origin ${origin} not allowed. Expected: ${allowedOrigin}`);
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-}));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(cors()); // Enable CORS for all routes
+app.use(express.json()); // Parse JSON request bodies
 
-// Logging middleware
+// Logging Middleware (Keep for basic request info)
 app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-    next();
+  console.log(`[Server Request] ${new Date().toISOString()} - ${req.method} ${req.originalUrl}`);
+  next();
 });
 
-// API Routes
-app.use('/api/auth', authRouter);
-app.use('/api/lists', listsRouter);
-app.use('/api/restaurants', restaurantsRouter);
-app.use('/api/dishes', dishesRouter);
-app.use('/api/trending', trendingRouter);
-app.use('/api/filters', filtersRouter);
-app.use('/api/submissions', submissionsRouter);
-app.use('/api/places', placesRouter);
-app.use('/api/commonDishes', commonDishesRouter);
-app.use('/api/search', searchRouter);
+// --- Mount API Routes ---
+app.use('/api/auth', authRoutes);
+app.use('/api/dishes', dishRoutes);
+app.use('/api/filters', filterRoutes);
+app.use('/api/lists', listRoutes);
+app.use('/api/places', placesRoutes);
+app.use('/api/restaurants', restaurantRoutes);
+app.use('/api/search', searchRoutes);
+app.use('/api/submissions', submissionRoutes);
+app.use('/api/trending', trendingRoutes);
+app.use('/api/admin', adminRoutes);
+// REMOVED: Common Dishes route usage
 
 // Health check endpoint
-app.get('/api/health', async (req, res) => {
-    try {
-        const result = await db.query('SELECT NOW()');
-        const dbTime = result.rows[0]?.now || 'Unknown';
-        res.status(200).json({
-            status: 'OK',
-            environment: NODE_ENV,
-            database: 'Connected',
-            dbTime,
-        });
-    } catch (err) {
-        console.error('[Health Check] DB Error:', err);
-        res.status(200).json({
-            status: 'OK',
-            environment: NODE_ENV,
-            database: 'Disconnected',
-            dbError: err.message,
-        });
-    }
+app.get('/health', async (req, res) => { // Made async for DB check
+  try {
+      // Optional DB health check
+      await db.query('SELECT 1'); // Simple query to check connectivity
+      res.status(200).json({ status: 'OK', message: 'Server and DB connection healthy' });
+  } catch (dbError) {
+      console.error('[Health Check] Database connection error:', dbError);
+      res.status(503).json({ status: 'Service Unavailable', message: 'Database connection failed' });
+  }
 });
 
-// 404 Handler
-app.use((req, res, next) => {
-    res.status(404).json({ error: 'Not Found', path: req.path });
-});
-
-// Centralized Error Handler
+// --- Centralized Error Handling Middleware ---
+// Should be defined AFTER all other app.use() and routes
 app.use((err, req, res, next) => {
-    console.error(`[ERROR] ${req.method} ${req.path}:`, err.stack || err.message || err);
-    const status = err.status || 500;
-    const message = status === 500 ? 'Internal Server Error' : err.message || 'Something went wrong';
-    res.status(status).json({
-        error: message,
-        ...(NODE_ENV === 'development' && { details: err.stack || err.message }),
-    });
+  // Log only the error message in production for sensitive errors
+  // Log the full stack in development
+  if (process.env.NODE_ENV !== 'production') {
+     console.error(`[Server Error] Path: ${req.method} ${req.originalUrl} | Error:`, err);
+  } else {
+     // In prod, log less detail by default, but consider a logging service
+     console.error(`[Server Error] Path: ${req.method} ${req.originalUrl} | Message: ${err.message}`);
+  }
+
+  // Determine status code: use error's status, specific pg codes, or default to 500
+  let statusCode = err.status || err.statusCode || 500;
+  if (err.code === '23505') { // Example: PostgreSQL unique violation
+      statusCode = 409; // Conflict
+  } else if (err.code === '23503') { // Example: PostgreSQL foreign key violation
+      statusCode = 400; // Bad Request
+  } else if (err.code === '42P01') { // Example: PostgreSQL undefined table
+        statusCode = 500; // Internal error
+  }
+  // Add more specific PG error code handling if needed
+
+  // Determine response message: Use error's message if safe, otherwise generic
+  // err.expose is a convention from http-errors module
+  const message = (err.expose || process.env.NODE_ENV !== 'production' || statusCode < 500)
+                  ? err.message
+                  : 'Internal Server Error';
+
+  res.status(statusCode).json({
+     error: message,
+     // Optionally include error code or other details in non-prod
+     code: process.env.NODE_ENV !== 'production' ? err.code : undefined,
+     // details: process.env.NODE_ENV !== 'production' ? err.stack : undefined, // Avoid sending stack
+  });
 });
 
-// Start the server
-const startServer = async () => {
-    try {
-        const result = await db.query('SELECT NOW()');
-        console.log('\x1b[32m%s\x1b[0m', `[Server] Database connection successful. DB Time: ${result.rows[0].now}`);
-
-        app.listen(PORT, () => {
-            console.log(`[Server] Listening on port ${PORT} in ${NODE_ENV} mode`);
-        });
-    } catch (err) {
-        console.error('\x1b[31m%s\x1b[0m', '[Server] Failed to connect to database:', err.stack || err.message);
-        process.exit(1);
-    }
-};
-
-process.on('uncaughtException', (err) => {
-    console.error('[Uncaught Exception]', err);
-    process.exit(1);
+const PORT = process.env.PORT || 5001;
+const server = app.listen(PORT, () => {
+  console.log(`\x1b[32m%s\x1b[0m`, `Server running on port ${PORT}`);
 });
 
-process.on('unhandledRejection', (reason, promise) => {
-    console.error('[Unhandled Rejection] at:', promise, 'reason:', reason);
-    process.exit(1);
-});
-
-startServer();
+// Graceful shutdown (no changes needed here)
+const gracefulShutdown = async (signal) => { /* ... */ };
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));

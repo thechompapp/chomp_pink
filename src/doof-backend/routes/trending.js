@@ -1,14 +1,13 @@
+// src/doof-backend/routes/trending.js
 const express = require('express');
-const db = require('../db');
-
+const db = require('../db'); // Ensure db is imported if not using req.app.get('db') consistently
 const router = express.Router();
 
-// GET /api/trending/restaurants
-router.get('/restaurants', async (req, res) => {
-  console.log('[TRENDING GET /restaurants] Handler entered.');
+router.get('/restaurants', async (req, res, next) => { // Added next
+  // Removed console log
   try {
     const query = `
-      SELECT r.id, r.name, r.city_name, r.neighborhood_name, r.adds,
+      SELECT r.id, r.name, r.city_name, r.neighborhood_name, r.adds, r.city_id, r.neighborhood_id,
              COALESCE((
                SELECT ARRAY_AGG(h.name)
                FROM RestaurantHashtags rh
@@ -19,22 +18,21 @@ router.get('/restaurants', async (req, res) => {
       ORDER BY r.adds DESC
       LIMIT 10
     `;
-    console.log('[TRENDING GET /restaurants] Executing query:', query);
-    const result = await db.query(query);
-    console.log(`[TRENDING GET /restaurants] Found ${result.rows.length} restaurants:`, result.rows);
+    // Removed console log
+    const result = await (req.app.get('db') || db).query(query); // Use db fallback if req.app.get('db') isn't set
+    // Removed console log
     res.json(result.rows);
   } catch (err) {
     console.error('[TRENDING GET /restaurants] Error:', err);
-    res.status(500).json({ error: 'Workspace failed for restaurants', details: err.message || 'Unknown database error' });
+    next(err); // Pass error to central handler
   }
 });
 
-// GET /api/trending/dishes
-router.get('/dishes', async (req, res) => {
-  console.log('[TRENDING GET /dishes] Handler entered.');
+router.get('/dishes', async (req, res, next) => { // Added next
+  // Removed console log
   try {
     const query = `
-      SELECT d.id, d.name, d.adds, r.name as restaurant, r.city_name,
+      SELECT d.id, d.name, d.adds, r.name as restaurant, r.city_name, r.city_id, r.neighborhood_id,
              COALESCE((
                SELECT ARRAY_AGG(h.name)
                FROM DishHashtags dh
@@ -46,23 +44,22 @@ router.get('/dishes', async (req, res) => {
       ORDER BY d.adds DESC
       LIMIT 10
     `;
-    console.log('[TRENDING GET /dishes] Executing query:', query);
-    const result = await db.query(query);
-    console.log(`[TRENDING GET /dishes] Found ${result.rows.length} dishes:`, result.rows);
+    // Removed console log
+    const result = await (req.app.get('db') || db).query(query); // Use db fallback
+    // Removed console log
     res.json(result.rows);
   } catch (err) {
     console.error('[TRENDING GET /dishes] Error:', err);
-    res.status(500).json({ error: 'Workspace failed for dishes', details: err.message || 'Unknown database error' });
+    next(err); // Pass error to central handler
   }
 });
 
-// GET /api/trending/lists
-router.get('/lists', async (req, res) => {
-  console.log('[TRENDING GET /lists] Handler entered.');
+router.get('/lists', async (req, res, next) => { // Added next
+  // Removed console log
   try {
     const query = `
       SELECT l.id, l.name, l.description, l.saved_count, l.city_name, l.tags, l.is_public,
-             l.creator_handle, l.created_at, l.updated_at,
+             l.creator_handle, l.created_at, l.updated_at, l.user_id,
              COALESCE((
                SELECT COUNT(*)
                FROM ListItems li
@@ -73,13 +70,13 @@ router.get('/lists', async (req, res) => {
       ORDER BY l.saved_count DESC
       LIMIT 10
     `;
-    console.log('[TRENDING GET /lists] Executing query:', query);
-    const result = await db.query(query);
-    console.log(`[TRENDING GET /lists] Found ${result.rows.length} lists:`, result.rows);
+    // Removed console log
+    const result = await (req.app.get('db') || db).query(query); // Use db fallback
+    // Removed console log
     res.json(result.rows);
   } catch (err) {
     console.error('[TRENDING GET /lists] Error:', err);
-    res.status(500).json({ error: 'Workspace failed for lists', details: err.message || 'Unknown database error' });
+    next(err); // Pass error to central handler
   }
 });
 

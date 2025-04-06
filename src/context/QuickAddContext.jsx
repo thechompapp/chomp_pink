@@ -1,66 +1,83 @@
 // src/context/QuickAddContext.jsx
-import React, { createContext, useContext, useState, useCallback, useMemo } from "react";
-import useUserListStore from '@/stores/useUserListStore'; // Corrected import path
-import useAuthStore from '@/stores/useAuthStore'; // Corrected import path
+import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import useUserListStore from '@/stores/useUserListStore';
+import useAuthStore from '@/stores/useAuthStore';
+import { listService } from '@/services/listService';
 
 const QuickAddContext = createContext();
+
+// Define a query function for fetching user lists
+const fetchUserLists = async () => {
+  try {
+    return await listService.getLists({ createdByUser: true });
+  } catch (error) {
+    console.error('[QuickAddContext] Error fetching user lists:', error);
+    return [];
+  }
+};
 
 export const QuickAddProvider = ({ children }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
 
-  // Get necessary functions/state from stores
-  const fetchUserLists = useUserListStore((state) => state.fetchUserLists);
-  const isLoadingUser = useUserListStore((state) => state.isLoading); // Use general loading state if specific one DNE
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const userLists = useUserListStore((state) => state.userLists); // Get lists to check if fetch needed
+  // Auth state as a primitive value
+  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
 
-  const openQuickAdd = useCallback((item) => {
-    console.log("[QuickAddContext] openQuickAdd called. Item:", item);
-    setSelectedItem(item);
-    setIsOpen(true);
+  // Use React Query to fetch user lists instead of accessing the store
+  const { 
+    data: userLists = [], 
+    refetch,
+    isLoading: isLoadingUserLists
+  } = useQuery({
+    queryKey: ['userLists', 'created'],
+    queryFn: fetchUserLists,
+    enabled: false, // Don't fetch automatically - we'll manually trigger
+    staleTime: 5 * 60 * 1000 // 5 minutes
+  });
 
-    // --- Trigger fetch from here ---
-    const isCreateMode = !!(item?.createNew && item?.type === 'list');
-    // Fetch only if: authenticated, not create mode, not already loading, and maybe lists are empty
-    // Use general isLoading state from useUserListStore if isLoadingUser is not defined
-    if (isAuthenticated && !isCreateMode && !isLoadingUser && userLists.length === 0) {
-      console.log("[QuickAddContext openQuickAdd] Triggering fetchUserLists...");
-      fetchUserLists().catch(err => {
-          console.error("[QuickAddContext openQuickAdd] Error fetching lists:", err);
-          // Error is handled in the store
-      });
-    } else {
-        console.log(`[QuickAddContext openQuickAdd] Not triggering fetch. Auth=${isAuthenticated}, CreateMode=${isCreateMode}, Loading=${isLoadingUser}, ListsPresent=${userLists.length > 0}`);
-    }
-    // -----------------------------
+  const openQuickAdd = useCallback(
+    (item) => {
+      setSelectedItem(item);
+      setIsOpen(true);
 
-  }, [fetchUserLists, isLoadingUser, isAuthenticated, userLists]); // Add dependencies
+      const isCreateMode = !!(item?.createNew && item?.type === 'list');
+      // Fetch lists only if authenticated, not creating, and lists aren't loaded yet
+      if (isAuthenticated && !isCreateMode && userLists.length === 0 && !isLoadingUserLists) {
+        refetch().catch((err) => {
+          console.error('[QuickAddContext openQuickAdd] Error fetching lists:', err.message || err);
+        });
+      }
+    },
+    [refetch, isAuthenticated, userLists.length, isLoadingUserLists]
+  );
 
   const closeQuickAdd = useCallback(() => {
-    console.log("[QuickAddContext] closeQuickAdd called.");
     setIsOpen(false);
-    setSelectedItem(null);
+    setTimeout(() => setSelectedItem(null), 300);
   }, []);
 
-  const contextValue = useMemo(() => ({
-    isOpen,
-    item: selectedItem,
-    openQuickAdd,
-    closeQuickAdd
-  }), [isOpen, selectedItem, openQuickAdd, closeQuickAdd]);
-
-  return (
-    <QuickAddContext.Provider value={contextValue}>
-      {children}
-    </QuickAddContext.Provider>
+  // Memoize context value
+  const contextValue = useMemo(
+    () => ({
+      isOpen,
+      item: selectedItem,
+      openQuickAdd,
+      closeQuickAdd,
+    }),
+    [isOpen, selectedItem, openQuickAdd, closeQuickAdd]
   );
+
+  return <QuickAddContext.Provider value={contextValue}>{children}</QuickAddContext.Provider>;
 };
 
+// Custom hook to use the context
 export const useQuickAdd = () => {
   const context = useContext(QuickAddContext);
-  if (!context) {
-    throw new Error("useQuickAdd must be used within a QuickAddProvider");
+  if (context === undefined) {
+    throw new Error('useQuickAdd must be used within a QuickAddProvider');
   }
   return context;
 };
+
+// No default export to encourage named imports

@@ -1,79 +1,76 @@
-import React, { useMemo } from 'react';
-import { Users, List, User } from 'lucide-react';
-import FollowButton from '@/components/FollowButton';
-import useUserListStore from '@/stores/useUserListStore.js';
-import useAuthStore from '@/stores/useAuthStore';
+// src/pages/Lists/ListCard.jsx
+import React from 'react';
+import { Users, List, User, Eye } from 'lucide-react';
+// import FollowButton from '@/components/FollowButton'; // Temporarily commented out
 import BaseCard from '@/components/UI/BaseCard';
 
-const ListCard = React.memo(({
-    id,
-    name,
-    description,
-    saved_count = 0,
-    item_count = 0,
-    is_following,
-    created_by_user = false,
-    creator_handle = null, // Add prop for creator handle
+// Define the component function first
+const ListCardComponent = ({
+  id,
+  name,
+  description,
+  saved_count = 0,
+  item_count = 0,
+  is_following, // Prop still accepted, but not used for FollowButton now
+  creator_handle = null,
+  is_public = true,
+  showFollowButton = false, // Prop still accepted, but not used now
 }) => {
-    const listFromUserStore = useMemo(() => {
-        const state = useUserListStore.getState();
-        return state.userLists.find(list => list.id === id) || 
-               state.followedLists.find(list => list.id === id);
-    }, [id]);
 
-    const { user } = useAuthStore(); // Get current user
-    const isOwnList = created_by_user || (listFromUserStore && listFromUserStore.created_by_user);
+  const displayCreatorHandle = creator_handle || 'unknown';
+  const cleanName = name || 'Unnamed List';
+  const displayItemCount = item_count || 0;
+  const displaySavedCount = saved_count || 0;
+  const cleanDescription = description || `${displayItemCount.toLocaleString()} ${displayItemCount === 1 ? 'item' : 'items'}`;
+  const linkDestination = `/lists/${id}`;
 
-    // Use handle from props or fallback to store data
-    const displayCreatorHandle = creator_handle || listFromUserStore?.creator_handle || null;
+  return (
+    <BaseCard
+      linkTo={linkDestination}
+      onQuickAdd={null}
+      showQuickAdd={false}
+      className="w-full"
+      aspectRatioClass="!aspect-auto"
+      isHighlighted={!is_public}
+    >
+      <div key={id} className="flex flex-col h-full justify-between p-3">
+        <div> {/* Top Content Area */}
+          <h3 className="text-base font-semibold text-gray-900 mb-1 line-clamp-2 group-hover:text-[#A78B71] transition-colors">
+            {cleanName}
+          </h3>
+          <p className="text-xs text-gray-600 mb-2 flex items-center">
+            <User size={12} className="mr-1 flex-shrink-0 text-gray-400" />
+            <span className="truncate">@{displayCreatorHandle}</span>
+          </p>
+          <p className="text-xs text-gray-500 mb-2 line-clamp-2 h-8">
+            {cleanDescription}
+          </p>
+          <div className="flex items-center text-gray-500 text-xs mb-1">
+            <List size={12} className="mr-1 flex-shrink-0 text-gray-400" />
+            <span>{displayItemCount.toLocaleString()} {displayItemCount === 1 ? 'item' : 'items'}</span>
+          </div>
+          <div className="flex items-center text-gray-500 text-xs mb-1">
+            <Users size={12} className="mr-1 flex-shrink-0 text-gray-400" />
+            <span>{displaySavedCount.toLocaleString()} saves</span>
+          </div>
+          {!is_public && (
+             <div className="flex items-center text-gray-500 text-xs">
+                <Eye size={12} className="mr-1 flex-shrink-0 text-gray-400" />
+                <span>Private</span>
+             </div>
+          )}
+        </div>
+        {/* Follow Button Area - SIMPLIFIED */}
+        <div className="mt-3 pt-3 border-t border-gray-100">
+           {/* Temporarily removed conditional FollowButton rendering */}
+           <div className="h-[31px]"></div> {/* Always show placeholder */}
+        </div>
+      </div>
+    </BaseCard>
+  );
+};
 
-    const currentFollowingState = listFromUserStore?.is_following ?? is_following;
-    const cleanName = name || "Unnamed List";
-    const displayItemCount = listFromUserStore?.item_count ?? item_count;
-    const displaySavedCount = listFromUserStore?.saved_count ?? saved_count;
-    const cleanDescription = description || `${displayItemCount.toLocaleString()} ${displayItemCount === 1 ? 'item' : 'items'}`;
-    const linkDestination = `/lists/${id}`;
-
-    return (
-        <BaseCard linkTo={linkDestination} onQuickAdd={null}>
-            <>
-                <div className="flex-grow mb-2">
-                    <h3 className="text-base font-semibold text-gray-900 mb-1.5 line-clamp-2 group-hover:text-[#A78B71] transition-colors">
-                        {cleanName}
-                    </h3>
-                    
-                    {/* Add creator handle display */}
-                    {displayCreatorHandle && (
-                        <p className="text-xs text-gray-600 mb-1.5 flex items-center">
-                            <User size={12} className="mr-1 flex-shrink-0" />
-                            <span>@{displayCreatorHandle}</span>
-                        </p>
-                    )}
-                    
-                    <p className="text-xs text-gray-500 mb-1.5 line-clamp-2">
-                        {cleanDescription}
-                    </p>
-                    <div className="flex items-center text-gray-500 text-xs mb-1">
-                        <Users size={12} className="mr-1 flex-shrink-0" />
-                        <span>{displaySavedCount.toLocaleString()} saves</span>
-                    </div>
-                    <div className="flex items-center text-gray-500 text-xs">
-                        <List size={12} className="mr-1 flex-shrink-0" />
-                        <span>{displayItemCount.toLocaleString()} {displayItemCount === 1 ? 'item' : 'items'}</span>
-                    </div>
-                </div>
-                {!isOwnList && ( // Only show FollowButton if not the creator
-                    <div className="mt-auto pt-3 border-t border-gray-100">
-                        <FollowButton
-                            listId={id}
-                            isFollowing={currentFollowingState}
-                            className="w-full !py-1.5"
-                        />
-                    </div>
-                )}
-            </>
-        </BaseCard>
-    );
-});
+// Wrap the component definition with React.memo
+const ListCard = React.memo(ListCardComponent);
 
 export default ListCard;

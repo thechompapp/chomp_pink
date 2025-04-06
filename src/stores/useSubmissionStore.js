@@ -1,103 +1,81 @@
 // src/stores/useSubmissionStore.js
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import apiClient from '@/utils/apiClient'; // Corrected import path
-import { queryClient } from '@/queryClient'; // Corrected import path
+import { submissionService } from '@/services/submissionService';
+import { queryClient } from '@/queryClient';
 
 const useSubmissionStore = create(
     devtools(
         (set, get) => ({
-            pendingSubmissions: [],
+            // State: Keep simple state for action status/errors
             isLoading: false,
+            isApproving: null, // Store ID being approved
+            isRejecting: null, // Store ID being rejected
             error: null,
 
+            // Actions
             clearError: () => set({ error: null }),
 
-            // NOTE: Fetching is now handled by useQuery in Dashboard/index.jsx
-            // This action can be removed or kept for potential other uses.
-            // fetchPendingSubmissions: async () => {
-            //     if (get().isLoading) return;
-            //     set({ isLoading: true, error: null });
-            //     try {
-            //         // Assuming endpoint fetches only pending
-            //         const data = await apiClient('/api/submissions?status=pending', 'Fetch Pending Submissions') || [];
-            //         set({ pendingSubmissions: Array.isArray(data) ? data : [], isLoading: false });
-            //         console.log('[SubmissionStore] fetchPendingSubmissions completed.');
-            //         return data;
-            //     } catch (error) {
-            //         console.error('[SubmissionStore] Error fetching pending submissions:', error);
-            //         set({ error: error.message || 'Failed to fetch submissions', isLoading: false });
-            //         throw error;
-            //     }
-            // },
+            // Fetching is handled by Dashboard/AdminPanel useQuery
 
-            // Action to add a submission (likely used by FloatingQuickAdd)
-             addPendingSubmission: async (submissionData) => {
-                 set({ isLoading: true, error: null }); // Indicate loading/clear previous error
+            addPendingSubmission: async (submissionData) => {
+                 set({ isLoading: true, error: null });
                  try {
-                     console.log('[SubmissionStore] Attempting to add pending submission:', submissionData);
-                     const newSubmission = await apiClient('/api/submissions', 'Add Pending Submission', {
-                         method: 'POST',
-                         body: JSON.stringify(submissionData), // Ensure body is stringified
-                     });
-
-                     if (!newSubmission || !newSubmission.id) {
-                         throw new Error("Invalid response from submission API");
-                     }
-                     console.log('[SubmissionStore] Submission added successfully:', newSubmission);
-
-                     // Optionally add to local state if needed immediately, though dashboard refetches
-                     // set(state => ({
-                     //     pendingSubmissions: [...state.pendingSubmissions, newSubmission]
-                     // }));
-
+                     // Removed console log
+                     const newSubmission = await submissionService.addSubmission(submissionData);
+                     if (!newSubmission || !newSubmission.id) throw new Error("Invalid response from submission API");
+                     // Removed console log
                      set({ isLoading: false });
-                     return newSubmission; // Return the created submission
-
+                     // Invalidate the pending list query to refresh dashboard/admin
+                     queryClient.invalidateQueries({ queryKey: ['pendingSubmissions'] });
+                     queryClient.invalidateQueries({ queryKey: ['adminData', 'submissions'] });
+                     return newSubmission;
                  } catch (error) {
                      console.error('[SubmissionStore] Error adding submission:', error);
-                     set({ isLoading: false, error: error.message || 'Failed to add submission' });
-                     throw error; // Re-throw for the calling component (e.g., useFormHandler)
+                      const message = error.response?.data?.error || error.message || 'Failed to add submission';
+                     set({ isLoading: false, error: message });
+                     throw new Error(message); // Re-throw
                  }
              },
 
 
             approveSubmission: async (submissionId) => {
-                set({ error: null }); // Clear previous errors specific to actions
+                set({ isApproving: submissionId, error: null }); // Track approving ID
                 try {
-                    await apiClient(`/api/submissions/${submissionId}/approve`, 'Approve Submission', { method: 'POST' });
-                    // No need to update local pendingSubmissions state if Dashboard refetches via query invalidation
-                    // set(state => ({
-                    //     pendingSubmissions: state.pendingSubmissions.filter(s => s.id !== submissionId),
-                    // }));
-                    // Invalidate the query used by the Dashboard to trigger a refetch
+                    await submissionService.approveSubmission(submissionId);
+                    // Invalidate relevant queries
                     queryClient.invalidateQueries({ queryKey: ['pendingSubmissions'] });
-                    queryClient.invalidateQueries({ queryKey: ['trendingData'] }); // Also invalidate trending if approval affects it
-                    console.log(`[SubmissionStore] Submission ${submissionId} approved. Invalidated pendingSubmissions query.`);
-                    return true; // Indicate success
+                    queryClient.invalidateQueries({ queryKey: ['adminData', 'submissions'] });
+                    // Potentially invalidate trending/search results if approved items appear there
+                    queryClient.invalidateQueries({ queryKey: ['trendingData'] });
+                    queryClient.invalidateQueries({ queryKey: ['trendingDataHome'] });
+                    queryClient.invalidateQueries({ queryKey: ['searchResults'] });
+                    // Removed console log
+                    set({ isApproving: null }); // Clear loading state on success
+                    return true;
                 } catch (error) {
                     console.error(`[SubmissionStore] Error approving submission ${submissionId}:`, error);
-                    set({ error: error.message || 'Failed to approve submission' }); // Set action-specific error
-                    throw error; // Re-throw for the calling component
+                     const message = error.response?.data?.error || error.message || 'Failed to approve submission';
+                    set({ isApproving: null, error: message }); // Clear loading state, set error
+                    throw new Error(message); // Re-throw
                 }
             },
 
             rejectSubmission: async (submissionId) => {
-                set({ error: null }); // Clear previous errors specific to actions
+                set({ isRejecting: submissionId, error: null }); // Track rejecting ID
                 try {
-                    await apiClient(`/api/submissions/${submissionId}/reject`, 'Reject Submission', { method: 'POST' });
-                     // No need to update local pendingSubmissions state if Dashboard refetches via query invalidation
-                    // set(state => ({
-                    //     pendingSubmissions: state.pendingSubmissions.filter(s => s.id !== submissionId),
-                    // }));
-                     // Invalidate the query used by the Dashboard to trigger a refetch
+                    await submissionService.rejectSubmission(submissionId);
+                    // Invalidate pending lists
                     queryClient.invalidateQueries({ queryKey: ['pendingSubmissions'] });
-                    console.log(`[SubmissionStore] Submission ${submissionId} rejected. Invalidated pendingSubmissions query.`);
-                    return true; // Indicate success
+                    queryClient.invalidateQueries({ queryKey: ['adminData', 'submissions'] });
+                    // Removed console log
+                    set({ isRejecting: null }); // Clear loading state on success
+                    return true;
                 } catch (error) {
                     console.error(`[SubmissionStore] Error rejecting submission ${submissionId}:`, error);
-                     set({ error: error.message || 'Failed to reject submission' }); // Set action-specific error
-                    throw error; // Re-throw for the calling component
+                     const message = error.response?.data?.error || error.message || 'Failed to reject submission';
+                     set({ isRejecting: null, error: message }); // Clear loading state, set error
+                    throw new Error(message); // Re-throw
                 }
             },
         }),

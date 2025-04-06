@@ -1,5 +1,5 @@
 // src/hooks/useLazyCards.js
-import { useEffect, useState, useCallback, useRef } from 'react'; // Added useRef
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useInView } from 'react-intersection-observer';
 
 /**
@@ -8,62 +8,67 @@ import { useInView } from 'react-intersection-observer';
  * @param {number} [batchSize=12] - The number of items to load in each batch.
  * @returns {{visibleItems: Array, loadMoreRef: Function, hasMore: boolean}}
  */
-export const useLazyCards = (items = [], batchSize = 12) => { // Default items to empty array
+export const useLazyCards = (items = [], batchSize = 12) => {
   const [visibleItems, setVisibleItems] = useState([]);
-  // Ref to track if the initial load has happened for the current items array
+  // Ref to track if the initial load has happened for the current items array reference
   const initialLoadDone = useRef(false);
+  // Ref to track the specific `items` array reference the hook was initialized with or reset to
+  const currentItemsRef = useRef(items);
 
-  // Intersection observer hook
   const [ref, inView] = useInView({
-    threshold: 0.1, // Trigger when 10% of the element is visible
-    triggerOnce: false // Keep observing even after becoming visible once
+    threshold: 0.1,
+    triggerOnce: false, // Continue triggering as user scrolls up/down
   });
 
-  // Function to load the next batch of items
-  // Wrapped in useCallback to stabilize its reference
+  // Function to load the next batch
   const loadMore = useCallback(() => {
-    // Ensure items is an array before accessing length
-    const totalItems = Array.isArray(items) ? items.length : 0;
-    if (visibleItems.length < totalItems) {
-      const nextBatch = items.slice(
-        visibleItems.length,
-        visibleItems.length + batchSize
-      );
-      setVisibleItems(prev => [...prev, ...nextBatch]);
-      console.log(`[useLazyCards] Loaded ${nextBatch.length} more items. Total visible: ${visibleItems.length + nextBatch.length}`);
-    } else {
-         console.log('[useLazyCards] No more items to load.');
-    }
-  }, [items, visibleItems.length, batchSize]); // Dependencies: items array, current count, batch size
+    // Always refer to the latest `items` array via ref in case it changed
+    // but the effect referencing loadMore hasn't re-run yet.
+    const currentItems = currentItemsRef.current || [];
+    const totalItems = currentItems.length;
 
-  // Effect for Initial Load and Resetting when items array changes
-  useEffect(() => {
-     console.log('[useLazyCards] Items array changed or initial mount.');
-     // Reset visibility and initial load flag when the underlying items array changes reference
-     setVisibleItems(items.slice(0, batchSize));
-     initialLoadDone.current = true; // Mark initial load done for this `items` array
-     console.log(`[useLazyCards] Initial load/reset done. Visible: ${items.slice(0, batchSize).length}`);
-  // This effect runs when the `items` array reference changes or batchSize changes.
-  }, [items, batchSize]);
+    setVisibleItems(prevVisibleItems => {
+        if (prevVisibleItems.length >= totalItems) {
+            // Removed console log
+            return prevVisibleItems; // No more items to load
+        }
+        const nextBatch = currentItems.slice(
+            prevVisibleItems.length,
+            prevVisibleItems.length + batchSize
+        );
+        // Removed console log
+        return [...prevVisibleItems, ...nextBatch];
+    });
+  }, [batchSize]); // Only depends on batchSize
 
-  // Effect to Load More when the trigger element comes into view
+  // Effect for Initial Load and Resetting when `items` array *reference* changes
   useEffect(() => {
-    // Only load more if the trigger is in view AND there are more items potentially loadable
-    const hasMoreItems = Array.isArray(items) && visibleItems.length < items.length;
+    // Update the ref tracking the current items array
+    currentItemsRef.current = items || [];
+    // Reset visible items to the first batch of the new array
+    setVisibleItems(currentItemsRef.current.slice(0, batchSize));
+    initialLoadDone.current = true; // Mark initial load done for this `items` array reference
+    // Removed console logs
+  }, [items, batchSize]); // Effect runs if `items` reference or `batchSize` changes
+
+  // Effect to Load More when the trigger element is in view
+  useEffect(() => {
+    const currentItems = currentItemsRef.current || [];
+    const hasMoreItems = visibleItems.length < currentItems.length;
+
+    // Load more only if trigger is in view AND there are more items available
     if (inView && hasMoreItems) {
-       console.log('[useLazyCards] Trigger in view, loading more...');
+      // Removed console log
       loadMore();
     }
-  // Dependencies: inView status, the loadMore function itself, and checks for more items
-  }, [inView, loadMore, items, visibleItems.length]);
+  }, [inView, loadMore, visibleItems.length]); // Depend on inView, loadMore, and visible count
 
-
-  // Determine if there are more items left to load from the original array
-  const hasMore = Array.isArray(items) && visibleItems.length < items.length;
+  // Determine if there are more items left based on the current `items` ref
+  const hasMore = visibleItems.length < (currentItemsRef.current || []).length;
 
   return {
-       visibleItems, // The currently visible subset of items
-       loadMoreRef: ref, // Ref to attach to the trigger element
-       hasMore // Boolean indicating if more items can be loaded
-    };
+    visibleItems,
+    loadMoreRef: ref,
+    hasMore,
+  };
 };
