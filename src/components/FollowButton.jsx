@@ -13,13 +13,13 @@ const FollowButton = ({ listId, isFollowing: initialIsFollowing, className = '',
     // Fetch the latest is_following state from the cache
     const { data: listData } = useQuery({
         queryKey: ['listDetails', listId],
-        queryFn: () => listService.getListDetails(listId), // Add queryFn
-        enabled: !!listId,
+        queryFn: () => listService.getListDetails(listId),
+        enabled: !!listId && isAuthenticated, // Only fetch if authenticated
         select: (data) => ({
             is_following: data?.is_following ?? initialIsFollowing,
             saved_count: data?.saved_count ?? savedCount,
         }),
-        staleTime: 0, // Ensure we always get the latest data
+        staleTime: 0,
     });
 
     const isFollowing = listData?.is_following ?? initialIsFollowing;

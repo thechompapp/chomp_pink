@@ -46,7 +46,7 @@ const ListDetail = memo(() => {
         queryFn: () => fetchListDetails(listId),
         enabled: !!listId && isAuthenticated,
         staleTime: 5 * 60 * 1000,
-        refetchOnMount: true, // Ensure we fetch the latest data on mount
+        refetchOnMount: true,
     });
 
     const isOwner = useMemo(() => list?.user_id === currentUserId, [list?.user_id, currentUserId]);

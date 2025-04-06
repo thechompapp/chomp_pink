@@ -24,8 +24,8 @@ const ListCard = ({
     // Fetch the latest is_following state from the cache
     const { data: listData } = useQuery({
         queryKey: ['listDetails', id],
-        queryFn: () => listService.getListDetails(id), // Add queryFn
-        enabled: !!id,
+        queryFn: () => listService.getListDetails(id),
+        enabled: !!id && isAuthenticated, // Only fetch if authenticated
         select: (data) => ({
             is_following: data?.is_following ?? initialIsFollowing,
             saved_count: data?.saved_count ?? saved_count,
