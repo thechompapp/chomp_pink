@@ -1,34 +1,23 @@
-// src/doof-backend/db/index.js
-// ADDED: Timeout configurations to the connection pool
 const { Pool } = require("pg");
-require('dotenv').config(); // Ensure environment variables are loaded
+require('dotenv').config();
 
-// Database connection pool configuration - Reads from environment variables
 const pool = new Pool({
   user: process.env.DB_USER || "doof_user",
   host: process.env.DB_HOST || "localhost",
   database: process.env.DB_DATABASE || "doof_db",
-  password: process.env.DB_PASSWORD, // **No default/fallback password**
+  password: process.env.DB_PASSWORD,
   port: process.env.DB_PORT || 5432,
 
-  // --- ADDED TIMEOUTS ---
-  // Timeout for acquiring a client from the pool (e.g., 5 seconds)
+  // Timeout configurations
   connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT) || 5000,
-  // Timeout for idle clients in the pool (e.g., 10 seconds)
-  idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT) || 10000,
-  // Default timeout for any query executed via the pool (e.g., 10 seconds)
-  // This will cause queries taking longer than this to error
+  idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT) || 1000, // Reduced to 1 second to force fresh connections
   statement_timeout: parseInt(process.env.DB_STATEMENT_TIMEOUT) || 10000,
-  // --- END ADDED TIMEOUTS ---
-
-  // Optional: Max number of clients in the pool
-  // max: parseInt(process.env.DB_POOL_MAX) || 10,
+  max: parseInt(process.env.DB_POOL_MAX) || 20, // Set a reasonable max to prevent excessive connections
 });
 
 // Check if password is provided
 if (!process.env.DB_PASSWORD && process.env.NODE_ENV !== 'test') {
-    console.error('\x1b[31m%s\x1b[0m', 'FATAL ERROR: Database password (DB_PASSWORD) is not set in environment variables.');
-    // process.exit(1); // Consider exiting if password is required
+  console.error('\x1b[31m%s\x1b[0m', 'FATAL ERROR: Database password (DB_PASSWORD) is not set in environment variables.');
 }
 
 // Test the connection on startup
@@ -36,17 +25,17 @@ pool.connect((err, client, release) => {
   if (err) {
     console.error('\x1b[31m%s\x1b[0m', 'Error acquiring database client on startup:', err.stack);
   } else {
-     console.log('\x1b[32m%s\x1b[0m', 'Successfully connected to the database pool (startup check).');
-     client.query('SELECT NOW()', (err, result) => { // Test with a simple query
-        release(); // Release client!
-        if (err) {
-             console.error('\x1b[31m%s\x1b[0m', 'Error during startup query test:', err.stack);
-        } else if (result && result.rows && result.rows.length > 0) {
-             console.log('\x1b[32m%s\x1b[0m', `Database startup query test successful. DB Time: ${result.rows[0].now}`);
-        } else {
-             console.warn('\x1b[33m%s\x1b[0m', 'Database startup query test ran but returned no result.');
-        }
-     });
+    console.log('\x1b[32m%s\x1b[0m', 'Successfully connected to the database pool (startup check).');
+    client.query('SELECT NOW()', (err, result) => {
+      release();
+      if (err) {
+        console.error('\x1b[31m%s\x1b[0m', 'Error during startup query test:', err.stack);
+      } else if (result && result.rows && result.rows.length > 0) {
+        console.log('\x1b[32m%s\x1b[0m', `Database startup query test successful. DB Time: ${result.rows[0].now}`);
+      } else {
+        console.warn('\x1b[33m%s\x1b[0m', 'Database startup query test ran but returned no result.');
+      }
+    });
   }
 });
 
@@ -55,16 +44,23 @@ pool.on('error', (err, client) => {
   console.error('\x1b[31m%s\x1b[0m', 'Unexpected error on idle database client', err);
 });
 
+// Log connection usage
+pool.on('connect', (client) => {
+  console.log('[DB Pool] New client connected to the pool');
+});
 
-// Export a query function to interact with the pool
+pool.on('remove', (client) => {
+  console.log('[DB Pool] Client removed from the pool (idle timeout or error)');
+});
+
 module.exports = {
   query: (text, params) => {
-     // Using the pool's query method implicitly handles client checkout/release for single queries
-     return pool.query(text, params);
+    return pool.query(text, params);
   },
-  // Function to get a client for transactions (requires explicit release)
   getClient: async () => {
-     const client = await pool.connect();
-     return client;
+    const client = await pool.connect();
+    return client;
   },
+  // Expose the pool for direct access if needed
+  pool: pool
 };

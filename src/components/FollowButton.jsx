@@ -1,98 +1,124 @@
 // src/components/FollowButton.jsx
-import React, { useState, useCallback, useEffect } from 'react';
-import { Heart, HeartOff, Loader2 } from 'lucide-react';
+import React, { useCallback } from 'react';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
+import { Heart, HeartOff, Loader2, AlertTriangle } from 'lucide-react';
 import Button from '@/components/Button';
-import useUserListStore from '@/stores/useUserListStore';
 import useAuthStore from '@/stores/useAuthStore';
+import { listService } from '@/services/listService';
 
-const FollowButton = ({ listId, isFollowing: initialIsFollowing, className = '' }) => {
-    // State for loading feedback during the API call
-    const [isLoading, setIsLoading] = useState(false);
-    // Local state for errors specific to this button action
-    const [localError, setLocalError] = useState(null);
-
-    // Get necessary store actions and auth state
+const FollowButton = ({ listId, isFollowing: initialIsFollowing, className = '', savedCount = 0 }) => {
+    const queryClient = useQueryClient();
     const isAuthenticated = useAuthStore(state => state.isAuthenticated);
-    const toggleFollowAction = useUserListStore(state => state.toggleFollow); // Renamed action in store
-    const storeError = useUserListStore(state => state.error);
-    const isTogglingFollow = useUserListStore(state => state.isTogglingFollow); // Get loading state from store
-    const clearStoreError = useUserListStore(state => state.clearError);
 
-    // Use the initial prop as the source of truth, React Query invalidation will update the parent's data
-    const currentFollowState = initialIsFollowing;
+    // Fetch the latest is_following state from the cache
+    const { data: listData } = useQuery({
+        queryKey: ['listDetails', listId],
+        queryFn: () => listService.getListDetails(listId), // Add queryFn
+        enabled: !!listId,
+        select: (data) => ({
+            is_following: data?.is_following ?? initialIsFollowing,
+            saved_count: data?.saved_count ?? savedCount,
+        }),
+        staleTime: 0, // Ensure we always get the latest data
+    });
 
-    // Clear local error if store error changes or disappears
-    useEffect(() => {
-        if (localError && !storeError) {
-            setLocalError(null);
+    const isFollowing = listData?.is_following ?? initialIsFollowing;
+    const currentSavedCount = listData?.saved_count ?? savedCount;
+
+    const {
+        mutate,
+        isPending,
+        error
+    } = useMutation({
+        mutationFn: async () => {
+            if (!listId) throw new Error("List ID is missing.");
+            console.log(`[FollowButton] Toggling follow for list: ${listId}, current state: ${isFollowing}`);
+            return await listService.toggleFollow(listId);
+        },
+        onSuccess: (updatedList) => {
+            console.log(`[FollowButton] Success! Server reported is_following=${updatedList?.is_following}, saved_count=${updatedList?.saved_count}`);
+
+            // Update all relevant caches
+            queryClient.setQueryData(['trendingListsPage'], (old) => {
+                if (!old || !Array.isArray(old)) return old;
+                const updated = old.map(list =>
+                    list.id === listId
+                        ? { ...list, is_following: updatedList.is_following, saved_count: updatedList.saved_count }
+                        : list
+                );
+                console.log('[FollowButton] Updated trendingListsPage:', updated);
+                return updated;
+            });
+
+            queryClient.setQueryData(['userLists', 'followed'], (old) => {
+                if (!old || !Array.isArray(old)) return old;
+                if (updatedList.is_following) {
+                    const exists = old.some(list => list.id === updatedList.id);
+                    if (!exists) {
+                        return [...old, updatedList];
+                    }
+                } else {
+                    return old.filter(list => list.id !== listId);
+                }
+                return old;
+            });
+
+            queryClient.setQueryData(['listDetails', listId], (old) =>
+                old ? { ...old, is_following: updatedList.is_following, saved_count: updatedList.saved_count } : old
+            );
+        },
+        onError: (err) => {
+            console.error(`[FollowButton] Error toggling follow:`, err);
+        },
+        onSettled: () => {
+            console.log('[FollowButton] Settled, forcing refetch of all affected queries');
+            queryClient.refetchQueries({ queryKey: ['trendingListsPage'], type: 'active' });
+            queryClient.refetchQueries({ queryKey: ['userLists', 'followed'], type: 'active' });
+            queryClient.refetchQueries({ queryKey: ['listDetails', listId], type: 'active' });
         }
-        // Sync local error if store has an error related to *this* button's action
-        if (storeError && isTogglingFollow === listId && !localError) {
-            setLocalError(storeError);
-        }
-    }, [storeError, localError, isTogglingFollow, listId]);
+    });
 
-    // Handler for the follow/unfollow action
-    const handleToggleFollow = useCallback(async () => {
-        setLocalError(null); // Clear local error on new attempt
-        clearStoreError?.(); // Clear store error
+    const handleToggleFollow = useCallback((event) => {
+        event.stopPropagation();
+        event.preventDefault();
 
-        if (!isAuthenticated) {
-            console.warn("FollowButton: User not authenticated.");
-            setLocalError("Please log in to follow lists."); // Set local error
-            return;
-        }
-        if (!listId) {
-            console.error("FollowButton: listId is missing.");
-            setLocalError("Cannot follow list: ID missing.");
-            return;
-        }
+        if (!isAuthenticated || isPending || !listId) return;
 
-        setIsLoading(true); // Use local loading state for immediate feedback
+        mutate();
+    }, [isAuthenticated, isPending, mutate, listId]);
 
-        try {
-            // Call the store action which handles the API and invalidates queries
-            await toggleFollowAction(listId);
-            // No need to update local state, parent component will re-render with new prop from query data
-        } catch (err) {
-            console.error(`FollowButton: Error toggling follow for list ${listId}:`, err);
-            // Error state is set within the store action, but also set locally for display here
-            setLocalError(err.message || 'Failed to update follow status');
-        } finally {
-            setIsLoading(false); // Clear local loading state
-        }
-    }, [listId, isAuthenticated, toggleFollowAction, clearStoreError]); // Dependencies
-
-    // Determine button text and icon based on the prop passed down
-    const buttonText = currentFollowState ? 'Unfollow' : 'Follow';
-    const IconComponent = currentFollowState ? HeartOff : Heart;
-    // Use combined loading state (local OR store's loading state for this specific list)
-    const isProcessing = isLoading || isTogglingFollow === listId;
+    const dataAttributes = {
+        'data-testid': `follow-button-${listId}`,
+        'data-following': isFollowing ? 'true' : 'false',
+        'data-pending': isPending ? 'true' : 'false'
+    };
 
     return (
         <>
             <Button
-                variant={currentFollowState ? "tertiary" : "primary"}
+                variant={isFollowing ? "tertiary" : "primary"}
                 size="sm"
                 onClick={handleToggleFollow}
-                disabled={isProcessing || !listId}
-                className={`flex items-center justify-center gap-1 transition-opacity w-full ${isProcessing ? 'opacity-70' : ''} ${className}`}
-                aria-label={currentFollowState ? `Unfollow list` : `Follow list`}
+                disabled={isPending || !listId}
+                className={`flex items-center justify-center gap-1 transition-opacity w-full ${isPending ? 'opacity-70' : ''} ${className}`}
+                aria-label={isFollowing ? `Unfollow list` : `Follow list`}
                 aria-live="polite"
+                {...dataAttributes}
             >
-                {isProcessing ? (
-                   <Loader2 size={16} className="animate-spin" />
+                {isPending ? (
+                    <Loader2 size={16} className="animate-spin" />
                 ) : (
-                   <IconComponent size={14} />
+                    isFollowing ? <HeartOff size={14} /> : <Heart size={14} />
                 )}
-                <span>{isProcessing ? '...' : buttonText}</span>
+                <span>{isPending ? '...' : (isFollowing ? 'Unfollow' : 'Follow')}</span>
             </Button>
-            {/* Display local error below button */}
-            {localError && (
-                <p role="alert" className="text-xs text-red-500 mt-1">{localError}</p>
+            {error && (
+                <p role="alert" className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                    <AlertTriangle size={14} /> {error.message || 'Action failed'}
+                </p>
             )}
         </>
     );
 };
 
-export default React.memo(FollowButton); // Memoize if props don't change often
+export default FollowButton;

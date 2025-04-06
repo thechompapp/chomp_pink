@@ -1,85 +1,154 @@
 // src/services/listService.js
-import apiClient from '@/services/apiClient.js'; // Corrected Path
+import apiClient from '@/services/apiClient.js';
 
 const BASE_PATH = '/api/lists';
 
+// Helper function to ensure consistent list object structure
+const formatList = (list) => {
+    if (!list || typeof list.id === 'undefined') return null;
+    return {
+        ...list,
+        city: list.city_name, // Map city_name to city if frontend expects 'city'
+        is_following: !!list.is_following, // Ensure boolean
+        is_public: list.is_public ?? true, // Default to true if null/undefined
+        created_by_user: !!list.created_by_user, // Ensure boolean
+        tags: Array.isArray(list.tags) ? list.tags : [],
+        item_count: list.item_count || 0, // Default item_count to 0
+    };
+};
+
+// Helper function to ensure consistent list item structure
+const formatListItem = (item) => {
+    if (!item || !item.list_item_id) return null;
+    return {
+        list_item_id: item.list_item_id,
+        item_type: item.item_type,
+        id: item.item_id, // Actual dish or restaurant ID
+        name: item.name,
+        restaurant_name: item.restaurant_name,
+        added_at: item.added_at,
+        city: item.city, // Use pre-joined city from backend query
+        neighborhood: item.neighborhood, // Use pre-joined neighborhood
+        tags: Array.isArray(item.tags) ? item.tags : [], // ITEM's tags
+    };
+};
+
 const getLists = async (params = {}) => {
-    // Params could be { createdByUser: true } or { followedByUser: true }
     const queryString = new URLSearchParams(params).toString();
     const endpoint = `${BASE_PATH}${queryString ? `?${queryString}` : ''}`;
     const context = queryString ? `ListService Get (${queryString})` : 'ListService Get All (Default)';
-    // Ensure array is returned on success, handle potential null/undefined from apiClient
-    const data = await apiClient(endpoint, context) || [];
+
+    const data = await apiClient(endpoint, context);
+
     if (!Array.isArray(data)) {
-         console.warn(`[${context}] Invalid data format received. Expected array, got:`, data);
-         return []; // Return empty array for safety
+        console.warn(`[${context}] Invalid data format received. Expected array, got:`, data);
+        return [];
     }
-    // Format data within the service if needed, or keep it raw
-    return data.map(list => ({
-        ...list,
-        city: list.city_name,
-        is_following: list.is_following ?? false,
-        is_public: list.is_public ?? true,
-        created_by_user: list.created_by_user ?? false,
-        tags: Array.isArray(list.tags) ? list.tags : [],
-        item_count: list.item_count || 0,
-        id: list.id
-     })).filter(list => typeof list.id !== 'undefined' && list.id !== null);
+
+    return data.map(formatList).filter(Boolean);
 };
 
 const getListDetails = async (listId) => {
     if (!listId) throw new Error('List ID is required');
-    const data = await apiClient(`${BASE_PATH}/${listId}`, `ListService Details ${listId}`);
-    // Ensure items array exists
-    return { ...data, items: Array.isArray(data?.items) ? data.items : [] } || {};
+
+    const endpoint = `${BASE_PATH}/${encodeURIComponent(listId)}`;
+    const data = await apiClient(endpoint, `ListService Details ${listId}`);
+
+    if (!data || typeof data.id === 'undefined') {
+        throw new Error(`List details not found for ID: ${listId}`);
+    }
+
+    const formattedList = formatList(data);
+    const formattedItems = Array.isArray(data.items) ? data.items.map(formatListItem).filter(Boolean) : [];
+
+    return {
+        ...formattedList,
+        items: formattedItems,
+        item_count: formattedItems.length,
+    };
 };
 
 const createList = async (listData) => {
-    // listData: { name, description, is_public, tags, ... }
-    return await apiClient(BASE_PATH, 'ListService Create', {
+    if (!listData || !listData.name) throw new Error("List name is required for creation.");
+
+    const response = await apiClient(BASE_PATH, 'ListService Create', {
         method: 'POST',
         body: JSON.stringify(listData),
     });
+    return formatList(response);
 };
 
 const addItemToList = async (listId, itemData) => {
-    // itemData: { item_id, item_type }
-     if (!listId || !itemData || !itemData.item_id || !itemData.item_type) {
-          throw new Error("List ID, Item ID, and Item Type are required.");
-     }
-    return await apiClient(`${BASE_PATH}/${listId}/items`, 'ListService Add Item', {
+    if (!listId || !itemData || !itemData.item_id || !itemData.item_type) {
+        throw new Error("List ID, Item ID, and Item Type are required.");
+    }
+    return await apiClient(`${BASE_PATH}/${encodeURIComponent(listId)}/items`, 'ListService Add Item', {
         method: 'POST',
         body: JSON.stringify(itemData),
     });
 };
 
 const removeItemFromList = async (listId, listItemId) => {
-     if (!listId || !listItemId) {
-          throw new Error("List ID and List Item ID are required.");
-     }
-    // Expects 204 No Content on success, apiClient handles this
-    return await apiClient(`${BASE_PATH}/${listId}/items/${listItemId}`, 'ListService Remove Item', {
+    if (!listId || !listItemId) {
+        throw new Error("List ID and List Item ID are required.");
+    }
+    return await apiClient(`${BASE_PATH}/${encodeURIComponent(listId)}/items/${encodeURIComponent(listItemId)}`, 'ListService Remove Item', {
         method: 'DELETE',
     });
 };
 
 const toggleFollow = async (listId) => {
-     if (!listId) throw new Error("List ID is required.");
-    // Returns the updated list object with new follow status and count
-    return await apiClient(`${BASE_PATH}/${listId}/follow`, 'ListService Toggle Follow', {
-        method: 'POST',
-    });
+    if (!listId) throw new Error("List ID is required.");
+
+    console.log(`[listService] Toggling follow for list ${listId}`);
+
+    try {
+        const encodedListId = encodeURIComponent(listId);
+        const headers = {
+            'Cache-Control': 'no-cache, no-store',
+            'Pragma': 'no-cache',
+            'X-Request-Time': Date.now().toString(),
+        };
+
+        const response = await apiClient(`${BASE_PATH}/${encodedListId}/follow`, 'ListService Toggle Follow', {
+            method: 'POST',
+            headers,
+        });
+
+        console.log(`[listService] Toggle follow response:`, response);
+
+        if (!response || typeof response.is_following !== 'boolean') {
+            console.error('[listService] Invalid follow response:', response);
+            throw new Error("Server returned an invalid response for follow toggle.");
+        }
+
+        const formattedResponse = formatList(response);
+        if (!formattedResponse) {
+            throw new Error("Invalid response received after toggling follow.");
+        }
+
+        console.log(`[listService] Formatted follow response:`, {
+            id: formattedResponse.id,
+            is_following: formattedResponse.is_following,
+            saved_count: formattedResponse.saved_count
+        });
+
+        return formattedResponse;
+    } catch (error) {
+        console.error(`[listService] Error toggling follow for list ${listId}:`, error);
+        throw error;
+    }
 };
 
 const updateVisibility = async (listId, visibilityData) => {
-    // visibilityData: { is_public: boolean }
-     if (!listId || typeof visibilityData?.is_public !== 'boolean') {
-          throw new Error("List ID and visibility flag are required.");
-     }
-    return await apiClient(`${BASE_PATH}/${listId}/visibility`, 'ListService Update Visibility', {
+    if (!listId || typeof visibilityData?.is_public !== 'boolean') {
+        throw new Error("List ID and visibility flag are required.");
+    }
+    const response = await apiClient(`${BASE_PATH}/${encodeURIComponent(listId)}/visibility`, 'ListService Update Visibility', {
         method: 'PUT',
         body: JSON.stringify(visibilityData),
     });
+    return formatList(response);
 };
 
 export const listService = {
@@ -90,5 +159,4 @@ export const listService = {
     removeItemFromList,
     toggleFollow,
     updateVisibility,
-    // deleteList // Add if implemented
 };

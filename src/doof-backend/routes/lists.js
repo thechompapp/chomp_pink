@@ -1,9 +1,7 @@
-// src/doof-backend/routes/lists.js
 const express = require('express');
 const db = require('../db');
 const { param, query, body, validationResult } = require('express-validator');
-const authMiddleware = require('../middleware/auth'); // Default export
-
+const authMiddleware = require('../middleware/auth');
 const router = express.Router();
 
 // --- Validation Middleware ---
@@ -19,10 +17,10 @@ const validateGetListsQuery = [
 ];
 const validateCreateListPOST = [
     body('name').trim().notEmpty().withMessage('List name is required.').isLength({ max: 255 }).withMessage('List name too long.'),
-    body('description').optional().trim().isLength({ max: 1000 }).withMessage('Description too long.'), // Example max length
+    body('description').optional().trim().isLength({ max: 1000 }).withMessage('Description too long.'),
     body('city_name').optional().trim().isLength({ max: 100 }),
     body('tags').optional().isArray().withMessage('Tags must be an array.'),
-    body('tags.*').optional().isString().trim().toLowerCase().isLength({ max: 50 }), // Validate individual tags
+    body('tags.*').optional().isString().trim().toLowerCase().isLength({ max: 50 }),
     body('is_public').optional().isBoolean().toBoolean(),
 ];
 const validateAddItemPOST = [
@@ -43,21 +41,19 @@ const handleValidationErrors = (req, res, next) => {
 };
 // --- END Validation ---
 
-
 // --- Route Handlers ---
 
-// GET /api/lists (Get lists based on filters for the authenticated user)
+// GET /api/lists
 router.get(
   '/',
-  authMiddleware, // Requires authentication
+  authMiddleware,
   validateGetListsQuery,
   handleValidationErrors,
   async (req, res, next) => {
     const { createdByUser, followedByUser } = req.query;
-    const userId = req.user?.id; // Get user ID from authenticated request
+    const userId = req.user?.id;
 
     if (typeof userId !== 'number' || userId <= 0) {
-        // Should be caught by authMiddleware, but good safeguard
         return next(new Error('Authentication failed or user ID missing/invalid.'));
     }
 
@@ -65,9 +61,9 @@ router.get(
       let queryText = `
         SELECT
           l.id, l.name, l.description, l.saved_count, l.city_name, l.tags, l.is_public,
-          l.user_id, -- Select the owner's user_id explicitly
+          l.user_id,
           (l.user_id = $1) as created_by_user,
-          COALESCE(u.username, 'unknown') AS creator_handle, -- Use COALESCE for creator handle
+          COALESCE(u.username, 'unknown') AS creator_handle,
           l.created_at, l.updated_at,
           COALESCE(lc.count, 0)::integer as item_count,
           EXISTS (SELECT 1 FROM listfollows lf WHERE lf.list_id = l.id AND lf.user_id = $1) as is_following
@@ -80,12 +76,11 @@ router.get(
       const queryParams = [userId];
       const conditions = [];
 
-      if (createdByUser === true) { // Check boolean true
+      if (createdByUser === true) {
         conditions.push(`l.user_id = $1`);
-      } else if (followedByUser === true) { // Check boolean true
+      } else if (followedByUser === true) {
          conditions.push(`EXISTS (SELECT 1 FROM listfollows lf WHERE lf.list_id = l.id AND lf.user_id = $1)`);
       } else {
-          // Default: Show public lists OR lists created by user OR lists followed by user
           conditions.push(
              `(l.is_public = TRUE OR l.user_id = $1 OR EXISTS (SELECT 1 FROM listfollows lf WHERE lf.list_id = l.id AND lf.user_id = $1))`
            );
@@ -98,25 +93,22 @@ router.get(
 
       const result = await db.query(queryText, queryParams);
 
-      // Map results for consistency, ensuring user_id is present
       const lists = (result.rows || []).map((list) => ({
         id: list.id,
         name: list.name,
         description: list.description,
         saved_count: list.saved_count || 0,
         item_count: list.item_count || 0,
-        city: list.city_name, // Map to 'city' if frontend expects it
+        city: list.city_name,
         tags: Array.isArray(list.tags) ? list.tags : [],
         is_public: list.is_public ?? true,
         is_following: list.is_following ?? false,
         created_by_user: list.created_by_user ?? false,
-        user_id: list.user_id, // Ensure owner user_id is included
-        creator_handle: list.creator_handle, // Include creator handle
-        // Add created_at, updated_at if needed by frontend
+        user_id: list.user_id,
+        creator_handle: list.creator_handle,
       })).filter((list) => typeof list.id !== 'undefined' && list.id !== null);
 
       res.json(lists);
-
     } catch (err) {
       console.error(`[LISTS GET /] Error fetching lists for user ${userId}:`, err);
       next(err);
@@ -124,29 +116,27 @@ router.get(
   }
 );
 
-
 // GET specific list details (/:id)
 router.get(
   '/:id',
-  authMiddleware, // Keep middleware, needed to check ownership/follow status
+  authMiddleware,
   validateListIdParam,
   handleValidationErrors,
   async (req, res, next) => {
     const { id } = req.params;
-    const userId = req.user?.id; // User ID from token
+    const userId = req.user?.id;
 
     if (!userId) {
        return res.status(401).json({ error: 'Authentication required to view list details.' });
     }
 
     try {
-      // Fetch list details including owner ID and creator handle
       const listQuery = `
         SELECT
           l.id, l.name, l.description, l.saved_count, l.city_name, l.tags, l.is_public,
-          l.user_id, -- Get the owner's user ID
+          l.user_id,
           (l.user_id = $2) AS created_by_user,
-          COALESCE(u.username, 'unknown') AS creator_handle, -- Use COALESCE
+          COALESCE(u.username, 'unknown') AS creator_handle,
           l.created_at, l.updated_at,
           EXISTS (SELECT 1 FROM listfollows lf WHERE lf.list_id = l.id AND lf.user_id = $2) as is_following
         FROM Lists l
@@ -160,12 +150,10 @@ router.get(
       }
       const list = listResult.rows[0];
 
-      // Check access for private lists
       if (!list.is_public && list.user_id !== userId) {
         return res.status(403).json({ error: 'Forbidden: You do not have access to this private list.' });
       }
 
-      // Fetch items
       const itemsQuery = `
         SELECT
           li.id as list_item_id, li.item_type, li.item_id, li.added_at,
@@ -205,16 +193,15 @@ router.get(
       `;
       const itemsResult = await db.query(itemsQuery, [id]);
 
-      // Map response, ensure all required fields are present
       const response = {
         id: list.id,
         name: list.name,
         description: list.description,
         saved_count: list.saved_count || 0,
-        city: list.city_name, // Map to city
-        tags: Array.isArray(list.tags) ? list.tags : [], // LIST's tags
+        city: list.city_name,
+        tags: Array.isArray(list.tags) ? list.tags : [],
         is_public: list.is_public ?? true,
-        user_id: list.user_id, // Owner ID
+        user_id: list.user_id,
         created_by_user: list.created_by_user ?? false,
         creator_handle: list.creator_handle,
         is_following: list.is_following ?? false,
@@ -223,24 +210,23 @@ router.get(
         items: itemsResult.rows.map((item) => ({
           list_item_id: item.list_item_id,
           item_type: item.item_type,
-          id: item.item_id, // Actual dish or restaurant ID
+          id: item.item_id,
           name: item.name,
           restaurant_name: item.restaurant_name,
           added_at: item.added_at,
           city: item.city,
           neighborhood: item.neighborhood,
-          tags: Array.isArray(item.tags) ? item.tags : [], // ITEM's tags
+          tags: Array.isArray(item.tags) ? item.tags : [],
         })),
         item_count: itemsResult.rows.length,
       };
       res.json(response);
     } catch (err) {
       console.error(`[LISTS GET /:id] Error fetching list ${id}:`, err);
-       next(err);
+      next(err);
     }
   }
 );
-
 
 // POST /api/lists (Create New List)
 router.post(
@@ -251,17 +237,17 @@ router.post(
   async (req, res, next) => {
     const { name, description, city_name, tags, is_public } = req.body;
     const userId = req.user?.id;
-     if (!userId) return res.status(401).json({ error: 'Authentication required.' });
+    if (!userId) return res.status(401).json({ error: 'Authentication required.' });
 
-     let creatorHandle = `user${userId}`; // Default handle
-     try {
+    let creatorHandle = `user${userId}`;
+    try {
         const userRes = await db.query('SELECT username FROM Users WHERE id = $1', [userId]);
         if (userRes.rows.length > 0) {
             creatorHandle = userRes.rows[0].username;
         }
-     } catch (handleErr) {
+    } catch (handleErr) {
         console.warn('[LISTS POST /] Could not fetch username for creator_handle:', handleErr.message);
-     }
+    }
 
     try {
       const cleanTags = Array.isArray(tags) ? tags.map((t) => String(t).trim().toLowerCase()).filter(Boolean) : [];
@@ -278,17 +264,16 @@ router.post(
       if (result.rows.length === 0) throw new Error('DB insertion error (no rows returned).');
       const newList = result.rows[0];
 
-      // Map response for consistency
       const response = {
         id: newList.id,
         name: newList.name,
         description: newList.description,
         saved_count: newList.saved_count || 0,
-        item_count: 0, // New list starts with 0 items
+        item_count: 0,
         city: newList.city_name,
         tags: Array.isArray(newList.tags) ? newList.tags : [],
         is_public: newList.is_public ?? true,
-        is_following: false, // Creator doesn't "follow" their own list in the 'listfollows' table
+        is_following: false,
         created_by_user: true,
         user_id: newList.user_id,
         creator_handle: newList.creator_handle,
@@ -301,99 +286,120 @@ router.post(
   }
 );
 
-// POST /api/lists/:id/follow (Toggle Follow)
+// POST /api/lists/:id/follow (Toggle Follow) - FIXED VERSION
 router.post(
   '/:id/follow',
   authMiddleware,
   validateListIdParam,
   handleValidationErrors,
   async (req, res, next) => {
-    const { id: listId } = req.params; // Renamed for clarity
+    const { id: listId } = req.params;
     const userId = req.user?.id;
-     if (!userId) return res.status(401).json({ error: 'Authentication required.' });
 
-    let client;
+    console.log(`[LISTS POST /${listId}/follow] Processing follow toggle for user ${userId}`);
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required.' });
+    }
+
     try {
-      client = await db.getClient();
-      await client.query('BEGIN');
+      // Begin transaction using the standard connection pool
+      await db.query('BEGIN');
 
-      // Check if list exists and prevent self-following
-      const listCheck = await client.query(`SELECT user_id FROM Lists WHERE id = $1 FOR UPDATE`, [listId]);
+      // Lock the list row to prevent concurrent updates
+      const listCheck = await db.query(`SELECT user_id, saved_count FROM Lists WHERE id = $1 FOR UPDATE`, [listId]);
       if (listCheck.rows.length === 0) {
         throw { status: 404, message: 'List not found' };
       }
-       if (listCheck.rows[0].user_id === userId) {
-            // Although UI should prevent this, add backend check
-            throw { status: 400, message: 'You cannot follow or unfollow your own list.' };
-       }
+      if (listCheck.rows[0].user_id === userId) {
+        throw { status: 400, message: 'You cannot follow or unfollow your own list.' };
+      }
 
+      const currentSavedCount = listCheck.rows[0].saved_count;
+
+      // Check if the user already follows the list
       const followQuery = `SELECT list_id FROM listfollows WHERE list_id = $1 AND user_id = $2`;
-      const followResult = await client.query(followQuery, [listId, userId]);
+      const followResult = await db.query(followQuery, [listId, userId]);
       const isCurrentlyFollowing = followResult.rows.length > 0;
       let newFollowingState;
 
+      console.log(`[LISTS POST /${listId}/follow] Current follow status: ${isCurrentlyFollowing ? 'Following' : 'Not following'}`);
+
       if (isCurrentlyFollowing) {
-        // Unfollow: Delete the record and decrement saved_count
-        await client.query(`DELETE FROM listfollows WHERE list_id = $1 AND user_id = $2`, [listId, userId]);
-        await client.query( `UPDATE Lists SET saved_count = GREATEST(0, saved_count - 1) WHERE id = $1`, [listId] );
+        // Unfollow: Delete the follow record
+        await db.query(`DELETE FROM listfollows WHERE list_id = $1 AND user_id = $2`, [listId, userId]);
+        const newSavedCount = Math.max(0, currentSavedCount - 1);
+        await db.query(`UPDATE Lists SET saved_count = $1 WHERE id = $2`, [newSavedCount, listId]);
         newFollowingState = false;
+        console.log(`[LISTS POST /${listId}/follow] User ${userId} unfollowed list ${listId}`);
       } else {
-        // Follow: Insert the record and increment saved_count
-        await client.query( `INSERT INTO listfollows (list_id, user_id, followed_at) VALUES ($1, $2, CURRENT_TIMESTAMP) ON CONFLICT DO NOTHING`, [listId, userId] );
-        await client.query( `UPDATE Lists SET saved_count = saved_count + 1 WHERE id = $1`, [listId] );
+        // Follow: Insert a new follow record
+        await db.query(
+          `INSERT INTO listfollows (list_id, user_id, followed_at) VALUES ($1, $2, CURRENT_TIMESTAMP) ON CONFLICT DO NOTHING`,
+          [listId, userId]
+        );
+        const newSavedCount = currentSavedCount + 1;
+        await db.query(`UPDATE Lists SET saved_count = $1 WHERE id = $2`, [newSavedCount, listId]);
         newFollowingState = true;
+        console.log(`[LISTS POST /${listId}/follow] User ${userId} followed list ${listId}`);
       }
 
-      // Fetch the updated list details to return
-       const updatedListQuery = `
-         SELECT
-           l.id, l.name, l.description, l.saved_count, l.city_name, l.tags, l.is_public,
-           l.user_id, -- Owner ID
-           (l.user_id = $2) AS created_by_user,
-           COALESCE(u.username, 'unknown') AS creator_handle,
-           l.created_at, l.updated_at,
-           COALESCE(lc.count, 0)::integer as item_count,
-           $3::boolean as is_following -- Explicitly set the new follow state
-         FROM Lists l
-         LEFT JOIN Users u ON l.user_id = u.id
-         LEFT JOIN (SELECT list_id, COUNT(*) as count FROM ListItems GROUP BY list_id) lc ON l.id = lc.list_id
-         WHERE l.id = $1
-       `;
-      const updatedListResult = await client.query(updatedListQuery, [listId, userId, newFollowingState]);
+      // Verify the follow status
+      const verifyQuery = `SELECT 1 FROM listfollows WHERE list_id = $1 AND user_id = $2`;
+      const verifyResult = await db.query(verifyQuery, [listId, userId]);
+      const verifiedFollowStatus = verifyResult.rows.length > 0;
+
+      console.log(`[LISTS POST /${listId}/follow] Verified follow status: ${verifiedFollowStatus ? 'Following' : 'Not following'}`);
+
+      // Fetch the updated list with follow status
+      const updatedListQuery = `
+        SELECT
+          l.id, l.name, l.description, l.saved_count, l.city_name, l.tags, l.is_public,
+          l.user_id,
+          (l.user_id = $2) AS created_by_user,
+          COALESCE(u.username, 'unknown') AS creator_handle,
+          l.created_at, l.updated_at,
+          COALESCE(lc.count, 0)::integer as item_count,
+          $3::boolean as is_following
+        FROM Lists l
+        LEFT JOIN Users u ON l.user_id = u.id
+        LEFT JOIN (SELECT list_id, COUNT(*) as count FROM ListItems GROUP BY list_id) lc ON l.id = lc.list_id
+        WHERE l.id = $1
+      `;
+      const updatedListResult = await db.query(updatedListQuery, [listId, userId, verifiedFollowStatus]);
       const updatedList = updatedListResult.rows[0];
       if (!updatedList) throw new Error('Failed to retrieve updated list details after follow toggle.');
 
-      await client.query('COMMIT');
+      updatedList.is_following = verifiedFollowStatus;
 
-      // Map response for consistency
+      // Commit transaction
+      await db.query('COMMIT');
+
       const response = {
-          id: updatedList.id,
-          name: updatedList.name,
-          description: updatedList.description,
-          saved_count: updatedList.saved_count || 0,
-          item_count: updatedList.item_count || 0,
-          city: updatedList.city_name,
-          tags: Array.isArray(updatedList.tags) ? updatedList.tags : [],
-          is_public: updatedList.is_public ?? true,
-          is_following: updatedList.is_following ?? false,
-          created_by_user: updatedList.created_by_user ?? false,
-          user_id: updatedList.user_id, // Owner ID
-          creator_handle: updatedList.creator_handle,
+        id: updatedList.id,
+        name: updatedList.name,
+        description: updatedList.description,
+        saved_count: updatedList.saved_count || 0,
+        item_count: updatedList.item_count || 0,
+        city: updatedList.city_name,
+        tags: Array.isArray(updatedList.tags) ? updatedList.tags : [],
+        is_public: updatedList.is_public ?? true,
+        is_following: updatedList.is_following,
+        created_by_user: updatedList.created_by_user ?? false,
+        user_id: updatedList.user_id,
+        creator_handle: updatedList.creator_handle,
       };
-      res.json(response); // Return the updated list object
+
+      console.log(`[LISTS POST /${listId}/follow] Returning response with is_following: ${response.is_following}`);
+
+      res.json(response);
     } catch (err) {
-      if (client) {
-        try { await client.query('ROLLBACK'); } catch (rbErr) { console.error('Error rolling back transaction:', rbErr); }
-      }
+      try { await db.query('ROLLBACK'); } catch (rbErr) { console.error('Error rolling back transaction:', rbErr); }
       console.error(`[LISTS POST /:id/follow] Error toggling follow for list ${listId}:`, err);
-       if (err.status) { // Handle custom status/message errors
-            return res.status(err.status).json({ error: err.message });
-       }
-       next(err); // Pass other errors to general handler
-    } finally {
-        if (client) {
-            client.release();
-        }
+      if (err.status) {
+        return res.status(err.status).json({ error: err.message });
+      }
+      next(err);
     }
   }
 );
@@ -412,7 +418,6 @@ router.put(
     if (!userId) return res.status(401).json({ error: 'Authentication required.' });
 
     try {
-      // Update and retrieve the list in one go
       const updateQuery = `
         UPDATE Lists
         SET is_public = $1, updated_at = CURRENT_TIMESTAMP
@@ -422,7 +427,6 @@ router.put(
       const result = await db.query(updateQuery, [is_public, id, userId]);
 
       if (result.rows.length === 0) {
-        // Check if the list exists but isn't owned by the user
         const checkExists = await db.query(`SELECT user_id FROM Lists WHERE id = $1`, [id]);
         if (checkExists.rows.length === 0) {
           return res.status(404).json({ error: 'List not found.' });
@@ -432,11 +436,9 @@ router.put(
       }
 
       const updatedList = result.rows[0];
-      // Get item count and follow status separately
-      const listItemsCountResult = await db.query( `SELECT COUNT(*) as count FROM ListItems WHERE list_id = $1`, [id] );
-      const followCheck = await db.query( `SELECT 1 FROM listfollows WHERE list_id = $1 AND user_id = $2`, [id, userId] );
+      const listItemsCountResult = await db.query(`SELECT COUNT(*) as count FROM ListItems WHERE list_id = $1`, [id]);
+      const followCheck = await db.query(`SELECT 1 FROM listfollows WHERE list_id = $1 AND user_id = $2`, [id, userId]);
 
-      // Map response for consistency
       const response = {
         id: updatedList.id,
         name: updatedList.name,
@@ -446,11 +448,12 @@ router.put(
         city: updatedList.city_name,
         tags: Array.isArray(updatedList.tags) ? updatedList.tags : [],
         is_public: updatedList.is_public ?? true,
-        is_following: followCheck.rows.length > 0, // Include current follow status
-        created_by_user: true, // Since only owner can update, this is true
-        user_id: updatedList.user_id, // Owner ID
+        is_following: followCheck.rows.length > 0,
+        created_by_user: true,
+        user_id: updatedList.user_id,
         creator_handle: updatedList.creator_handle,
       };
+
       res.status(200).json(response);
     } catch (err) {
       console.error(`[LISTS PUT /:id/visibility] Error updating visibility for list ${id}:`, err);
@@ -458,7 +461,6 @@ router.put(
     }
   }
 );
-
 
 // POST /api/lists/:id/items (Add item to list)
 router.post(
@@ -473,13 +475,10 @@ router.post(
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ error: 'Authentication required.' });
 
-    let client;
     try {
-      client = await db.getClient();
-      await client.query('BEGIN');
+      await db.query('BEGIN');
 
-      // Check list ownership
-      const listCheck = await client.query(`SELECT user_id FROM Lists WHERE id = $1 FOR UPDATE`, [listId]);
+      const listCheck = await db.query(`SELECT user_id FROM Lists WHERE id = $1 FOR UPDATE`, [listId]);
       if (listCheck.rows.length === 0) {
         throw { status: 404, message: 'List not found.' };
       }
@@ -487,26 +486,23 @@ router.post(
          throw { status: 403, message: 'Forbidden: You can only add items to your own lists.' };
       }
 
-      // Check if item exists
       const itemTable = item_type === 'dish' ? 'Dishes' : 'Restaurants';
-      const itemCheck = await client.query(`SELECT id FROM ${itemTable} WHERE id = $1`, [item_id]);
+      const itemCheck = await db.query(`SELECT id FROM ${itemTable} WHERE id = $1`, [item_id]);
       if (itemCheck.rows.length === 0) {
         throw { status: 404, message: `Item (${item_type}) with ID ${item_id} not found.` };
       }
 
-      // Insert item, ignoring conflicts
       const insertQuery = `
         INSERT INTO ListItems (list_id, item_type, item_id, added_at)
         VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
         ON CONFLICT (list_id, item_type, item_id) DO NOTHING
         RETURNING id, item_type, item_id, added_at
       `;
-      const result = await client.query(insertQuery, [listId, item_type, item_id]);
+      const result = await db.query(insertQuery, [listId, item_type, item_id]);
 
-      // Update the list's updated_at timestamp
-      await client.query('UPDATE Lists SET updated_at = CURRENT_TIMESTAMP WHERE id = $1', [listId]);
+      await db.query('UPDATE Lists SET updated_at = CURRENT_TIMESTAMP WHERE id = $1', [listId]);
 
-      await client.query('COMMIT');
+      await db.query('COMMIT');
 
       if (result.rows.length > 0) {
         res.status(201).json({ ...result.rows[0], message: 'Item added to list.' });
@@ -514,18 +510,12 @@ router.post(
         res.status(200).json({ message: 'Item already exists in the list.' });
       }
     } catch (err) {
-      if (client) {
-         try { await client.query('ROLLBACK'); } catch (rbErr) { console.error('Error rolling back transaction:', rbErr); }
-      }
+      try { await db.query('ROLLBACK'); } catch (rbErr) { console.error('Error rolling back transaction:', rbErr); }
       console.error(`[LISTS POST /:id/items] Error adding item to list ${listId}:`, err);
-       if (err.status) { // Handle custom status/message errors
-            return res.status(err.status).json({ error: err.message });
-       }
-       next(err); // Pass other errors to general handler
-    } finally {
-        if (client) {
-            client.release();
-        }
+      if (err.status) {
+        return res.status(err.status).json({ error: err.message });
+      }
+      next(err);
     }
   }
 );
@@ -535,20 +525,17 @@ router.delete(
   '/:id/items/:listItemId',
   authMiddleware,
   validateListIdParam,
-  validateListItemIdParam, // Use the specific validator for listItemId
+  validateListItemIdParam,
   handleValidationErrors,
   async (req, res, next) => {
     const { id: listId, listItemId } = req.params;
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ error: 'Authentication required.' });
 
-    let client;
     try {
-      client = await db.getClient();
-      await client.query('BEGIN');
+      await db.query('BEGIN');
 
-      // Check list ownership first
-      const listCheck = await client.query(`SELECT user_id FROM Lists WHERE id = $1 FOR UPDATE`, [listId]);
+      const listCheck = await db.query(`SELECT user_id FROM Lists WHERE id = $1 FOR UPDATE`, [listId]);
       if (listCheck.rows.length === 0) {
         throw { status: 404, message: 'List not found.' };
       }
@@ -556,37 +543,27 @@ router.delete(
          throw { status: 403, message: 'Forbidden: You can only remove items from your own lists.' };
       }
 
-      // Delete the specific list item by its own ID (listItemId) within the correct list
       const deleteQuery = `DELETE FROM ListItems WHERE id = $1 AND list_id = $2 RETURNING id`;
-      const result = await client.query(deleteQuery, [listItemId, listId]);
+      const result = await db.query(deleteQuery, [listItemId, listId]);
 
       if (result.rows.length === 0) {
-        // If the item wasn't deleted, it means the listItemId didn't exist in that list
         throw { status: 404, message: `List item ID ${listItemId} not found in list ${listId}.` };
       }
 
-      // Update the list's updated_at timestamp
-      await client.query('UPDATE Lists SET updated_at = CURRENT_TIMESTAMP WHERE id = $1', [listId]);
+      await db.query('UPDATE Lists SET updated_at = CURRENT_TIMESTAMP WHERE id = $1', [listId]);
 
-      await client.query('COMMIT');
+      await db.query('COMMIT');
 
-      res.status(204).send(); // Success, no content to return
+      res.status(204).send();
     } catch (err) {
-      if (client) {
-        try { await client.query('ROLLBACK'); } catch (rbErr) { console.error('Error rolling back transaction:', rbErr); }
-      }
+      try { await db.query('ROLLBACK'); } catch (rbErr) { console.error('Error rolling back transaction:', rbErr); }
       console.error(`[LISTS DELETE /:id/items/:listItemId] Error removing item ${listItemId} from list ${listId}:`, err);
-       if (err.status) { // Handle custom status/message errors
-            return res.status(err.status).json({ error: err.message });
-       }
-       next(err); // Pass other errors to general handler
-    } finally {
-       if (client) {
-           client.release();
-       }
+      if (err.status) {
+        return res.status(err.status).json({ error: err.message });
+      }
+      next(err);
     }
   }
 );
-
 
 module.exports = router;
