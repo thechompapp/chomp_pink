@@ -1,8 +1,8 @@
--- Populate Users table (Add a test user)
-INSERT INTO Users (id, username, email, password_hash, created_at) VALUES
-(1, 'testuser', 'testuser@example.com', '$2b$10$examplehashedpassword1234567890', CURRENT_TIMESTAMP)
+-- Populate Users table (Ensure testuser is superuser)
+INSERT INTO Users (id, username, email, password_hash, account_type, created_at) VALUES
+(1, 'testuser', 'testuser@example.com', '$2a$10$ARprx4DRDUVcFyGZQXlbhOaLpSELSgTNfA4jV6.MRvrzQPoB5z1km', 'superuser', CURRENT_TIMESTAMP) -- Set account_type to superuser and use valid hash
 ON CONFLICT (id) DO UPDATE SET
-username = EXCLUDED.username, email = EXCLUDED.email, password_hash = EXCLUDED.password_hash, created_at = EXCLUDED.created_at;
+username = EXCLUDED.username, email = EXCLUDED.email, password_hash = EXCLUDED.password_hash, account_type = EXCLUDED.account_type, created_at = EXCLUDED.created_at;
 SELECT setval(pg_get_serial_sequence('users', 'id'), COALESCE((SELECT MAX(id)+1 FROM Users), 1), false);
 
 -- Populate Cities, Neighborhoods, Hashtags (Updated category to lowercase 'cuisine')
@@ -12,7 +12,7 @@ SELECT setval(pg_get_serial_sequence('cities', 'id'), COALESCE((SELECT MAX(id)+1
 INSERT INTO Neighborhoods (id, name, city_id) VALUES (1, 'Greenwich Village', 1), (2, 'Midtown', 1), (3, 'Lower East Side', 1), (4, 'Chelsea', 1), (5, 'West Village', 1), (6, 'East Village', 1), (7, 'River North', 3), (8, 'Lincoln Park', 3), (9, 'West Loop', 3), (10, 'Gold Coast', 3), (11, 'Silver Lake', 2), (12, 'Arts District', 2), (13, 'La Brea', 2), (14, 'Venice', 2), (15, 'Various', 2), (16, 'Little Tokyo', 2), (17, 'Chinatown', 2) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, city_id = EXCLUDED.city_id;
 SELECT setval(pg_get_serial_sequence('neighborhoods', 'id'), COALESCE((SELECT MAX(id)+1 FROM Neighborhoods), 1), false);
 
-INSERT INTO Hashtags (id, name, category) VALUES 
+INSERT INTO Hashtags (id, name, category) VALUES
 (1,'pizza','cuisine'),
 (2,'italian','cuisine'),
 (3,'classic','Attributes'),
@@ -99,7 +99,7 @@ INSERT INTO Hashtags (id, name, category) VALUES
 (84,'greens','Ingredients'),
 (85,'lunch','Meal'),
 (86,'light','Attributes'),
-(87,'baked','Attributes') 
+(87,'baked','Attributes')
 ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, category = EXCLUDED.category;
 SELECT setval(pg_get_serial_sequence('hashtags', 'id'), COALESCE((SELECT MAX(id)+1 FROM Hashtags), 1), false);
 
@@ -118,11 +118,11 @@ SELECT setval(pg_get_serial_sequence('dishes', 'id'), COALESCE((SELECT MAX(id)+1
 INSERT INTO DishHashtags (dish_id, hashtag_id) VALUES (1,1),(1,2),(1,27),(1,3),(1,33),(1,71),(1,72),(2,1),(2,2),(2,28),(2,3),(2,33),(2,30),(3,5),(3,6),(3,29),(3,33),(3,3),(4,8),(4,7),(5,11),(5,12),(5,10),(5,3),(5,28),(5,29),(6,13),(6,30),(6,14),(6,31),(6,75),(6,76),(7,13),(7,32),(7,14),(7,27),(7,75),(7,76),(8,17),(8,2),(8,27),(8,3),(8,33),(9,20),(9,30),(9,21),(9,22),(9,82),(9,83),(10,11),(10,24),(10,27),(10,25),(10,26),(10,16) ON CONFLICT (dish_id, hashtag_id) DO NOTHING;
 
 -- Populate Lists table
-INSERT INTO Lists (id, name, description, saved_count, city_name, tags, is_public, creator_handle, user_id) VALUES
-(1, 'NYC Pizza Tour', 'Best slices in the city', 245, 'New York', ARRAY['pizza', 'italian', 'nyc', 'slice'], true, '@pizzalover', 1),
-(2, 'Iconic NYC Eats', 'Must-try classic spots', 187, 'New York', ARRAY['classic', 'deli', 'sandwiches', 'cheap eats', 'must try'], true, '@nycfoodie', 1)
+INSERT INTO Lists (id, name, description, list_type, saved_count, city_name, tags, is_public, creator_handle, user_id) VALUES
+(1, 'NYC Pizza Tour', 'Best slices in the city', 'mixed', 245, 'New York', ARRAY['pizza', 'italian', 'nyc', 'slice'], true, 'testuser', 1), -- Updated creator_handle
+(2, 'Iconic NYC Eats', 'Must-try classic spots', 'mixed', 187, 'New York', ARRAY['classic', 'deli', 'sandwiches', 'cheap eats', 'must try'], true, 'testuser', 1) -- Updated creator_handle
 ON CONFLICT (id) DO UPDATE SET
-name = EXCLUDED.name, description = EXCLUDED.description, saved_count = EXCLUDED.saved_count, city_name = EXCLUDED.city_name,
+name = EXCLUDED.name, description = EXCLUDED.description, list_type = EXCLUDED.list_type, saved_count = EXCLUDED.saved_count, city_name = EXCLUDED.city_name,
 tags = EXCLUDED.tags, is_public = EXCLUDED.is_public, creator_handle = EXCLUDED.creator_handle, user_id = EXCLUDED.user_id;
 SELECT setval(pg_get_serial_sequence('lists', 'id'), COALESCE((SELECT MAX(id)+1 FROM Lists), 1), false);
 
@@ -130,7 +130,8 @@ SELECT setval(pg_get_serial_sequence('lists', 'id'), COALESCE((SELECT MAX(id)+1 
 -- List 1: NYC Pizza Tour (ID: 1)
 INSERT INTO ListItems (list_id, item_type, item_id) VALUES
 (1, 'restaurant', 1), -- Joe's Pizza (Restaurant ID 1)
-(1, 'dish', 1)         -- Margherita Pizza (Dish ID 1)
+(1, 'dish', 1),         -- Margherita Pizza (Dish ID 1)
+(1, 'dish', 2)          -- Pepperoni Pizza (Dish ID 2)
 ON CONFLICT (list_id, item_type, item_id) DO NOTHING;
 
 -- List 2: Iconic NYC Eats (ID: 2)
@@ -143,3 +144,4 @@ ON CONFLICT (list_id, item_type, item_id) DO NOTHING;
 SELECT setval(pg_get_serial_sequence('listitems', 'id'), COALESCE((SELECT MAX(id)+1 FROM ListItems), 1), false);
 
 -- Note: DishVotes and Submissions are not populated by this initial script.
+-- Note: More mock data from more_mock_data.sql should be run *after* this if needed.

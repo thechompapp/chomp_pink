@@ -1,5 +1,5 @@
 // src/services/placeService.js
-import apiClient from './apiClient';
+import apiClient from './apiClient'; // Use alias
 
 const getAutocompleteSuggestions = async (input) => {
   // console.log(`[placeService] Fetching autocomplete for input: "${input}"`); // Keep for debugging if needed
@@ -24,14 +24,34 @@ const getPlaceDetails = async (placeId) => {
     const data = await apiClient(`/api/places/details?placeId=${encodeURIComponent(placeId)}`, 'Fetching place details');
     // console.log(`[placeService] Received details:`, data); // Keep for debugging if needed
     // Return data or empty object, ensuring it's always an object
-    return typeof data === 'object' && data !== null ? data : {};
+    // Check if data is explicitly null before returning empty object
+    return (typeof data === 'object' && data !== null) ? data : {};
   } catch (error) {
     console.error('[placeService] Error fetching place details:', error.message || error);
     throw error;
   }
 };
 
+// *** NEW FUNCTION ***
+// Searches for a place using a text query (e.g., "Restaurant Name, City")
+const findPlaceByText = async (query) => {
+  console.log(`[placeService] Finding place for query: "${query}"`); // Log input
+  try {
+    // Ensure the endpoint matches the backend route
+    const data = await apiClient(`/api/places/find?query=${encodeURIComponent(query)}`, 'Finding place by text');
+    console.log(`[placeService] Found place data:`, data);
+    // Return data or null if not found/error (apiClient might throw)
+    // Check if data is an empty object, return null in that case
+    return (typeof data === 'object' && data !== null && Object.keys(data).length > 0) ? data : null;
+  } catch (error) {
+    console.error('[placeService] Error finding place by text:', error.message || error);
+    throw error; // Re-throw for components/hooks to handle
+  }
+};
+
+
 export const placeService = {
   getAutocompleteSuggestions,
   getPlaceDetails,
+  findPlaceByText, // Export the new function
 };

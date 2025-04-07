@@ -1,16 +1,18 @@
 // src/pages/Lists/NewList.jsx
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import useUserListStore from '@/stores/useUserListStore';
-import useFormHandler from '@/hooks/useFormHandler';
-import useUIStateStore from '@/stores/useUIStateStore'; // For hashtags/cuisines
-import Button from '@/components/Button';
-import { Loader2, CheckCircle, Info, X } from 'lucide-react';
+import useUserListStore from '@/stores/useUserListStore'; // Use alias
+import useFormHandler from '@/hooks/useFormHandler'; // Use alias
+import useUIStateStore from '@/stores/useUIStateStore'; // Use alias
+import Button from '@/components/Button'; // Use alias
+import { Loader2, CheckCircle, Info, X, HelpCircle } from 'lucide-react'; // Added HelpCircle
 
 const NewList = () => {
     const navigate = useNavigate();
-    const addToListAction = useUserListStore(state => state.addToList); // Use the unified action
-    const isProcessing = useUserListStore(state => state.isAddingToList); // Check overall adding state
+    // Use the unified action from the store
+    const addToListAction = useUserListStore(state => state.addToList);
+    // Check overall adding state from the store
+    const isProcessing = useUserListStore(state => state.isAddingToList);
     const storeError = useUserListStore(state => state.error);
     const clearStoreError = useUserListStore(state => state.clearError);
 
@@ -25,38 +27,45 @@ const NewList = () => {
     const [showHashtagSuggestions, setShowHashtagSuggestions] = useState(false);
     const hashtagInputRef = useRef(null);
 
-    // Form handler for list name, description, public toggle
+    // Form handler for list name, description, public toggle, AND list type
     const {
         formData,
         handleChange,
         handleSubmit,
-        isSubmitting, // Use this for form-specific loading state if needed, but store's `isProcessing` is primary
+        isSubmitting, // Use store's `isProcessing` as primary loading state
         submitError,
         setSubmitError,
         resetForm,
+        setFormData, // Allow direct setting if needed
     } = useFormHandler({
         name: '',
         description: '',
         is_public: true,
+        list_type: 'mixed', // Added list_type with default 'mixed'
     });
 
     // Fetch cuisines if not already loaded
     useEffect(() => {
-        if (cuisines.length === 0) {
+        if (cuisines.length === 0 && !isLoadingCuisines) {
             fetchCuisines();
         }
-    }, [cuisines, fetchCuisines]);
+    }, [cuisines.length, fetchCuisines, isLoadingCuisines]); // Add isLoadingCuisines dependency
 
     // Clear errors on mount/unmount
     useEffect(() => {
         clearStoreError?.();
-        return () => clearStoreError?.();
-    }, [clearStoreError]);
+        setSubmitError(null); // Also clear form handler error
+        return () => {
+             clearStoreError?.();
+             setSubmitError(null);
+        };
+    }, [clearStoreError, setSubmitError]); // Add setSubmitError dependency
 
     // --- Hashtag Logic ---
     const filteredHashtags = useMemo(() => {
         if (!hashtagInput.trim() || cuisines.length === 0) return [];
         const inputLower = hashtagInput.toLowerCase();
+        // Suggest cuisines not already selected
         return cuisines
             .filter(c => c.name.toLowerCase().includes(inputLower) && !selectedHashtags.includes(c.name))
             .map(c => c.name)
@@ -122,26 +131,34 @@ const NewList = () => {
         try {
             // Call the store action to create the list
             const result = await addToListAction({
+                // No item needed when just creating a list
+                item: null,
                 createNew: true,
                 listData: {
                     name: currentFormData.name.trim(),
                     description: currentFormData.description.trim() || null,
                     is_public: currentFormData.is_public,
+                    list_type: currentFormData.list_type, // Pass list_type
                     tags: selectedHashtags,
                 }
             });
 
+            // Check result format from store action
             if (result?.success && result?.listId) {
                 console.log("New list created, navigating to:", `/lists/${result.listId}`);
                 // Navigate to the newly created list's detail page on success
                 navigate(`/lists/${result.listId}`);
             } else {
-                 throw new Error("List creation succeeded but no ID was returned.");
+                 // If store action resolved but didn't return expected result
+                 throw new Error(result?.message || "List creation failed or did not return expected ID.");
             }
         } catch (error) {
             // Error is set in the store, re-throw it for useFormHandler
              console.error("Error during list creation submission:", error);
-             throw error;
+             // Make sure the error message is user-friendly
+             const message = error.message || 'An unexpected error occurred during list creation.';
+             setSubmitError(message); // Ensure form handler also gets the error
+             throw new Error(message); // Re-throw for handleSubmit
         }
     };
 
@@ -151,7 +168,8 @@ const NewList = () => {
         handleSubmit(performSubmit); // Pass the submission logic to the hook
     };
 
-    const displayError = submitError || storeError; // Show form handler error or store error
+    // Combine potential errors from form validation/submission and store actions
+    const displayError = submitError || storeError;
 
     return (
         <div className="max-w-2xl mx-auto py-8 px-4">
@@ -159,7 +177,8 @@ const NewList = () => {
                 &larr; Back to My Lists
             </Button>
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-6">Create New List</h1>
-            <form onSubmit={handleFormSubmit} className="space-y-4 bg-white p-6 rounded-lg shadow border border-gray-100">
+
+            <form onSubmit={handleFormSubmit} className="space-y-5 bg-white p-6 rounded-lg shadow border border-gray-100">
                 {/* List Name */}
                 <div>
                     <label htmlFor="new-list-name" className="block text-sm font-medium text-gray-700 mb-1">List Name*</label>
@@ -170,7 +189,7 @@ const NewList = () => {
                         value={formData.name}
                         onChange={handleChange}
                         required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-[#D1B399] focus:border-[#D1B399] sm:text-sm"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-[#D1B399] focus:border-[#D1B399] sm:text-sm disabled:opacity-60 disabled:bg-gray-50"
                         placeholder="e.g., NYC Cheap Eats"
                         disabled={isProcessing}
                     />
@@ -184,12 +203,37 @@ const NewList = () => {
                         name="description" // Matches key in useFormHandler initialValues
                         value={formData.description}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-[#D1B399] focus:border-[#D1B399] sm:text-sm"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-[#D1B399] focus:border-[#D1B399] sm:text-sm disabled:opacity-60 disabled:bg-gray-50"
                         placeholder="A short description of your list's theme"
                         rows="3"
                         disabled={isProcessing}
                     />
                 </div>
+
+                {/* List Type Selection */}
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">List Type*</label>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                        {(['mixed', 'restaurant', 'dish']).map(type => (
+                             <label key={type} className={`flex items-center p-2 border rounded-md cursor-pointer transition-colors ${formData.list_type === type ? 'bg-[#D1B399]/10 border-[#D1B399]/50 ring-1 ring-[#D1B399]' : 'border-gray-300 hover:border-gray-400'} ${isProcessing ? 'opacity-60 cursor-not-allowed' : ''}`}>
+                                <input
+                                    type="radio"
+                                    name="list_type"
+                                    value={type}
+                                    checked={formData.list_type === type}
+                                    onChange={handleChange}
+                                    disabled={isProcessing}
+                                    className="h-4 w-4 text-[#A78B71] border-gray-300 focus:ring-[#A78B71] mr-2"
+                                />
+                                <span className="capitalize text-sm">{type}</span>
+                                {type === 'mixed' && <HelpCircle size={14} className="ml-1 text-gray-400" title="Can contain both restaurants and dishes"/>}
+                                {type === 'restaurant' && <HelpCircle size={14} className="ml-1 text-gray-400" title="Can only contain restaurants"/>}
+                                {type === 'dish' && <HelpCircle size={14} className="ml-1 text-gray-400" title="Can only contain dishes"/>}
+                             </label>
+                        ))}
+                    </div>
+                </div>
+
 
                 {/* Hashtags */}
                 <div ref={hashtagInputRef} className="relative">
@@ -201,27 +245,27 @@ const NewList = () => {
                         onChange={(e) => {setHashtagInput(e.target.value); setShowHashtagSuggestions(true); setSubmitError(null);}}
                         onKeyDown={handleHashtagInputKeyDown}
                         onFocus={() => setShowHashtagSuggestions(true)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-[#D1B399] focus:border-[#D1B399] sm:text-sm"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-[#D1B399] focus:border-[#D1B399] sm:text-sm disabled:opacity-60 disabled:bg-gray-50"
                         placeholder={isLoadingCuisines ? "Loading tags..." : "Type to add relevant tags"}
                         disabled={isProcessing || isLoadingCuisines}
                         autoComplete="off"
                     />
+                    {/* Suggestions Dropdown */}
                     {showHashtagSuggestions && filteredHashtags.length > 0 && hashtagInput && (
                         <ul className="absolute z-10 mt-1 w-full border border-gray-200 rounded-md bg-white max-h-32 overflow-y-auto shadow-lg">
                             {filteredHashtags.map((name) => (
                                 <li
                                     key={name}
                                     className="p-2 hover:bg-gray-100 cursor-pointer text-sm"
-                                    onMouseDown={(e) => { // Use onMouseDown to register click before blur hides list
-                                        e.preventDefault();
-                                        handleSelectHashtagSuggestion(name);
-                                    }}
+                                    // Use onMouseDown to register click before blur hides list
+                                    onMouseDown={(e) => { e.preventDefault(); handleSelectHashtagSuggestion(name); }}
                                 >
                                     #{name}
                                 </li>
                             ))}
                         </ul>
                     )}
+                    {/* Selected Tags Display */}
                     <div className="mt-2 flex flex-wrap gap-1 min-h-[20px]">
                         {selectedHashtags.map((h) => (
                             <span key={h} className="inline-flex items-center px-2 py-0.5 bg-[#A78B71] text-white rounded-full text-xs">
@@ -230,7 +274,8 @@ const NewList = () => {
                                     type="button"
                                     onClick={() => handleRemoveHashtag(h)}
                                     disabled={isProcessing}
-                                    className="ml-1 -mr-0.5 p-0.5 text-white/70 hover:text-white focus:outline-none"
+                                    className="ml-1 -mr-0.5 p-0.5 text-white/70 hover:text-white focus:outline-none disabled:opacity-50"
+                                    aria-label={`Remove tag ${h}`}
                                 >
                                     <X size={12} />
                                 </button>
@@ -238,7 +283,6 @@ const NewList = () => {
                         ))}
                     </div>
                 </div>
-
 
                 {/* Public/Private Toggle */}
                 <div className="flex items-center justify-start pt-1">
@@ -277,7 +321,7 @@ const NewList = () => {
                     <Button
                         type="submit"
                         variant="primary"
-                        className="w-full flex justify-center py-2 px-4"
+                        className="w-full flex justify-center py-2 px-4 disabled:opacity-75" // Ensure disabled style is noticeable
                         disabled={isProcessing} // Use store's loading state
                     >
                         {isProcessing ? <Loader2 className="animate-spin h-5 w-5" /> : 'Create List'}
