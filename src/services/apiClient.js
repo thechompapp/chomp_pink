@@ -1,4 +1,5 @@
 // src/services/apiClient.js
+// src/services/apiClient.js
 import useAuthStore from '@/stores/useAuthStore'; // Use alias
 import { API_BASE_URL } from '@/config'; // Use alias
 
@@ -42,6 +43,7 @@ const apiClient = async (endpoint, errorContext = 'API Request', options = {}) =
         if (body && typeof body === 'string' && body.includes('password')) {
              console.log(`[apiClient ${errorContext}] Body: [REDACTED_PASSWORD]`);
         } else if (body) {
+             // Only log body if it exists
              console.log(`[apiClient ${errorContext}] Body:`, body);
         }
     }
