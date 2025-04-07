@@ -1,14 +1,14 @@
 // src/pages/AdminPanel/index.jsx
-// No changes needed here, the import path `./AdminTable` is now correct.
 import React, { useState, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import * as Tabs from '@radix-ui/react-tabs';
 import apiClient from '@/services/apiClient'; // Use alias
-import AdminTable from './AdminTable'; // This import should now work
-import AdminAnalyticsSummary from './AdminAnalyticsSummary'; // Import the new component
+import AdminTable from './AdminTable';
+import AdminAnalyticsSummary from './AdminAnalyticsSummary';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
-import ErrorMessage from '@/components/UI/ErrorMessage'; // Import ErrorMessage
-import { BarChart, Database, FileText, Hash, List, Store, Utensils, User } from 'lucide-react'; // Added User icon
+import ErrorMessage from '@/components/UI/ErrorMessage';
+import Button from '@/components/Button';
+import { BarChart, Database, FileText, Hash, List, Store, Utensils, User, Filter, Search } from 'lucide-react'; // Added Search icon
 
 // --- Config ---
 const TAB_CONFIG = {
@@ -21,26 +21,31 @@ const TAB_CONFIG = {
     users: { label: 'Users', Icon: User },
 };
 const DEFAULT_TAB = 'analytics';
+const LIST_TYPE_OPTIONS = ['all', 'mixed', 'restaurant', 'dish'];
+const HASHTAG_CATEGORY_OPTIONS = ['all', 'cuisine', 'attributes', 'ingredients', 'location', 'meal', 'dietary']; // Add more as needed
 
 // --- Fetcher Function ---
 const fetchAdminData = async (type, sort = '') => {
     console.log(`[AdminPanel] Fetching data for type: ${type}, sort: ${sort}`);
-    if (type === 'analytics') return null; // Analytics has its own component fetching data
+    if (type === 'analytics') return null;
     const endpoint = `/api/admin/${type}${sort ? `?sort=${sort}` : ''}`;
     try {
         const data = await apiClient(endpoint, `Admin Fetch ${type}`);
         console.log(`[AdminPanel] Received ${Array.isArray(data) ? data.length : 'invalid'} items for type: ${type}`);
-        return Array.isArray(data) ? data : []; // Ensure array is returned
+        return Array.isArray(data) ? data : [];
     } catch (error) {
         console.error(`[AdminPanel] Error fetching ${type}:`, error);
-        // Rethrow the error so useQuery can handle it
         throw new Error(error.message || `Failed to load ${type}`);
     }
 };
 
 const AdminPanel = () => {
     const [activeTab, setActiveTab] = useState(DEFAULT_TAB);
-    const [sortState, setSortState] = useState({}); // { type: 'column_direction' }
+    const [sortState, setSortState] = useState({});
+    const [listTypeFilter, setListTypeFilter] = useState('all');
+    const [hashtagCategoryFilter, setHashtagCategoryFilter] = useState('all');
+    // --- State for Search Term ---
+    const [searchTerm, setSearchTerm] = useState('');
 
     const currentSort = useMemo(() => sortState[activeTab] || '', [sortState, activeTab]);
 
@@ -48,15 +53,17 @@ const AdminPanel = () => {
         data,
         isLoading,
         isError,
-        error, // Keep the error object
+        error,
         refetch,
     } = useQuery({
-        queryKey: ['adminData', activeTab, currentSort],
+        // Include filters in queryKey IF filtering was server-side
+        // queryKey: ['adminData', activeTab, currentSort, listTypeFilter, hashtagCategoryFilter, searchTerm],
+        queryKey: ['adminData', activeTab, currentSort], // Keep key simple for client-side filtering
         queryFn: () => fetchAdminData(activeTab, currentSort),
-        enabled: !!activeTab && activeTab !== 'analytics', // Only fetch if tab is active and not analytics
-        staleTime: 60 * 1000, // 1 minute
+        enabled: !!activeTab && activeTab !== 'analytics',
+        staleTime: 60 * 1000,
         refetchOnWindowFocus: true,
-        placeholderData: [], // Keep placeholder for non-analytics tabs
+        placeholderData: [],
     });
 
     const handleSortChange = useCallback((type, column, direction) => {
@@ -64,9 +71,21 @@ const AdminPanel = () => {
     }, []);
 
     const handleDataMutation = useCallback(() => {
-        // Refetch data for the current tab after a mutation (approve, reject, update, delete)
         refetch();
     }, [refetch]);
+
+    const handleListTypeFilterChange = useCallback((newFilter) => {
+        setListTypeFilter(newFilter);
+    }, []);
+
+    const handleHashtagCategoryFilterChange = useCallback((newFilter) => {
+        setHashtagCategoryFilter(newFilter);
+    }, []);
+
+    // --- Handler for Search Input ---
+    const handleSearchChange = useCallback((event) => {
+        setSearchTerm(event.target.value);
+    }, []);
 
     return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
@@ -90,9 +109,70 @@ const AdminPanel = () => {
                     ))}
                 </Tabs.List>
 
+                 {/* --- Filter & Search Area --- */}
+                 {activeTab !== 'analytics' && (
+                     <div className="mb-4 space-y-3 sm:space-y-0 sm:flex sm:items-center sm:justify-between gap-4">
+                         {/* Filters */}
+                         <div className='flex flex-wrap items-center gap-x-4 gap-y-2'>
+                            {activeTab === 'lists' && (
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-sm font-medium text-gray-700 flex items-center gap-1"><Filter size={14}/> Type:</span>
+                                    {LIST_TYPE_OPTIONS.map(option => (
+                                        <Button
+                                            key={option}
+                                            variant={listTypeFilter === option ? 'primary' : 'tertiary'}
+                                            size="sm"
+                                            onClick={() => handleListTypeFilterChange(option)}
+                                            className="capitalize !px-3 !py-1"
+                                            aria-pressed={listTypeFilter === option}
+                                        >
+                                            {option}
+                                        </Button>
+                                    ))}
+                                </div>
+                            )}
+                            {activeTab === 'hashtags' && (
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-sm font-medium text-gray-700 flex items-center gap-1"><Filter size={14}/> Category:</span>
+                                    {HASHTAG_CATEGORY_OPTIONS.map(option => (
+                                        <Button
+                                            key={option}
+                                            variant={hashtagCategoryFilter === option ? 'primary' : 'tertiary'}
+                                            size="sm"
+                                            onClick={() => handleHashtagCategoryFilterChange(option)}
+                                            className="capitalize !px-3 !py-1"
+                                            aria-pressed={hashtagCategoryFilter === option}
+                                        >
+                                            {option}
+                                        </Button>
+                                    ))}
+                                </div>
+                            )}
+                         </div>
+
+                         {/* Search Input */}
+                         <div className="relative sm:w-64">
+                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                 <Search className="h-4 w-4 text-gray-400" aria-hidden="true" />
+                             </div>
+                             <input
+                                 type="search"
+                                 name="adminSearch"
+                                 id="adminSearch"
+                                 className="block w-full pl-9 pr-3 py-1.5 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-[#D1B399] focus:border-[#D1B399] sm:text-sm"
+                                 placeholder={`Search ${activeTab}...`}
+                                 value={searchTerm}
+                                 onChange={handleSearchChange}
+                             />
+                         </div>
+                     </div>
+                 )}
+                 {/* --- End Filter & Search Area --- */}
+
+
                 {/* Render Content Based on Active Tab */}
                 {Object.keys(TAB_CONFIG).map((key) => (
-                    <Tabs.Content key={key} value={key} className="focus:outline-none">
+                    <Tabs.Content key={key} value={key} className="focus:outline-none pt-2"> {/* Added pt-2 */}
                         {activeTab === 'analytics' && key === 'analytics' && (
                             <AdminAnalyticsSummary />
                         )}
@@ -100,24 +180,26 @@ const AdminPanel = () => {
                             <>
                                 {isLoading && <LoadingSpinner message={`Loading ${TAB_CONFIG[key]?.label}...`} />}
 
-                                {/* *** ADDED ERROR HANDLING HERE *** */}
                                 {isError && !isLoading && (
                                     <ErrorMessage
                                         message={error?.message || `Failed to load ${TAB_CONFIG[key]?.label}.`}
                                         onRetry={refetch}
-                                        isLoadingRetry={isLoading} // Use the query's loading state for retry button
+                                        isLoadingRetry={isLoading}
                                         containerClassName="mt-4"
                                     />
                                 )}
-                                {/* *** END ERROR HANDLING *** */}
 
                                 {!isLoading && !isError && (
                                     <AdminTable
                                         type={key}
-                                        data={data || []} // Pass data (or empty array)
+                                        data={data || []}
                                         sort={currentSort}
                                         onSortChange={handleSortChange}
-                                        onDataMutated={handleDataMutation} // Pass mutation callback
+                                        onDataMutated={handleDataMutation}
+                                        listTypeFilter={key === 'lists' ? listTypeFilter : undefined}
+                                        hashtagCategoryFilter={key === 'hashtags' ? hashtagCategoryFilter : undefined}
+                                        // --- Pass search term ---
+                                        searchTerm={searchTerm}
                                     />
                                 )}
                             </>

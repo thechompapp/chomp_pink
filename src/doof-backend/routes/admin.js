@@ -45,7 +45,6 @@ const userAccountTypeOptions = ['user', 'contributor', 'superuser'];
 const submissionStatusOptions = ['pending', 'approved', 'rejected'];
 
 // --- Middleware ---
-// Middleware to require Superuser role
 const requireSuperuser = async (req, res, next) => {
     const currentDb = req.app?.get('db') || db;
     if (!req.user || typeof req.user.id === 'undefined') {
@@ -53,7 +52,6 @@ const requireSuperuser = async (req, res, next) => {
         return res.status(401).json({ error: 'Authentication required or invalid token payload.' });
     }
     try {
-        // Use lowercase unquoted table and column names
         const userCheckQuery = 'SELECT account_type FROM users WHERE id = $1';
         console.log(`[Admin RequireSuperuser] Checking permissions for user ID: ${req.user.id}`);
         const userCheck = await currentDb.query(userCheckQuery, [req.user.id]);
@@ -79,24 +77,20 @@ const requireSuperuser = async (req, res, next) => {
     }
 };
 
-// Middleware to validate :type parameter
 const validateTypeParam = (req, res, next) => {
     const { type } = req.params;
     if (!ALLOWED_RESOURCE_TYPES.includes(type)) {
         return res.status(400).json({ error: `Invalid resource type specified: ${type}` });
     }
-    // *** Use lowercase unquoted table name ***
-    req.tableName = type.toLowerCase(); // e.g., 'restaurants', 'submissions'
+    req.tableName = type.toLowerCase();
     req.resourceType = type;
     next();
 };
 
-// Middleware to validate :id parameter
 const validateIdParam = [
     param('id').isInt({ min: 1 }).withMessage('ID must be a positive integer'),
 ];
 
-// Middleware to handle validation errors from express-validator
 const handleValidationErrors = (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -106,7 +100,6 @@ const handleValidationErrors = (req, res, next) => {
     next();
 };
 
-// Middleware to validate and sanitize sort query parameters
 const validateSortQuery = (req, res, next) => {
     const { sort } = req.query;
     const type = req.resourceType;
@@ -131,15 +124,41 @@ const validateSortQuery = (req, res, next) => {
         return res.status(400).json({ error: 'Invalid sort column name.' });
     }
 
-    // Quote column names for safety in ORDER BY
-    req.safeSortColumn = `"${column}"`;
+    // Define table aliases used in specific joins
+    const tableAliases = {
+        restaurants: 'r',
+        dishes: 'd',
+        lists: 'l',
+        users: 'u',
+        submissions: 's',
+        cities: 'c',
+        neighborhoods: 'n',
+        // Add other aliases if needed
+    };
+
+    // Determine the correct alias for the sort column
+    let sortColumnAlias = tableAliases[type] || 'base'; // Default alias or maybe derive from type
+
+    // Specific aliases for joined columns
+    if (type === 'restaurants' && column === 'city_name') sortColumnAlias = 'c';
+    if (type === 'restaurants' && column === 'neighborhood_name') sortColumnAlias = 'n';
+    if (type === 'dishes' && column === 'restaurant_name') sortColumnAlias = 'r'; // Alias for joined restaurants table
+    if (type === 'lists' && column === 'creator_handle') sortColumnAlias = 'u';
+    if (type === 'submissions' && column === 'user_handle') sortColumnAlias = 'u';
+
+    // Quote the column name itself for safety
+    const quotedColumn = `"${column}"`;
+
+    // Construct the fully qualified and quoted sort column identifier
+    req.qualifiedSortColumn = `${sortColumnAlias}.${quotedColumn}`; // e.g., n."neighborhood_name" or r."name"
+
     req.validSortDirection = direction.toUpperCase(); // ASC/DESC
 
-    console.log(`[Admin Sort] Using sort: ${req.safeSortColumn} ${req.validSortDirection}`);
+    console.log(`[Admin Sort] Using sort: ${req.qualifiedSortColumn} ${req.validSortDirection}`);
     next();
 };
 
-// Middleware to validate update body against allowed fields
+
 const validateUpdateBody = (req, res, next) => {
     const { type } = req.params;
     if (!ALLOWED_MUTATE_TYPES.includes(type)) {
@@ -157,7 +176,6 @@ const validateUpdateBody = (req, res, next) => {
     next();
 };
 
-// Validation middleware for bulk add request body
 const validateBulkAdd = [
     body('items').isArray({ min: 1 }).withMessage('Items must be a non-empty array'),
     body('items.*.name').trim().notEmpty().withMessage('Item name is required'),
@@ -166,6 +184,7 @@ const validateBulkAdd = [
     body('items.*.tags').optional({ nullable: true }).isArray().withMessage('Tags must be an array if provided'),
     body('items.*.tags.*').optional().isString().trim().notEmpty().withMessage('Tags must be non-empty strings'),
 ];
+
 
 // --- Apply Common Middleware ---
 router.use(authMiddleware);
@@ -177,31 +196,30 @@ router.use(requireSuperuser);
 router.get(
     "/:type",
     validateTypeParam,
-    validateSortQuery,
+    validateSortQuery, // Now provides req.qualifiedSortColumn
     async (req, res, next) => {
         const currentDb = req.app?.get('db') || db;
-        const safeSortColumn = req.safeSortColumn; // e.g., "created_at"
-        const sortDirection = req.validSortDirection; // e.g., DESC
-        const tableName = req.tableName; // e.g., 'submissions'
-
-        // *** Construct ORDER BY clause carefully - Ensure space before ORDER BY ***
-        const orderByClause = ` ORDER BY ${safeSortColumn} ${sortDirection}`;
+        // *** Use the fully qualified and quoted sort column from middleware ***
+        const qualifiedSortColumn = req.qualifiedSortColumn;
+        const sortDirection = req.validSortDirection;
+        const orderByClause = `ORDER BY ${qualifiedSortColumn} ${sortDirection}`; // Construct ORDER BY clause
+        const tableName = req.tableName; // Lowercase table name
 
         try {
-            let queryBase; // Base SELECT part
-            let joins = ''; // JOIN clauses
-            let whereClause = ''; // WHERE clause (for filtering like submissions status)
-            let params = []; // Parameters for the query
+            let queryBase;
+            let joins = '';
+            let whereClause = '';
+            let params = [];
 
-            // Use lowercase, unquoted table names consistently
+            // *** Define table aliases consistently ***
             switch (req.resourceType) {
                 case 'submissions':
+                    queryBase = `SELECT s.*, u.username as user_handle FROM submissions s`;
+                    joins = `LEFT JOIN users u ON s.user_id = u.id`;
                     const statusFilter = req.query.status || 'pending';
                     if (!submissionStatusOptions.includes(statusFilter)) {
                         return res.status(400).json({ error: `Invalid status filter. Allowed values: ${submissionStatusOptions.join(', ')}` });
                     }
-                    queryBase = `SELECT s.*, u.username as user_handle FROM submissions s`;
-                    joins = `LEFT JOIN users u ON s.user_id = u.id`;
                     whereClause = `WHERE s.status = $1`;
                     params = [statusFilter];
                     break;
@@ -218,32 +236,33 @@ router.get(
                     joins = `LEFT JOIN cities c ON r.city_id = c.id LEFT JOIN neighborhoods n ON r.neighborhood_id = n.id`;
                     break;
                 case 'users':
-                    queryBase = `SELECT id, username, email, account_type, created_at FROM users`;
+                    queryBase = `SELECT u.id, u.username, u.email, u.account_type, u.created_at FROM users u`; // Use alias 'u'
                     break;
-                default: // For hashtags or other simple tables
-                    queryBase = `SELECT * FROM ${tableName}`; // Use lowercase table name
+                default: // hashtags etc.
+                    queryBase = `SELECT base.* FROM ${tableName} base`; // Use alias 'base'
                     break;
             }
 
-            // Combine parts into the final query
-            // Add space before JOIN, WHERE, ORDER BY
-            const query = `${queryBase}${joins ? ' ' + joins : ''}${whereClause ? ' ' + whereClause : ''}${orderByClause}`;
+            // Combine query parts, ensuring spaces
+            const query = `${queryBase}${joins ? ' ' + joins : ''}${whereClause ? ' ' + whereClause : ''}${orderByClause ? ' ' + orderByClause : ''}`;
 
             console.log(`[Admin GET /${req.params.type}] Executing Query: ${query} with params: ${JSON.stringify(params)}`);
             const result = await currentDb.query(query, params);
             res.json(result.rows || []);
         } catch (err) {
             console.error(`[Admin GET /${req.params.type}] Database query error:`, err);
-            if (err.code === '42703') { // Undefined column
-                 console.error(`[Admin Sort Error] Column specified in ORDER BY (${req.safeSortColumn}) likely does not exist in table ${req.tableName}.`);
-                 return res.status(400).json({ error: `Invalid sort column: ${req.safeSortColumn.replace(/"/g, '')}` });
+            if (err.code === '42703' || err.message.includes('ambiguous')) { // Undefined or ambiguous column
+                 const ambiguousColumn = err.message.match(/column reference "(.*?)" is ambiguous/)?.[1] || req.qualifiedSortColumn.match(/"(.*?)"/)?.[1];
+                 console.error(`[Admin Sort Error] Column specified (${ambiguousColumn || 'unknown'}) is ambiguous or does not exist.`);
+                 return res.status(400).json({ error: `Invalid or ambiguous sort column: ${ambiguousColumn || 'unknown'}` });
             } else if (err.code === '42P01') { // Undefined table
-                console.error(`[Admin GET Error] Table ${req.tableName} likely does not exist.`);
-                return res.status(500).json({ error: `Database schema error: Table ${req.tableName} missing.` });
+                console.error(`[Admin GET Error] Table ${tableName} likely does not exist.`);
+                return res.status(500).json({ error: `Database schema error: Table ${tableName} missing.` });
             } else if (err.code === '42601') { // Syntax error code
-                 console.error(`[Admin GET /${req.params.type}] SQL Syntax Error. Query generated: ${query}`); // Log the failing query
+                 console.error(`[Admin GET /${req.params.type}] SQL Syntax Error. Query generated: ${query}`);
                  const detailedError = process.env.NODE_ENV === 'development' ? err.message : `Internal server error processing request for ${req.params.type}.`;
-                 return res.status(500).json({ error: detailedError });
+                 const position = err.position ? ` near character ${err.position}` : '';
+                 return res.status(500).json({ error: `SQL Syntax Error${position}. Check server logs.` });
             }
             next(err);
         }
@@ -394,7 +413,7 @@ router.put(
              } else if (err.code === '23503') {
                  return res.status(400).json({ error: `Update failed: Invalid reference (e.g., city_id or restaurant_id does not exist).` });
              } else if (err.code === '42703') { // Undefined column
-                console.error(`[Admin PUT Error] Column likely does not exist in table ${req.tableName}. Check query: ${query}`);
+                console.error(`[Admin PUT Error] Column likely does not exist in table ${req.tableName}.`);
                 return res.status(500).json({ error: `Database schema error during update.` });
              } else if (err.code === '42P01') { // Undefined table
                 console.error(`[Admin PUT Error] Table ${req.tableName} likely does not exist.`);

@@ -1,11 +1,10 @@
 // src/pages/AdminPanel/AdminTable.jsx
-// NEW FILE - Basic structure for the Admin Table component
-
 import React, { useState, useCallback, useMemo } from 'react';
-import Button from '@/components/Button'; // Use alias
-import { CheckCircle, XCircle, Edit, Trash2, ArrowDown, ArrowUp, Eye } from 'lucide-react';
-import useSubmissionStore from '@/stores/useSubmissionStore'; // For approve/reject
-import apiClient from '@/services/apiClient'; // For direct delete/update if needed
+import Button from '@/components/Button';
+import { CheckCircle, XCircle, Edit, Trash2, ArrowDown, ArrowUp, Eye, Type } from 'lucide-react';
+import useSubmissionStore from '@/stores/useSubmissionStore';
+import apiClient from '@/services/apiClient';
+import ErrorMessage from '@/components/UI/ErrorMessage';
 
 // Helper to format date/time
 const formatDateTime = (isoString) => {
@@ -17,72 +16,113 @@ const formatDateTime = (isoString) => {
     }
 };
 
-// Column Configuration (Example - expand as needed)
+// Column Configuration
 const columnConfig = {
     submissions: [
-        { key: 'name', label: 'Name', sortable: true },
-        { key: 'type', label: 'Type', sortable: true },
-        { key: 'location', label: 'Location/Restaurant', sortable: false }, // Maybe sort by location?
-        { key: 'tags', label: 'Tags', sortable: false },
-        { key: 'user_handle', label: 'User', sortable: true },
-        { key: 'created_at', label: 'Submitted', sortable: true, format: formatDateTime },
-        { key: 'actions', label: 'Actions', sortable: false },
+        { key: 'name', label: 'Name', sortable: true, searchable: true },
+        { key: 'type', label: 'Type', sortable: true, searchable: true },
+        { key: 'location', label: 'Location/Restaurant', sortable: false, searchable: true },
+        { key: 'tags', label: 'Tags', sortable: false, searchable: false }, // Tags need special search logic if desired
+        { key: 'user_handle', label: 'User', sortable: true, searchable: true },
+        { key: 'created_at', label: 'Submitted', sortable: true, format: formatDateTime, searchable: false },
+        { key: 'actions', label: 'Actions', sortable: false, searchable: false },
     ],
     restaurants: [
-        { key: 'id', label: 'ID', sortable: true },
-        { key: 'name', label: 'Name', sortable: true },
-        { key: 'city_name', label: 'City', sortable: true },
-        { key: 'neighborhood_name', label: 'Neighborhood', sortable: true },
-        { key: 'adds', label: 'Adds', sortable: true },
-        // { key: 'google_place_id', label: 'Place ID', sortable: false },
-        { key: 'created_at', label: 'Created', sortable: true, format: formatDateTime },
-        { key: 'actions', label: 'Actions', sortable: false },
+        { key: 'id', label: 'ID', sortable: true, searchable: true },
+        { key: 'name', label: 'Name', sortable: true, searchable: true },
+        { key: 'city_name', label: 'City', sortable: true, searchable: true },
+        { key: 'neighborhood_name', label: 'Neighborhood', sortable: true, searchable: true },
+        { key: 'adds', label: 'Adds', sortable: true, searchable: false },
+        { key: 'created_at', label: 'Created', sortable: true, format: formatDateTime, searchable: false },
+        { key: 'actions', label: 'Actions', sortable: false, searchable: false },
     ],
     dishes: [
-        { key: 'id', label: 'ID', sortable: true },
-        { key: 'name', label: 'Name', sortable: true },
-        { key: 'restaurant_name', label: 'Restaurant', sortable: true },
-        { key: 'adds', label: 'Adds', sortable: true },
-        { key: 'created_at', label: 'Created', sortable: true, format: formatDateTime },
-        { key: 'actions', label: 'Actions', sortable: false },
+        { key: 'id', label: 'ID', sortable: true, searchable: true },
+        { key: 'name', label: 'Name', sortable: true, searchable: true },
+        { key: 'restaurant_name', label: 'Restaurant', sortable: true, searchable: true },
+        { key: 'adds', label: 'Adds', sortable: true, searchable: false },
+        { key: 'created_at', label: 'Created', sortable: true, format: formatDateTime, searchable: false },
+        { key: 'actions', label: 'Actions', sortable: false, searchable: false },
     ],
     lists: [
-        { key: 'id', label: 'ID', sortable: true },
-        { key: 'name', label: 'Name', sortable: true },
-        { key: 'creator_handle', label: 'Creator', sortable: true },
-        { key: 'type', label: 'Type', sortable: true },
-        { key: 'item_count', label: 'Items', sortable: true },
-        { key: 'saved_count', label: 'Saves', sortable: true },
-        { key: 'is_public', label: 'Public', sortable: true },
-        { key: 'created_at', label: 'Created', sortable: true, format: formatDateTime },
-        { key: 'actions', label: 'Actions', sortable: false },
+        { key: 'id', label: 'ID', sortable: true, searchable: true },
+        { key: 'name', label: 'Name', sortable: true, searchable: true },
+        { key: 'creator_handle', label: 'Creator', sortable: true, searchable: true },
+        { key: 'list_type', label: 'Type', sortable: true, Icon: Type, searchable: true },
+        { key: 'item_count', label: 'Items', sortable: true, searchable: false },
+        { key: 'saved_count', label: 'Saves', sortable: true, searchable: false },
+        { key: 'is_public', label: 'Public', sortable: true, searchable: false }, // Boolean search needs specific handling
+        { key: 'created_at', label: 'Created', sortable: true, format: formatDateTime, searchable: false },
+        { key: 'actions', label: 'Actions', sortable: false, searchable: false },
     ],
     hashtags: [
-        { key: 'id', label: 'ID', sortable: true },
-        { key: 'name', label: 'Name', sortable: true },
-        { key: 'category', label: 'Category', sortable: true },
-        { key: 'created_at', label: 'Created', sortable: true, format: formatDateTime },
-        { key: 'actions', label: 'Actions', sortable: false },
+        { key: 'id', label: 'ID', sortable: true, searchable: true },
+        { key: 'name', label: 'Name', sortable: true, searchable: true },
+        { key: 'category', label: 'Category', sortable: true, searchable: true },
+        { key: 'created_at', label: 'Created', sortable: true, format: formatDateTime, searchable: false },
+        { key: 'actions', label: 'Actions', sortable: false, searchable: false },
     ],
      users: [
-        { key: 'id', label: 'ID', sortable: true },
-        { key: 'username', label: 'Username', sortable: true },
-        { key: 'email', label: 'Email', sortable: true },
-        { key: 'account_type', label: 'Type', sortable: true },
-        { key: 'created_at', label: 'Created', sortable: true, format: formatDateTime },
-        { key: 'actions', label: 'Actions', sortable: false },
+        { key: 'id', label: 'ID', sortable: true, searchable: true },
+        { key: 'username', label: 'Username', sortable: true, searchable: true },
+        { key: 'email', label: 'Email', sortable: true, searchable: true },
+        { key: 'account_type', label: 'Type', sortable: true, searchable: true },
+        { key: 'created_at', label: 'Created', sortable: true, format: formatDateTime, searchable: false },
+        { key: 'actions', label: 'Actions', sortable: false, searchable: false },
     ],
-    // Add more types as needed
 };
 
-const AdminTable = ({ type, data = [], sort, onSortChange, onDataMutated }) => {
+const AdminTable = ({
+    type,
+    data = [],
+    sort,
+    onSortChange,
+    onDataMutated,
+    listTypeFilter = 'all',
+    hashtagCategoryFilter = 'all',
+    // --- Accept search term prop ---
+    searchTerm = '',
+}) => {
     const approveSubmission = useSubmissionStore(state => state.approveSubmission);
     const rejectSubmission = useSubmissionStore(state => state.rejectSubmission);
     const [processingId, setProcessingId] = useState(null);
     const [error, setError] = useState(null);
 
     const columns = columnConfig[type] || [];
+    const searchableColumns = useMemo(() => columns.filter(c => c.searchable), [columns]); // Memoize searchable columns
     const [sortColumn, sortDirection] = sort ? sort.split('_') : ['', ''];
+
+    const filteredData = useMemo(() => {
+        let items = data;
+
+        if (type === 'lists' && listTypeFilter !== 'all') {
+            items = items.filter(item => (item.list_type || 'mixed') === listTypeFilter);
+        }
+
+        if (type === 'hashtags' && hashtagCategoryFilter !== 'all') {
+            items = items.filter(item => (item.category?.toLowerCase() || '') === hashtagCategoryFilter.toLowerCase());
+        }
+
+        // --- Apply search term filter (Client-side) ---
+        if (searchTerm.trim()) {
+            const lowerSearchTerm = searchTerm.toLowerCase();
+            items = items.filter(item =>
+                // Check against searchable columns only
+                searchableColumns.some(col => {
+                    let value = item[col.key];
+                    const keys = col.key.split('.'); // Handle potential nested keys if needed later
+                    if (keys.length > 1) {
+                        value = keys.reduce((obj, key) => obj?.[key], item);
+                    }
+                    // Ensure value exists and can be converted to string for searching
+                    return value != null && String(value).toLowerCase().includes(lowerSearchTerm);
+                })
+            );
+        }
+
+        return items;
+    }, [data, type, listTypeFilter, hashtagCategoryFilter, searchTerm, searchableColumns]); // Added dependencies
+
 
     const handleSort = useCallback((columnKey) => {
         if (!columns.find(c => c.key === columnKey)?.sortable) return;
@@ -96,7 +136,7 @@ const AdminTable = ({ type, data = [], sort, onSortChange, onDataMutated }) => {
         setError(null);
         try {
             await approveSubmission(id);
-            onDataMutated(); // Notify parent to refetch
+            onDataMutated();
         } catch (err) {
             setError(`Failed to approve submission ${id}: ${err.message}`);
         } finally {
@@ -109,7 +149,7 @@ const AdminTable = ({ type, data = [], sort, onSortChange, onDataMutated }) => {
         setError(null);
         try {
             await rejectSubmission(id);
-            onDataMutated(); // Notify parent to refetch
+            onDataMutated();
         } catch (err) {
             setError(`Failed to reject submission ${id}: ${err.message}`);
         } finally {
@@ -117,10 +157,8 @@ const AdminTable = ({ type, data = [], sort, onSortChange, onDataMutated }) => {
         }
     }, [rejectSubmission, onDataMutated]);
 
-    // Placeholder Edit/Delete Handlers - Implement full logic later
     const handleEdit = useCallback((item) => {
         alert(`Edit functionality for ${type} ID ${item.id} not fully implemented.`);
-        // TODO: Implement modal or form for editing
     }, [type]);
 
     const handleDelete = useCallback(async (id) => {
@@ -131,7 +169,7 @@ const AdminTable = ({ type, data = [], sort, onSortChange, onDataMutated }) => {
         setError(null);
         try {
             await apiClient(`/api/admin/${type}/${id}`, `Admin Delete ${type} ${id}`, { method: 'DELETE' });
-            onDataMutated(); // Notify parent to refetch
+            onDataMutated();
         } catch (err) {
              setError(`Failed to delete ${type.slice(0, -1)} ${id}: ${err.message}`);
         } finally {
@@ -142,7 +180,6 @@ const AdminTable = ({ type, data = [], sort, onSortChange, onDataMutated }) => {
     const renderCell = (item, column) => {
         let value = item[column.key];
 
-        // Handle nested properties if needed (e.g., user.name) - adjust key in config
         const keys = column.key.split('.');
         if (keys.length > 1) {
             value = keys.reduce((obj, key) => obj?.[key], item);
@@ -155,19 +192,20 @@ const AdminTable = ({ type, data = [], sort, onSortChange, onDataMutated }) => {
         if (column.key === 'tags' && Array.isArray(value)) {
             return (
                 <div className="flex flex-wrap gap-1 max-w-xs">
-                    {value.map(tag => <span key={tag} className="px-1.5 py-0.5 bg-gray-100 text-[10px] rounded-full">{tag}</span>)}
+                    {value.slice(0, 5).map(tag => <span key={tag} className="px-1.5 py-0.5 bg-gray-100 text-[10px] rounded-full">{tag}</span>)}
+                    {value.length > 5 && <span className="px-1.5 py-0.5 bg-gray-200 text-[10px] rounded-full">+{value.length - 5}</span>}
                 </div>
             );
         }
         if (column.key === 'is_public' || typeof value === 'boolean') {
              return value ? <span className="text-green-600">Yes</span> : <span className="text-red-600">No</span>;
         }
-
-        // Truncate long text for specific columns if needed
-         if (['name', 'location', 'description', 'restaurant_name', 'username', 'email'].includes(column.key) && typeof value === 'string' && value.length > 60) {
+        if (column.key === 'list_type') {
+             return <span className='capitalize flex items-center gap-1'>{column.Icon && <column.Icon size={14} className="text-gray-500"/>}{value ?? 'mixed'}</span>;
+        }
+         if (['name', 'location', 'description', 'restaurant_name', 'username', 'email', 'category'].includes(column.key) && typeof value === 'string' && value.length > 60) {
              return <span title={value}>{value.substring(0, 60)}...</span>;
          }
-
 
         return value ?? 'N/A';
     };
@@ -188,7 +226,7 @@ const AdminTable = ({ type, data = [], sort, onSortChange, onDataMutated }) => {
                      </Button>
                 </div>
             );
-        } else if (type !== 'users') { // Example: Don't allow direct user deletion from here
+        } else if (type !== 'users') {
              return (
                  <div className="flex gap-1">
                      <Button variant="tertiary" size="sm" onClick={() => handleEdit(item)} disabled={isProcessingThis} title="Edit">
@@ -200,7 +238,6 @@ const AdminTable = ({ type, data = [], sort, onSortChange, onDataMutated }) => {
                  </div>
              );
         } else {
-             // Add specific user actions if needed (e.g., Edit role button)
              return (
                   <div className="flex gap-1">
                       <Button variant="tertiary" size="sm" onClick={() => handleEdit(item)} disabled={isProcessingThis} title="Edit User">
@@ -214,10 +251,14 @@ const AdminTable = ({ type, data = [], sort, onSortChange, onDataMutated }) => {
     return (
         <div>
             {error && <ErrorMessage message={error} containerClassName="mb-4" />}
-            {data.length === 0 ? (
-                <p className="text-center text-gray-500 py-6">No {type} found.</p>
+            {filteredData.length === 0 ? (
+                 <p className="text-center text-gray-500 py-6 bg-gray-50 rounded-md border border-dashed">
+                    {searchTerm || (type === 'lists' && listTypeFilter !== 'all') || (type === 'hashtags' && hashtagCategoryFilter !== 'all')
+                      ? `No ${type} match the current filters/search.`
+                      : `No ${type} found.`}
+                 </p>
             ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto shadow border-b border-gray-200 sm:rounded-lg">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                             <tr>
@@ -240,7 +281,7 @@ const AdminTable = ({ type, data = [], sort, onSortChange, onDataMutated }) => {
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {data.map((item) => (
+                            {filteredData.map((item) => (
                                 <tr key={item.id} className="hover:bg-gray-50">
                                     {columns.map((col) => (
                                         <td key={`${item.id}-${col.key}`} className="px-4 py-2 whitespace-nowrap text-sm text-gray-700 align-top">

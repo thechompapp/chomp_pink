@@ -161,6 +161,46 @@ ALTER SEQUENCE public.dishvotes_id_seq OWNED BY public.dishvotes.id;
 
 
 --
+-- Name: engagements; Type: TABLE; Schema: public; Owner: doof_user
+--
+
+CREATE TABLE public.engagements (
+    id integer NOT NULL,
+    user_id integer,
+    item_id integer NOT NULL,
+    item_type character varying(50) NOT NULL,
+    engagement_type character varying(20) NOT NULL,
+    engagement_timestamp timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT engagements_engagement_type_check CHECK (((engagement_type)::text = ANY ((ARRAY['view'::character varying, 'click'::character varying, 'add_to_list'::character varying, 'share'::character varying])::text[]))),
+    CONSTRAINT engagements_item_type_check CHECK (((item_type)::text = ANY ((ARRAY['restaurant'::character varying, 'dish'::character varying, 'list'::character varying])::text[])))
+);
+
+
+ALTER TABLE public.engagements OWNER TO doof_user;
+
+--
+-- Name: engagements_id_seq; Type: SEQUENCE; Schema: public; Owner: doof_user
+--
+
+CREATE SEQUENCE public.engagements_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.engagements_id_seq OWNER TO doof_user;
+
+--
+-- Name: engagements_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: doof_user
+--
+
+ALTER SEQUENCE public.engagements_id_seq OWNED BY public.engagements.id;
+
+
+--
 -- Name: hashtags; Type: TABLE; Schema: public; Owner: doof_user
 --
 
@@ -256,6 +296,7 @@ CREATE TABLE public.lists (
     id integer NOT NULL,
     name character varying(255) NOT NULL,
     description text,
+    list_type character varying(20) DEFAULT 'mixed'::character varying NOT NULL,
     saved_count integer DEFAULT 0 NOT NULL,
     city_name character varying(100),
     tags text[],
@@ -263,7 +304,8 @@ CREATE TABLE public.lists (
     creator_handle character varying(100),
     user_id integer,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT lists_list_type_check CHECK (((list_type)::text = ANY ((ARRAY['restaurant'::character varying, 'dish'::character varying, 'mixed'::character varying])::text[])))
 );
 
 
@@ -384,12 +426,15 @@ ALTER TABLE public.restauranthashtags OWNER TO doof_user;
 CREATE TABLE public.restaurants (
     id integer NOT NULL,
     name character varying(255) NOT NULL,
-    city_id integer NOT NULL,
+    city_id integer,
     city_name character varying(100),
     neighborhood_id integer,
     neighborhood_name character varying(100),
-    adds integer DEFAULT 0,
+    address text,
     google_place_id character varying(255),
+    latitude numeric(9,6),
+    longitude numeric(9,6),
+    adds integer DEFAULT 0,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
 );
@@ -475,7 +520,9 @@ CREATE TABLE public.users (
     username character varying(100) NOT NULL,
     email character varying(255) NOT NULL,
     password_hash character varying(255) NOT NULL,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+    account_type character varying(20) DEFAULT 'user'::character varying NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT users_account_type_check CHECK (((account_type)::text = ANY ((ARRAY['user'::character varying, 'contributor'::character varying, 'superuser'::character varying])::text[])))
 );
 
 
@@ -522,6 +569,13 @@ ALTER TABLE ONLY public.dishes ALTER COLUMN id SET DEFAULT nextval('public.dishe
 --
 
 ALTER TABLE ONLY public.dishvotes ALTER COLUMN id SET DEFAULT nextval('public.dishvotes_id_seq'::regclass);
+
+
+--
+-- Name: engagements id; Type: DEFAULT; Schema: public; Owner: doof_user
+--
+
+ALTER TABLE ONLY public.engagements ALTER COLUMN id SET DEFAULT nextval('public.engagements_id_seq'::regclass);
 
 
 --
@@ -597,6 +651,14 @@ ALTER TABLE ONLY public.cities
 
 
 --
+-- Name: dishes dishes_name_restaurant_id_key; Type: CONSTRAINT; Schema: public; Owner: doof_user
+--
+
+ALTER TABLE ONLY public.dishes
+    ADD CONSTRAINT dishes_name_restaurant_id_key UNIQUE (name, restaurant_id);
+
+
+--
 -- Name: dishes dishes_pkey; Type: CONSTRAINT; Schema: public; Owner: doof_user
 --
 
@@ -626,6 +688,14 @@ ALTER TABLE ONLY public.dishvotes
 
 ALTER TABLE ONLY public.dishvotes
     ADD CONSTRAINT dishvotes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: engagements engagements_pkey; Type: CONSTRAINT; Schema: public; Owner: doof_user
+--
+
+ALTER TABLE ONLY public.engagements
+    ADD CONSTRAINT engagements_pkey PRIMARY KEY (id);
 
 
 --
@@ -698,6 +768,14 @@ ALTER TABLE ONLY public.refresh_tokens
 
 ALTER TABLE ONLY public.restauranthashtags
     ADD CONSTRAINT restauranthashtags_pkey PRIMARY KEY (restaurant_id, hashtag_id);
+
+
+--
+-- Name: restaurants restaurants_google_place_id_key; Type: CONSTRAINT; Schema: public; Owner: doof_user
+--
+
+ALTER TABLE ONLY public.restaurants
+    ADD CONSTRAINT restaurants_google_place_id_key UNIQUE (google_place_id);
 
 
 --
@@ -797,6 +875,27 @@ CREATE INDEX idx_dishvotes_user_id ON public.dishvotes USING btree (user_id);
 
 
 --
+-- Name: idx_engagements_item; Type: INDEX; Schema: public; Owner: doof_user
+--
+
+CREATE INDEX idx_engagements_item ON public.engagements USING btree (item_type, item_id, engagement_timestamp DESC);
+
+
+--
+-- Name: idx_engagements_type_time; Type: INDEX; Schema: public; Owner: doof_user
+--
+
+CREATE INDEX idx_engagements_type_time ON public.engagements USING btree (engagement_type, engagement_timestamp DESC);
+
+
+--
+-- Name: idx_engagements_user; Type: INDEX; Schema: public; Owner: doof_user
+--
+
+CREATE INDEX idx_engagements_user ON public.engagements USING btree (user_id, engagement_timestamp DESC);
+
+
+--
 -- Name: idx_hashtags_category; Type: INDEX; Schema: public; Owner: doof_user
 --
 
@@ -850,6 +949,13 @@ CREATE INDEX idx_lists_city_name ON public.lists USING btree (city_name);
 --
 
 CREATE INDEX idx_lists_is_public_saved ON public.lists USING btree (is_public, saved_count DESC);
+
+
+--
+-- Name: idx_lists_list_type; Type: INDEX; Schema: public; Owner: doof_user
+--
+
+CREATE INDEX idx_lists_list_type ON public.lists USING btree (list_type);
 
 
 --
@@ -916,13 +1022,6 @@ CREATE INDEX idx_restaurants_city_id_neighborhood_id ON public.restaurants USING
 
 
 --
--- Name: idx_restaurants_google_place_id; Type: INDEX; Schema: public; Owner: doof_user
---
-
-CREATE INDEX idx_restaurants_google_place_id ON public.restaurants USING btree (google_place_id);
-
-
---
 -- Name: idx_restaurants_name; Type: INDEX; Schema: public; Owner: doof_user
 --
 
@@ -944,6 +1043,13 @@ CREATE INDEX idx_resthashtags_restaurant_id ON public.restauranthashtags USING b
 
 
 --
+-- Name: idx_submissions_place_id; Type: INDEX; Schema: public; Owner: doof_user
+--
+
+CREATE INDEX idx_submissions_place_id ON public.submissions USING btree (place_id);
+
+
+--
 -- Name: idx_submissions_status_created; Type: INDEX; Schema: public; Owner: doof_user
 --
 
@@ -955,6 +1061,13 @@ CREATE INDEX idx_submissions_status_created ON public.submissions USING btree (s
 --
 
 CREATE INDEX idx_submissions_user_id ON public.submissions USING btree (user_id);
+
+
+--
+-- Name: idx_users_account_type; Type: INDEX; Schema: public; Owner: doof_user
+--
+
+CREATE INDEX idx_users_account_type ON public.users USING btree (account_type);
 
 
 --
@@ -972,6 +1085,13 @@ CREATE INDEX idx_users_username ON public.users USING btree (username);
 
 
 --
+-- Name: cities set_timestamp_cities; Type: TRIGGER; Schema: public; Owner: doof_user
+--
+
+CREATE TRIGGER set_timestamp_cities BEFORE UPDATE ON public.cities FOR EACH ROW EXECUTE FUNCTION public.trigger_set_timestamp();
+
+
+--
 -- Name: dishes set_timestamp_dishes; Type: TRIGGER; Schema: public; Owner: doof_user
 --
 
@@ -979,10 +1099,24 @@ CREATE TRIGGER set_timestamp_dishes BEFORE UPDATE ON public.dishes FOR EACH ROW 
 
 
 --
+-- Name: hashtags set_timestamp_hashtags; Type: TRIGGER; Schema: public; Owner: doof_user
+--
+
+CREATE TRIGGER set_timestamp_hashtags BEFORE UPDATE ON public.hashtags FOR EACH ROW EXECUTE FUNCTION public.trigger_set_timestamp();
+
+
+--
 -- Name: lists set_timestamp_lists; Type: TRIGGER; Schema: public; Owner: doof_user
 --
 
 CREATE TRIGGER set_timestamp_lists BEFORE UPDATE ON public.lists FOR EACH ROW EXECUTE FUNCTION public.trigger_set_timestamp();
+
+
+--
+-- Name: neighborhoods set_timestamp_neighborhoods; Type: TRIGGER; Schema: public; Owner: doof_user
+--
+
+CREATE TRIGGER set_timestamp_neighborhoods BEFORE UPDATE ON public.neighborhoods FOR EACH ROW EXECUTE FUNCTION public.trigger_set_timestamp();
 
 
 --
@@ -1014,6 +1148,14 @@ ALTER TABLE ONLY public.dishhashtags
 
 ALTER TABLE ONLY public.dishhashtags
     ADD CONSTRAINT fk_dishhashtag_hashtag FOREIGN KEY (hashtag_id) REFERENCES public.hashtags(id) ON DELETE CASCADE;
+
+
+--
+-- Name: engagements fk_engagement_user; Type: FK CONSTRAINT; Schema: public; Owner: doof_user
+--
+
+ALTER TABLE ONLY public.engagements
+    ADD CONSTRAINT fk_engagement_user FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE SET NULL;
 
 
 --
@@ -1094,6 +1236,14 @@ ALTER TABLE ONLY public.restauranthashtags
 
 ALTER TABLE ONLY public.restauranthashtags
     ADD CONSTRAINT fk_resthashtag_restaurant FOREIGN KEY (restaurant_id) REFERENCES public.restaurants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: submissions fk_submission_reviewer; Type: FK CONSTRAINT; Schema: public; Owner: doof_user
+--
+
+ALTER TABLE ONLY public.submissions
+    ADD CONSTRAINT fk_submission_reviewer FOREIGN KEY (reviewed_by) REFERENCES public.users(id) ON DELETE SET NULL;
 
 
 --

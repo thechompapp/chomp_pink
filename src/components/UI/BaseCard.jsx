@@ -7,76 +7,71 @@ const BaseCard = ({
   linkTo,
   onQuickAdd,
   quickAddLabel,
-  children,
+  children, // Children now represent the *entire* inner content structure provided by RestaurantCard, DishCard, ListCard
   className = '',
   isHighlighted = false,
   isDisabled = false,
-  showQuickAdd = true,
-  onClick, // <<< Added onClick prop
-  ...rest // <<< Capture any other props like aria-label passed down
+  showQuickAdd = true, // Kept for consistency, though rendered inside children now if needed
+  onClick,
+  ...rest
 }) => {
   const cardClasses = `
     relative group block overflow-hidden rounded-lg border
     ${isHighlighted ? 'border-[#A78B71] ring-1 ring-[#A78B71]' : 'border-gray-200 hover:border-gray-300'}
     bg-white transition-all duration-200
     ${isDisabled ? 'opacity-60 cursor-not-allowed' : 'hover:shadow-md'}
-    w-full h-64 // Enforce consistent height here
-    flex flex-col // Added flex-col to allow content spacing
+    w-full h-64 // Fixed height enforced here
+    flex // Use flex to make the link/div itself a flex container if needed by children
     ${className}
   `;
 
-  // Quick Add button handler
+  // Quick Add button handler remains the same
   const handleQuickAddClick = (e) => {
-    // Stop propagation to prevent the card's main onClick (if any) from firing
     e.stopPropagation();
     e.preventDefault();
     if (onQuickAdd) onQuickAdd(e);
   };
 
-  // Card Content: Renders children and the Quick Add button
-  // It's separated for clarity and reuse between the Link and div versions
-  const CardContent = ({ forwardedRef }) => ( // Accept ref if needed later
-    // Removed focus-within styles here as they should be on the main clickable element (Link or div)
-    <div ref={forwardedRef} className="flex flex-col h-full p-3 relative">
-      {/* Make children container grow */}
-      <div className="flex-grow">
+  // CardContent simplified: BaseCard now primarily provides the sized, styled box.
+  // The child component (RestaurantCard, DishCard, ListCard) is now fully responsible
+  // for its internal layout (e.g., using flex-col, flex-grow, handling tags/buttons)
+  // within the fixed h-64 boundary provided by this BaseCard.
+  const CardContent = () => (
+    <div className="p-3 w-full h-full relative"> {/* Add w-full and h-full, padding */}
         {children}
-      </div>
-      {showQuickAdd && onQuickAdd && !isDisabled && (
-        <button
-          onClick={handleQuickAddClick}
-          aria-label={quickAddLabel || 'Quick Add'}
-          // Adjusted positioning and visibility slightly
-          className="absolute top-2 right-2 z-10 p-1 bg-[#A78B71]/70 text-white rounded-full opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity duration-150 hover:bg-[#A78B71]"
-          tabIndex={-1} // Prevent Quick Add from being tab-focused initially when card is focusable
-        >
-          <Plus size={14} />
-        </button>
-      )}
+        {/* Quick Add Button is positioned relative to this inner div */}
+         {showQuickAdd && onQuickAdd && !isDisabled && (
+            <button
+              onClick={handleQuickAddClick}
+              aria-label={quickAddLabel || 'Quick Add'}
+              className="absolute top-2 right-2 z-10 p-1 bg-[#A78B71]/70 text-white rounded-full opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity duration-150 hover:bg-[#A78B71]"
+              tabIndex={-1}
+            >
+              <Plus size={14} />
+            </button>
+         )}
     </div>
   );
 
-  // Render as Link if linkTo is provided and not disabled
+
   if (!isDisabled && linkTo) {
     return (
       <Link
         to={linkTo}
-        onClick={onClick} // <<< Pass onClick to the Link component
-        className={`${cardClasses} focus:outline-none focus:ring-2 focus:ring-[#D1B399] focus:ring-offset-1`} // Apply focus styles here
-        {...rest} // Pass down other props like aria-label
+        onClick={onClick}
+        className={`${cardClasses} focus:outline-none focus:ring-2 focus:ring-[#D1B399] focus:ring-offset-1`}
+        {...rest}
       >
         <CardContent />
       </Link>
     );
   }
 
-  // Otherwise, render as a div (useful for skeletons or non-interactive cards)
-  // Pass onClick here too, in case the div itself needs to be clickable
   return (
     <div
-        onClick={isDisabled ? undefined : onClick} // Only allow click if not disabled
-        className={`${cardClasses} ${!isDisabled && onClick ? 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#D1B399] focus:ring-offset-1' : ''}`} // Add focus styles if clickable
-        {...rest} // Pass down other props
+        onClick={isDisabled ? undefined : onClick}
+        className={`${cardClasses} ${!isDisabled && onClick ? 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#D1B399] focus:ring-offset-1' : ''}`}
+        {...rest}
     >
       <CardContent />
     </div>
