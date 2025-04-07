@@ -1,4 +1,3 @@
-// src/pages/Lists/ListDetail.jsx
 import React, { memo, useCallback, useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -14,6 +13,7 @@ import { listService } from '@/services/listService';
 const fetchListDetails = async (listId) => {
     if (!listId) throw new Error('List ID is required');
     const data = await listService.getListDetails(listId);
+    console.log('[ListDetail] Fetched data:', JSON.stringify(data, null, 2));
     return data || {};
 };
 
@@ -60,17 +60,22 @@ const ListDetail = memo(() => {
         clearError?.();
         try {
             await removeFromList(listId, listItemIdToRemove);
+            queryClient.invalidateQueries({ queryKey: ['listDetails', listId] });
         } catch (err) {
             console.error(`[ListDetail] Error removing item ${listItemIdToRemove}:`, err);
         }
-    }, [listId, isOwner, removeFromList, clearError]);
+    }, [listId, isOwner, removeFromList, clearError, queryClient]);
 
     const sortedItems = useMemo(() => {
-        if (!list?.items) return [];
-        const validItems = list.items.filter(item => item && typeof item.name === 'string');
+        if (!list?.items || !Array.isArray(list.items)) {
+            console.log('[ListDetail] No items or invalid items array:', list?.items);
+            return [];
+        }
+        const validItems = list.items.filter(item => item && typeof item === 'object'); // Relaxed filtering
+        console.log('[ListDetail] Sorted items:', validItems);
         return [...validItems].sort((a, b) => {
-            const nameA = a.name.toLowerCase();
-            const nameB = b.name.toLowerCase();
+            const nameA = (a.name || '').toLowerCase();
+            const nameB = (b.name || '').toLowerCase();
             return sortOrder === 'asc' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
         });
     }, [list?.items, sortOrder]);
@@ -117,7 +122,7 @@ const ListDetail = memo(() => {
             <div className="bg-white p-4 sm:p-5 rounded-lg shadow-sm border border-gray-100 mb-6">
                 <div className="flex justify-between items-start mb-2 gap-2">
                     <h1 className="text-xl sm:text-2xl font-bold text-gray-800 break-words">
-                        {list.name || 'Unnamed List'}
+                        {list.name || 'Unnamed List'} ({list.type || 'mixed'})
                     </h1>
                     <div className='flex-shrink-0'>
                         {isOwner && (
@@ -127,10 +132,10 @@ const ListDetail = memo(() => {
                         )}
                         {showFollow && (
                             <FollowButton
-                                listId={list.id}
-                                isFollowing={list.is_following ?? false}
-                                savedCount={list.saved_count || 0}
-                                className="w-auto"
+                              listId={list.id}
+                              isFollowing={list.is_following ?? false}
+                              savedCount={list.saved_count || 0}
+                              className="w-auto"
                             />
                         )}
                     </div>

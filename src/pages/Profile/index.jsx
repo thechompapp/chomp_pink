@@ -1,7 +1,6 @@
-// src/pages/Profile/index.jsx
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, CheckCircle, List, Heart } from 'lucide-react';
 import Button from '@/components/Button';
 import useAuthStore from '@/stores/useAuthStore';
@@ -18,6 +17,7 @@ const Profile = () => {
   const navigate = useNavigate();
   const user = useAuthStore(state => state.user);
   const isAuthenticated = useAuthStore(state => state.isAuthenticated);
+  const queryClient = useQueryClient();
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['userProfile', user?.id],
@@ -25,6 +25,16 @@ const Profile = () => {
     enabled: !!user?.id && isAuthenticated,
     staleTime: 5 * 60 * 1000,
   });
+
+  // Refetch profile stats when a list follow toggles
+  useEffect(() => {
+    const handleListFollowToggle = () => {
+      console.log('[Profile] List follow toggled, invalidating userProfile query');
+      queryClient.invalidateQueries({ queryKey: ['userProfile', user?.id] });
+    };
+    window.addEventListener('listFollowToggled', handleListFollowToggle);
+    return () => window.removeEventListener('listFollowToggled', handleListFollowToggle);
+  }, [queryClient, user?.id]);
 
   if (!isAuthenticated) {
     return (

@@ -1,4 +1,3 @@
-// src/pages/Lists/ListCard.jsx
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Users, List, User, Eye } from 'lucide-react';
@@ -17,6 +16,7 @@ const ListCard = ({
   creator_handle = null,
   user_id,
   is_public = true,
+  type = 'mixed',
 }) => {
   const currentUser = useAuthStore(state => state.user);
   const isAuthenticated = useAuthStore(state => state.isAuthenticated);
@@ -59,10 +59,11 @@ const ListCard = ({
           <h3 className="text-base font-semibold text-gray-900 mb-1 line-clamp-2 group-hover:text-[#A78B71] transition-colors">
             {cleanName}
           </h3>
-          <p className="text-xs text-gray-600 mb-2 flex items-center">
+          <p className="text-xs text-gray-600 mb-1 flex items-center">
             <User size={12} className="mr-1 flex-shrink-0 text-gray-400" />
             <span className="truncate">@{displayCreatorHandle}</span>
           </p>
+          <p className="text-xs text-gray-500 mb-1 capitalize">{type} List</p>
           <p className="text-xs text-gray-500 mb-2 line-clamp-2 h-8">
             {cleanDescription}
           </p>
@@ -83,7 +84,12 @@ const ListCard = ({
         </div>
         {shouldShowFollowButton && (
           <div className="mt-3 pt-3 border-t border-gray-100">
-            <FollowButton listId={id} isFollowing={isFollowing} savedCount={displaySavedCount} />
+            <FollowButton
+              listId={id}
+              isFollowing={isFollowing}
+              savedCount={displaySavedCount}
+              onToggle={() => window.dispatchEvent(new Event('listFollowToggled'))} // Notify Profile
+            />
           </div>
         )}
       </div>

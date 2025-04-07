@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import { check, validationResult } from 'express-validator';
 import authRoutes from './routes/auth.js';
 import usersRoutes from './routes/users.js';
 import filtersRoutes from './routes/filters.js';
@@ -19,20 +20,32 @@ const corsOptions = {
     origin: 'http://localhost:5173',
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
-    optionsSuccessStatus: 204
+    optionsSuccessStatus: 204,
 };
 
 app.use(cors(corsOptions));
 app.use(express.json());
 
+const validateRequest = [
+    check('*.name').optional().trim().notEmpty().withMessage('Name cannot be empty if provided'),
+    check('*.id').optional().isInt().withMessage('ID must be an integer if provided'),
+    (req, res, next) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+        next();
+    },
+];
+
 app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/filters', filtersRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/lists', listsRoutes);
+app.use('/api/admin', validateRequest, adminRoutes);
+app.use('/api/lists', validateRequest, listsRoutes);
 app.use('/api/trending', trendingRoutes);
 app.use('/api/places', placesRoutes);
-app.use('/api/submissions', submissionsRoutes);
+app.use('/api/submissions', validateRequest, submissionsRoutes);
 app.use('/api/restaurants', restaurantsRoutes);
 app.use('/api/dishes', dishesRoutes);
 app.use('/api/search', searchRoutes);
@@ -51,7 +64,7 @@ app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 }).on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
-        console.error(`ERROR: Port ${PORT} is already in use. Stop the other process or change the port.`);
+        console.error(`ERROR: Port ${PORT} is already in use.`);
     } else {
         console.error('Server startup error:', err);
     }

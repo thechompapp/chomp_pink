@@ -1,17 +1,17 @@
-// src/App.jsx
-import React, { Suspense, lazy, useEffect } from 'react';
+import React, { Suspense, lazy, useEffect, useRef, useMemo, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QuickAddProvider } from '@/context/QuickAddContext';
 import PageContainer from '@/layouts/PageContainer';
 import QuickAddPopup from '@/components/QuickAddPopup';
-import FloatingQuickAdd from '@/components/FloatingQuickAdd';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
 import useAuthStore from '@/stores/useAuthStore';
 import useUIStateStore from '@/stores/useUIStateStore';
+import useUserListStore from '@/stores/useUserListStore';
 import ProtectedRoute from '@/components/ProtectedRoute';
 
-// Lazy load pages
+// Lazy load FloatingQuickAdd
+const FloatingQuickAdd = lazy(() => import('@/components/FloatingQuickAdd'));
 const Home = lazy(() => import('@/pages/Home/index'));
 const Trending = lazy(() => import('@/pages/Trending'));
 const Dashboard = lazy(() => import('@/pages/Dashboard'));
@@ -24,77 +24,97 @@ const DishDetail = lazy(() => import('@/pages/DishDetail'));
 const AdminPanel = lazy(() => import('@/pages/AdminPanel'));
 const Login = lazy(() => import('@/pages/Login'));
 const Register = lazy(() => import('@/pages/Register'));
-const Profile = lazy(() => import('@/pages/Profile')); // Added Profile import
-const BulkAdd = lazy(() => import('@/pages/BulkAdd')); // Added BulkAdd import
+const Profile = lazy(() => import('@/pages/Profile'));
+const BulkAdd = lazy(() => import('@/pages/BulkAdd'));
 
 const SuspenseFallback = () => (
-  <div className="flex justify-center items-center h-[calc(100vh-150px)]">
-    <LoadingSpinner message="Loading page..." />
-  </div>
+    <div className="flex justify-center items-center h-[calc(100vh-150px)]">
+        <LoadingSpinner message="Loading page..." />
+    </div>
 );
 
 const App = () => {
-  // Selectors using primitive values where possible to minimize re-renders
-  const checkAuth = useAuthStore(state => state.checkAuthStatus);
-  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
-  const fetchCuisines = useUIStateStore(state => state.fetchCuisines);
-  const fetchCities = useUIStateStore(state => state.fetchCities);
+    const checkAuth = useAuthStore(state => state.checkAuthStatus);
+    const isAuthenticated = useAuthStore(state => state.isAuthenticated);
+    const fetchCuisines = useUIStateStore(state => state.fetchCuisines);
+    const fetchCities = useUIStateStore(state => state.fetchCities);
+    const fetchUserLists = useUserListStore(state => state.fetchUserLists);
+    const userLists = useUserListStore(state => state.userLists);
+    const addToList = useUserListStore(state => state.addToList);
+    const hasFetched = useRef(false);
+    const fetchError = useRef(null);
 
-  useEffect(() => {
-    checkAuth();
-    const fetchInitialData = async () => {
-      // Fetch cities and cuisines in parallel for faster startup
-      await Promise.all([fetchCities(), fetchCuisines()]);
-    };
-    fetchInitialData();
-    // Dependencies are stable functions, safe for useEffect
-  }, [checkAuth, fetchCities, fetchCuisines]);
+    useEffect(() => {
+        if (!hasFetched.current) {
+            console.log('[App] useEffect running');
+            checkAuth();
+            Promise.all([
+                fetchCities().catch(err => {
+                    console.error('[App] fetchCities failed:', err);
+                    return [];
+                }),
+                fetchCuisines().catch(err => {
+                    console.error('[App] fetchCuisines failed:', err);
+                    return [];
+                }),
+                isAuthenticated
+                    ? fetchUserLists().catch(err => {
+                          console.error('[App] fetchUserLists failed:', err);
+                          fetchError.current = err.message || 'Failed to fetch user lists';
+                          return [];
+                      })
+                    : Promise.resolve([]),
+            ])
+                .then(([cities, cuisines, lists]) => {
+                    console.log('[App] Initial fetch completed');
+                })
+                .catch(err => console.error('[App] Unexpected fetch error:', err));
+            hasFetched.current = true;
+        }
+    }, [checkAuth, fetchCities, fetchCuisines, fetchUserLists, isAuthenticated]);
 
-  console.log('[App] Rendering - isAuthenticated:', isAuthenticated);
+    // Memoize QuickAddProvider props to prevent unnecessary context updates
+    const memoizedUserLists = useMemo(() => userLists, [userLists]);
+    const memoizedAddToList = useCallback(addToList, [addToList]);
 
-  return (
-    <QuickAddProvider>
-      <BrowserRouter>
-        <QuickAddPopup />
-        <Suspense fallback={<SuspenseFallback />}>
-          <Routes>
-            {/* Public Routes outside PageContainer */}
-            <Route path="/login" element={<ErrorBoundary><Login /></ErrorBoundary>} />
-            <Route path="/register" element={<ErrorBoundary><Register /></ErrorBoundary>} />
+    console.log('[App] Rendering - isAuthenticated:', isAuthenticated);
 
-            {/* Routes within PageContainer (includes Navbar) */}
-            <Route element={<PageContainer />}>
-              {/* Publicly Accessible Content Routes */}
-              <Route path="/" element={<ErrorBoundary><Home /></ErrorBoundary>} />
-              <Route path="/trending" element={<ErrorBoundary><Trending /></ErrorBoundary>} />
-              <Route path="/restaurant/:id" element={<ErrorBoundary><RestaurantDetail /></ErrorBoundary>} />
-              <Route path="/dish/:id" element={<ErrorBoundary><DishDetail /></ErrorBoundary>} />
-
-              {/* Protected Routes */}
-              <Route element={<ProtectedRoute />}>
-                <Route path="/dashboard" element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
-                <Route path="/lists" element={<ErrorBoundary><Lists /></ErrorBoundary>}>
-                  <Route index element={<ErrorBoundary><MyLists /></ErrorBoundary>} />
-                  <Route path="new" element={<ErrorBoundary><NewList /></ErrorBoundary>} />
-                  <Route path=":id" element={<ErrorBoundary><ListDetail /></ErrorBoundary>} />
-                </Route>
-                <Route path="/admin" element={<ErrorBoundary><AdminPanel /></ErrorBoundary>} />
-                <Route path="/profile" element={<ErrorBoundary><Profile /></ErrorBoundary>} /> {/* Added Profile route */}
-                <Route path="/bulk-add" element={<ErrorBoundary><BulkAdd /></ErrorBoundary>} /> {/* Added BulkAdd route */}
-              </Route>
-
-              {/* Catch-all Redirect */}
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Route>
-          </Routes>
-          {/* FloatingQuickAdd only rendered if authenticated */}
-          {isAuthenticated && <FloatingQuickAdd />}
-        </Suspense>
-      </BrowserRouter>
-    </QuickAddProvider>
-  );
+    return (
+        <QuickAddProvider userLists={memoizedUserLists} addToList={memoizedAddToList} fetchError={fetchError.current}>
+            <BrowserRouter>
+                <QuickAddPopup />
+                <Suspense fallback={<SuspenseFallback />}>
+                    <Routes>
+                        <Route path="/login" element={<ErrorBoundary><Login /></ErrorBoundary>} />
+                        <Route path="/register" element={<ErrorBoundary><Register /></ErrorBoundary>} />
+                        <Route element={<PageContainer />}>
+                            <Route path="/" element={<ErrorBoundary><Home /></ErrorBoundary>} />
+                            <Route path="/trending" element={<ErrorBoundary><Trending /></ErrorBoundary>} />
+                            <Route path="/restaurant/:id" element={<ErrorBoundary><RestaurantDetail /></ErrorBoundary>} />
+                            <Route path="/dish/:id" element={<ErrorBoundary><DishDetail /></ErrorBoundary>} />
+                            <Route element={<ProtectedRoute />}>
+                                <Route path="/dashboard" element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
+                                <Route path="/lists" element={<ErrorBoundary><Lists /></ErrorBoundary>}>
+                                    <Route index element={<ErrorBoundary><MyLists /></ErrorBoundary>} />
+                                    <Route path="new" element={<ErrorBoundary><NewList /></ErrorBoundary>} />
+                                    <Route path=":id" element={<ErrorBoundary><ListDetail /></ErrorBoundary>} />
+                                </Route>
+                                <Route path="/admin" element={<ErrorBoundary><AdminPanel /></ErrorBoundary>} />
+                                <Route path="/profile" element={<ErrorBoundary><Profile /></ErrorBoundary>} />
+                                <Route path="/bulk-add" element={<ErrorBoundary><BulkAdd /></ErrorBoundary>} />
+                            </Route>
+                            <Route path="*" element={<Navigate to="/" replace />} />
+                        </Route>
+                    </Routes>
+                    {isAuthenticated && (
+                        <Suspense fallback={<LoadingSpinner message="Loading quick add..." />}>
+                            <FloatingQuickAdd />
+                        </Suspense>
+                    )}
+                </Suspense>
+            </BrowserRouter>
+        </QuickAddProvider>
+    );
 };
 
-// Use React.memo for App component if it's likely to re-render unnecessarily
-// (though often not needed at the top level if children are managed well)
 export default React.memo(App);

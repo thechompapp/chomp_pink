@@ -1,4 +1,3 @@
-// src/layouts/Navbar.jsx
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import useAuthStore from '@/stores/useAuthStore';
@@ -100,11 +99,9 @@ const Navbar = () => {
                     <DropdownLink to="/dashboard" Icon={UploadCloud} onClick={closeDropdown}>
                       Submissions
                     </DropdownLink>
-                    {showAdmin && (
-                      <DropdownLink to="/bulk-add" Icon={DatabaseZap} onClick={closeDropdown}>
-                        Bulk Add
-                      </DropdownLink>
-                    )}
+                    <DropdownLink to="/bulk-add" Icon={DatabaseZap} onClick={closeDropdown}>
+                      Bulk Add
+                    </DropdownLink>
                   </div>
                 )}
               </div>

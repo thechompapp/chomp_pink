@@ -27,61 +27,63 @@ const apiClient = async (endpoint, errorContext = 'API Request', options = {}) =
         const response = await fetch(url, {
             method,
             headers: requestHeaders,
-            body: (method !== 'GET' && method !== 'HEAD') ? body : undefined,
+            body: method !== 'GET' && method !== 'HEAD' ? body : undefined,
         });
 
         const responseText = await response.text();
 
-        if (response.status === 401) {
-            console.warn(`[apiClient ${errorContext}] Received 401 Unauthorized for ${url}. Triggering logout.`);
-            useAuthStore.getState().logout();
-            throw new Error('Session expired or invalid. Please log in again.');
-        }
-
         if (!response.ok) {
-            let responseErrorMsg = `HTTP error! Status: ${response.status}`;
+            let errorMsg = `HTTP error! Status: ${response.status}`;
             try {
                 const errorJson = JSON.parse(responseText);
-                responseErrorMsg = errorJson.error || errorJson.msg || errorJson.message || responseErrorMsg;
+                errorMsg = errorJson.error || errorJson.msg || errorJson.message || errorMsg;
             } catch (e) {
-                responseErrorMsg = response.statusText || responseErrorMsg;
+                errorMsg = response.statusText || errorMsg;
             }
-            console.error(`[apiClient ${errorContext}] HTTP error! Status: ${response.status}, URL: ${url}, Response: ${responseText}`);
-            throw new Error(responseErrorMsg);
+
+            if (response.status === 401) {
+                console.warn(`[apiClient ${errorContext}] Unauthorized for ${url}. Logging out.`);
+                useAuthStore.getState().logout();
+                throw new Error('Session expired. Please log in again.');
+            } else if (response.status >= 400 && response.status < 500) {
+                console.error(`[apiClient ${errorContext}] Client error ${response.status} at ${url}: ${responseText}`);
+                throw new Error(`Request failed: ${errorMsg}`);
+            } else if (response.status >= 500) {
+                console.error(`[apiClient ${errorContext}] Server error ${response.status} at ${url}: ${responseText}`);
+                throw new Error(`Server error: ${errorMsg}`);
+            }
         }
 
         if (!responseText && response.status === 204) {
             if (import.meta.env.DEV) {
-                console.log(`[apiClient ${errorContext}] Received ${response.status} No Content for ${method} ${url}.`);
+                console.log(`[apiClient ${errorContext}] No Content for ${method} ${url}.`);
             }
             return { success: true };
         }
 
         if (!responseText && method === 'DELETE' && response.status === 200) {
             if (import.meta.env.DEV) {
-                console.log(`[apiClient ${errorContext}] Received empty 200 OK for ${method} ${url}. Assuming success.`);
+                console.log(`[apiClient ${errorContext}] Empty 200 OK for ${method} ${url}.`);
             }
             return { success: true };
         }
 
         if (!responseText && response.status !== 204) {
-            console.warn(`[apiClient ${errorContext}] Received unexpected empty response body for ${method} ${url} (Status: ${response.status}). Returning null.`);
+            console.warn(`[apiClient ${errorContext}] Empty response for ${method} ${url} (Status: ${response.status}).`);
             return null;
         }
 
         try {
-            const jsonData = JSON.parse(responseText);
-            return jsonData;
+            return JSON.parse(responseText);
         } catch (parseError) {
-            console.error(`[apiClient ${errorContext}] Failed to parse JSON response for ${url}:`, responseText, parseError);
-            throw new Error(`Failed to parse server response.`);
+            console.error(`[apiClient ${errorContext}] JSON parse error for ${url}:`, responseText, parseError);
+            throw new Error('Invalid server response format.');
         }
     } catch (error) {
-        if (error.message === 'Session expired or invalid. Please log in again.') {
-            throw error;
-        }
-        console.error(`[apiClient ${errorContext}] Fetch/processing error for ${url}:`, error);
-        throw new Error(`Error during ${errorContext}: ${error.message || 'Network request failed or response handling error'}`);
+        console.error(`[apiClient ${errorContext}] Fetch error for ${url}:`, error);
+        throw error.message === 'Session expired. Please log in again.'
+            ? error
+            : new Error(`Network error during ${errorContext}: ${error.message || 'Request failed'}`);
     }
 };
 

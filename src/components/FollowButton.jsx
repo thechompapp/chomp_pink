@@ -1,4 +1,3 @@
-// src/components/FollowButton.jsx
 import React, { useCallback } from 'react';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { Heart, HeartOff, Loader2, AlertTriangle } from 'lucide-react';
@@ -10,11 +9,10 @@ const FollowButton = ({ listId, isFollowing: initialIsFollowing, className = '',
     const queryClient = useQueryClient();
     const isAuthenticated = useAuthStore(state => state.isAuthenticated);
 
-    // Fetch the latest is_following state from the cache
     const { data: listData } = useQuery({
         queryKey: ['listDetails', listId],
         queryFn: () => listService.getListDetails(listId),
-        enabled: !!listId && isAuthenticated, // Only fetch if authenticated
+        enabled: !!listId && isAuthenticated,
         select: (data) => ({
             is_following: data?.is_following ?? initialIsFollowing,
             saved_count: data?.saved_count ?? savedCount,
@@ -38,7 +36,6 @@ const FollowButton = ({ listId, isFollowing: initialIsFollowing, className = '',
         onSuccess: (updatedList) => {
             console.log(`[FollowButton] Success! Server reported is_following=${updatedList?.is_following}, saved_count=${updatedList?.saved_count}`);
 
-            // Update all relevant caches
             queryClient.setQueryData(['trendingListsPage'], (old) => {
                 if (!old || !Array.isArray(old)) return old;
                 const updated = old.map(list =>
@@ -75,6 +72,7 @@ const FollowButton = ({ listId, isFollowing: initialIsFollowing, className = '',
             queryClient.refetchQueries({ queryKey: ['trendingListsPage'], type: 'active' });
             queryClient.refetchQueries({ queryKey: ['userLists', 'followed'], type: 'active' });
             queryClient.refetchQueries({ queryKey: ['listDetails', listId], type: 'active' });
+            window.dispatchEvent(new Event('listFollowToggled')); // Notify Profile
         }
     });
 
