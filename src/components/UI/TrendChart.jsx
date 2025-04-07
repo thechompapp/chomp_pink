@@ -26,15 +26,13 @@ const COLORS = {
     shares: '#ff7300', // Orange
 };
 
-// *** Updated Fetcher function for AGGREGATE trend data ***
+// Fetcher function for aggregate trend data
 const fetchAggregateTrendData = async (itemType, period) => {
-    // itemType is now required (restaurant, dish, or list)
     if (!itemType) {
         console.warn('[TrendChart] itemType is missing for aggregate fetch.');
         return [];
     }
     const params = new URLSearchParams({ itemType, period });
-    // *** Use the new backend endpoint ***
     const endpoint = `/api/analytics/aggregate-trends?${params.toString()}`;
     console.log(`[TrendChart] Fetching aggregate trend data from: ${endpoint}`);
     try {
@@ -42,26 +40,23 @@ const fetchAggregateTrendData = async (itemType, period) => {
         return Array.isArray(data) ? data : [];
     } catch (error) {
         console.error(`[TrendChart] Error fetching aggregate trend data for ${itemType}:`, error);
-        throw new Error(error.message || 'Failed to load aggregate trend data.'); // Re-throw for useQuery
+        throw new Error(error.message || 'Failed to load aggregate trend data.');
     }
 };
 
-// *** Modified TrendChart component to accept itemType instead of itemId/itemName ***
 const TrendChart = ({ itemType }) => {
-    const [period, setPeriod] = useState('30d'); // Default period
+    const [period, setPeriod] = useState('30d');
 
     const {
-        data: chartData = [], // Default to empty array
+        data: chartData = [],
         isLoading,
         isError,
         error,
         refetch,
     } = useQuery({
-        // *** Updated queryKey to reflect aggregate nature ***
         queryKey: ['aggregateItemTrends', itemType, period],
-        // *** Use the new fetcher function ***
         queryFn: () => fetchAggregateTrendData(itemType, period),
-        enabled: !!itemType, // Only fetch when itemType is valid
+        enabled: !!itemType,
         staleTime: 5 * 60 * 1000,
         refetchOnWindowFocus: false,
     });
@@ -69,76 +64,73 @@ const TrendChart = ({ itemType }) => {
     // Format date for XAxis labels
     const dateFormatter = (dateStr) => {
         try {
-            return new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return dateStr;
+            return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
         } catch { return dateStr; }
     };
 
-    // Capitalize itemType for title
     const chartTitle = itemType ? itemType.charAt(0).toUpperCase() + itemType.slice(1) : 'Items';
+
+    // Log data only when it changes or component re-renders with new data
+    React.useEffect(() => {
+        console.log(`[TrendChart] Data updated (type: ${itemType}, period: ${period}):`, chartData);
+        if (chartData && chartData.length > 0) {
+            console.log('[TrendChart] Sample data point:', chartData[0]);
+        }
+    }, [chartData, itemType, period]); // Dependency array includes chartData
 
     return (
         <div className="p-4 bg-white rounded-lg shadow border border-gray-100 min-h-[350px] flex flex-col">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
-                {/* *** Updated Title *** */}
-                <h3 className="text-base font-semibold text-gray-800 flex items-center gap-2">
-                    <TrendingUp size={18} className="text-[#A78B71]" />
-                    Aggregate Engagement Trends: {chartTitle}
-                </h3>
-                {/* Period Selection Buttons */}
-                <div className="flex gap-1 flex-shrink-0">
-                    {PERIOD_OPTIONS.map(option => (
-                        <Button
-                            key={option.id}
-                            variant={period === option.id ? 'primary' : 'tertiary'}
-                            size="sm"
-                            onClick={() => setPeriod(option.id)}
-                            disabled={isLoading}
-                            className="!px-2.5 !py-0.5"
-                            aria-pressed={period === option.id}
-                        >
-                            {option.label}
-                        </Button>
-                    ))}
-                </div>
-            </div>
+             {/* Header Section (Title & Period Buttons) */}
+             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
+                 <h3 className="text-base font-semibold text-gray-800 flex items-center gap-2">
+                     <TrendingUp size={18} className="text-[#A78B71]" />
+                     Aggregate Engagement Trends: {chartTitle}
+                 </h3>
+                 <div className="flex gap-1 flex-shrink-0">
+                     {PERIOD_OPTIONS.map(option => (
+                         <Button key={option.id} variant={period === option.id ? 'primary' : 'tertiary'} size="sm" onClick={() => setPeriod(option.id)} disabled={isLoading} className="!px-2.5 !py-0.5" aria-pressed={period === option.id}>
+                             {option.label}
+                         </Button>
+                     ))}
+                 </div>
+             </div>
 
-            {isLoading && <LoadingSpinner message={`Loading ${chartTitle} trend data...`} />}
+            {/* Chart Area or Loading/Error/No Data Message */}
+             {/* *** CHANGED: Use fixed height h-[300px] instead of min-h *** */}
+            <div className="flex-grow h-[300px] w-full">
+                {isLoading && <LoadingSpinner message={`Loading ${chartTitle} trend data...`} />}
 
-            {isError && !isLoading && (
-                 <ErrorMessage
-                    message={error?.message || `Could not load ${chartTitle} trend data.`}
-                    onRetry={refetch}
-                    isLoadingRetry={isLoading}
-                    containerClassName="flex-grow flex flex-col items-center justify-center"
-                />
-            )}
+                {isError && !isLoading && (
+                     <ErrorMessage message={error?.message || `Could not load ${chartTitle} trend data.`} onRetry={refetch} isLoadingRetry={isLoading} containerClassName="h-full flex flex-col items-center justify-center" />
+                )}
 
-            {!isLoading && !isError && chartData.length === 0 && (
-                <div className="flex-grow flex items-center justify-center">
-                     <p className="text-gray-500 text-sm">No engagement data available for {chartTitle} in this period.</p>
-                </div>
-            )}
+                {!isLoading && !isError && (!chartData || chartData.length === 0) && (
+                    <div className="h-full flex items-center justify-center">
+                         <p className="text-gray-500 text-sm">No engagement data available for {chartTitle} in this period.</p>
+                    </div>
+                )}
 
-            {!isLoading && !isError && chartData.length > 0 && (
-                <div className="flex-grow min-h-[250px]">
+                {!isLoading && !isError && chartData && chartData.length > 0 && (
                     <ResponsiveContainer width="100%" height="100%">
                         <LineChart
                             data={chartData}
-                            margin={{ top: 5, right: 10, left: -15, bottom: 5 }}
+                            margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
                         >
                             <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-                            <XAxis dataKey="date" tickFormatter={dateFormatter} style={{ fontSize: '0.7rem' }} tick={{ fill: '#6b7280' }} axisLine={{ stroke: '#d1d5db' }} tickLine={{ stroke: '#d1d5db' }} />
+                            <XAxis dataKey="date" tickFormatter={dateFormatter} style={{ fontSize: '0.7rem' }} tick={{ fill: '#6b7280' }} axisLine={{ stroke: '#d1d5db' }} tickLine={{ stroke: '#d1d5db' }} interval="preserveStartEnd" />
                             <YAxis allowDecimals={false} style={{ fontSize: '0.7rem' }} tick={{ fill: '#6b7280' }} axisLine={{ stroke: '#d1d5db' }} tickLine={{ stroke: '#d1d5db' }} />
                             <Tooltip contentStyle={{ fontSize: '0.75rem', padding: '4px 8px', borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }} labelFormatter={dateFormatter}/>
                             <Legend wrapperStyle={{ fontSize: '0.75rem', paddingTop: '10px' }} />
-                            <Line type="monotone" dataKey="views" stroke={COLORS.views} strokeWidth={2} dot={false} activeDot={{ r: 4 }} name="Views" />
-                            <Line type="monotone" dataKey="clicks" stroke={COLORS.clicks} strokeWidth={2} dot={false} activeDot={{ r: 4 }} name="Clicks" />
-                            <Line type="monotone" dataKey="adds" stroke={COLORS.adds} strokeWidth={2} dot={false} activeDot={{ r: 4 }} name="Adds" />
-                            <Line type="monotone" dataKey="shares" stroke={COLORS.shares} strokeWidth={2} dot={false} activeDot={{ r: 4 }} name="Shares" />
+                            <Line type="monotone" dataKey="views" stroke={COLORS.views} strokeWidth={2} dot={false} activeDot={{ r: 4 }} name="Views" isAnimationActive={false} />
+                            <Line type="monotone" dataKey="clicks" stroke={COLORS.clicks} strokeWidth={2} dot={false} activeDot={{ r: 4 }} name="Clicks" isAnimationActive={false}/>
+                            <Line type="monotone" dataKey="adds" stroke={COLORS.adds} strokeWidth={2} dot={false} activeDot={{ r: 4 }} name="Adds" isAnimationActive={false}/>
+                            <Line type="monotone" dataKey="shares" stroke={COLORS.shares} strokeWidth={2} dot={false} activeDot={{ r: 4 }} name="Shares" isAnimationActive={false}/>
                         </LineChart>
                     </ResponsiveContainer>
-                </div>
-            )}
+                )}
+            </div>
         </div>
     );
 };
