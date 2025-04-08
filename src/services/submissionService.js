@@ -1,6 +1,5 @@
 // src/services/submissionService.js
-// *** CORRECTED IMPORT PATH for apiClient ***
-import apiClient from './apiClient.js'; // Use relative path since they are in the same directory
+import apiClient from '@/services/apiClient'; // Corrected import (removed .js extension)
 
 const BASE_PATH = '/api/submissions';
 
@@ -9,7 +8,9 @@ const getPendingSubmissions = async () => {
     console.log('[SubmissionService] Fetching pending submissions...');
     try {
         // Use apiClient with the correct endpoint and error context
-        const data = await apiClient(`${BASE_PATH}?status=pending`, 'Fetching Pending Submissions');
+        // Expecting { data: Submission[] }
+        const response = await apiClient(`${BASE_PATH}?status=pending`, 'Fetching Pending Submissions');
+        const data = response?.data || [];
         // Ensure array is returned; apiClient already parses JSON or returns null/throws
         console.log(`[SubmissionService] Received ${Array.isArray(data) ? data.length : 0} pending submissions.`);
         // Filter out any potentially null/invalid submissions just in case
@@ -29,10 +30,12 @@ const addSubmission = async (submissionData) => {
      if (!submissionData || !submissionData.type || !submissionData.name) {
          throw new Error("Submission data requires at least type and name.");
      }
-     return await apiClient(BASE_PATH, 'SubmissionService Add', {
+     // Expecting { data: Submission }
+     const response = await apiClient(BASE_PATH, 'SubmissionService Add', {
          method: 'POST',
          body: JSON.stringify(submissionData),
      });
+     return response?.data; // Return the created submission data
 };
 
 // Function to approve a submission
@@ -40,7 +43,9 @@ const approveSubmission = async (submissionId) => {
      if (!submissionId) throw new Error("Submission ID required for approval.");
      // Construct the correct endpoint path
      const endpoint = `${BASE_PATH}/${submissionId}/approve`;
-     return await apiClient(endpoint, 'SubmissionService Approve', { method: 'POST' });
+     // Expecting { data: Submission }
+     const response = await apiClient(endpoint, 'SubmissionService Approve', { method: 'POST' });
+     return response?.data; // Return the updated submission data
 };
 
 // Function to reject a submission
@@ -48,7 +53,9 @@ const rejectSubmission = async (submissionId) => {
      if (!submissionId) throw new Error("Submission ID required for rejection.");
       // Construct the correct endpoint path
      const endpoint = `${BASE_PATH}/${submissionId}/reject`;
-     return await apiClient(endpoint, 'SubmissionService Reject', { method: 'POST' });
+     // Expecting { data: Submission }
+     const response = await apiClient(endpoint, 'SubmissionService Reject', { method: 'POST' });
+      return response?.data; // Return the updated submission data
 };
 
 // Export the service object with all functions

@@ -1,69 +1,139 @@
+/* src/doof-backend/models/trending.js */
 import db from '../db/index.js';
 
+// Helper function to get the date threshold (e.g., 7 days ago)
+const getRecentTimestampThreshold = () => {
+    const date = new Date();
+    date.setDate(date.getDate() - 7); // Configurable: Look back period for "recent"
+    return date.toISOString();
+};
+
+// Define weights for scoring (can be adjusted)
+const WEIGHTS = {
+    RECENT_VIEW: 1,
+    RECENT_CLICK: 3,
+    ADD_SAVE: 5, // Weight for total adds (restaurants/dishes) or saves (lists)
+};
+
+/*
+ * Fetches trending restaurants based on a score combining recent engagement and total adds.
+ * Potential Performance Bottleneck: Relies on joining with an aggregation (CTE) on the Engagements table.
+ * If the Engagements table becomes very large, this query might slow down.
+ * Optimization Strategies:
+ * 1. Ensure indexes on Engagements(item_type, engagement_timestamp) and Restaurants(adds) are effective (covered in setup.sql).
+ * 2. Consider using Materialized Views for recent engagement counts if performance degrades significantly.
+ * 3. Pre-calculate trending scores periodically via a background job.
+ */
 export const getTrendingRestaurants = async (limit) => {
+    const recentThreshold = getRecentTimestampThreshold();
     const query = `
-        SELECT r.id, r.name, r.city_name, r.neighborhood_name, r.adds, r.city_id, r.neighborhood_id,
-               COALESCE((
-                   SELECT ARRAY_AGG(h.name)
-                   FROM RestaurantHashtags rh
-                   JOIN Hashtags h ON rh.hashtag_id = h.id
-                   WHERE rh.restaurant_id = r.id
-               ), ARRAY[]::TEXT[]) as tags
+        WITH RecentEngagements AS (
+            SELECT
+                item_id,
+                SUM(CASE WHEN engagement_type = 'view' THEN 1 ELSE 0 END) as recent_views,
+                SUM(CASE WHEN engagement_type = 'click' THEN 1 ELSE 0 END) as recent_clicks
+            FROM Engagements
+            WHERE item_type = 'restaurant' AND engagement_timestamp >= $1 -- Use threshold parameter
+            GROUP BY item_id
+        )
+        SELECT
+            r.id, r.name, r.city_name, r.neighborhood_name, r.adds, r.city_id, r.neighborhood_id,
+            COALESCE(re.recent_views, 0) as recent_views,
+            COALESCE(re.recent_clicks, 0) as recent_clicks,
+            (COALESCE(re.recent_views, 0) * $2) + (COALESCE(re.recent_clicks, 0) * $3) + (COALESCE(r.adds, 0) * $4) as trending_score,
+            COALESCE((
+                SELECT ARRAY_AGG(h.name) FROM RestaurantHashtags rh JOIN Hashtags h ON rh.hashtag_id = h.id WHERE rh.restaurant_id = r.id
+            ), ARRAY[]::TEXT[]) as tags
         FROM Restaurants r
-        ORDER BY r.adds DESC NULLS LAST
-        LIMIT $1
+        LEFT JOIN RecentEngagements re ON r.id = re.item_id
+        ORDER BY trending_score DESC, r.adds DESC NULLS LAST, r.name ASC
+        LIMIT $5
     `;
-    const result = await db.query(query, [limit]);
+    const params = [ recentThreshold, WEIGHTS.RECENT_VIEW, WEIGHTS.RECENT_CLICK, WEIGHTS.ADD_SAVE, limit ];
+    const result = await db.query(query, params);
     return result.rows || [];
 };
 
+/*
+ * Fetches trending dishes based on a score combining recent engagement and total adds.
+ * Performance considerations similar to getTrendingRestaurants apply.
+ */
 export const getTrendingDishes = async (limit) => {
+    const recentThreshold = getRecentTimestampThreshold();
     const query = `
-        SELECT d.id, d.name, d.adds,
-               r.name as restaurant_name,
-               r.city_name, r.city_id, r.neighborhood_name, r.neighborhood_id,
-               COALESCE((
-                   SELECT ARRAY_AGG(h.name)
-                   FROM DishHashtags dh
-                   JOIN Hashtags h ON dh.hashtag_id = h.id
-                   WHERE dh.dish_id = d.id
-               ), ARRAY[]::TEXT[]) as tags
+        WITH RecentEngagements AS (
+            SELECT
+                item_id,
+                SUM(CASE WHEN engagement_type = 'view' THEN 1 ELSE 0 END) as recent_views,
+                SUM(CASE WHEN engagement_type = 'click' THEN 1 ELSE 0 END) as recent_clicks
+            FROM Engagements
+            WHERE item_type = 'dish' AND engagement_timestamp >= $1
+            GROUP BY item_id
+        )
+        SELECT
+            d.id, d.name, d.adds,
+            r.name as restaurant_name,
+            r.city_name, r.city_id, r.neighborhood_name, r.neighborhood_id,
+            COALESCE(re.recent_views, 0) as recent_views,
+            COALESCE(re.recent_clicks, 0) as recent_clicks,
+            (COALESCE(re.recent_views, 0) * $2) + (COALESCE(re.recent_clicks, 0) * $3) + (COALESCE(d.adds, 0) * $4) as trending_score,
+            COALESCE((
+                SELECT ARRAY_AGG(h.name) FROM DishHashtags dh JOIN Hashtags h ON dh.hashtag_id = h.id WHERE dh.dish_id = d.id
+            ), ARRAY[]::TEXT[]) as tags
         FROM Dishes d
         JOIN Restaurants r ON d.restaurant_id = r.id
-        ORDER BY d.adds DESC NULLS LAST
-        LIMIT $1
+        LEFT JOIN RecentEngagements re ON d.id = re.item_id
+        ORDER BY trending_score DESC, d.adds DESC NULLS LAST, d.name ASC
+        LIMIT $5
     `;
-    const result = await db.query(query, [limit]);
+    const params = [ recentThreshold, WEIGHTS.RECENT_VIEW, WEIGHTS.RECENT_CLICK, WEIGHTS.ADD_SAVE, limit ];
+    const result = await db.query(query, params);
+    // Map restaurant name for consistency
     return (result.rows || []).map(dish => ({
         ...dish,
-        restaurant: dish.restaurant_name,
+        restaurant: dish.restaurant_name, // Consistent key for frontend
     }));
 };
 
+/*
+ * Fetches trending lists based on a score combining recent engagement and total saves.
+ * Performance considerations similar to getTrendingRestaurants apply.
+ */
 export const getTrendingLists = async (userId, limit) => {
+    const recentThreshold = getRecentTimestampThreshold();
     const query = `
+        WITH RecentEngagements AS (
+            SELECT
+                item_id,
+                SUM(CASE WHEN engagement_type = 'view' THEN 1 ELSE 0 END) as recent_views,
+                SUM(CASE WHEN engagement_type = 'click' THEN 1 ELSE 0 END) as recent_clicks
+            FROM Engagements
+            WHERE item_type = 'list' AND engagement_timestamp >= $1
+            GROUP BY item_id
+        )
         SELECT
             l.id, l.name, l.description, l.saved_count, l.city_name, l.tags, l.is_public,
-            l.creator_handle, l.created_at, l.updated_at, l.user_id,
+            l.creator_handle, l.created_at, l.updated_at, l.user_id, l.list_type,
             COALESCE((SELECT COUNT(*) FROM ListItems li WHERE li.list_id = l.id), 0)::INTEGER as item_count,
-            CASE WHEN $1::INTEGER IS NOT NULL THEN
-                EXISTS (SELECT 1 FROM listfollows lf WHERE lf.list_id = l.id AND lf.user_id = $1::INTEGER)
-            ELSE FALSE
-            END as is_following,
-            CASE WHEN $1::INTEGER IS NOT NULL THEN
-                (l.user_id = $1::INTEGER)
-            ELSE FALSE
-            END as created_by_user
+            CASE WHEN $2::INTEGER IS NOT NULL THEN EXISTS (SELECT 1 FROM listfollows lf WHERE lf.list_id = l.id AND lf.user_id = $2::INTEGER) ELSE FALSE END as is_following,
+            CASE WHEN $2::INTEGER IS NOT NULL THEN (l.user_id = $2::INTEGER) ELSE FALSE END as created_by_user,
+            COALESCE(re.recent_views, 0) as recent_views,
+            COALESCE(re.recent_clicks, 0) as recent_clicks,
+            (COALESCE(re.recent_views, 0) * $3) + (COALESCE(re.recent_clicks, 0) * $4) + (COALESCE(l.saved_count, 0) * $5) as trending_score
         FROM Lists l
+        LEFT JOIN RecentEngagements re ON l.id = re.item_id
         WHERE l.is_public = TRUE
-        ORDER BY l.saved_count DESC NULLS LAST
-        LIMIT $2
+        ORDER BY trending_score DESC, l.saved_count DESC NULLS LAST, l.name ASC
+        LIMIT $6
     `;
-    const result = await db.query(query, [userId, limit]);
+    const params = [ recentThreshold, userId, WEIGHTS.RECENT_VIEW, WEIGHTS.RECENT_CLICK, WEIGHTS.ADD_SAVE, limit ];
+    const result = await db.query(query, params);
+    // Map result for frontend consistency
     return (result.rows || []).map(list => ({
         id: list.id,
         name: list.name,
         description: list.description,
+        type: list.list_type || 'mixed',
         saved_count: list.saved_count || 0,
         item_count: list.item_count || 0,
         city: list.city_name,

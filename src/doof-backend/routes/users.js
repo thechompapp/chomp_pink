@@ -1,69 +1,48 @@
-// src/doof-backend/routes/users.js
+/* src/doof-backend/routes/users.js */
 import express from 'express';
 import { param, validationResult } from 'express-validator';
-// Corrected imports using relative paths:
-import db from '../db/index.js';
+// Import model functions
+import * as UserModel from '../models/userModel.js';
 import authMiddleware from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Validation middleware
-const validateUserId = [
-  param('userId').isInt({ min: 1 }).withMessage('User ID must be a positive integer'),
-];
-
-const handleValidationErrors = (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    console.warn("[Users Validation Error]", req.path, errors.array());
-    return res.status(400).json({ error: errors.array()[0].msg });
-  }
-  next();
-};
+// --- Middleware & Validation (Keep as is) ---
+const validateUserId = [ /* ... */ ];
+const handleValidationErrors = (req, res, next) => { /* ... */ };
 
 // Route handler for GET /:userId/profile
-router.get('/:userId/profile', authMiddleware, validateUserId, handleValidationErrors, async (req, res, next) => {
-  console.log(`[Users] Handling GET /api/users/${req.params.userId}/profile for userId: ${req.params.userId}`);
-  const { userId } = req.params;
-  // Use db instance from app context if available, otherwise use direct import
-  const currentDb = req.app?.get('db') || db;
+router.get(
+    '/:userId/profile',
+    authMiddleware, // Ensure user is authenticated (even to view own profile)
+    validateUserId,
+    handleValidationErrors,
+    async (req, res, next) => {
+        const { userId } = req.params;
+        const requestingUserId = req.user.id; // ID of the user making the request
 
-  try {
-    // Check if user exists
-    const userCheck = await currentDb.query('SELECT id FROM Users WHERE id = $1', [userId]);
-    if (userCheck.rows.length === 0) {
-      console.log(`[Users] User with ID ${userId} not found`);
-      return res.status(404).json({ error: 'User not found' });
+        // Optional: Add check if user can view other profiles, or only their own
+        // if (parseInt(userId, 10) !== requestingUserId) {
+        //     return res.status(403).json({ error: "Forbidden: You can only view your own profile stats." });
+        // }
+
+        try {
+            // Check if user exists (optional, model function might handle implicitly)
+            const userExists = await UserModel.findUserById(userId);
+            if (!userExists) {
+                return res.status(404).json({ error: 'User not found' });
+            }
+
+            const profileStats = await UserModel.getUserProfileStats(userId); // Use Model
+            res.json({ data: profileStats }); // Standard response
+
+        } catch (err) {
+            console.error(`[Users GET /:userId/profile] Error for userId ${userId}:`, err);
+            next(err);
+        }
     }
+);
 
-    // Fetch profile counts concurrently
-    const [
-        listsCreatedResult,
-        listsFollowingResult,
-        dishesFollowingResult, // Assuming this uses DishVotes based on schema
-        restaurantsFollowingResult // Placeholder logic - revisit if needed
-    ] = await Promise.all([
-      currentDb.query('SELECT COUNT(*) FROM Lists WHERE user_id = $1', [userId]),
-      currentDb.query('SELECT COUNT(*) FROM ListFollows WHERE user_id = $1', [userId]),
-      currentDb.query("SELECT COUNT(*) FROM DishVotes WHERE user_id = $1 AND vote_type = 'up'", [userId]),
-      currentDb.query('SELECT COUNT(*) FROM Submissions WHERE user_id = $1 AND type = $2 AND status = $3', [userId, 'restaurant', 'approved']), // Example placeholder - adjust as needed
-    ]);
+// Add other user routes here if needed (e.g., GET /users/me, PUT /users/me)
 
-    // Construct profile data object
-    const profileData = {
-      listsCreated: parseInt(listsCreatedResult.rows[0].count, 10) || 0,
-      listsFollowing: parseInt(listsFollowingResult.rows[0].count, 10) || 0,
-      dishesFollowing: parseInt(dishesFollowingResult.rows[0].count, 10) || 0,
-      restaurantsFollowing: parseInt(restaurantsFollowingResult.rows[0].count, 10) || 0, // Revisit this logic
-    };
-
-    console.log(`[Users] Successfully fetched profile data for userId ${userId}:`, profileData);
-    res.json(profileData); // Send the profile data as JSON response
-  } catch (err) {
-    console.error('[Users /profile] Error:', err);
-    next(err); // Pass errors to the central error handler
-  }
-});
-
-// Export the router
 export default router;

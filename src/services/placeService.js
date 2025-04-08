@@ -1,11 +1,13 @@
 // src/services/placeService.js
-import apiClient from './apiClient'; // Use alias
+import apiClient from '@/services/apiClient'; // Corrected import (removed .js extension)
 
 const getAutocompleteSuggestions = async (input) => {
   // console.log(`[placeService] Fetching autocomplete for input: "${input}"`); // Keep for debugging if needed
   try {
     // Ensure the endpoint matches the backend route
-    const data = await apiClient(`/api/places/autocomplete?input=${encodeURIComponent(input)}`, 'Fetching place suggestions');
+    // Expecting { data: PlaceAutocompletePrediction[] }
+    const response = await apiClient(`/api/places/autocomplete?input=${encodeURIComponent(input)}`, 'Fetching place suggestions');
+    const data = response?.data;
     // console.log(`[placeService] Received ${data?.length || 0} suggestions.`); // Keep for debugging if needed
     // Return data or empty array, ensuring it's always an array
     return Array.isArray(data) ? data : [];
@@ -21,7 +23,9 @@ const getPlaceDetails = async (placeId) => {
   // console.log(`[placeService] Fetching details for placeId: "${placeId}"`); // Keep for debugging if needed
   try {
     // Ensure the endpoint matches the backend route
-    const data = await apiClient(`/api/places/details?placeId=${encodeURIComponent(placeId)}`, 'Fetching place details');
+    // Expecting { data: PlaceDetails }
+    const response = await apiClient(`/api/places/details?placeId=${encodeURIComponent(placeId)}`, 'Fetching place details');
+    const data = response?.data;
     // console.log(`[placeService] Received details:`, data); // Keep for debugging if needed
     // Return data or empty object, ensuring it's always an object
     // Check if data is explicitly null before returning empty object
@@ -38,7 +42,9 @@ const findPlaceByText = async (query) => {
   console.log(`[placeService] Finding place for query: "${query}"`); // Log input
   try {
     // Ensure the endpoint matches the backend route
-    const data = await apiClient(`/api/places/find?query=${encodeURIComponent(query)}`, 'Finding place by text');
+    // Expecting { data: PlaceDetails }
+    const response = await apiClient(`/api/places/find?query=${encodeURIComponent(query)}`, 'Finding place by text');
+    const data = response?.data;
     console.log(`[placeService] Found place data:`, data);
     // Return data or null if not found/error (apiClient might throw)
     // Check if data is an empty object, return null in that case

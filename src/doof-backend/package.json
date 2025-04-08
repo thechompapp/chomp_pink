@@ -1,28 +1,42 @@
 {
     "name": "doof-backend",
     "version": "1.0.0",
-    "type": "module",
     "description": "Backend for DOOF application",
-    "main": "server.js",
+    "main": "dist/server.js",
+    "type": "module",
     "scripts": {
-        "start": "node server.js",
-        "dev": "nodemon server.js"
+      "clean": "rm -rf dist",
+      "build": "npm run clean && tsc",
+      "start": "node dist/server.js",
+      "dev:ts-node": "nodemon --watch './**/*.ts' --exec ts-node server.ts",
+      "dev:tsx": "nodemon --watch './**/*.ts' --exec npx tsx server.ts",
+      "dev": "npm run dev:tsx"
     },
-    "imports": {
-    "@/*": "./*"
-   },
     "dependencies": {
-        "@googlemaps/google-maps-services-js": "^3.4.1",
-        "axios": "^1.8.4",
-        "bcryptjs": "^3.0.2",
-        "cors": "^2.8.5",
-        "dotenv": "^16.4.7",
-        "express": "^4.21.2",
-        "express-validator": "^7.2.1",
-        "jsonwebtoken": "^9.0.2",
-        "pg": "^8.14.1"
+      "@googlemaps/google-maps-services-js": "^3.4.1",
+      "axios": "^1.8.4",
+      "bcryptjs": "^3.0.2",
+      "cors": "^2.8.5",
+      "dotenv": "^16.4.7",
+      "express": "^4.21.2",
+      "express-validator": "^7.2.1",
+      "jsonwebtoken": "^9.0.2",
+      "pg": "^8.14.1"
     },
     "devDependencies": {
-        "nodemon": "^3.1.9"
+      "@types/bcryptjs": "^2.4.6",
+      "@types/cors": "^2.8.17",
+      "@types/express": "^4.17.21",
+      "@types/jsonwebtoken": "^9.0.6",
+      "@types/node": "^20.14.10",
+      "@types/pg": "^8.11.6",
+      "nodemon": "^3.1.9",
+      "ts-node": "^10.9.2",
+      "tsconfig-paths": "^4.2.0",
+      "tsx": "^4.16.2",
+      "typescript": "^5.5.3"
+    },
+    "engines": {
+      "node": ">=18.0.0"
     }
-}
+  }

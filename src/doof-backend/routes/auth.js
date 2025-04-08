@@ -1,218 +1,208 @@
-// src/doof-backend/routes/auth.js
+/* src/doof-backend/routes/auth.js */
 import express from 'express';
-import { body, validationResult, param } from 'express-validator'; // Added param
+import { body, validationResult, param } from 'express-validator';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-// Corrected imports using relative paths
-import db from '../db/index.js';
+// Import user model functions
+import * as UserModel from '../models/userModel.js';
 import authMiddleware from '../middleware/auth.js';
+import requireSuperuser from '../middleware/requireSuperuser.js';
 
 const router = express.Router();
-
-// JWT_SECRET logic remains the same...
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
-  console.error("FATAL ERROR: JWT_SECRET is not defined in environment variables.");
-  process.exit(1);
+    console.error("\n\nFATAL ERROR: JWT_SECRET environment variable is not set!\nAuth will not function.\n\n");
+    // Optionally exit: process.exit(1);
 }
+const JWT_EXPIRY = process.env.JWT_EXPIRY || '1d'; // Default to 1 day expiry
 
-// Validation arrays remain the same...
-const validateRegister = [
-  body('username', 'Username is required').not().isEmpty().trim(), // Added trim
-  body('email', 'Please include a valid email').isEmail(),
-  body('password', 'Please enter a password with 6 or more characters').isLength({ min: 6 }),
-];
+// --- Helper to format user data for responses ---
+const formatUserForResponse = (user) => {
+    if (!user) return null;
+    // Exclude password hash
+    const { password_hash, ...userData } = user;
+    return {
+        ...userData,
+        account_type: userData.account_type || 'user' // Ensure default
+    };
+};
 
-const validateLogin = [
-  body('email', 'Please include a valid email').isEmail(),
-  body('password', 'Password is required').exists(),
-];
-
-const validateUpdateAccountType = [
-  param('userId').isInt({ gt: 0 }).withMessage('User ID must be a positive integer'), // Added userId validation
-  body('account_type').isIn(['user', 'contributor', 'superuser']).withMessage('Invalid account type'),
-];
-
-// handleValidationErrors function remains the same...
+// --- Middleware & Validation Chains ---
 const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    console.warn("[Auth Validation Error]", req.path, errors.array());
+    console.warn(`[Auth Route Validation Error] Path: ${req.path}`, errors.array());
     // Return only the first error message for simplicity
     return res.status(400).json({ error: errors.array()[0].msg });
   }
   next();
 };
 
-// --- POST /api/auth/register --- (No changes needed here)
+// Validation for Registration
+const validateRegister = [
+  body('username', 'Username is required').trim().notEmpty().isLength({ min: 3, max: 50 }).withMessage('Username must be 3-50 characters'),
+  body('email', 'Please include a valid email').isEmail().normalizeEmail(),
+  body('password', 'Password must be at least 6 characters').isLength({ min: 6 }),
+  // Optional: Add password confirmation check if needed on backend
+  // body('confirmPassword').custom((value, { req }) => { ... })
+];
+
+// Validation for Login
+const validateLogin = [
+  body('email', 'Please include a valid email').isEmail().normalizeEmail(),
+  body('password', 'Password is required').exists(),
+];
+
+// Validation for Account Type Update
+const validateAccountTypeUpdate = [
+    param('userId').isInt({ gt: 0 }).withMessage('User ID must be a positive integer'),
+    body('account_type').isIn(['user', 'contributor', 'superuser']).withMessage('Invalid account type specified')
+];
+
+// --- Routes ---
+
+// POST /api/auth/register
 router.post('/register', validateRegister, handleValidationErrors, async (req, res, next) => {
   const { username, email, password } = req.body;
-  const currentDb = req.app?.get('db') || db;
-
+  console.log(`[Auth Register] Attempting registration for email: ${email}, username: ${username}`);
   try {
-    const userCheck = await currentDb.query(
-        'SELECT id FROM Users WHERE LOWER(email) = LOWER($1) OR LOWER(username) = LOWER($2)',
-        [email, username]
-    );
-    if (userCheck.rows.length > 0) {
-      return res.status(400).json({ error: 'User with this email or username already exists.' });
+    // Check if user exists using model
+    const existingEmail = await UserModel.findUserByEmail(email);
+    if (existingEmail) {
+      console.warn(`[Auth Register] Failed: Email ${email} already exists.`);
+      return res.status(400).json({ error: 'User with this email already exists.' });
+    }
+    const existingUsername = await UserModel.findUserByUsername(username);
+     if (existingUsername) {
+      console.warn(`[Auth Register] Failed: Username ${username} already exists.`);
+      return res.status(400).json({ error: 'User with this username already exists.' });
     }
 
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(password, salt);
+    // Hash password
+    const passwordHash = await bcrypt.hash(password, 10); // Use appropriate salt rounds
 
-    const insertQuery = `
-      INSERT INTO Users (username, email, password_hash)
-      VALUES ($1, $2, $3)
-      RETURNING id, username, email, created_at, account_type
-    `;
-    const newUserResult = await currentDb.query(insertQuery, [username, email, passwordHash]);
-    const newUser = newUserResult.rows[0];
+    // Create user using model
+    const newUser = await UserModel.createUser(username, email, passwordHash);
+    console.log(`[Auth Register] User created successfully: ID ${newUser.id}`);
 
+    // Generate JWT
     const payload = {
-        user: {
-            id: newUser.id,
-            username: newUser.username,
-            account_type: newUser.account_type
-        }
-    };
-    const token = await new Promise((resolve, reject) => {
-      jwt.sign(payload, JWT_SECRET, { expiresIn: '8h' }, (err, token) => {
-        if (err) reject(err);
-        else resolve(token);
-      });
-    });
-
-    res.status(201).json({
-      token,
       user: {
         id: newUser.id,
         username: newUser.username,
-        email: newUser.email,
-        createdAt: newUser.created_at,
-        account_type: newUser.account_type || 'user',
+        account_type: newUser.account_type,
       },
+    };
+
+    // Ensure JWT_SECRET exists before signing
+     if (!JWT_SECRET) throw new Error('JWT Secret not configured.');
+
+    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRY });
+    console.log(`[Auth Register] JWT generated for user ID ${newUser.id}`);
+
+    // Format and send response
+    res.status(201).json({
+        data: {
+            token,
+            user: formatUserForResponse(newUser)
+        }
     });
   } catch (err) {
-    console.error('[AUTH /register] Server error:', err);
-    next(err);
+      console.error("[Auth Register] Error:", err);
+      next(err); // Pass to global error handler
   }
 });
 
-// --- POST /api/auth/login --- (Added Debug Logging)
+// POST /api/auth/login
 router.post('/login', validateLogin, handleValidationErrors, async (req, res, next) => {
   const { email, password } = req.body;
-  const currentDb = req.app?.get('db') || db;
-  console.log(`[AUTH /login] Attempting login for email: ${email}`); // Log entry
-
+   console.log(`[Auth Login] Attempting login for email: ${email}`);
   try {
-    const userResult = await currentDb.query(
-      'SELECT id, username, email, password_hash, created_at, account_type FROM Users WHERE LOWER(email) = LOWER($1)',
-      [email]
-    );
-
-    if (userResult.rows.length === 0) {
-      console.warn(`[AUTH /login] User not found for email: ${email}`); // Log user not found
-      return res.status(401).json({ error: 'Invalid credentials.' });
+    // Find user by email using model
+    const user = await UserModel.findUserByEmail(email);
+    if (!user) {
+        console.warn(`[Auth Login] Failed: User not found for email: ${email}`);
+        return res.status(401).json({ error: 'Invalid credentials.' });
     }
-    const user = userResult.rows[0];
-    console.log(`[AUTH /login] User found: ID ${user.id}, Email: ${user.email}`); // Log user found
 
-    // --- TEMPORARY DEBUG LOGGING ---
-    console.log(`[AUTH /login DEBUG] Comparing provided password with hash from DB: "${user.password_hash}"`);
-    let isMatch = false;
-    try {
-         isMatch = await bcrypt.compare(password, user.password_hash);
-         console.log(`[AUTH /login DEBUG] bcrypt.compare result: ${isMatch}`); // Log comparison result
-    } catch(compareError) {
-         console.error(`[AUTH /login DEBUG] bcrypt.compare threw an error:`, compareError);
-         // Handle compare error specifically, maybe return 500?
-         return res.status(500).json({ error: 'Password comparison failed.' });
-    }
-    // --- END DEBUG LOGGING ---
-
+    // Compare password
+    const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
-      console.warn(`[AUTH /login] Password mismatch for user ID ${user.id}`); // Log mismatch
-      return res.status(401).json({ error: 'Invalid credentials.' });
+        console.warn(`[Auth Login] Failed: Password mismatch for email: ${email}`);
+        return res.status(401).json({ error: 'Invalid credentials.' });
     }
+     console.log(`[Auth Login] Login successful for user ID ${user.id}`);
 
-    // Password matched, proceed with JWT generation
-    console.log(`[AUTH /login] Password matched for user ID ${user.id}. Generating token...`);
+    // Generate JWT
     const payload = {
-        user: {
-            id: user.id,
-            username: user.username,
-            account_type: user.account_type || 'user'
-        }
+       user: {
+         id: user.id,
+         username: user.username,
+         account_type: user.account_type,
+       },
      };
-    const token = await new Promise((resolve, reject) => {
-      jwt.sign(payload, JWT_SECRET, { expiresIn: '8h' }, (err, token) => {
-        if (err) reject(err);
-        else resolve(token);
-      });
-    });
 
-    console.log(`[AUTH /login] Login successful for user ID ${user.id}.`);
+     if (!JWT_SECRET) throw new Error('JWT Secret not configured.');
+
+    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRY });
+     console.log(`[Auth Login] JWT generated for user ID ${user.id}`);
+
+    // Format and send response
     res.json({
-      token,
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        createdAt: user.created_at,
-        account_type: user.account_type || 'user',
-      },
+        data: {
+            token,
+            user: formatUserForResponse(user)
+        }
     });
   } catch (err) {
-    console.error('[AUTH /login] Caught error:', err);
-    next(err);
+      console.error("[Auth Login] Error:", err);
+      next(err);
   }
 });
 
-// --- PUT /api/auth/update-account-type/:userId --- (No changes needed here)
+// PUT /api/auth/update-account-type/:userId
 router.put(
   '/update-account-type/:userId',
-  authMiddleware,
-  validateUpdateAccountType,
+  authMiddleware, // Requires valid token
+  requireSuperuser, // Requires superuser privileges
+  validateAccountTypeUpdate, // Validate params and body
   handleValidationErrors,
   async (req, res, next) => {
     const { userId } = req.params;
-    const { account_type } = req.body;
-    const currentUser = req.user;
-    const currentDb = req.app?.get('db') || db;
+    const { account_type } = req.body; // Validated account_type
+    const requestingUserId = req.user.id;
+
+     console.log(`[Auth Update Type] Superuser ${requestingUserId} attempting to set user ${userId} to type: ${account_type}`);
+
+     if (String(requestingUserId) === String(userId)) {
+          console.warn(`[Auth Update Type] Failed: Superuser ${requestingUserId} cannot change their own account type.`);
+          return res.status(403).json({ error: 'Superusers cannot change their own account type via this route.' });
+     }
 
     try {
-      const adminCheck = await currentDb.query('SELECT account_type FROM Users WHERE id = $1', [currentUser.id]);
-      if (adminCheck.rows.length === 0 || adminCheck.rows[0].account_type !== 'superuser') {
-        return res.status(403).json({ error: 'Forbidden: Only superusers can update account types.' });
-      }
+        // Check if target user exists using model
+        const targetUser = await UserModel.findUserById(userId);
+        if (!targetUser) {
+             console.warn(`[Auth Update Type] Failed: Target user ${userId} not found.`);
+             return res.status(404).json({ error: 'Target user not found.' });
+        }
 
-      const targetUserCheck = await currentDb.query('SELECT id FROM Users WHERE id = $1', [userId]);
-      if (targetUserCheck.rows.length === 0) {
-        return res.status(404).json({ error: 'Target user not found.' });
-      }
+        // Update user using model
+        const updatedUser = await UserModel.updateUserAccountType(userId, account_type);
+         if (!updatedUser) {
+              // Should not happen if user exists, but handle defensively
+              throw new Error(`Update failed for user ${userId}, no user returned after update.`);
+         }
+         console.log(`[Auth Update Type] Successfully updated user ${userId} to type: ${account_type}`);
 
-      const updateQuery = `
-        UPDATE Users
-        SET account_type = $1
-        WHERE id = $2
-        RETURNING id, username, email, account_type
-      `;
-      const result = await currentDb.query(updateQuery, [account_type, userId]);
-      const updatedUser = result.rows[0];
-
-      res.json({
-        id: updatedUser.id,
-        username: updatedUser.username,
-        email: updatedUser.email,
-        account_type: updatedUser.account_type,
-      });
+        res.json({
+            data: formatUserForResponse(updatedUser) // Format the updated user for response
+        });
     } catch (err) {
-      console.error(`[AUTH /update-account-type/${userId}] Error:`, err);
-      next(err);
+         console.error(`[Auth Update Type] Error updating user ${userId}:`, err);
+         next(err);
     }
   }
 );
-
 
 export default router;

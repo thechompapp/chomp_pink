@@ -1,3 +1,4 @@
+/* src/doof-backend/seeddata.sql */
 -- ================================================
 -- ✅ Insert 50 users with email, username, account_type, and password_hash
 -- ================================================
@@ -8,6 +9,8 @@ BEGIN
     VALUES (
       'user_' || i,
       'user_' || i || '@chomp.local',
+      -- IMPORTANT: Replace 'password_hash_placeholder' with securely generated hashes
+      -- during the actual seeding process. Do NOT commit real password hashes.
       'password_hash_placeholder',
       'user',
       NOW()

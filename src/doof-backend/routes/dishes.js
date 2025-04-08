@@ -1,116 +1,129 @@
-// src/doof-backend/routes/dishes.js
+/* src/doof-backend/routes/dishes.js */
 import express from 'express';
-import { param, body, validationResult } from 'express-validator';
-// Corrected imports:
-import db from '../db/index.js';
+import { param, query as queryValidator, body, validationResult } from 'express-validator';
+// Import model functions
+import * as DishModel from '../models/dishModel.js';
+import * as RestaurantModel from '../models/restaurantModel.js'; // Needed for restaurant check
+import authMiddleware from '../middleware/auth.js';
+import requireSuperuser from '../middleware/requireSuperuser.js';
 
 const router = express.Router();
 
-// Handle validation errors
+// --- Middleware & Validation Chains ---
 const handleValidationErrors = (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    console.warn("[Dishes Router Validation Error]", req.path, errors.array());
-    // Ensure JSON error response
-    return res.status(400).json({ error: errors.array()[0].msg || 'Validation failed' }); // Simplified error
-  }
-  next();
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        console.warn(`[Dishes Route Validation Error] Path: ${req.path}`, errors.array());
+        return res.status(400).json({ error: errors.array()[0].msg });
+    }
+    next();
 };
-
-// Validation for ID parameter
 const validateIdParam = [
-  param('id').isInt({ gt: 0 }).withMessage('Invalid Dish ID format in URL.'),
+    param('id').isInt({ gt: 0 }).withMessage('Dish ID must be a positive integer').toInt()
+];
+const validateGetDishesQuery = [
+    queryValidator('name').optional().trim().notEmpty().withMessage('Name query must not be empty if provided').isLength({ max: 100 }),
+    queryValidator('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100').toInt(),
+    queryValidator('offset').optional().isInt({ min: 0 }).withMessage('Offset must be a non-negative integer').toInt()
+];
+const validateDishBody = [
+    body('name').trim().notEmpty().withMessage('Dish name is required').isLength({ max: 255 }),
+    body('restaurant_id').isInt({ gt: 0 }).withMessage('Valid Restaurant ID is required').toInt(),
+    // Add validation for other fields like tags if they can be set on create/update
 ];
 
-// === List Dishes for Autosuggest ===
-router.get("/", async (req, res, next) => {
-    const { name } = req.query;
-    const currentDb = req.app?.get('db') || db;
-    try {
-      let query = `SELECT id, name FROM Dishes`;
-      const params = [];
-      if (name) {
-        // Use ILIKE for case-insensitive search
-        query += ` WHERE name ILIKE $1`;
-        params.push(`%${name}%`); // Add wildcards for partial matching
-      }
-      // Order and limit results for suggestions
-      query += ` ORDER BY name ASC LIMIT 20`;
-
-      const result = await currentDb.query(query, params);
-      res.json(result.rows || []); // Ensure array response
-    } catch (err) {
-      console.error("/api/dishes (GET List) error:", err);
-      next(err); // Forward error
+// GET /api/dishes (List/Suggest Dishes)
+router.get(
+    "/",
+    validateGetDishesQuery,
+    handleValidationErrors,
+    async (req, res, next) => {
+        const { name = '', limit = 20, offset = 0 } = req.query;
+        try {
+          const dishes = await DishModel.findDishesByName(name, limit, offset); // Use Model
+          res.json({ data: dishes || [] }); // Model formats simplified response
+        } catch (err) {
+          console.error("/api/dishes (GET List) error:", err);
+          next(err);
+        }
     }
-});
+);
 
-
-// === Dish Detail ===
+// GET /api/dishes/:id (Dish Detail)
 router.get(
   "/:id",
   validateIdParam,
   handleValidationErrors,
   async (req, res, next) => {
     const { id } = req.params;
-    const currentDb = req.app?.get('db') || db;
-    console.log(`[DISHES GET /:id] Request for ID: ${id}`);
-
     try {
-      // Query to fetch dish details, restaurant info, and dish tags
-      const dishQuery = `
-        SELECT
-          d.id, d.name, d.adds, d.created_at, d.restaurant_id,
-          r.name AS restaurant_name,
-          r.city_name,
-          r.neighborhood_name,
-          -- Aggregate dish tags safely, default to empty array
-          COALESCE(array_agg(DISTINCT h.name) FILTER (WHERE h.name IS NOT NULL), '{}'::text[]) as tags
-        FROM Dishes d
-        LEFT JOIN Restaurants r ON d.restaurant_id = r.id -- Join to get restaurant info
-        LEFT JOIN DishHashtags dh ON d.id = dh.dish_id -- Join to get tag associations
-        LEFT JOIN Hashtags h ON dh.hashtag_id = h.id -- Join to get tag names
-        WHERE d.id = $1
-        GROUP BY d.id, r.id -- Group by dish and restaurant to aggregate tags
-      `;
-
-      console.log(`[DISHES GET /:id] Executing query for ID: ${id}`);
-      const dishResult = await currentDb.query(dishQuery, [id]);
-
-      if (dishResult.rows.length === 0) {
-        console.log(`[DISHES GET /:id] Dish not found for ID: ${id}`);
+      const dishData = await DishModel.findDishById(id); // Use Model
+      if (!dishData) {
         return res.status(404).json({ error: "Dish not found" });
       }
-      const dishData = dishResult.rows[0];
-      console.log(`[DISHES GET /:id] Successfully fetched dish: ${dishData.name}`);
-
-      // Format the response for frontend consistency
-      const responseData = {
-          id: dishData.id,
-          name: dishData.name,
-          adds: dishData.adds || 0,
-          created_at: dishData.created_at,
-          restaurant_id: dishData.restaurant_id,
-          restaurant_name: dishData.restaurant_name,
-          city: dishData.city_name, // Map city_name to city
-          neighborhood: dishData.neighborhood_name, // Map neighborhood_name to neighborhood
-          tags: Array.isArray(dishData.tags) ? dishData.tags : [] // Ensure tags is array
-      };
-
-      res.json(responseData); // Send formatted JSON response
-
+      res.json({ data: dishData }); // Model formats response
     } catch (err) {
       console.error(`/api/dishes/${id} (GET Detail) error:`, err);
-      next(err); // Forward error to central handler
+      next(err);
     }
   }
 );
 
+// POST /api/dishes (Create Dish - Requires Superuser)
+router.post('/', authMiddleware, requireSuperuser, validateDishBody, handleValidationErrors, async (req, res, next) => {
+  try {
+      // Check if restaurant exists
+      const restaurantExists = await RestaurantModel.findRestaurantById(req.body.restaurant_id);
+      if (!restaurantExists) {
+           return res.status(400).json({ error: `Restaurant with ID ${req.body.restaurant_id} not found.` });
+      }
 
-// === Submit Dish (Endpoint disabled) ===
-router.post("/", async (req, res) => {
-  res.status(405).json({ error: "Direct dish creation not allowed via this endpoint. Please use the submissions process." });
+      const newDish = await DishModel.createDish(req.body);
+      if (!newDish) {
+           // Handle conflict (dish might already exist for this restaurant)
+           return res.status(409).json({ error: "Dish with this name likely already exists for this restaurant." });
+      }
+      res.status(201).json({ data: newDish }); // Model formats response
+  } catch (err) {
+      console.error(`[Dishes POST /] Error creating dish:`, err);
+      next(err);
+  }
 });
 
-// Corrected export
+// PUT /api/dishes/:id (Update Dish - Requires Superuser)
+router.put('/:id', authMiddleware, requireSuperuser, validateIdParam, validateDishBody, handleValidationErrors, async (req, res, next) => {
+   const { id } = req.params;
+   try {
+       // Check if referenced restaurant exists if restaurant_id is being changed
+       if (req.body.restaurant_id) {
+           const restaurantExists = await RestaurantModel.findRestaurantById(req.body.restaurant_id);
+           if (!restaurantExists) {
+                return res.status(400).json({ error: `Restaurant with ID ${req.body.restaurant_id} not found.` });
+           }
+       }
+
+       const updatedDish = await DishModel.updateDish(id, req.body);
+       if (!updatedDish) return res.status(404).json({ error: 'Dish not found or no changes made.' });
+       res.json({ data: updatedDish }); // Model formats response
+   } catch (err) {
+        console.error(`[Dishes PUT /:id] Error updating dish ${id}:`, err);
+       next(err);
+    }
+});
+
+// DELETE /api/dishes/:id (Delete Dish - Requires Superuser)
+// Note: Actual deletion might be preferred via the generic admin route for consistency
+// router.delete('/:id', authMiddleware, requireSuperuser, validateIdParam, handleValidationErrors, async (req, res, next) => {
+//    const { id } = req.params;
+//    try {
+//        const deleted = await DishModel.deleteDish(id);
+//        if (!deleted) return res.status(404).json({ error: 'Dish not found' });
+//        res.status(204).send();
+//    } catch (err) {
+//        console.error(`[Dishes DELETE /:id] Error deleting dish ${id}:`, err);
+//        next(err);
+//     }
+// });
+
+
 export default router;

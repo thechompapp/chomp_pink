@@ -1,20 +1,26 @@
 // src/services/trendingService.js
-import apiClient from '@/services/apiClient.js'; // Corrected Path
+import apiClient from '@/services/apiClient'; // Corrected import (removed .js extension)
 
 const getTrendingRestaurants = async () => {
-    const data = await apiClient('/api/trending/restaurants', 'TrendingService Restaurants') || [];
+    // Expecting { data: Restaurant[] }
+    const response = await apiClient('/api/trending/restaurants', 'TrendingService Restaurants');
+    const data = response?.data || [];
     // Ensure data integrity, filter out null/undefined items
     return Array.isArray(data) ? data.filter(item => item && item.id != null) : [];
 };
 
 const getTrendingDishes = async () => {
-    const data = await apiClient('/api/trending/dishes', 'TrendingService Dishes') || [];
+    // Expecting { data: Dish[] }
+    const response = await apiClient('/api/trending/dishes', 'TrendingService Dishes');
+    const data = response?.data || [];
     // Ensure data integrity, filter out null/undefined items
     return Array.isArray(data) ? data.filter(item => item && item.id != null) : [];
 };
 
 const getTrendingLists = async () => {
-    const data = await apiClient('/api/trending/lists', 'TrendingService Lists') || [];
+    // Expecting { data: List[] }
+    const response = await apiClient('/api/trending/lists', 'TrendingService Lists');
+    const data = response?.data || [];
     // Ensure lists have default values needed by UI and filter invalid ones
     const formatted = Array.isArray(data)
      ? data

@@ -1,8 +1,10 @@
 // src/services/filterService.js
-import apiClient from '@/services/apiClient.js'; // Corrected Path
+import apiClient from '@/services/apiClient'; // Corrected import (removed .js extension)
 
 const getCities = async () => {
-    const data = await apiClient('/api/filters/cities', 'FilterService Cities') || [];
+    // Expecting { data: City[] }
+    const response = await apiClient('/api/filters/cities', 'FilterService Cities');
+    const data = response?.data || [];
     // Ensure valid items with id and name before sorting
     const validCities = Array.isArray(data)
          ? data.filter(item => item && item.id != null && typeof item.name === 'string')
@@ -12,7 +14,9 @@ const getCities = async () => {
 };
 
 const getCuisines = async () => {
-    const data = await apiClient('/api/filters/cuisines', 'FilterService Cuisines') || [];
+    // Expecting { data: Cuisine[] }
+    const response = await apiClient('/api/filters/cuisines', 'FilterService Cuisines');
+    const data = response?.data || [];
     // Ensure valid items with id and name before sorting
     const validCuisines = Array.isArray(data)
          ? data.filter(item => item && item.id != null && typeof item.name === 'string')
@@ -29,7 +33,9 @@ const getNeighborhoodsByCity = async (cityId) => {
          return []; // Return empty if cityId is not a valid positive integer
     }
     try {
-        const data = await apiClient(`/api/filters/neighborhoods?cityId=${cityIdInt}`, `FilterService Neighborhoods city ${cityIdInt}`) || [];
+        // Expecting { data: Neighborhood[] }
+        const response = await apiClient(`/api/filters/neighborhoods?cityId=${cityIdInt}`, `FilterService Neighborhoods city ${cityIdInt}`);
+        const data = response?.data || [];
         // Ensure valid items with id and name before sorting
         const validNeighborhoods = Array.isArray(data)
              ? data.filter(item => item && item.id != null && typeof item.name === 'string')

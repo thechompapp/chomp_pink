@@ -1,5 +1,5 @@
 // src/services/searchService.js
-import apiClient from '@/services/apiClient.js'; // Corrected Path
+import apiClient from '@/services/apiClient'; // Corrected import (removed .js extension)
 
 const search = async (params) => {
     // Return default structure if query is empty or missing
@@ -9,13 +9,15 @@ const search = async (params) => {
     // Construct query string safely
     const queryString = new URLSearchParams(params).toString();
     try {
+        // Expecting { data: { restaurants: [], dishes: [], lists: [] } }
         const response = await apiClient(`/api/search?${queryString}`, `SearchService (${params.q})`);
+        const data = response?.data || {};
         // Ensure response structure and array types, filter invalid items
         const formatResults = (items) => Array.isArray(items) ? items.filter(item => item && item.id != null) : [];
         return {
-            dishes: formatResults(response?.dishes),
-            restaurants: formatResults(response?.restaurants),
-            lists: formatResults(response?.lists),
+            dishes: formatResults(data.dishes),
+            restaurants: formatResults(data.restaurants),
+            lists: formatResults(data.lists),
         };
     } catch (error) {
         console.error(`[SearchService] Error searching for "${params.q}":`, error);
