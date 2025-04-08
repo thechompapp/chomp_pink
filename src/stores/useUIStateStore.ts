@@ -58,13 +58,12 @@ const useUIStateStore = create<UIStateStore>()(
 
       // Actions
       fetchCities: async () => {
-        // Avoid refetch if already loading or if cities are already present
         if (get().isLoadingCities || get().cities.length > 0) return;
         set({ isLoadingCities: true, errorCities: null });
         try {
           const cities = await filterService.getCities();
           set({ cities: cities, isLoadingCities: false });
-        } catch (error: unknown) { // Catch unknown
+        } catch (error: unknown) {
           const message = error instanceof Error ? error.message : 'Failed to fetch cities';
           console.error('[UIStateStore] Error fetching cities:', error);
           set({ cities: [], isLoadingCities: false, errorCities: message });
@@ -72,49 +71,43 @@ const useUIStateStore = create<UIStateStore>()(
       },
 
       fetchNeighborhoods: async (cityId: number) => {
-        // Validate cityId before proceeding
         if (typeof cityId !== 'number' || cityId <= 0) {
           console.warn('[UIStateStore fetchNeighborhoods] Invalid cityId provided:', cityId);
-          // Clear neighborhoods if cityId is invalid or cleared
           if (get().neighborhoods.length > 0 || get().loadedNeighborhoodsForCityId !== null) {
-              set({ neighborhoods: [], loadedNeighborhoodsForCityId: null, errorNeighborhoods: null });
+            set({ neighborhoods: [], loadedNeighborhoodsForCityId: null, errorNeighborhoods: null });
           }
           return;
         }
-
-        // Avoid refetch if already loading or if neighborhoods for this city are already loaded
         if (get().isLoadingNeighborhoods || get().loadedNeighborhoodsForCityId === cityId) {
-            return;
+          return;
         }
-
         set({ isLoadingNeighborhoods: true, errorNeighborhoods: null });
         try {
           const neighborhoods = await filterService.getNeighborhoodsByCity(cityId);
           set({
-              neighborhoods,
-              isLoadingNeighborhoods: false,
-              loadedNeighborhoodsForCityId: cityId // Mark neighborhoods for this city as loaded
+            neighborhoods,
+            isLoadingNeighborhoods: false,
+            loadedNeighborhoodsForCityId: cityId,
           });
-        } catch (error: unknown) { // Catch unknown
+        } catch (error: unknown) {
           const message = error instanceof Error ? error.message : 'Failed to fetch neighborhoods';
           console.error('[UIStateStore] Error fetching neighborhoods:', error);
           set({
-              neighborhoods: [],
-              isLoadingNeighborhoods: false,
-              errorNeighborhoods: message,
-              loadedNeighborhoodsForCityId: cityId // Mark as attempted load even on error
+            neighborhoods: [],
+            isLoadingNeighborhoods: false,
+            errorNeighborhoods: message,
+            loadedNeighborhoodsForCityId: cityId,
           });
         }
       },
 
       fetchCuisines: async () => {
-        // Avoid refetch if already loading or if cuisines are already present
         if (get().isLoadingCuisines || get().cuisines.length > 0) return;
         set({ isLoadingCuisines: true, errorCuisines: null });
         try {
           const cuisines = await filterService.getCuisines();
           set({ cuisines, isLoadingCuisines: false });
-        } catch (error: unknown) { // Catch unknown
+        } catch (error: unknown) {
           const message = error instanceof Error ? error.message : 'Failed to fetch cuisines';
           console.error('[UIStateStore] Error fetching cuisines:', error);
           set({ cuisines: [], isLoadingCuisines: false, errorCuisines: message });
@@ -122,34 +115,61 @@ const useUIStateStore = create<UIStateStore>()(
       },
 
       setCityId: (newCityId) => {
-        // Only update if the ID has actually changed
         if (get().cityId !== newCityId) {
           console.log(`[UIStateStore] Setting cityId to: ${newCityId}`);
           set({
             cityId: newCityId,
-            neighborhoodId: null, // Reset neighborhood when city changes
-            neighborhoods: [], // Clear loaded neighborhoods
-            loadedNeighborhoodsForCityId: null, // Reset loaded city tracker
-            errorNeighborhoods: null, // Clear neighborhood errors
-            // Decide if hashtags should be reset when city changes - currently not resetting
-            // hashtags: [],
+            neighborhoodId: null,
+            neighborhoods: [],
+            loadedNeighborhoodsForCityId: null,
+            errorNeighborhoods: null,
           });
-          // Trigger fetch for new city (if valid ID)
           if (newCityId !== null && newCityId > 0) {
-              get().fetchNeighborhoods(newCityId);
+            get().fetchNeighborhoods(newCityId);
           }
         }
       },
 
       setNeighborhoodId: (newNeighborhoodId) => {
-         if (get().neighborhoodId !== newNeighborhoodId) {
-             console.log(`[UIStateStore] Setting neighborhoodId to: ${newNeighborhoodId}`);
-             set({
-                neighborhoodId: newNeighborhoodId,
-                 // Decide if hashtags should be reset when neighborhood changes - currently not resetting
-                 // hashtags: [],
-             });
-         }
+        if (get().neighborhoodId !== newNeighborhoodId) {
+          console.log(`[UIStateStore] Setting neighborhoodId to: ${newNeighborhoodId}`);
+          set({ neighborhoodId: newNeighborhoodId });
+        }
       },
 
-      set
+      setHashtags: (hashtags) => {
+        if (Array.isArray(hashtags) && hashtags.every(tag => typeof tag === 'string')) {
+          console.log(`[UIStateStore] Setting hashtags to:`, hashtags);
+          set({ hashtags });
+        } else {
+          console.warn('[UIStateStore] Invalid hashtags provided:', hashtags);
+        }
+      },
+
+      setSearchQuery: (query) => {
+        if (typeof query === 'string') {
+          console.log(`[UIStateStore] Setting searchQuery to: "${query}"`);
+          set({ searchQuery: query });
+        } else {
+          console.warn('[UIStateStore] Invalid searchQuery provided:', query);
+        }
+      },
+
+      clearAllFilters: () => {
+        console.log('[UIStateStore] Clearing all filters');
+        set({
+          cityId: null,
+          neighborhoodId: null,
+          hashtags: [],
+          searchQuery: '',
+          neighborhoods: [],
+          loadedNeighborhoodsForCityId: null,
+          errorNeighborhoods: null,
+        });
+      },
+    }),
+    { name: 'UIStateStore' } // Devtools name
+  )
+);
+
+export default useUIStateStore;

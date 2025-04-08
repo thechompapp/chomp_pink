@@ -1,9 +1,10 @@
-import React, { useState, useCallback, useMemo, useRef } from 'react';
+/* src/components/QuickAddPopup.jsx */
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useQuickAdd } from '@/context/QuickAddContext';
 import useAuthStore from '@/stores/useAuthStore';
 import useUIStateStore from '@/stores/useUIStateStore';
-import Modal from './UI/Modal';
-import Button from './Button';
+import Modal from '@/components/UI/Modal';
+import Button from '@/components/Button';
 import { Link } from 'react-router-dom';
 import { Loader2, CheckCircle, Info, X } from 'lucide-react';
 
@@ -30,11 +31,11 @@ const QuickAddPopup = () => {
     const [newListIsPublic, setNewListIsPublic] = useState(true);
     const [hashtagInput, setHashtagInput] = useState('');
     const [selectedHashtags, setSelectedHashtags] = useState([]);
-    const prevIsOpen = useRef(isOpen);
-    const isAddingToList = useRef(false);
+    const prevIsOpenRef = useRef(isOpen);
+    const isAddingToListRef = useRef(false);
 
+    // Reset state with useCallback to ensure stable reference
     const resetState = useCallback(() => {
-        console.log('[QuickAddPopup Reset] Resetting state.');
         setSelectedListId(null);
         setLocalError('');
         setJustAddedToListId(null);
@@ -46,77 +47,71 @@ const QuickAddPopup = () => {
         setSelectedHashtags([]);
     }, []);
 
-    const debouncedSetHashtagInput = useCallback(
-        debounce((value) => setHashtagInput(value), 300),
-        []
-    );
+    // Debounced hashtag input handler
+    const debouncedSetHashtagInput = useMemo(() => debounce((value) => setHashtagInput(value), 300), []);
 
     const handleHashtagInputChange = useCallback((e) => {
         debouncedSetHashtagInput(e.target.value);
     }, [debouncedSetHashtagInput]);
 
-    if (isOpen && !prevIsOpen.current) {
-        const shouldBeCreating = item?.createNew && item?.type === 'list';
-        if (isCreatingNew !== shouldBeCreating) {
-            console.log('[QuickAddPopup Mode] Setting mode:', shouldBeCreating);
+    // Effect to handle modal open/close and mode switching
+    useEffect(() => {
+        if (isOpen && !prevIsOpenRef.current) {
+            const shouldBeCreating = item?.createNew && item?.type === 'list';
             setIsCreatingNew(shouldBeCreating);
+            setLocalError('');
+        } else if (!isOpen && prevIsOpenRef.current) {
+            resetState();
         }
-        setLocalError('');
-    } else if (!isOpen && prevIsOpen.current) {
-        resetState();
-    }
-    prevIsOpen.current = isOpen;
+        prevIsOpenRef.current = isOpen;
+    }, [isOpen, item, resetState]);
 
+    // Confirm action handler
     const handleConfirmAction = useCallback(async () => {
+        if (isAddingToListRef.current) return; // Prevent multiple submissions
         setLocalError('');
         if (!isAuthenticated) {
             setLocalError('Please log in first.');
             return;
         }
-        isAddingToList.current = true;
-        let actionPromise;
-        if (isCreatingNew) {
-            if (!newListName.trim()) {
-                setLocalError('List name is required.');
-                isAddingToList.current = false;
-                return;
-            }
-            actionPromise = addToList({
-                item: item && item.type !== 'list' && item.id ? { id: item.id, type: item.type } : null,
-                createNew: true,
-                listData: {
-                    name: newListName.trim(),
-                    description: newListDescription.trim() || null,
-                    is_public: newListIsPublic,
-                    tags: selectedHashtags,
-                    type: item?.type || 'mixed', // Set type based on item or default to mixed
-                },
-            });
-        } else {
-            if (!selectedListId) {
-                setLocalError('Please select a list.');
-                isAddingToList.current = false;
-                return;
-            }
-            if (!item || !item.id || !item.type || item.type === 'list') {
-                setLocalError('Invalid item selected.');
-                isAddingToList.current = false;
-                return;
-            }
-            actionPromise = addToList({ item: { id: item.id, type: item.type }, listId: selectedListId });
-        }
+        isAddingToListRef.current = true;
+
         try {
-            const result = await actionPromise;
-            if (!isCreatingNew && result?.listId) {
-                setJustAddedToListId(result.listId);
-                setTimeout(() => {
-                    closeQuickAdd();
-                    isAddingToList.current = false;
-                }, 1500);
+            if (isCreatingNew) {
+                if (!newListName.trim()) {
+                    setLocalError('List name is required.');
+                    return;
+                }
+                await addToList({
+                    item: item && item.type !== 'list' && item.id ? { id: item.id, type: item.type } : null,
+                    createNew: true,
+                    listData: {
+                        name: newListName.trim(),
+                        description: newListDescription.trim() || null,
+                        is_public: newListIsPublic,
+                        tags: selectedHashtags,
+                        type: item?.type || 'mixed',
+                    },
+                });
             } else {
-                closeQuickAdd();
-                isAddingToList.current = false;
+                if (!selectedListId) {
+                    setLocalError('Please select a list.');
+                    return;
+                }
+                if (!item || !item.id || !item.type || item.type === 'list') {
+                    setLocalError('Invalid item selected.');
+                    return;
+                }
+                const result = await addToList({ item: { id: item.id, type: item.type }, listId: selectedListId });
+                if (result?.listId) {
+                    setJustAddedToListId(result.listId);
+                    setTimeout(() => {
+                        closeQuickAdd();
+                    }, 1500);
+                    return;
+                }
             }
+            closeQuickAdd();
         } catch (err) {
             console.error('[QuickAddPopup] Error during addToList:', err);
             const errorMessage = err.message.includes('Item already exists in list')
@@ -125,7 +120,8 @@ const QuickAddPopup = () => {
                 ? err.message
                 : 'Failed to add to list.';
             setLocalError(errorMessage);
-            isAddingToList.current = false;
+        } finally {
+            isAddingToListRef.current = false;
         }
     }, [
         item,
@@ -140,8 +136,8 @@ const QuickAddPopup = () => {
         closeQuickAdd,
     ]);
 
-    const handleSelectList = useCallback(listId => {
-        setSelectedListId(prevId => (prevId === listId ? null : listId));
+    const handleSelectList = useCallback((listId) => {
+        setSelectedListId(prevId => prevId === listId ? null : listId);
         setLocalError('');
         setJustAddedToListId(null);
     }, []);
@@ -162,17 +158,14 @@ const QuickAddPopup = () => {
         setSelectedHashtags([]);
     }, []);
 
-    const handleHashtagSelect = useCallback(
-        hashtagName => {
-            if (hashtagName && !selectedHashtags.includes(hashtagName)) {
-                setSelectedHashtags(prev => [...prev, hashtagName]);
-            }
-            setHashtagInput('');
-        },
-        [selectedHashtags],
-    );
+    const handleHashtagSelect = useCallback((hashtagName) => {
+        if (hashtagName && !selectedHashtags.includes(hashtagName)) {
+            setSelectedHashtags(prev => [...prev, hashtagName]);
+        }
+        setHashtagInput('');
+    }, [selectedHashtags]);
 
-    const handleHashtagRemove = useCallback(hashtagToRemove => {
+    const handleHashtagRemove = useCallback((hashtagToRemove) => {
         setSelectedHashtags(prev => prev.filter(h => h !== hashtagToRemove));
     }, []);
 
@@ -185,10 +178,9 @@ const QuickAddPopup = () => {
             .slice(0, 5);
     }, [cuisines, hashtagInput, selectedHashtags]);
 
-    const isConfirmDisabled = useMemo(
-        () => isAddingToList.current || (!isCreatingNew && !selectedListId) || (isCreatingNew && !newListName.trim()),
-        [isCreatingNew, selectedListId, newListName],
-    );
+    const isConfirmDisabled = useMemo(() => {
+        return isAddingToListRef.current || (!isCreatingNew && !selectedListId) || (isCreatingNew && !newListName.trim());
+    }, [isCreatingNew, selectedListId, newListName]);
 
     const displayError = localError || fetchError;
     const modalTitle = isCreatingNew ? 'Create New List' : `Add "${item?.name || 'Item'}" to List`;
@@ -197,7 +189,7 @@ const QuickAddPopup = () => {
 
     return (
         <Modal isOpen={isOpen} onClose={closeQuickAdd} title={modalTitle}>
-            <div className="p-1">
+            <div className="p-4">
                 {!isAuthenticated ? (
                     <p className="text-gray-600 text-sm text-center py-4">
                         Please{' '}
@@ -211,7 +203,7 @@ const QuickAddPopup = () => {
                         {isCreatingNew ? 'to create lists.' : 'to add items to your lists.'}
                     </p>
                 ) : isCreatingNew ? (
-                    <div className="space-y-3 text-sm">
+                    <div className="space-y-4 text-sm">
                         {!(item?.createNew && item?.type === 'list') && (
                             <Button
                                 onClick={handleSwitchToSelectMode}
@@ -231,9 +223,9 @@ const QuickAddPopup = () => {
                                 type="text"
                                 value={newListName}
                                 onChange={e => setNewListName(e.target.value)}
-                                className="w-full px-3 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#D1B399] focus:border-[#D1B399]"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#D1B399] focus:border-[#D1B399]"
                                 placeholder="e.g., NYC Cheap Eats"
-                                disabled={isAddingToList.current}
+                                disabled={isAddingToListRef.current}
                             />
                         </div>
                         <div>
@@ -244,10 +236,10 @@ const QuickAddPopup = () => {
                                 id="new-list-desc"
                                 value={newListDescription}
                                 onChange={e => setNewListDescription(e.target.value)}
-                                className="w-full px-3 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#D1B399] focus:border-[#D1B399]"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#D1B399] focus:border-[#D1B399]"
                                 placeholder="A short description of your list"
                                 rows="2"
-                                disabled={isAddingToList.current}
+                                disabled={isAddingToListRef.current}
                             />
                         </div>
                         <div className="relative">
@@ -259,9 +251,9 @@ const QuickAddPopup = () => {
                                 type="text"
                                 value={hashtagInput}
                                 onChange={handleHashtagInputChange}
-                                className="w-full px-3 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#D1B399] focus:border-[#D1B399]"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#D1B399] focus:border-[#D1B399]"
                                 placeholder="Type to add hashtags"
-                                disabled={isAddingToList.current || isLoadingCuisines}
+                                disabled={isAddingToListRef.current || isLoadingCuisines}
                                 autoComplete="off"
                             />
                             {isLoadingCuisines && hashtagInput && (
@@ -294,6 +286,7 @@ const QuickAddPopup = () => {
                                             type="button"
                                             onClick={() => handleHashtagRemove(h)}
                                             className="ml-1 -mr-0.5 p-0.5 text-white/70 hover:text-white focus:outline-none"
+                                            disabled={isAddingToListRef.current}
                                         >
                                             <X size={12} />
                                         </button>
@@ -303,7 +296,7 @@ const QuickAddPopup = () => {
                         </div>
                         <div className="flex items-center justify-start pt-1">
                             <label
-                                className={`flex items-center mr-3 ${isAddingToList.current ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+                                className={`flex items-center mr-3 ${isAddingToListRef.current ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
                             >
                                 <div className="relative">
                                     <input
@@ -311,7 +304,7 @@ const QuickAddPopup = () => {
                                         checked={newListIsPublic}
                                         onChange={e => setNewListIsPublic(e.target.checked)}
                                         className="sr-only peer"
-                                        disabled={isAddingToList.current}
+                                        disabled={isAddingToListRef.current}
                                     />
                                     <div className="block bg-gray-300 peer-checked:bg-[#D1B399] w-10 h-6 rounded-full transition"></div>
                                     <div className="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition transform peer-checked:translate-x-4"></div>
@@ -329,7 +322,7 @@ const QuickAddPopup = () => {
                 ) : (
                     <>
                         {fetchError ? (
-                            <p className="text-center py-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2">
+                            <p className="text-center py-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded">
                                 {fetchError}
                             </p>
                         ) : userLists.length === 0 ? (
@@ -338,6 +331,7 @@ const QuickAddPopup = () => {
                                 <button
                                     onClick={handleSwitchToCreateMode}
                                     className="text-[#A78B71] hover:underline ml-1 focus:outline-none font-medium"
+                                    disabled={isAddingToListRef.current}
                                 >
                                     Create one?
                                 </button>
@@ -349,12 +343,12 @@ const QuickAddPopup = () => {
                                     <button
                                         key={list.id}
                                         onClick={() => handleSelectList(list.id)}
-                                        disabled={isAddingToList.current || justAddedToListId === list.id}
+                                        disabled={isAddingToListRef.current || justAddedToListId === list.id}
                                         className={`w-full text-left px-3 py-2 rounded-md text-sm flex justify-between items-center transition-colors ${
                                             selectedListId === list.id
                                                 ? 'bg-[#D1B399]/20 border border-[#D1B399]/50'
                                                 : 'hover:bg-gray-100 border border-transparent'
-                                        } ${isAddingToList.current || justAddedToListId === list.id ? 'cursor-not-allowed opacity-70' : ''}`}
+                                        } ${isAddingToListRef.current || justAddedToListId === list.id ? 'cursor-not-allowed opacity-70' : ''}`}
                                         aria-pressed={selectedListId === list.id}
                                     >
                                         <span className="font-medium text-gray-800 truncate">
@@ -370,7 +364,7 @@ const QuickAddPopup = () => {
                                 ))}
                                 <button
                                     onClick={handleSwitchToCreateMode}
-                                    disabled={isAddingToList.current}
+                                    disabled={isAddingToListRef.current}
                                     className="w-full text-left px-3 py-2 mt-2 text-sm text-[#A78B71] hover:text-[#D1B399] hover:bg-gray-100 rounded-md font-medium"
                                 >
                                     + Create a new list
@@ -390,7 +384,12 @@ const QuickAddPopup = () => {
                 )}
 
                 <div className="mt-5 flex justify-end space-x-2 border-t border-gray-100 pt-4">
-                    <Button onClick={closeQuickAdd} variant="tertiary" size="sm" disabled={isAddingToList.current}>
+                    <Button
+                        onClick={closeQuickAdd}
+                        variant="tertiary"
+                        size="sm"
+                        disabled={isAddingToListRef.current}
+                    >
                         Cancel
                     </Button>
                     {isAuthenticated && (
@@ -400,7 +399,7 @@ const QuickAddPopup = () => {
                             variant="primary"
                             disabled={isConfirmDisabled}
                         >
-                            {isAddingToList.current ? <Loader2 className="animate-spin h-4 w-4 mr-1" /> : null}
+                            {isAddingToListRef.current ? <Loader2 className="animate-spin h-4 w-4 mr-1" /> : null}
                             {isCreatingNew ? 'Create List' : 'Add to List'}
                         </Button>
                     )}
@@ -410,4 +409,4 @@ const QuickAddPopup = () => {
     );
 };
 
-export default QuickAddPopup;
+export default React.memo(QuickAddPopup);

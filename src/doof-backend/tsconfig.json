@@ -1,28 +1,24 @@
-// src/doof-backend/tsconfig.json
 {
-    "compilerOptions": {
-      "target": "ES2020", // Target modern Node.js version
-      "module": "NodeNext", // Use modern ES Module system for Node
-      "moduleResolution": "NodeNext", // Aligns with modern module system
-      "outDir": "./dist", // Output directory for compiled JavaScript
-      "rootDir": "./", // Root directory of your source files
-      "strict": true, // Enable strict type-checking
-      "esModuleInterop": true, // Allows default imports from CommonJS modules
-      "skipLibCheck": true, // Skip type checking of declaration files
-      "forceConsistentCasingInFileNames": true,
-      "allowJs": true, // Allow JavaScript files to be included (optional but can help during migration)
-       // Add baseUrl and paths if you use aliases like @/* (paths relative to baseUrl)
-       // "baseUrl": ".", // Example: If tsconfig is in doof-backend
-       // "paths": {
-       //   "@/*": ["./*"]
-       // }
-    },
-    "include": [
-      "**/*.ts", // Include all TypeScript files
-      "**/*.js"  // Optionally include JS files if allowJs is true
-    ],
-    "exclude": [
-      "node_modules",
-      "dist" // Exclude the output directory
-    ]
-  }
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "outDir": "./dist",
+    "rootDir": "./",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "allowJs": true,
+    "baseUrl": "."
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.js"
+  ],
+  // Removed "files" section since the file doesn't exist
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}
