@@ -1,49 +1,50 @@
 /* src/services/apiClient.ts */
 import useAuthStore from '@/stores/useAuthStore'; // Use global alias
-import { API_BASE_URL } from '@/config'; // Use global alias (now imports from .ts)
+import { API_BASE_URL } from '@/config'; // Use global alias
 
 // Define interface for API options
 interface ApiClientOptions {
     method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD';
     headers?: Record<string, string>;
-    body?: string; // Assuming body is always stringified JSON for this client
-    signal?: AbortSignal; // Add signal for AbortController support
+    body?: string;
+    signal?: AbortSignal;
 }
 
-// Define a generic type for the expected successful response structure from backend
-// This attempts to cover common patterns, adjust if needed for specific endpoints.
+// Define a more flexible base ApiResponse structure
 export interface ApiResponse<T = any> {
-    data?: T; // Primarily for GET requests returning single/list data
-    error?: string; // Standard error field
-    pagination?: { // For paginated GET requests
+    // Standard success fields (optional)
+    data?: T;
+    message?: string;
+    pagination?: {
         total: number;
         page: number;
         limit: number;
         totalPages: number;
     };
-    // Specific fields for other operations (add as needed)
-    message?: string; // e.g., for POST/PUT success messages
-    item?: any; // e.g., for list item add response
-    success?: boolean; // e.g., for DELETE confirmation
-    // Add other potential top-level keys if applicable
+    success?: boolean; // Often used for non-GET mutations
+
+    // Standard error field
+    error?: string;
+
+    // Allow other potential top-level keys from specific responses
+    [key: string]: any;
 }
 
-
 // Define the apiClient function signature with generics
-const apiClient = async <T = any>( // Generic T for the expected data type within ApiResponse.data or other keys
+const apiClient = async <T = any>(
   endpoint: string,
   errorContext = 'API Request',
   options: ApiClientOptions = {}
-): Promise<ApiResponse<T>> => { // Return the full ApiResponse structure
+): Promise<ApiResponse<T>> => { // Return the flexible ApiResponse structure
   const { method = 'GET', headers = {}, body, signal } = options;
 
   let token: string | null = null;
   try {
-    // Accessing store state outside components/hooks requires getState()
+    // Use getState() for synchronous access within async function if needed,
+    // but accessing directly is fine if store is initialized.
     token = useAuthStore.getState().token;
   } catch (storeError) {
-    console.error(`[apiClient ${errorContext}] Error retrieving token:`, storeError);
-    // Decide if this error should prevent the request or proceed without token
+    console.error(`[apiClient ${errorContext}] Error retrieving token from store:`, storeError);
   }
 
   const finalEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
@@ -68,52 +69,65 @@ const apiClient = async <T = any>( // Generic T for the expected data type withi
       method,
       headers: requestHeaders,
       body: method !== 'GET' && method !== 'HEAD' && body ? body : undefined,
-      signal, // Pass signal for cancellation
+      signal,
     });
 
     const responseText = await response.text();
 
+    // --- Enhanced Error Handling ---
     if (!response.ok) {
+      let parsedError: ApiResponse<any> | null = null;
       let errorMsg = `HTTP error! Status: ${response.status}`;
-      let errorDetails: any = responseText; // Keep detailed response for debugging
+      let errorDetails: any = responseText; // Default details to raw text
 
       try {
-        const errorJson: ApiResponse<any> = JSON.parse(responseText); // Use ApiResponse type
-        // Prioritize standard { error: "..." } format
-        errorMsg = errorJson.error || errorJson.message || (typeof errorJson === 'string' ? errorJson : errorMsg);
-        errorDetails = errorJson; // Keep parsed JSON details
+        if (responseText) { // Only parse if text exists
+            parsedError = JSON.parse(responseText);
+            // Use standard { error: "..." } field first from parsed JSON
+            errorMsg = parsedError?.error || parsedError?.message || errorMsg;
+            errorDetails = parsedError; // Keep parsed JSON as details
+        }
       } catch (e) {
-        // If response is not JSON, use status text or default
+        // Response wasn't valid JSON, use raw text or status text
         errorMsg = response.statusText || errorMsg;
       }
 
       console.error(
         `[apiClient ${errorContext}] Request failed: ${response.status} "${errorMsg}". URL: ${url}. Details:`,
-        errorDetails // Log the details object/string
+        errorDetails // Log potentially parsed error object or raw text
       );
 
       // Handle 401 Unauthorized - Trigger logout
       if (response.status === 401) {
         console.warn(`[apiClient ${errorContext}] Unauthorized (401). Triggering logout.`);
-        // Ensure logout is called correctly
-        useAuthStore.getState().logout();
-        // Throw an error that indicates session expiry specifically
+        // Ensure logout is called safely
+        try {
+           useAuthStore.getState().logout();
+        } catch (logoutError) {
+           console.error(`[apiClient ${errorContext}] Error during logout after 401:`, logoutError);
+        }
         const authError = new Error('Session expired. Please log in again.');
-        (authError as any).status = 401; // Add status to error object
+        (authError as any).status = 401;
+        (authError as any).details = errorDetails; // Attach details
         throw authError;
       }
 
-      // Throw standard error object for other failures
+      // Throw standard error object for other failures, attaching status and details
       const httpError = new Error(errorMsg);
-      (httpError as any).status = response.status; // Add status code
-      (httpError as any).details = errorDetails; // Add details if needed
+      (httpError as any).status = response.status;
+      (httpError as any).details = errorDetails;
       throw httpError;
     }
 
-    // Handle 204 No Content (often for DELETE)
+    // --- Enhanced Success Handling ---
+
+    // Handle 204 No Content (often for DELETE) - Return explicit success structure
     if (response.status === 204 || !responseText) {
-      // Return structure indicating success for DELETE, or empty object for others
-      return { success: true } as ApiResponse<T>; // Cast to satisfy return type, assumes success=true for 204
+        if (import.meta.env.DEV) {
+             console.log(`[apiClient ${errorContext}] Success (Status: ${response.status}): ${url}`);
+        }
+      // Return a structure indicating success, usable by mutations
+      return { success: true } as ApiResponse<T>; // Ensure correct structure
     }
 
     // Parse successful JSON response
@@ -121,25 +135,31 @@ const apiClient = async <T = any>( // Generic T for the expected data type withi
       const jsonData: ApiResponse<T> = JSON.parse(responseText);
       // Add dev logging for success
       if (import.meta.env.DEV) {
-           console.log(`[apiClient ${errorContext}] Success Response (${url}):`, jsonData);
+           console.log(`[apiClient ${errorContext}] Success Response (${response.status} - ${url}):`, jsonData);
       }
-      // Return the parsed JSON - it should match ApiResponse<T> structure
-      return jsonData;
+      // Ensure success flag if not present but looks like success (e.g., has data/message)
+      // Backend should ideally always return consistent structure
+       if (jsonData.success === undefined && (jsonData.data || jsonData.message)) {
+           jsonData.success = true;
+       }
+      return jsonData; // Return the parsed JSON
     } catch (parseError) {
-      console.error(`[apiClient ${errorContext}] JSON parse error for success response (${url}):`, responseText, parseError);
-      throw new Error('Invalid server response format.'); // Throw standard error
+      console.error(`[apiClient ${errorContext}] JSON parse error for success response (${response.status} - ${url}):`, responseText, parseError);
+      // If parsing fails on a 2xx response, it's a server format issue
+      const formatError = new Error('Invalid server response format.');
+      (formatError as any).status = 500; // Treat as server error
+      (formatError as any).details = responseText;
+      throw formatError;
     }
 
-  } catch (error: unknown) { // Catch block with typed error as unknown
-    // Network errors or errors thrown above
+  } catch (error: unknown) { // Catch block handles network errors or thrown errors
     console.error(`[apiClient ${errorContext}] FAILED:`, error);
 
-    // Re-throw the original error (it might have status/details)
-    // Ensure it's an Error object before re-throwing
+    // Re-throw the original error (ensure it's an Error object)
     if (error instanceof Error) {
          throw error;
      } else {
-         // Wrap non-Error throws in a new Error object
+         // Create a new error for unknown types
          throw new Error(`Network or processing error during ${errorContext}: ${String(error)}`);
      }
   }

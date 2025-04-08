@@ -1,5 +1,5 @@
 // src/services/searchService.js
-import apiClient from '@/services/apiClient'; // Corrected import (removed .js extension)
+import apiClient from '@/services/apiClient'; // Use alias
 
 const search = async (params) => {
     // Return default structure if query is empty or missing

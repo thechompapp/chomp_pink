@@ -1,34 +1,36 @@
 // src/services/placeService.js
-import apiClient from '@/services/apiClient'; // Corrected import (removed .js extension)
+import apiClient from '@/services/apiClient'; // Use alias
 
 const getAutocompleteSuggestions = async (input) => {
-  // console.log(`[placeService] Fetching autocomplete for input: "${input}"`); // Keep for debugging if needed
+  // console.log(`[placeService] Fetching autocomplete for input: "${input}"`);
+  if (!input || String(input).trim().length < 2) { // Add check for minimum input length
+       return []; // Return empty if input is too short
+  }
   try {
-    // Ensure the endpoint matches the backend route
-    // Expecting { data: PlaceAutocompletePrediction[] }
+    // Expecting response structure: PlaceAutocompletePrediction[] (Google API structure, likely passed through by backend)
     const response = await apiClient(`/api/places/autocomplete?input=${encodeURIComponent(input)}`, 'Fetching place suggestions');
-    const data = response?.data;
-    // console.log(`[placeService] Received ${data?.length || 0} suggestions.`); // Keep for debugging if needed
-    // Return data or empty array, ensuring it's always an array
-    return Array.isArray(data) ? data : [];
+    // No need to access .data here if backend directly returns the array
+    const data = response; // Assuming backend passes predictions array directly
+    // console.log(`[placeService] Received ${data?.length || 0} suggestions.`);
+    return Array.isArray(data) ? data : []; // Return data or empty array
   } catch (error) {
-    // Log the error caught by apiClient or fetch issues
     console.error('[placeService] Error fetching autocomplete suggestions:', error.message || error);
-    // Re-throw to allow calling components (like the hook) to handle it
-    throw error;
+    throw error; // Re-throw for calling components/hooks
   }
 };
 
 const getPlaceDetails = async (placeId) => {
-  // console.log(`[placeService] Fetching details for placeId: "${placeId}"`); // Keep for debugging if needed
+  // console.log(`[placeService] Fetching details for placeId: "${placeId}"`);
+  if (!placeId) {
+      console.warn('[placeService getPlaceDetails] placeId is missing.');
+      return {}; // Return empty object if no placeId
+  }
   try {
-    // Ensure the endpoint matches the backend route
-    // Expecting { data: PlaceDetails }
+    // Expecting { data: PlaceDetails } - apiClient handles the {data: ...} wrapper
     const response = await apiClient(`/api/places/details?placeId=${encodeURIComponent(placeId)}`, 'Fetching place details');
-    const data = response?.data;
-    // console.log(`[placeService] Received details:`, data); // Keep for debugging if needed
-    // Return data or empty object, ensuring it's always an object
-    // Check if data is explicitly null before returning empty object
+    const data = response?.data; // Access the data property from ApiResponse
+    // console.log(`[placeService] Received details:`, data);
+    // Check if data is a non-null object before returning
     return (typeof data === 'object' && data !== null) ? data : {};
   } catch (error) {
     console.error('[placeService] Error fetching place details:', error.message || error);
@@ -36,18 +38,18 @@ const getPlaceDetails = async (placeId) => {
   }
 };
 
-// *** NEW FUNCTION ***
-// Searches for a place using a text query (e.g., "Restaurant Name, City")
 const findPlaceByText = async (query) => {
-  console.log(`[placeService] Finding place for query: "${query}"`); // Log input
+  // console.log(`[placeService] Finding place for query: "${query}"`);
+  if (!query || String(query).trim().length === 0) {
+       console.warn('[placeService findPlaceByText] query is missing or empty.');
+       return null; // Return null if query is empty
+  }
   try {
-    // Ensure the endpoint matches the backend route
     // Expecting { data: PlaceDetails }
     const response = await apiClient(`/api/places/find?query=${encodeURIComponent(query)}`, 'Finding place by text');
-    const data = response?.data;
-    console.log(`[placeService] Found place data:`, data);
-    // Return data or null if not found/error (apiClient might throw)
-    // Check if data is an empty object, return null in that case
+    const data = response?.data; // Access data property
+    // console.log(`[placeService] Found place data:`, data);
+    // Check if data is a non-null object with keys before returning
     return (typeof data === 'object' && data !== null && Object.keys(data).length > 0) ? data : null;
   } catch (error) {
     console.error('[placeService] Error finding place by text:', error.message || error);
@@ -59,5 +61,5 @@ const findPlaceByText = async (query) => {
 export const placeService = {
   getAutocompleteSuggestions,
   getPlaceDetails,
-  findPlaceByText, // Export the new function
+  findPlaceByText,
 };

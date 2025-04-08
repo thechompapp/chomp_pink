@@ -1,5 +1,5 @@
 // src/services/engagementService.js
-import apiClient from '@/services/apiClient'; // Corrected import (removed .js extension)
+import apiClient from '@/services/apiClient'; // Use alias
 
 /**
  * Logs an engagement event to the backend.

@@ -3,9 +3,9 @@ import { create, StoreApi } from 'zustand';
 import { devtools, persist, createJSONStorage, PersistOptions } from 'zustand/middleware';
 import { jwtDecode } from 'jwt-decode';
 import { queryClient } from '@/queryClient';
-import { authService } from '@/services/authService'; // Uses typed service now
-import apiClient from '@/services/apiClient'; // Import apiClient for updateAccountType
-import type { User, AuthResponseData, DecodedJwtPayload } from '@/types/User'; // Import types
+import { authService } from '@/services/authService';
+import apiClient, { ApiResponse } from '@/services/apiClient'; // Import ApiResponse
+import type { User, AuthResponseData, DecodedJwtPayload } from '@/types/User';
 
 // Define State and Actions Interfaces
 interface AuthState {
@@ -57,7 +57,6 @@ const isTokenValid = (token: string | null): boolean => {
   try {
     const decoded: DecodedJwtPayload = jwtDecode(token);
     const currentTime = Date.now() / 1000;
-    // Check if 'exp' exists and is a number before comparing
     return typeof decoded.exp === 'number' && decoded.exp > currentTime;
   } catch (error) {
     console.error('[AuthStore] Error decoding token:', error);
@@ -74,8 +73,8 @@ const useAuthStore = create<AuthStore>()(
         token: null,
         user: null,
         isAuthenticated: false,
-        isLoading: true, // Start true until checkAuthStatus completes
-        isProcessing: false, // For login/register actions
+        isLoading: true,
+        isProcessing: false,
         error: null,
 
         // Actions
@@ -85,19 +84,23 @@ const useAuthStore = create<AuthStore>()(
           set({ isProcessing: true, error: null });
           try {
             const authData = await authService.login(email, password);
-            const userAccountType = authData.user.account_type || 'user';
+            const userAccountType = authData.user?.account_type || 'user'; // Safer access
+            // Ensure user data is valid before setting
+            if (!authData.token || !authData.user || typeof authData.user.id !== 'number') {
+                 throw new Error('Invalid authentication response from server.');
+            }
             set({
               token: authData.token,
               user: { ...authData.user, account_type: userAccountType },
               isAuthenticated: true,
-              isLoading: false, // Initial check is done
+              isLoading: false,
               isProcessing: false,
               error: null,
             });
-            console.log('[AuthStore Login] Success. User:', get().user);
-            queryClient.invalidateQueries(); // Invalidate all queries on login
+            console.log('[AuthStore Login] Success. User ID:', authData.user.id);
+            await queryClient.invalidateQueries(); // Ensure invalidation completes
             return true;
-          } catch (error: unknown) { // Catch unknown
+          } catch (error: unknown) {
             console.error('[AuthStore Login] Error:', error);
             const message = error instanceof Error ? error.message : 'Login failed.';
             set({
@@ -112,19 +115,22 @@ const useAuthStore = create<AuthStore>()(
           set({ isProcessing: true, error: null });
            try {
              const authData = await authService.register(username, email, password);
-             const userAccountType = authData.user.account_type || 'user';
+             const userAccountType = authData.user?.account_type || 'user';
+              if (!authData.token || !authData.user || typeof authData.user.id !== 'number') {
+                 throw new Error('Invalid registration response from server.');
+              }
              set({
                token: authData.token,
                user: { ...authData.user, account_type: userAccountType },
                isAuthenticated: true,
-               isLoading: false, // Initial check is done
+               isLoading: false,
                isProcessing: false,
                error: null,
              });
-             console.log('[AuthStore Register] Success. User:', get().user);
-             queryClient.invalidateQueries(); // Invalidate all queries on register
+             console.log('[AuthStore Register] Success. User ID:', authData.user.id);
+             await queryClient.invalidateQueries();
              return true;
-           } catch (error: unknown) { // Catch unknown
+           } catch (error: unknown) {
              console.error('[AuthStore Register] Error:', error);
              const message = error instanceof Error ? error.message : 'Registration failed.';
              set({
@@ -136,50 +142,61 @@ const useAuthStore = create<AuthStore>()(
         },
 
         logout: () => {
+            // Check if already logged out to prevent unnecessary updates/invalidate calls
+            if (!get().isAuthenticated && !get().token) {
+                 set({ isLoading: false }); // Ensure loading is false
+                 return;
+            }
           console.log('[AuthStore] Performing logout action...');
-          set({ token: null, user: null, isAuthenticated: false, isLoading: false, isProcessing: false, error: null }, true); // Replace state
-          // More targeted invalidation might be better than removing all queries
-          queryClient.invalidateQueries(); // Invalidate all queries on logout
-          // queryClient.removeQueries(); // Use invalidate instead to allow refetching public data
+          // Clear state completely
+          set({ token: null, user: null, isAuthenticated: false, isLoading: false, isProcessing: false, error: null }, true);
+          // Use invalidateQueries instead of removeQueries to allow refetching of public data
+          queryClient.invalidateQueries();
+          // Optionally clear specific caches if needed
+          // queryClient.clear(); // More aggressive cache clearing
           console.log('[AuthStore] User logged out.');
         },
 
         clearError: () => set({ error: null }),
 
         checkAuthStatus: () => {
-           const token = get().token;
+           const currentState = get(); // Get current state once
+           const token = currentState.token;
+
            if (token && isTokenValid(token)) {
                try {
                    const decoded: DecodedJwtPayload = jwtDecode(token);
-                   // Validate the structure of the decoded user payload
+                   // Validate payload structure more thoroughly
                    if (decoded.user && typeof decoded.user.id === 'number' && typeof decoded.user.username === 'string' && typeof decoded.user.account_type === 'string') {
                        const userAccountType = decoded.user.account_type || 'user';
-                       const currentUser = get().user;
-                        // Update state only if necessary to avoid infinite loops if checkAuthStatus is a dependency elsewhere
-                       if (!get().isAuthenticated || currentUser?.id !== decoded.user.id || currentUser?.account_type !== userAccountType) {
+                       const decodedUser: User = { ...decoded.user, account_type: userAccountType };
+
+                       // *** Infinite loop prevention: Only set state if it actually changes ***
+                       if (!currentState.isAuthenticated || currentState.user?.id !== decodedUser.id || currentState.user?.account_type !== decodedUser.account_type || currentState.isLoading) {
                            set({
-                               user: { ...decoded.user, account_type: userAccountType },
+                               user: decodedUser,
                                isAuthenticated: true,
                                isLoading: false, // Finished loading/checking
                                error: null
                            });
-                       } else {
-                            set({ isLoading: false }); // Ensure loading is false if already authenticated and user matches
                        }
+                       // If state is already correct, do nothing to avoid potential loops
                    } else {
                        console.warn('[AuthStore checkAuthStatus] Invalid token payload structure.');
-                       get().logout(); // Logout if payload structure is invalid
+                       get().logout(); // Call logout action
                    }
                } catch (error) {
                    console.error('[AuthStore checkAuthStatus] Error decoding token:', error);
-                   get().logout(); // Logout on decode error
+                   get().logout(); // Call logout action
                }
            } else {
-                // If token exists but is invalid, or no token exists
-                if (get().isAuthenticated || get().token) { // Only logout if state is currently authenticated/has token
-                    get().logout();
-                } else {
-                    set({ isLoading: false }); // Ensure loading is false if already logged out
+                // If token exists but invalid, or no token exists
+                // *** Infinite loop prevention: Only call logout if currently authenticated ***
+                if (currentState.isAuthenticated || currentState.token) {
+                    get().logout(); // Call logout action
+                } else if (currentState.isLoading) {
+                     // If not authenticated and still loading, mark loading as false
+                     set({ isLoading: false });
                 }
            }
         },
@@ -192,8 +209,7 @@ const useAuthStore = create<AuthStore>()(
           }
           set({ isProcessing: true, error: null });
           try {
-            // Use apiClient directly as there's no dedicated service function yet
-            // Expecting { data: User }
+            // Use apiClient directly - Expecting { data: User } from backend
             const response = await apiClient<User>(
                 `/api/auth/update-account-type/${userId}`,
                 'AuthStore Update Account Type',
@@ -202,16 +218,14 @@ const useAuthStore = create<AuthStore>()(
                     body: JSON.stringify({ account_type: accountType }),
                 }
             );
-            if (!response.data) throw new Error("Update failed: No data returned.");
+            // Check if response.data contains the updated user
+            if (!response.data || typeof response.data.id !== 'number') {
+                 throw new Error("Update failed: No valid user data returned.");
+            }
 
             set({ isProcessing: false });
-            // Invalidate the users list in the admin panel
-            queryClient.invalidateQueries({ queryKey: ['adminData', 'users'] });
-             // Optionally update local user state ONLY IF the updated user is the current user
-             // This is generally NOT recommended as the source of truth should be the token/re-check
-             // if (String(get().user?.id) === String(userId)) {
-             //    set({ user: { ...get().user, account_type: accountType } });
-             // }
+            // Invalidate the users list in the admin panel to reflect changes
+            await queryClient.invalidateQueries({ queryKey: ['adminData', 'users'] });
             return true;
           } catch (error: unknown) { // Catch unknown
              console.error('[AuthStore UpdateAccountType] Error:', error);

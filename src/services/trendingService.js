@@ -1,5 +1,5 @@
 // src/services/trendingService.js
-import apiClient from '@/services/apiClient'; // Corrected import (removed .js extension)
+import apiClient from '@/services/apiClient'; // Use alias
 
 const getTrendingRestaurants = async () => {
     // Expecting { data: Restaurant[] }
@@ -33,7 +33,8 @@ const getTrendingLists = async () => {
                  created_by_user: list.created_by_user ?? false, // Default to false
                  item_count: list.item_count || 0, // Default to 0
                  saved_count: list.saved_count || 0, // Default to 0
-                 id: list.id // Ensure ID is present
+                 id: list.id, // Ensure ID is present
+                 type: list.type || list.list_type || 'mixed' // Ensure type is present
              };
          })
          .filter(Boolean) // Remove null entries resulted from filtering

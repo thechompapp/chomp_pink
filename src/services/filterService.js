@@ -1,5 +1,5 @@
 // src/services/filterService.js
-import apiClient from '@/services/apiClient'; // Corrected import (removed .js extension)
+import apiClient from '@/services/apiClient'; // Use alias
 
 const getCities = async () => {
     // Expecting { data: City[] }
@@ -9,8 +9,8 @@ const getCities = async () => {
     const validCities = Array.isArray(data)
          ? data.filter(item => item && item.id != null && typeof item.name === 'string')
          : [];
-    const sorted = validCities.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-    return sorted;
+    // Sort alphabetically by name
+    return validCities.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
 };
 
 const getCuisines = async () => {
@@ -21,17 +21,17 @@ const getCuisines = async () => {
     const validCuisines = Array.isArray(data)
          ? data.filter(item => item && item.id != null && typeof item.name === 'string')
          : [];
-    const sorted = validCuisines.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-    return sorted;
+    // Sort alphabetically by name
+    return validCuisines.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
 };
 
 const getNeighborhoodsByCity = async (cityId) => {
-    if (!cityId) return []; // Return empty array if no cityId
-    const cityIdInt = parseInt(cityId, 10);
-    if (isNaN(cityIdInt) || cityIdInt <= 0) {
-         console.warn(`[FilterService] Invalid cityId provided: ${cityId}`);
-         return []; // Return empty if cityId is not a valid positive integer
+    if (cityId === null || cityId === undefined || isNaN(parseInt(cityId, 10)) || parseInt(cityId, 10) <= 0) {
+        console.warn(`[FilterService] Invalid or missing cityId provided: ${cityId}. Returning empty array.`);
+        return []; // Return empty array if cityId is invalid or missing
     }
+    const cityIdInt = parseInt(cityId, 10); // Ensure it's a number
+
     try {
         // Expecting { data: Neighborhood[] }
         const response = await apiClient(`/api/filters/neighborhoods?cityId=${cityIdInt}`, `FilterService Neighborhoods city ${cityIdInt}`);
@@ -40,11 +40,13 @@ const getNeighborhoodsByCity = async (cityId) => {
         const validNeighborhoods = Array.isArray(data)
              ? data.filter(item => item && item.id != null && typeof item.name === 'string')
              : [];
-        const sorted = validNeighborhoods.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-        return sorted;
+        // Sort alphabetically by name
+        return validNeighborhoods.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
     } catch (error) {
          console.error(`[FilterService] Error fetching neighborhoods for city ${cityIdInt}:`, error);
-         throw new Error(error.message || `Failed to load neighborhoods for city ${cityIdInt}.`); // Rethrow consistent error
+         // Ensure error has a message property
+         const message = error instanceof Error ? error.message : `Failed to load neighborhoods for city ${cityIdInt}.`;
+         throw new Error(message); // Rethrow consistent error
     }
 };
 

@@ -12,13 +12,15 @@ interface UIState {
   cityId: number | null; // Store ID as number or null
   neighborhoodId: number | null; // Store ID as number or null
   hashtags: string[]; // Keep as string array for selected tags
-  searchQuery: string; // Added based on SearchBar usage
+  searchQuery: string;
   isLoadingCities: boolean;
   isLoadingNeighborhoods: boolean;
   isLoadingCuisines: boolean;
   errorCities: string | null;
   errorNeighborhoods: string | null;
   errorCuisines: string | null;
+  // Track which city's neighborhoods are loaded to avoid refetch
+  loadedNeighborhoodsForCityId: number | null;
 }
 
 interface UIActions {
@@ -28,7 +30,7 @@ interface UIActions {
   setCityId: (cityId: number | null) => void; // Accept number or null
   setNeighborhoodId: (neighborhoodId: number | null) => void; // Accept number or null
   setHashtags: (hashtags: string[]) => void; // Expect string array
-  setSearchQuery: (query: string) => void; // Added
+  setSearchQuery: (query: string) => void;
   clearAllFilters: () => void;
 }
 
@@ -45,58 +47,77 @@ const useUIStateStore = create<UIStateStore>()(
       cityId: null,
       neighborhoodId: null,
       hashtags: [],
-      searchQuery: '', // Added initial state
+      searchQuery: '',
       isLoadingCities: false,
       isLoadingNeighborhoods: false,
       isLoadingCuisines: false,
       errorCities: null,
       errorNeighborhoods: null,
       errorCuisines: null,
+      loadedNeighborhoodsForCityId: null, // Track loaded city
 
       // Actions
       fetchCities: async () => {
-        if (get().isLoadingCities) return;
+        // Avoid refetch if already loading or if cities are already present
+        if (get().isLoadingCities || get().cities.length > 0) return;
         set({ isLoadingCities: true, errorCities: null });
         try {
-          // filterService returns typed City[]
           const cities = await filterService.getCities();
           set({ cities: cities, isLoadingCities: false });
-        } catch (error: any) {
+        } catch (error: unknown) { // Catch unknown
+          const message = error instanceof Error ? error.message : 'Failed to fetch cities';
           console.error('[UIStateStore] Error fetching cities:', error);
-          set({ cities: [], isLoadingCities: false, errorCities: error?.message || 'Failed' });
+          set({ cities: [], isLoadingCities: false, errorCities: message });
         }
       },
 
-      fetchNeighborhoods: async (cityId) => {
-        // Basic check, route handler should also validate
-        if (!cityId || cityId <= 0) {
-          set({ neighborhoods: [], errorNeighborhoods: null }); // Clear if cityId invalid
+      fetchNeighborhoods: async (cityId: number) => {
+        // Validate cityId before proceeding
+        if (typeof cityId !== 'number' || cityId <= 0) {
+          console.warn('[UIStateStore fetchNeighborhoods] Invalid cityId provided:', cityId);
+          // Clear neighborhoods if cityId is invalid or cleared
+          if (get().neighborhoods.length > 0 || get().loadedNeighborhoodsForCityId !== null) {
+              set({ neighborhoods: [], loadedNeighborhoodsForCityId: null, errorNeighborhoods: null });
+          }
           return;
         }
-        // Avoid refetch if already loading *for the same city* might be needed
-        // For simplicity, basic loading check here
-        if (get().isLoadingNeighborhoods) return;
+
+        // Avoid refetch if already loading or if neighborhoods for this city are already loaded
+        if (get().isLoadingNeighborhoods || get().loadedNeighborhoodsForCityId === cityId) {
+            return;
+        }
+
         set({ isLoadingNeighborhoods: true, errorNeighborhoods: null });
         try {
-           // filterService returns typed Neighborhood[]
           const neighborhoods = await filterService.getNeighborhoodsByCity(cityId);
-          set({ neighborhoods, isLoadingNeighborhoods: false });
-        } catch (error: any) {
+          set({
+              neighborhoods,
+              isLoadingNeighborhoods: false,
+              loadedNeighborhoodsForCityId: cityId // Mark neighborhoods for this city as loaded
+          });
+        } catch (error: unknown) { // Catch unknown
+          const message = error instanceof Error ? error.message : 'Failed to fetch neighborhoods';
           console.error('[UIStateStore] Error fetching neighborhoods:', error);
-          set({ neighborhoods: [], isLoadingNeighborhoods: false, errorNeighborhoods: error?.message || 'Failed' });
+          set({
+              neighborhoods: [],
+              isLoadingNeighborhoods: false,
+              errorNeighborhoods: message,
+              loadedNeighborhoodsForCityId: cityId // Mark as attempted load even on error
+          });
         }
       },
 
       fetchCuisines: async () => {
-        if (get().isLoadingCuisines) return;
+        // Avoid refetch if already loading or if cuisines are already present
+        if (get().isLoadingCuisines || get().cuisines.length > 0) return;
         set({ isLoadingCuisines: true, errorCuisines: null });
         try {
-          // filterService returns typed Cuisine[]
           const cuisines = await filterService.getCuisines();
           set({ cuisines, isLoadingCuisines: false });
-        } catch (error: any) {
+        } catch (error: unknown) { // Catch unknown
+          const message = error instanceof Error ? error.message : 'Failed to fetch cuisines';
           console.error('[UIStateStore] Error fetching cuisines:', error);
-          set({ cuisines: [], isLoadingCuisines: false, errorCuisines: error?.message || 'Failed' });
+          set({ cuisines: [], isLoadingCuisines: false, errorCuisines: message });
         }
       },
 
@@ -107,9 +128,16 @@ const useUIStateStore = create<UIStateStore>()(
           set({
             cityId: newCityId,
             neighborhoodId: null, // Reset neighborhood when city changes
+            neighborhoods: [], // Clear loaded neighborhoods
+            loadedNeighborhoodsForCityId: null, // Reset loaded city tracker
+            errorNeighborhoods: null, // Clear neighborhood errors
             // Decide if hashtags should be reset when city changes - currently not resetting
             // hashtags: [],
           });
+          // Trigger fetch for new city (if valid ID)
+          if (newCityId !== null && newCityId > 0) {
+              get().fetchNeighborhoods(newCityId);
+          }
         }
       },
 
@@ -124,36 +152,4 @@ const useUIStateStore = create<UIStateStore>()(
          }
       },
 
-      setHashtags: (newHashtags) => {
-        // Ensure it's always an array
-        const currentHashtags = get().hashtags;
-        const nextHashtags = Array.isArray(newHashtags) ? newHashtags : [];
-        // Basic check to avoid unnecessary updates if array content is identical
-        if (currentHashtags.length !== nextHashtags.length || !currentHashtags.every((tag, i) => tag === nextHashtags[i])) {
-            console.log(`[UIStateStore] Setting hashtags to:`, nextHashtags);
-            set({ hashtags: nextHashtags });
-        }
-      },
-
-       setSearchQuery: (query: string) => {
-           if (get().searchQuery !== query) {
-                set({ searchQuery: query });
-           }
-       },
-
-      clearAllFilters: () => {
-        console.log('[UIStateStore] Clearing all filters.');
-        set({
-          cityId: null,
-          neighborhoodId: null,
-          hashtags: [],
-          // Don't clear errors here unless intended
-          // errorCities: null, errorNeighborhoods: null, errorCuisines: null,
-        });
-      },
-    }),
-    { name: 'UIStateStore' } // Devtools name
-  )
-);
-
-export default useUIStateStore;
+      set

@@ -1,12 +1,15 @@
 /* src/services/authService.ts */
 import apiClient from '@/services/apiClient'; // Use .ts version
 // Import specific types from central location
-import type { User, AuthResponseData, LoginCredentials, RegisterPayload } from '@/types/User';
+import type { User, AuthResponseData, LoginCredentials, RegisterPayload } from '@/types'; // Adjust path if needed
 
 // Define the service functions with types
 const login = async (email: string, password?: string): Promise<AuthResponseData> => {
+  if (!password) { // Added runtime check, although UI should enforce
+       throw new Error('Password is required for login.');
+   }
   const credentials: LoginCredentials = { email, password };
-  // apiClient now returns the full response ApiResponse<{ token, user }>
+  // apiClient returns the full response ApiResponse<{ token, user }>
   const response = await apiClient<AuthResponseData>(
     '/api/auth/login',
     'AuthService Login',
@@ -15,10 +18,9 @@ const login = async (email: string, password?: string): Promise<AuthResponseData
       body: JSON.stringify(credentials),
     }
   );
-  // Ensure data exists before returning (apiClient throws on network/HTTP error)
-  // Backend sends { data: { token, user } } on success
-  if (!response.data) {
-    throw new Error('Login failed: No data received from server.');
+  // Ensure data exists and has the expected structure
+  if (!response.data || !response.data.token || !response.data.user) {
+    throw new Error('Login failed: Invalid data received from server.');
   }
   return response.data;
 };
@@ -28,8 +30,8 @@ const register = async (
   email: string,
   password?: string // Made optional to align with LoginCredentials, but likely required
 ): Promise<AuthResponseData> => {
-  if (!password) {
-       throw new Error('Password is required for registration.'); // Add runtime check
+  if (!password) { // Add runtime check
+       throw new Error('Password is required for registration.');
    }
   const payload: RegisterPayload = { username, email, password };
   // Expecting ApiResponse<{ token, user }>
@@ -41,9 +43,9 @@ const register = async (
       body: JSON.stringify(payload),
     }
   );
-   // Backend sends { data: { token, user } } on success
-   if (!response.data) {
-    throw new Error('Registration failed: No data received from server.');
+   // Ensure data exists and has the expected structure
+   if (!response.data || !response.data.token || !response.data.user) {
+    throw new Error('Registration failed: Invalid data received from server.');
   }
   return response.data;
 };
