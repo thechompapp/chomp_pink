@@ -216,16 +216,16 @@ const AdminAnalyticsSummary = () => {
                 <div className="overflow-x-auto max-h-60"> {/* Added max-height and scroll */}
                     <table className="w-full text-sm text-gray-600 min-w-[250px]">
                         <thead>
-                            <tr className="border-b sticky top-0 bg-gray-50"> {/* Make header sticky */}
-                                <th className="text-left py-2 px-2 font-medium">{keyField}</th>
-                                <th className="text-right py-2 px-2 font-medium">{valueField}</th>
+                            <tr className="border-b sticky top-0 bg-gray-50">
+                                {/* FIX: Ensure no whitespace within the TR */}
+                                <th className="text-left py-2 px-2 font-medium">{keyField}</th><th className="text-right py-2 px-2 font-medium">{valueField}</th>
                             </tr>
                         </thead>
                         <tbody>
                             {data.map((item, index) => (
                                 <tr key={`${keyField}-${item[keyField] || index}`} className="border-b last:border-b-0 hover:bg-gray-100">
-                                    <td className="py-2 px-2 truncate">{item[keyField]}</td>
-                                    <td className="text-right py-2 px-2">{item[valueField]?.toLocaleString()}</td>
+                                    {/* FIX: Ensure no whitespace within the TR */}
+                                    <td className="py-2 px-2 truncate">{item[keyField]}</td><td className="text-right py-2 px-2">{item[valueField]?.toLocaleString()}</td>
                                 </tr>
                             ))}
                         </tbody>

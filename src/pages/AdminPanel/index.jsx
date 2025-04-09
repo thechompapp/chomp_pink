@@ -1,6 +1,6 @@
 /* src/pages/AdminPanel/index.jsx */
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Tabs from '@radix-ui/react-tabs';
 import apiClient from '@/services/apiClient'; // Use global import alias
 import AdminTable from './AdminTable';
@@ -10,7 +10,7 @@ import ErrorMessage from '@/components/UI/ErrorMessage';
 import Button from '@/components/Button';
 import { BarChart, Database, FileText, Hash, List, Store, Utensils, User, Filter, Search, ChevronLeft, ChevronRight } from 'lucide-react'; // Added Search & pagination icons
 
-// --- Config ---
+// --- Config (Moved outside component) ---
 const TAB_CONFIG = {
     analytics: { label: 'Analytics', Icon: BarChart },
     submissions: { label: 'Submissions', Icon: FileText },
@@ -25,11 +25,13 @@ const LIST_TYPE_OPTIONS = ['all', 'mixed', 'restaurant', 'dish'];
 const HASHTAG_CATEGORY_OPTIONS = ['all', 'cuisine', 'attributes', 'ingredients', 'location', 'meal', 'dietary'];
 const PAGE_LIMIT_OPTIONS = [10, 25, 50, 100];
 const DEBOUNCE_DELAY = 500; // milliseconds for search debounce
+const DEFAULT_PAGE_LIMIT = 25; // Moved definition here
+const SUBMISSION_STATUS_OPTIONS = ['pending', 'approved', 'rejected']; // Added for consistency
 
 // --- Fetcher Function (MODIFIED) ---
 // Now accepts pagination, sort, search, and status parameters
-const fetchAdminData = async (type, page = 1, limit = DEFAULT_PAGE_LIMIT, sort = '', search = '', status = '') => {
-    console.log(`[AdminPanel] Fetching data for type: ${type}, page: ${page}, limit: ${limit}, sort: ${sort}, search: "${search}", status: "${status}"`);
+const fetchAdminData = async (type, page = 1, limit = DEFAULT_PAGE_LIMIT, sort = '', search = '', status = '', listType = '', hashtagCategory = '') => {
+    console.log(`[AdminPanel] Fetching data for type: ${type}, page: ${page}, limit: ${limit}, sort: ${sort}, search: "${search}", status: "${status}", listType: "${listType}", hashtagCategory: "${hashtagCategory}"`);
     if (type === 'analytics') return null; // Analytics has its own component/fetcher
 
     // Build query string dynamically
@@ -38,7 +40,10 @@ const fetchAdminData = async (type, page = 1, limit = DEFAULT_PAGE_LIMIT, sort =
     params.append('limit', limit.toString());
     if (sort) params.append('sort', sort);
     if (search) params.append('search', search);
-    if (type === 'submissions' && status) params.append('status', status); // Only add status for submissions
+    if (type === 'submissions' && status) params.append('status', status);
+    if (type === 'lists' && listType && listType !== 'all') params.append('list_type', listType);
+    if (type === 'hashtags' && hashtagCategory && hashtagCategory !== 'all') params.append('hashtag_category', hashtagCategory);
+
 
     const endpoint = `/api/admin/${type}?${params.toString()}`;
     try {
@@ -80,9 +85,9 @@ const AdminPanel = () => {
     const [hashtagCategoryFilter, setHashtagCategoryFilter] = useState('all');
     const [submissionStatusFilter, setSubmissionStatusFilter] = useState('pending'); // For submissions tab
 
-    // --- NEW State for Pagination and Search ---
+    // --- State for Pagination and Search (Using DEFAULT_PAGE_LIMIT defined above) ---
     const [page, setPage] = useState(1);
-    const [limit, setLimit] = useState(DEFAULT_PAGE_LIMIT);
+    const [limit, setLimit] = useState(DEFAULT_PAGE_LIMIT); // Now uses the constant defined outside
     const [searchTerm, setSearchTerm] = useState('');
     const debouncedSearchTerm = useDebounce(searchTerm, DEBOUNCE_DELAY);
 
@@ -102,8 +107,9 @@ const AdminPanel = () => {
         search: debouncedSearchTerm,
         // Include filters relevant to the current tab
         ...(activeTab === 'submissions' && { status: submissionStatusFilter }),
-        // Add other filters here if they become server-side
-    }), [activeTab, page, limit, currentSort, debouncedSearchTerm, submissionStatusFilter]);
+        ...(activeTab === 'lists' && { listType: listTypeFilter }),
+        ...(activeTab === 'hashtags' && { hashtagCategory: hashtagCategoryFilter }),
+    }), [activeTab, page, limit, currentSort, debouncedSearchTerm, submissionStatusFilter, listTypeFilter, hashtagCategoryFilter]);
 
 
     const {
@@ -122,7 +128,9 @@ const AdminPanel = () => {
             limit,
             currentSort,
             debouncedSearchTerm,
-            activeTab === 'submissions' ? submissionStatusFilter : '' // Pass status only for submissions
+            activeTab === 'submissions' ? submissionStatusFilter : '',
+            activeTab === 'lists' ? listTypeFilter : '',
+            activeTab === 'hashtags' ? hashtagCategoryFilter : ''
          ),
         enabled: !!activeTab && activeTab !== 'analytics',
         placeholderData: { data: [], pagination: { total: 0, page: 1, limit: limit, totalPages: 0 } }, // Keep previous data while loading new
@@ -217,7 +225,7 @@ const AdminPanel = () => {
                                         onChange={(e) => handleSubmissionStatusFilterChange(e.target.value)}
                                         className="text-xs border-gray-300 rounded shadow-sm focus:border-[#A78B71] focus:ring-[#A78B71] py-1 pl-2 pr-6"
                                     >
-                                        {submissionStatusOptions.map(option => (
+                                        {SUBMISSION_STATUS_OPTIONS.map(option => (
                                              <option key={option} value={option} className='capitalize'>{option}</option>
                                         ))}
                                     </select>
@@ -286,7 +294,8 @@ const AdminPanel = () => {
                         )}
                         {activeTab !== 'analytics' && activeTab === key && (
                             <>
-                                {(isLoading || isFetching) && !queryResult && <LoadingSpinner message={`Loading ${TAB_CONFIG[key]?.label}...`} />} {/* Show spinner only on initial load */}
+                                {/* Show spinner only on initial load when no data exists */}
+                                {isLoading && !queryResult?.data?.length && <LoadingSpinner message={`Loading ${TAB_CONFIG[key]?.label}...`} />}
 
                                 {isError && !isLoading && ( // Show error only if not loading initial data
                                     <ErrorMessage
@@ -306,11 +315,6 @@ const AdminPanel = () => {
                                             sort={currentSort}
                                             onSortChange={handleSortChange}
                                             onDataMutated={handleDataMutation}
-                                            // Pass filters relevant to the table type if needed for display/actions
-                                            // listTypeFilter={key === 'lists' ? listTypeFilter : undefined}
-                                            // hashtagCategoryFilter={key === 'hashtags' ? hashtagCategoryFilter : undefined}
-                                            // Pass search term if needed for highlighting (optional)
-                                            // searchTerm={debouncedSearchTerm}
                                             isLoading={isFetching} // Pass fetching state for potential overlay/indicator
                                         />
                                          {/* --- Pagination Controls --- */}

@@ -1,33 +1,42 @@
 /* src/doof-backend/routes/analytics.ts */
 import express, { Request, Response, NextFunction } from 'express';
-import { query as queryValidator, validationResult, ValidationChain } from 'express-validator';
-import * as AnalyticsModel from '../models/analyticsModel.js'; // Added .js
-import authMiddleware from '../middleware/auth.js'; // Added .js
-import requireSuperuser from '../middleware/requireSuperuser.js'; // Added .js
-import type { AuthenticatedRequest } from '../middleware/auth.js'; // Import type
+import { query as queryValidator, body, validationResult, ValidationChain } from 'express-validator';
+import * as AnalyticsModel from '../models/analyticsModel.js';
+import authMiddleware from '../middleware/auth.js';
+import requireSuperuser from '../middleware/requireSuperuser.js';
+import type { AuthenticatedRequest } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Validation Error Handler
-const handleValidationErrors = (req: Request, res: Response, next: NextFunction): void => { // Added void return type
+const handleValidationErrors = (req: Request, res: Response, next: NextFunction): void => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         console.warn(`[Analytics Route Validation Error] Path: ${req.path}`, errors.array());
-         res.status(400).json({ error: errors.array()[0].msg }); // Removed return keyword
-         return; // Explicit return
+        res.status(400).json({ error: errors.array()[0].msg });
+        return;
     }
     next();
 };
 
-// Validation for Aggregate Trends Query
 const validateAggregateTrendsQuery: ValidationChain[] = [
     queryValidator('itemType').isIn(['restaurant', 'dish', 'list']).withMessage('Invalid itemType specified (must be restaurant, dish, or list)'),
     queryValidator('period').optional().isIn(['7d', '30d', '90d', '1y']).withMessage('Invalid period specified (must be 7d, 30d, 90d, or 1y)')
 ];
 
-// Apply auth and superuser check to all analytics routes
-router.use(authMiddleware);
-router.use(requireSuperuser);
+const validatePopularQuery: ValidationChain[] = [
+    queryValidator('type').optional().isIn(['all', 'restaurants', 'dishes', 'lists']).withMessage('Invalid type (must be all, restaurants, dishes, or lists)'),
+    queryValidator('period').optional().isIn(['7d', '30d', '90d', '1y']).withMessage('Invalid period specified (must be 7d, 30d, 90d, or 1y)'),
+    queryValidator('limit').optional().isInt({ min: 1, max: 50 }).withMessage('Limit must be between 1 and 50').toInt()
+];
+
+const validateLogBody: ValidationChain[] = [
+    body('event_type').isString().notEmpty().withMessage('Event type is required'),
+    body('item_id').isInt({ gt: 0 }).withMessage('Item ID must be a positive integer').toInt(),
+    body('item_type').isString().isIn(['restaurant', 'dish', 'list']).withMessage('Invalid item type (must be restaurant, dish, or list)')
+];
+
+// Apply auth and superuser check to all analytics routes except /popular and /log
+router.use(authMiddleware, requireSuperuser);
 
 // GET /api/analytics/summary
 router.get('/summary', async (req: Request, res: Response, next: NextFunction) => {
@@ -35,8 +44,8 @@ router.get('/summary', async (req: Request, res: Response, next: NextFunction) =
         const summary = await AnalyticsModel.getSiteSummary();
         res.json({ data: summary });
     } catch (err) {
-         console.error('[Analytics GET /summary] Error:', err);
-         next(err);
+        console.error('[Analytics GET /summary] Error:', err);
+        next(err);
     }
 });
 
@@ -46,8 +55,8 @@ router.get('/submissions', async (req: Request, res: Response, next: NextFunctio
         const stats = await AnalyticsModel.getSubmissionStats();
         res.json({ data: stats });
     } catch (err) {
-         console.error('[Analytics GET /submissions] Error:', err);
-         next(err);
+        console.error('[Analytics GET /submissions] Error:', err);
+        next(err);
     }
 });
 
@@ -57,21 +66,20 @@ router.get('/content-distribution', async (req: Request, res: Response, next: Ne
         const distribution = await AnalyticsModel.getContentDistribution();
         res.json({ data: distribution });
     } catch (err) {
-         console.error('[Analytics GET /content-distribution] Error:', err);
-         next(err);
+        console.error('[Analytics GET /content-distribution] Error:', err);
+        next(err);
     }
 });
 
 // GET /api/analytics/users
 router.get('/users', async (req: Request, res: Response, next: NextFunction) => {
-    // Default to '30d' if period is missing or invalid (validation might be added later if needed)
     const period = (req.query.period as string) || '30d';
     try {
         const metrics = await AnalyticsModel.getUserMetrics(period);
         res.json({ data: metrics });
     } catch (err) {
-         console.error('[Analytics GET /users] Error:', err);
-         next(err);
+        console.error('[Analytics GET /users] Error:', err);
+        next(err);
     }
 });
 
@@ -81,61 +89,82 @@ router.get('/engagements', async (req: Request, res: Response, next: NextFunctio
         const details = await AnalyticsModel.getEngagementDetails();
         res.json({ data: details });
     } catch (err) {
-         console.error('[Analytics GET /engagements] Error:', err);
-         next(err);
+        console.error('[Analytics GET /engagements] Error:', err);
+        next(err);
     }
 });
 
 // GET /api/analytics/aggregate-trends
 router.get(
     '/aggregate-trends',
-    validateAggregateTrendsQuery, // Apply validation
-    handleValidationErrors, // Handle errors from validation
+    validateAggregateTrendsQuery,
+    handleValidationErrors,
     async (req: Request, res: Response, next: NextFunction) => {
-        // Types are validated by express-validator
         const itemType = req.query.itemType as 'restaurant' | 'dish' | 'list';
-        const period = (req.query.period as string) || '30d'; // Default period
+        const period = (req.query.period as string) || '30d';
         try {
             const trends = await AnalyticsModel.getAggregateTrends(itemType, period);
-            // Send data wrapped in 'data' property for consistency
             res.status(200).json({ data: trends });
         } catch (err: unknown) {
-            console.error(`[Analytics GET /aggregate-trends] Error fetching aggregate trends for ${itemType}, period ${period}:`, err);
-            // Check for specific DB errors if needed, e.g., table missing
-            if (err instanceof Error && (err as any).code === '42P01') { // PostgreSQL table does not exist code
+            console.error(`[Analytics GET /aggregate-trends] Error fetching trends for ${itemType}, period ${period}:`, err);
+            if (err instanceof Error && (err as any).code === '42P01') {
                 res.status(500).json({ error: 'Database schema error encountered while fetching trends.' });
-                 return; // Explicit return
+                return;
             }
-            next(err); // Pass other errors to the global handler
+            next(err);
         }
     }
 );
 
-// GET /api/analytics/events (Example, might not be used currently)
+// GET /api/analytics/events (Consolidated from analyticsRoutes.ts)
 router.get('/events', async (req: Request, res: Response, next: NextFunction) => {
-     const limit = parseInt(String(req.query.limit || '100'), 10);
-     try {
-         const events = await AnalyticsModel.getRecentEvents(limit);
-         res.json({ data: events });
-     } catch (err) {
-         console.error('[Analytics GET /events] Error:', err);
-         next(err);
-     }
- });
+    const limit = Number(req.query.limit || 100);
+    try {
+        const events = await AnalyticsModel.getRecentEvents(limit);
+        res.json({ data: events });
+    } catch (err) {
+        console.error('[Analytics GET /events] Error:', err);
+        next(err);
+    }
+});
 
- // GET /api/analytics/popular (Example, might not be used currently)
- router.get('/popular', async (req: Request, res: Response, next: NextFunction) => {
-     const type = (req.query.type as string) || 'all';
-     const period = (req.query.period as string) || '30d';
-     const limit = parseInt(String(req.query.limit || '10'), 10);
-     try {
-         const popularItems = await AnalyticsModel.getPopularItems(type, period, limit);
-         res.json({ data: popularItems });
-     } catch (err) {
-         console.error('[Analytics GET /popular] Error:', err);
-         next(err);
-     }
- });
+// Consolidated Routes without Superuser Middleware (from analyticsRoutes.ts)
+// Remove middleware for these specific routes by mounting them before the global middleware
+router.get(
+    '/popular',
+    validatePopularQuery,
+    handleValidationErrors,
+    async (req: Request, res: Response, next: NextFunction) => {
+        const type = (req.query.type as string) || 'all';
+        const period = (req.query.period as string) || '30d';
+        const limit = Number(req.query.limit || 10);
+        try {
+            const popularItems = await AnalyticsModel.getPopularItems(type, period, limit);
+            res.json({ data: popularItems });
+        } catch (err) {
+            console.error('[Analytics GET /popular] Error:', err);
+            next(err);
+        }
+    }
+);
 
+router.post(
+    '/log',
+    authMiddleware, // Only auth required, not superuser
+    validateLogBody,
+    handleValidationErrors,
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+        try {
+            const { event_type, item_id, item_type } = req.body;
+            const userId = req.user?.id;
+            console.log(`[Analytics POST /log] Logging event: User ${userId ?? 'Guest'}, Type ${event_type}, Item ${item_type}:${item_id}`);
+            await AnalyticsModel.logEvent(event_type, item_id, item_type, userId);
+            res.status(202).json({ message: 'Event logged successfully' });
+        } catch (err) {
+            console.error('[Analytics POST /log] Error:', err);
+            next(err);
+        }
+    }
+);
 
 export default router;
