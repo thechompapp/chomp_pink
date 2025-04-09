@@ -1,6 +1,8 @@
 /* src/doof-backend/db/index.ts */
 import pg, { Pool, PoolConfig, QueryResult, PoolClient, QueryResultRow } from 'pg';
-import 'dotenv/config';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const poolConfig: PoolConfig = {
     user: process.env.DB_USER || 'doof_user',
@@ -42,7 +44,7 @@ pool.connect((err: Error | undefined, client: PoolClient | undefined, done: (rel
             '\x1b[32m%s\x1b[0m',
             'Successfully connected to the database pool (startup check).'
         );
-        client.query('SELECT NOW()', (queryErr: Error, result?: QueryResult) => {
+        client.query('SELECT NOW()', (queryErr: Error | undefined, result?: QueryResult) => {
             done();
             if (queryErr) {
                 console.error(

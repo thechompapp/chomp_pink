@@ -1,36 +1,41 @@
-/* src/doof-backend/routes/search.js */
-import express from 'express';
-import { query as queryValidator, validationResult } from 'express-validator';
-// Import model function
-import * as SearchModel from '../models/searchModel.js';
+import express, { Request, Response, NextFunction } from 'express';
+import { query as queryValidator, validationResult, ValidationChain } from 'express-validator';
+import * as SearchModel from '../models/searchModel.ts';
 
 const router = express.Router();
 
-// --- Middleware & Validation (Keep as is) ---
-const handleValidationErrors = (req, res, next) => { /* ... */ };
-const validateSearchQuery = [ /* ... */ ];
+const handleValidationErrors = (req: Request, res: Response, next: NextFunction) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        console.warn(`[Search Route Validation Error] Path: ${req.path}`, errors.array());
+        return res.status(400).json({ error: errors.array()[0].msg });
+    }
+    next();
+};
 
-// GET /api/search
-router.get( '/', validateSearchQuery, handleValidationErrors, async (req, res, next) => {
+const validateSearchQuery: ValidationChain[] = [
+    queryValidator('q').optional().isString().withMessage('Query must be a string'),
+    queryValidator('limit').optional().isInt({ min: 1 }).withMessage('Limit must be a positive integer').toInt(),
+    queryValidator('offset').optional().isInt({ min: 0 }).withMessage('Offset must be non-negative').toInt(),
+    queryValidator('type').optional().isIn(['all', 'restaurants', 'dishes', 'lists']).withMessage('Invalid type')
+];
+
+router.get('/', validateSearchQuery, handleValidationErrors, async (req: Request, res: Response, next: NextFunction) => {
     const { q, limit = 10, offset = 0, type = 'all' } = req.query;
-    if (!q) return res.json({ data: { restaurants: [], dishes: [], lists: [] }}); // Return standard empty structure
+    if (!q) return res.json({ data: { restaurants: [], dishes: [], lists: [] } });
 
     try {
-        // Call model function - currently only supports 'all' type search
-        // TODO: Enhance model/route if type-specific search is needed
         if (type !== 'all') {
             console.warn(`[Search] Type-specific search ('${type}') not fully implemented in model yet, performing 'all'.`);
         }
-        const results = await SearchModel.searchAll(q, limit, offset); // Use Model
+        const results = await SearchModel.searchAll(q as string, Number(limit), Number(offset));
 
-        // Format results (dishes already mapped in model example)
         const responsePayload = {
             restaurants: results.restaurants || [],
-            dishes: (results.dishes || []).map(dish => ({ ...dish, restaurant: dish.restaurant_name })), // Ensure mapping
+            dishes: (results.dishes || []).map((dish: any) => ({ ...dish, restaurant: dish.restaurant_name })),
             lists: results.lists || [],
         };
-        res.json({ data: responsePayload }); // Standard response
-
+        res.json({ data: responsePayload });
     } catch (error) {
         console.error('[Search] Error:', error);
         next(error);

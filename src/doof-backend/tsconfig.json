@@ -10,13 +10,15 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "allowJs": true,
-    "baseUrl": "."
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "declaration": false,
+    "sourceMap": true
   },
   "include": [
     "**/*.ts",
     "**/*.js"
   ],
-  // Removed "files" section since the file doesn't exist
   "exclude": [
     "node_modules",
     "dist"

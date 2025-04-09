@@ -1,5 +1,5 @@
-export * from './Lists';
-export * from './Users';
+export * from './List';
+export * from './User';
 
 export interface DishDetail {
     id: number;

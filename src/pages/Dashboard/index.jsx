@@ -1,128 +1,158 @@
 /* src/pages/Dashboard/index.jsx */
-import React, { useState, useCallback } from "react";
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import useSubmissionStore from '@/stores/useSubmissionStore';
-import { submissionService } from '@/services/submissionService';
-import Button from "@/components/Button.jsx";
-import { CheckCircle, XCircle, Loader2, AlertTriangle } from "lucide-react";
-import ErrorMessage from "@/components/UI/ErrorMessage.jsx";
-import SubmissionSkeleton from "@/pages/Dashboard/SubmissionSkeleton.jsx";
-import QueryResultDisplay from "@/components/QueryResultDisplay.jsx";
+import React, { useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { submissionService } from '@/services/submissionService'; // Use service
+import useSubmissionStore from '@/stores/useSubmissionStore'; // Use store for actions
+import Button from '@/components/Button.jsx';
+import { CheckCircle, XCircle, Loader2, AlertTriangle } from 'lucide-react';
+import ErrorMessage from '@/components/UI/ErrorMessage.jsx';
+import SubmissionSkeleton from '@/pages/Dashboard/SubmissionSkeleton.jsx';
+import QueryResultDisplay from '@/components/QueryResultDisplay.jsx'; // Import QueryResultDisplay
 
-// Fetcher Function
+// Fetcher using the service
 const fetchPendingSubmissionsData = async () => {
-  try {
-    const response = await submissionService.getPendingSubmissions();
-    return response.data || []; // Adjust based on actual service response structure
-  } catch (error) {
-    console.error('[Dashboard] Error fetching pending submissions:', error);
-    throw error; // Let React Query handle the error
-  }
+  // Service returns the raw data array
+  const submissions = await submissionService.getPendingSubmissions();
+  return submissions; // Return the array directly
 };
 
-// Component Definition
-const Dashboard = React.memo(() => {
+const Dashboard = () => {
   const queryClient = useQueryClient();
+  // Zustand state for tracking mutation status (optional, can also use useMutation states)
+  const isApproving = useSubmissionStore(state => state.isApproving);
+  const isRejecting = useSubmissionStore(state => state.isRejecting);
+  const submissionError = useSubmissionStore(state => state.error);
+  const clearSubmissionError = useSubmissionStore(state => state.clearError);
 
-  const queryResult = useQuery({
-    queryKey: ['pendingSubmissions'],
+  // UseQuery to fetch pending submissions
+  const queryResult = useQuery({ // Use a standard name like queryResult
+    queryKey: ['pendingSubmissions'], // Unique key for this query
     queryFn: fetchPendingSubmissionsData,
-    staleTime: 2 * 60 * 1000,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: true, // Refetch when window is focused
+    staleTime: 1 * 60 * 1000, // Consider data fresh for 1 minute
   });
 
-  const approveSubmission = useSubmissionStore(state => state.approveSubmission);
-  const rejectSubmission = useSubmissionStore(state => state.rejectSubmission);
-  const storeError = useSubmissionStore(state => state.error);
-  const clearStoreError = useSubmissionStore(state => state.clearError);
-  const [processingId, setProcessingId] = useState(null);
-  const [actionType, setActionType] = useState(null);
-
-  const handleAction = useCallback(async (type, submissionId) => {
-    setProcessingId(submissionId);
-    setActionType(type);
-    try {
-      if (type === 'approve') {
-        await approveSubmission(submissionId);
-      } else {
-        await rejectSubmission(submissionId);
-      }
+  // UseMutation hook for approving submissions
+  const approveMutation = useMutation({
+    mutationFn: (submissionId) => submissionService.approveSubmission(submissionId),
+    onSuccess: () => {
+      // Invalidate the pending submissions query to refetch
       queryClient.invalidateQueries({ queryKey: ['pendingSubmissions'] });
-    } catch (error) {
-      console.error(`[Dashboard] Error ${type}ing submission ${submissionId}:`, error);
-    } finally {
-      setProcessingId(null);
-      setActionType(null);
-    }
-  }, [approveSubmission, rejectSubmission, queryClient]);
+      clearSubmissionError(); // Clear any previous errors
+    },
+    onError: (error) => {
+      console.error('[Dashboard] Approve failed:', error);
+      // Error will be handled via submissionError state if needed, or locally
+    },
+  });
 
-  const handleApprove = useCallback((submissionId) => handleAction('approve', submissionId), [handleAction]);
-  const handleReject = useCallback((submissionId) => handleAction('reject', submissionId), [handleAction]);
+  // UseMutation hook for rejecting submissions
+  const rejectMutation = useMutation({
+    mutationFn: (submissionId) => submissionService.rejectSubmission(submissionId),
+    onSuccess: () => {
+      // Invalidate the pending submissions query to refetch
+      queryClient.invalidateQueries({ queryKey: ['pendingSubmissions'] });
+      clearSubmissionError(); // Clear any previous errors
+    },
+    onError: (error) => {
+      console.error('[Dashboard] Reject failed:', error);
+      // Error will be handled via submissionError state if needed, or locally
+    },
+  });
+
+
+  const handleApprove = useCallback((id) => {
+    approveMutation.mutate(id);
+  }, [approveMutation]);
+
+  const handleReject = useCallback((id) => {
+    rejectMutation.mutate(id);
+  }, [rejectMutation]);
+
+  // Loading component for QueryResultDisplay
+  const LoadingSubmissions = () => (
+      <div className="space-y-4">
+        <SubmissionSkeleton />
+        <SubmissionSkeleton />
+        <SubmissionSkeleton />
+      </div>
+  );
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
-      <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-6">Pending Submissions</h1>
+    <div className="p-4 md:p-6 space-y-6 max-w-4xl mx-auto">
+      <h1 className="text-2xl font-semibold mb-4 text-gray-800">Pending Submissions</h1>
 
-      {storeError && (
-        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm flex justify-between items-center" role="alert">
-          <span className="flex items-center"><AlertTriangle size={16} className="mr-2" /> {storeError}</span>
-          <button onClick={clearStoreError} className="text-red-700 hover:text-red-900 font-bold text-lg" aria-label="Clear error">&times;</button>
-        </div>
-      )}
+      {/* Display general submission action error if any */}
+      {submissionError && (
+           <ErrorMessage message={submissionError} onRetry={clearSubmissionError} />
+       )}
 
+      {/* Use QueryResultDisplay to handle loading/error/data states */}
       <QueryResultDisplay
-        queryResult={queryResult}
-        loadingMessage="Loading pending submissions..."
-        errorMessagePrefix="Error loading submissions"
-        noDataMessage="No pending submissions to review."
+        queryResult={queryResult} // Pass the whole result object
+        loadingMessage="Loading submissions..." // Optional: will be overridden by LoadingComponent
+        LoadingComponent={<LoadingSubmissions />} // Use skeleton component
+        errorMessagePrefix="Failed to load submissions"
+        noDataMessage="No pending submissions!"
+        isDataEmpty={(data) => !data || data.length === 0} // Custom check for empty array
+        ErrorChildren={ // Content to show within the ErrorMessage component
+            <Button variant="secondary" size="sm" onClick={() => queryResult.refetch()}>Try Again</Button>
+        }
       >
-        {(pendingSubmissions) => (
-          <div className="space-y-4">
-            {pendingSubmissions.map((submission) => {
-              const isProcessingThis = processingId === submission.id;
-              const isApproving = isProcessingThis && actionType === 'approve';
-              const isRejecting = isProcessingThis && actionType === 'reject';
-
-              return (
-                <div key={submission.id} className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
-                  <div className="flex flex-col sm:flex-row justify-between sm:items-start mb-3 gap-2">
-                    <div>
-                      <h3 className="text-base font-semibold text-gray-900 break-words">{submission.name}</h3>
-                      <p className="text-sm text-gray-600 capitalize">Type: {submission.type}</p>
-                      <p className="text-sm text-gray-500">
-                        Location: {submission.location || `${submission.neighborhood || ''}${submission.neighborhood && submission.city ? ', ' : ''}${submission.city || ''}` || 'N/A'}
-                      </p>
-                      {submission.place_id && <p className="text-xs text-gray-400 mt-1">Place ID: {submission.place_id}</p>}
+        {(submissions) => ( // Children is a function receiving the data
+           <div className="space-y-4">
+              {submissions.map((submission) => {
+                  const isProcessing = approveMutation.isPending && approveMutation.variables === submission.id ||
+                                      rejectMutation.isPending && rejectMutation.variables === submission.id;
+                  return (
+                    <div key={submission.id} className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 space-y-3">
+                       <div className="flex justify-between items-start gap-4">
+                          <div>
+                              <p className="font-semibold text-lg text-gray-900 capitalize">{submission.type}: {submission.name}</p>
+                              {submission.location && <p className="text-sm text-gray-600">Location: {submission.location}</p>}
+                              {submission.city && <p className="text-sm text-gray-600">City: {submission.city}</p>}
+                              {submission.neighborhood && <p className="text-sm text-gray-600">Neighborhood: {submission.neighborhood}</p>}
+                              {submission.tags && submission.tags.length > 0 && <p className="text-sm text-gray-600">Tags: #{submission.tags.join(' #')}</p>}
+                              {submission.place_id && <p className="text-xs text-gray-400 mt-1">Place ID: {submission.place_id}</p>}
+                          </div>
+                          <div className="text-xs text-gray-500 flex-shrink-0 text-right">
+                              <p>Submitted by: @{submission.user_handle || 'Unknown'}</p>
+                              <p>{new Date(submission.created_at).toLocaleDateString()}</p>
+                          </div>
+                       </div>
+                       <div className="flex gap-2 pt-3 border-t border-gray-100 mt-3">
+                          <Button
+                              size="sm"
+                              variant="primary" // Changed variant for visual cue
+                              onClick={() => handleApprove(submission.id)}
+                              disabled={isProcessing}
+                              className="min-w-[90px] justify-center"
+                          >
+                              {isProcessing && approveMutation.variables === submission.id ? <Loader2 className="animate-spin h-4 w-4" /> : 'Approve'}
+                           </Button>
+                           <Button
+                              size="sm"
+                              variant="tertiary" // Changed variant
+                              onClick={() => handleReject(submission.id)}
+                              disabled={isProcessing}
+                              className="min-w-[90px] justify-center text-red-600 hover:bg-red-50 hover:border-red-300"
+                           >
+                              {isProcessing && rejectMutation.variables === submission.id ? <Loader2 className="animate-spin h-4 w-4" /> : 'Reject'}
+                           </Button>
+                       </div>
+                       {/* Display specific error for this submission if mutation failed */}
+                       {(approveMutation.isError && approveMutation.variables === submission.id) &&
+                           <p className="text-xs text-red-500 mt-1">Approve failed: {approveMutation.error.message}</p>}
+                       {(rejectMutation.isError && rejectMutation.variables === submission.id) &&
+                           <p className="text-xs text-red-500 mt-1">Reject failed: {rejectMutation.error.message}</p>}
                     </div>
-                    <p className="text-xs text-gray-400 mt-1 sm:mt-0 flex-shrink-0">
-                      Submitted: {new Date(submission.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                  {Array.isArray(submission.tags) && submission.tags.length > 0 && (
-                    <div className="mb-3 flex flex-wrap gap-1">
-                      {submission.tags.map(tag => (
-                        <span key={tag} className="px-2 py-0.5 bg-gray-100 rounded-full text-xs text-gray-600">#{tag}</span>
-                      ))}
-                    </div>
-                  )}
-                  <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-100 mt-3">
-                    <Button variant="primary" size="sm" onClick={() => handleApprove(submission.id)} disabled={isProcessingThis} className="flex items-center justify-center w-[100px]">
-                      {isApproving ? <Loader2 className="animate-spin h-4 w-4" /> : <CheckCircle size={16} className="mr-1" />}
-                      {isApproving ? '...' : 'Approve'}
-                    </Button>
-                    <Button variant="tertiary" size="sm" onClick={() => handleReject(submission.id)} disabled={isProcessingThis} className="text-red-600 hover:bg-red-50 flex items-center justify-center w-[90px]">
-                      {isRejecting ? <Loader2 className="animate-spin h-4 w-4" /> : <XCircle size={16} className="mr-1" />}
-                      {isRejecting ? '...' : 'Reject'}
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                  );
+              })}
+           </div>
         )}
       </QueryResultDisplay>
     </div>
   );
-});
+};
 
 export default Dashboard;

@@ -3,25 +3,27 @@ import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 
-// Import routes - REMOVE .js extension for internal .ts routes/middleware
-import authRoutes from './routes/auth';
-import usersRoutes from './routes/users';
-import filtersRoutes from './routes/filters';
-import adminRoutes from './routes/admin';
-import listsRoutes from './routes/lists';
-import trendingRoutes from './routes/trending';
-import placesRoutes from './routes/places';
-import submissionsRoutes from './routes/submissions';
-import restaurantsRoutes from './routes/restaurants';
-import dishesRoutes from './routes/dishes';
-import searchRoutes from './routes/search';
-import engageRoutes from './routes/engage';
-import analyticsRoutes from './routes/analytics';
-import authMiddleware from './middleware/auth';
-import optionalAuthMiddleware from './middleware/optionalAuth';
+// Import routes - Ensure ALL local imports use .js extension
+import authRoutes from './routes/auth.js';
+import usersRoutes from './routes/users.js';
+import filtersRoutes from './routes/filters.js';
+import adminRoutes from './routes/admin.js';
+import listsRoutes from './routes/lists.js';
+import trendingRoutes from './routes/trending.js';
+import placesRoutes from './routes/places.js';
+import submissionsRoutes from './routes/submissions.js';
+import restaurantsRoutes from './routes/restaurants.js';
+import dishesRoutes from './routes/dishes.js';
+import searchRoutes from './routes/search.js';
+import engageRoutes from './routes/engage.js';
+import analyticsRoutes from './routes/analytics.js'; // Corrected path assuming it exists
+// import analyticsRoutes from './routes/analyticsRoutes.js'; // If the file is named analyticsRoutes.ts
 
-// Keep .js for compiled output if necessary (e.g., from db/index.ts -> db/index.js)
-// Or if tsx resolves it directly: import db from './db';
+// Import middleware - Ensure .js extension
+import authMiddleware from './middleware/auth.js';
+import optionalAuthMiddleware from './middleware/optionalAuth.js';
+
+// Import DB - Ensure .js extension
 import db from './db/index.js';
 
 // Load environment variables
@@ -41,7 +43,7 @@ app.use(express.json());
 
 app.set('db', db); // Make DB accessible via req.app.get('db')
 
-// Route Mounting
+// Route Mounting (Looks correct with .js extensions)
 app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/filters', filtersRoutes);
@@ -54,7 +56,7 @@ app.use('/api/restaurants', restaurantsRoutes);
 app.use('/api/dishes', dishesRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/engage', engageRoutes);
-app.use('/api/analytics', analyticsRoutes);
+app.use('/api/analytics', analyticsRoutes); // Ensure this matches the imported variable name
 
 // Global Error Handler
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {

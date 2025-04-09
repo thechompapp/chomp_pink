@@ -1,8 +1,7 @@
 /* src/doof-backend/models/adminModel.ts */
-import db from '../db/index.js'; // Keep .js extension for compiled db import
+import db from '../db/index.js';
 import type { PoolClient } from 'pg';
 
-// Define interfaces for input/output if needed, using 'any' for now
 interface BulkAddItem {
     type: 'restaurant' | 'dish';
     name: string;
@@ -14,7 +13,7 @@ interface BulkAddItem {
     place_id?: string | null;
     latitude?: number | null;
     longitude?: number | null;
-    restaurant_name?: string | null; // For dish type
+    restaurant_name?: string | null;
     tags?: string[];
 }
 
@@ -31,11 +30,11 @@ interface BulkAddResults {
     addedCount: number;
     skippedCount: number;
     details: BulkAddResultDetail[];
-    message?: string; // Added for consistency
+    message?: string;
 }
 
 export const bulkAddItems = async (items: BulkAddItem[]): Promise<BulkAddResults> => {
-    const client: PoolClient = await db.getClient(); // Use transaction
+    const client: PoolClient = await db.getClient();
     const results: BulkAddResults = { processedCount: 0, addedCount: 0, skippedCount: 0, details: [] };
 
     try {
@@ -99,29 +98,31 @@ export const bulkAddItems = async (items: BulkAddItem[]): Promise<BulkAddResults
                             results.skippedCount++;
                         }
                     } else {
-                         results.skippedCount++;
+                        results.skippedCount++;
                     }
                 }
-                // TODO: Handle tag additions within transaction if needed
-
-            } catch (itemError: any) {
-                console.warn(`[Bulk Add Item Error] Item: ${JSON.stringify(item)}, Error: ${itemError.message}`);
+            } catch (itemError: unknown) {
+                let message = 'Unknown error during item processing.';
+                if (itemError instanceof Error) {
+                    message = itemError.message;
+                }
+                console.warn(`[Bulk Add Item Error] Item: ${JSON.stringify(item)}, Error: ${message}`);
                 status = 'error';
-                reason = itemError.message.substring(0, 200);
+                reason = message.substring(0, 200);
                 results.skippedCount++;
             }
             results.details.push({
                 input: { name: item.name, type: item.type },
-                status: status,
+                status,
                 reason: reason || undefined,
                 id: addedItem?.id || undefined,
                 type: addedItem ? item.type : undefined,
             });
-        } // end for loop
+        }
 
         await client.query('COMMIT');
         return results;
-    } catch (err: any) {
+    } catch (err: unknown) {
         await client.query('ROLLBACK').catch(rbErr => console.error("Rollback Error:", rbErr));
         console.error('[AdminModel bulkAddItems] Transaction error:', err);
         throw new Error('Bulk add operation failed during transaction.');
@@ -131,9 +132,12 @@ export const bulkAddItems = async (items: BulkAddItem[]): Promise<BulkAddResults
 };
 
 export const deleteResourceById = async (tableName: string, id: number): Promise<boolean> => {
-     // Basic validation or ensure tableName is from a controlled list in the route
-     // Use template literal cautiously, ensure tableName is validated by caller (admin route)
-     const query = `DELETE FROM ${tableName} WHERE id = $1 RETURNING id`;
-     const result = await db.query(query, [id]);
-     return result.rowCount > 0; // true if deleted, false otherwise
- };
+    // Whitelist allowed table names to prevent SQL injection
+    const allowedTables = ['restaurants', 'dishes', 'lists', 'submissions'];
+    if (!allowedTables.includes(tableName)) {
+        throw new Error(`Invalid table name: ${tableName}. Allowed tables: ${allowedTables.join(', ')}`);
+    }
+    const query = `DELETE FROM ${tableName} WHERE id = $1 RETURNING id`;
+    const result = await db.query(query, [id]);
+    return (result.rowCount ?? 0) > 0;
+};
