@@ -1,5 +1,9 @@
 /* src/doof-backend/db/index.ts */
-import pg, { Pool, PoolConfig, QueryResult, PoolClient, QueryResultRow } from 'pg';
+// Corrected import: Import the default export, then destructure Pool
+import pg from 'pg';
+const { Pool } = pg;
+// Import types directly (or use pg.PoolConfig, pg.QueryResult etc. later)
+import type { PoolConfig, QueryResult, PoolClient, QueryResultRow } from 'pg';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -23,6 +27,7 @@ if (!poolConfig.password && process.env.NODE_ENV !== 'test') {
     );
 }
 
+// Use the destructured Pool constructor
 const pool = new Pool(poolConfig);
 
 pool.connect((err: Error | undefined, client: PoolClient | undefined, done: (release?: any) => void) => {
@@ -80,7 +85,7 @@ type QueryParams = any[];
 interface Db {
     query: <T extends QueryResultRow = any>(text: string, params?: QueryParams) => Promise<QueryResult<T>>;
     getClient: () => Promise<PoolClient>;
-    pool: Pool;
+    pool: Pool; // Use the imported Pool type here
 }
 
 const db: Db = {
@@ -112,7 +117,7 @@ const db: Db = {
         };
         return client;
     },
-    pool,
+    pool, // Use the Pool instance
 };
 
 export default db;

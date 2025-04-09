@@ -1,12 +1,13 @@
 /* src/components/FilterSection.jsx */
 import React, { useEffect, useMemo, useCallback, useState } from 'react';
 import { X, MapPin, Tag, RotateCcw, Search, Loader2 } from 'lucide-react';
-import useUIStateStore from '@/stores/useUIStateStore'; // Use global import alias
-import PillButton from '@/components/UI/PillButton'; // Use global import alias
-// Removed apiClient import as neighborhood fetching is now handled by the store action
+// Corrected: Use named import
+import { useUIStateStore } from '@/stores/useUIStateStore';
+import PillButton from '@/components/UI/PillButton';
 
 const FilterSection = () => {
   // --- State from Zustand Store ---
+  // Use the imported hook correctly
   const cities = useUIStateStore(state => state.cities || []);
   const neighborhoods = useUIStateStore(state => state.neighborhoods || []);
   const cuisines = useUIStateStore(state => state.cuisines || []);

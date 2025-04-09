@@ -6,7 +6,7 @@ import FollowButton from '@/components/FollowButton';
 import BaseCard from '@/components/UI/BaseCard';
 import useAuthStore from '@/stores/useAuthStore';
 import { listService } from '@/services/listService';
-import { engagementService } from '@/services/engagementService';
+import { engagementService } from '@/services/engagementService.js';
 
 const ListCard = ({
   id,
@@ -14,33 +14,62 @@ const ListCard = ({
   description,
   saved_count = 0,
   item_count = 0,
-  is_following: initialIsFollowing,
+  is_following: initialIsFollowing, // Use prop name consistent with API/DB if possible
   creator_handle = null,
   user_id,
   is_public = true,
-  type = 'mixed',
-  tags = [], // Added tags prop
+  type = 'mixed', // Use 'type' as primary prop from List interface
+  tags = [],
 }) => {
   const currentUser = useAuthStore(state => state.user);
   const isAuthenticated = useAuthStore(state => state.isAuthenticated);
 
+  // Define initial data structure matching the select function's output
+  // Use the initial props passed to the component
+  const initialSelectedData = React.useMemo(() => ({
+       is_following: initialIsFollowing,
+       saved_count: saved_count,
+  }), [initialIsFollowing, saved_count]);
+
+  // Query to potentially get updated follow status/count
   const { data: listData } = useQuery({
     queryKey: ['listDetails', id],
-    queryFn: () => listService.getListDetails(id),
-    enabled: !!id && isAuthenticated,
-    select: (data) => ({
-      is_following: data?.is_following ?? initialIsFollowing,
-      saved_count: data?.saved_count ?? saved_count,
-    }),
-    staleTime: 0,
+    queryFn: async () => {
+        try {
+            // Returns full ListDetails or throws error
+            return await listService.getListDetails(id);
+        } catch (error) {
+             console.warn(`[ListCard] Failed to fetch details queryFn for list ${id}:`, error.message);
+             // Return null on error so 'select' can handle it
+             return null;
+        }
+    },
+    enabled: !!id && isAuthenticated, // Only fetch if logged in and ID is valid
+    select: (data) => {
+      // If data fetch failed/returned null, use initial data structure
+      if (!data) return initialSelectedData;
+      // Otherwise, select the relevant fields or use defaults from props
+      return {
+        is_following: data?.is_following ?? initialIsFollowing,
+        saved_count: data?.saved_count ?? saved_count,
+      }
+    },
+    staleTime: 1000 * 60, // Keep fresh for 1 minute
     refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    // Corrected: Set initialData to match the SELECT structure
+    initialData: initialSelectedData,
+    placeholderData: initialSelectedData, // Can also use placeholder
   });
 
+  // Use the potentially updated data from the query (listData now matches select structure)
+  // Fall back to initial props if listData is somehow still not matching
   const isFollowing = listData?.is_following ?? initialIsFollowing;
   const displaySavedCount = listData?.saved_count ?? saved_count;
-  const displayListType = type || 'mixed';
-  const safeTags = Array.isArray(tags) ? tags : []; // Ensure tags is an array
 
+  // Other props remain the same
+  const displayListType = type || 'mixed';
+  const safeTags = Array.isArray(tags) ? tags : [];
   const displayCreatorHandle = creator_handle || 'unknown';
   const cleanName = name || 'Unnamed List';
   const displayItemCount = item_count || 0;
@@ -52,9 +81,11 @@ const ListCard = ({
     if (id) {
       console.log(`[ListCard] Logging click for list ID: ${id}`);
       engagementService.logEngagement({
-        item_id: parseInt(id, 10),
+        item_id: parseInt(String(id), 10),
         item_type: 'list',
         engagement_type: 'click',
+      }).catch(err => {
+          console.error("[ListCard] Failed to log click engagement:", err);
       });
     }
   };
@@ -65,19 +96,15 @@ const ListCard = ({
       onClick={handleCardClick}
       onQuickAdd={null}
       showQuickAdd={false}
-      className="w-full" // BaseCard provides h-64
+      className="w-full"
       isHighlighted={!is_public}
       aria-label={`View list: ${cleanName}`}
     >
-      {/* This div is the direct child passed to BaseCard's CardContent */}
       <div className="flex flex-col h-full justify-between">
-
-        {/* Main Content Area */}
         <div className="flex-grow min-h-0 overflow-hidden">
             <h3 className="text-base font-semibold text-gray-900 mb-1 line-clamp-2 group-hover:text-[#A78B71] transition-colors">
                 {cleanName}
             </h3>
-            {/* Metadata Row 1 */}
             <div className="flex items-center justify-between text-xs text-gray-600 mb-1 gap-2">
                 <span className="flex items-center truncate" title={`Created by @${displayCreatorHandle}`}>
                     <User size={12} className="mr-1 flex-shrink-0 text-gray-400" />
@@ -88,11 +115,9 @@ const ListCard = ({
                       {displayListType}
                  </span>
             </div>
-            {/* Description */}
-            <p className="text-xs text-gray-500 mb-2 line-clamp-2"> {/* Allow description to take available lines */}
+            <p className="text-xs text-gray-500 mb-2 line-clamp-2">
                 {cleanDescription}
             </p>
-            {/* Metadata Row 2 */}
             <div className="flex items-center justify-between text-gray-500 text-xs flex-wrap gap-x-2 gap-y-0.5">
                 <span className="flex items-center" title={`${displayItemCount} items`}>
                     <List size={12} className="mr-1 flex-shrink-0 text-gray-400" />
@@ -107,7 +132,6 @@ const ListCard = ({
                      <span>{is_public ? 'Public' : 'Private'}</span>
                  </span>
             </div>
-             {/* Tags Area (If any) */}
              {safeTags.length > 0 && (
                 <div className="mt-1.5 flex flex-wrap gap-1">
                     {safeTags.slice(0, 3).map((tag) => (
@@ -124,11 +148,11 @@ const ListCard = ({
             )}
         </div>
 
-        {/* Footer Area (Follow Button) */}
         {shouldShowFollowButton && (
           <div className="mt-auto pt-3 border-t border-gray-100 flex-shrink-0">
             <FollowButton
               listId={id}
+              // Pass the current state derived from useQuery or initial props
               isFollowing={isFollowing}
               savedCount={displaySavedCount}
             />

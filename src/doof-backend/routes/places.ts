@@ -14,7 +14,8 @@ const handleValidationErrors = (req: Request, res: Response, next: NextFunction)
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         console.warn("[Places Route Validation Error]", req.path, errors.array());
-        return res.status(400).json({ error: errors.array()[0].msg });
+        res.status(400).json({ error: errors.array()[0].msg }); // Removed 'return'
+        return; // Explicit return after sending response
     }
     next();
 };
@@ -23,7 +24,9 @@ const checkApiKey = (req: Request, res: Response, next: NextFunction): void => {
     if (!GOOGLE_API_KEY) {
         console.error(`[Places Route /${req.path.split('/')[1]}] FATAL Error: Google API key (GOOGLE_API_KEY) not configured.`);
         const err = new Error("Server configuration error: Google API key missing.");
-        return next(err);
+        // No 'return' needed before next(err) as it doesn't return Response
+        next(err);
+        return; // Explicit return after calling next
     }
     next();
 };
@@ -86,7 +89,8 @@ router.get(
 
             if (!details) {
                 console.log(`[Places Details] Place details not found for placeId: ${placeId}`);
-                return res.status(404).json({ error: "Place details not found" });
+                res.status(404).json({ error: "Place details not found" }); // Removed 'return'
+                return; // Explicit return
             }
             console.log(`[Places Details] Details found for placeId: ${placeId}. Extracting components...`);
 
@@ -148,7 +152,8 @@ router.get(
             const candidates = response.data.candidates;
             if (!candidates || candidates.length === 0) {
                 console.log(`[Places Find] No place found for query: "${query}"`);
-                return res.json({});
+                res.json({}); // Removed 'return'
+                return; // Explicit return
             }
 
             const place = candidates[0];

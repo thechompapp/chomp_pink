@@ -1,6 +1,6 @@
 /* src/doof-backend/models/listModel.ts */
 import db from '../db/index.js'; // Ensure .js extension
-import type { PoolClient, QueryResult } from 'pg'; // Import pg types
+import type { PoolClient, QueryResult, QueryResultRow } from 'pg'; // Import pg types
 
 // Define and EXPORT interfaces
 export interface ListItem {
@@ -68,7 +68,7 @@ interface RawListItemRow extends Record<string, any> {
     tags?: string[] | null;
 }
 
-// Helper to safely format list data
+// Helper to safely format list data (Export if needed elsewhere, otherwise keep local)
 const formatListForResponse = (listRow: RawListRow | undefined): List | null => {
     if (!listRow) return null;
     try {
@@ -84,8 +84,8 @@ const formatListForResponse = (listRow: RawListRow | undefined): List | null => 
             description: listRow.description ?? null,
             tags: tagsArray,
             is_public: listRow.is_public ?? true,
-            is_following: !!listRow.is_following,
-            created_by_user: !!listRow.created_by_user,
+            is_following: !!listRow.is_following, // Ensure boolean
+            created_by_user: !!listRow.created_by_user, // Ensure boolean
             item_count: listRow.item_count != null ? parseInt(String(listRow.item_count), 10) : 0,
             saved_count: listRow.saved_count != null ? parseInt(String(listRow.saved_count), 10) : 0,
             type: listType as List['type'], // Assert type
@@ -101,7 +101,7 @@ const formatListForResponse = (listRow: RawListRow | undefined): List | null => 
     }
 };
 
-// Helper to safely format list item data
+// Helper to safely format list item data (Export if needed elsewhere)
 const formatListItemForResponse = (itemRow: RawListItemRow | undefined): ListItem | null => {
     if (!itemRow || itemRow.list_item_id == null || itemRow.item_id == null || !itemRow.item_type) return null;
      try {
@@ -110,8 +110,8 @@ const formatListItemForResponse = (itemRow: RawListItemRow | undefined): ListIte
             : [];
         return {
             list_item_id: parseInt(String(itemRow.list_item_id), 10),
-            id: parseInt(String(itemRow.item_id), 10), // Use item_id as primary ID
-            item_id: parseInt(String(itemRow.item_id), 10), // Keep original field
+            id: parseInt(String(itemRow.item_id), 10), // Use item_id as primary ID for consistency
+            item_id: parseInt(String(itemRow.item_id), 10), // Keep original field if needed
             item_type: itemRow.item_type as ListItem['item_type'], // Assert type
             added_at: itemRow.added_at,
             name: itemRow.name || `Item ${itemRow.item_id}`,
@@ -127,7 +127,7 @@ const formatListItemForResponse = (itemRow: RawListItemRow | undefined): ListIte
 };
 
 
-// --- Model Functions ---
+// --- Model Functions (Existing and New Signatures) ---
 
 export const findListsByUser = async (userId: number, { createdByUser, followedByUser }: { createdByUser?: boolean; followedByUser?: boolean }): Promise<List[]> => {
     if (isNaN(userId) || userId <= 0) {
@@ -135,34 +135,37 @@ export const findListsByUser = async (userId: number, { createdByUser, followedB
          return [];
     }
     console.log(`[ListModel] Finding lists for user ${userId}, created: ${createdByUser}, followed: ${followedByUser}`);
-    // Base query selects all list fields and calculates item_count and follow status
     let queryText = `
         SELECT
-            l.*, -- Select all fields from lists table
+            l.*,
             COALESCE((SELECT COUNT(*) FROM ListItems li WHERE li.list_id = l.id), 0)::INTEGER as item_count,
-            -- Calculate following status based on user ID parameter ($1)
             CASE WHEN $1::INTEGER IS NOT NULL THEN EXISTS (SELECT 1 FROM listfollows lf WHERE lf.list_id = l.id AND lf.user_id = $1::INTEGER) ELSE FALSE END as is_following,
-            -- Determine if the list was created by the user ID parameter ($1)
             CASE WHEN $1::INTEGER IS NOT NULL THEN (l.user_id = $1::INTEGER) ELSE FALSE END as created_by_user
         FROM Lists l
     `;
     const params: (number | boolean)[] = [userId];
-    let conditionIndex = 2; // Start param index after userId ($1)
+    let conditionIndex = 2;
     let conditions: string[] = [];
 
-    if (createdByUser) {
-        conditions.push(`l.user_id = $${conditionIndex++}`);
-        params.push(userId);
-    } else if (followedByUser) {
-        // Join is needed only if filtering by followed lists
+    // Logic to filter by created/followed based on params
+    if (followedByUser === true) {
         queryText += ` JOIN listfollows lf ON l.id = lf.list_id `;
         conditions.push(`lf.user_id = $${conditionIndex++}`);
         params.push(userId);
-    } else {
-        // Default case if neither is explicitly true (e.g., fetch lists created by user)
+         // Add createdByUser condition only if specifically requested alongside followedByUser
+        if (createdByUser === true) {
+             conditions.push(`l.user_id = $${conditionIndex++}`);
+             params.push(userId); // Add userId again for this condition
+        } else if (createdByUser === false) {
+             conditions.push(`l.user_id != $${conditionIndex++}`);
+             params.push(userId); // Add userId again
+        }
+    } else if (createdByUser === true || createdByUser === undefined) {
+        // Default to created by user if followedByUser is not true
         conditions.push(`l.user_id = $${conditionIndex++}`);
         params.push(userId);
     }
+    // Add case for createdByUser === false and followedByUser !== true if needed (e.g., public lists neither created nor followed)
 
     if (conditions.length > 0) {
         queryText += ' WHERE ' + conditions.join(' AND ');
@@ -173,10 +176,11 @@ export const findListsByUser = async (userId: number, { createdByUser, followedB
     console.log("[ListModel findListsByUser] Executing query:", queryText, params);
     try {
         const result: QueryResult<RawListRow> = await db.query(queryText, params);
+        // Use the formatter and filter out nulls
         return (result.rows || []).map(formatListForResponse).filter((list): list is List => list !== null);
     } catch(error) {
         console.error(`[ListModel findListsByUser] Error for user ${userId}:`, error);
-        throw error;
+        throw error; // Re-throw
     }
 };
 
@@ -240,12 +244,13 @@ export const findListItemsByListId = async (listId: number): Promise<ListItem[]>
         FROM ListItems li
         LEFT JOIN Restaurants r ON li.item_type = 'restaurant' AND li.item_id = r.id
         LEFT JOIN Dishes d ON li.item_type = 'dish' AND li.item_id = d.id
-        LEFT JOIN Restaurants r_dish ON d.restaurant_id = r_dish.id
+        LEFT JOIN Restaurants r_dish ON d.restaurant_id = r_dish.id -- Join restaurants again for dish's restaurant name/location
         WHERE li.list_id = $1
         ORDER BY li.added_at DESC;
     `;
     try {
         const result: QueryResult<RawListItemRow> = await db.query(query, [listId]);
+        // Use formatter and filter nulls
         return (result.rows || []).map(formatListItemForResponse).filter((item): item is ListItem => item !== null);
     } catch (error) {
         console.error(`[ListModel findListItemsByListId] Error fetching items for list ${listId}:`, error);
@@ -253,14 +258,10 @@ export const findListItemsByListId = async (listId: number): Promise<ListItem[]>
     }
 };
 
-
-// Other functions (createList, updateList, etc.) should also apply formatting before returning
-// Example for createList:
 export const createList = async (listData: Partial<List> & { name: string }, userId: number, userHandle: string): Promise<List> => {
-     console.log(`[ListModel] Creating list for user <span class="math-inline">\{userId\} \(</span>{userHandle})`, listData);
+     console.log(`[ListModel] Creating list for user ${userId} (${userHandle})`, listData);
      const { name, description = null, is_public = true, type = 'mixed', tags = [], city_name = null } = listData;
-     // Use list_type for the database column
-     const dbListType = type;
+     const dbListType = type; // Use 'type' from input for 'list_type' column
      const query = `
          INSERT INTO Lists (name, description, is_public, list_type, tags, user_id, creator_handle, city_name, updated_at, created_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
@@ -274,6 +275,8 @@ export const createList = async (listData: Partial<List> & { name: string }, use
          if (!result.rows[0]) throw new Error("List creation failed, no row returned.");
          const formatted = formatListForResponse(result.rows[0]);
          if (!formatted) throw new Error("Failed to format created list response.");
+         // Ensure item_count is 0 for newly created list
+         formatted.item_count = 0;
          return formatted;
      } catch (error) {
          console.error(`[ListModel createList] Error for user ${userId}:`, error);
@@ -281,7 +284,6 @@ export const createList = async (listData: Partial<List> & { name: string }, use
      }
  };
 
- // Example for updateList:
  export const updateList = async (listId: number, listData: Partial<List>): Promise<List | null> => {
     if (isNaN(listId) || listId <= 0) {
         console.warn(`[ListModel Update] Invalid listId: ${listId}`);
@@ -296,7 +298,7 @@ export const createList = async (listData: Partial<List> & { name: string }, use
     if (name !== undefined) { fields.push(`name = $${paramIndex++}`); values.push(name); }
     if (description !== undefined) { fields.push(`description = $${paramIndex++}`); values.push(description ?? null); }
     if (is_public !== undefined) { fields.push(`is_public = $${paramIndex++}`); values.push(is_public); }
-    // Use list_type for DB column, validate value
+    // Use list_type for DB column
     if (type !== undefined && ['mixed', 'restaurant', 'dish'].includes(type)) {
         fields.push(`list_type = $${paramIndex++}`); values.push(type);
     }
@@ -312,7 +314,7 @@ export const createList = async (listData: Partial<List> & { name: string }, use
         return formatListForResponse(currentListRaw);
     }
 
-    fields.push(`updated_at = NOW()`);
+    fields.push(`updated_at = NOW()`); // Always update timestamp
 
     const query = `
         UPDATE Lists
@@ -324,51 +326,51 @@ export const createList = async (listData: Partial<List> & { name: string }, use
     console.log('[ListModel updateList] Query:', query, 'Params:', values);
     try {
         const result = await db.query<RawListRow>(query, values);
-        return formatListForResponse(result.rows[0]);
+        // Fetch item count separately after update or assume it doesn't change here
+        const updatedList = formatListForResponse(result.rows[0]);
+        if(updatedList) {
+             const countResult = await db.query<{count: string}>('SELECT COUNT(*) FROM listitems WHERE list_id = $1', [listId]);
+             updatedList.item_count = parseInt(countResult.rows[0]?.count || '0', 10);
+        }
+        return updatedList;
     } catch (error) {
         console.error(`[ListModel updateList] Error updating list ${listId}:`, error);
         throw error;
     }
  };
 
- // --- Other functions need similar review and application of formatters ---
  export const addItemToList = async (listId: number, itemId: number, itemType: 'restaurant' | 'dish'): Promise<{ id: number; list_id: number; item_id: number; item_type: string; added_at: string }> => {
     if (isNaN(listId) || listId <= 0 || isNaN(itemId) || itemId <= 0 || !['restaurant', 'dish'].includes(itemType)) {
          throw new Error('Invalid arguments for addItemToList.');
     }
-    console.log(`[ListModel] Adding item <span class="math-inline">\{itemType\}\:</span>{itemId} to list ${listId}`);
-    const client = await db.getClient(); // Use transaction
+    console.log(`[ListModel] Adding item ${itemType}:${itemId} to list ${listId}`);
+    const client = await db.getClient();
     try {
         await client.query('BEGIN');
-        // 1. Check compatibility
         const listCheck = await client.query<{ list_type: string }>('SELECT list_type FROM lists WHERE id = $1 FOR UPDATE', [listId]);
         if (listCheck.rows.length === 0) throw new Error('List not found.');
         const listType = listCheck.rows[0].list_type;
         if (listType !== 'mixed' && itemType !== listType) {
             throw new Error(`Cannot add a ${itemType} to a list restricted to ${listType}s.`);
         }
-        // 2. Check if item already exists
         const checkQuery = 'SELECT id FROM listitems WHERE list_id = $1 AND item_type = $2 AND item_id = $3';
         const checkResult = await client.query(checkQuery, [listId, itemType, itemId]);
         if (checkResult.rows.length > 0) {
             const error: any = new Error("Item already exists in list.");
-            error.status = 409;
+            error.status = 409; // Conflict status code
             throw error;
         }
-        // 3. Insert the item
         const insertQuery = `
             INSERT INTO ListItems (list_id, item_id, item_type, added_at)
             VALUES ($1, $2, $3, NOW())
             RETURNING id, list_id, item_id, item_type, added_at;
         `;
-        console.log('[ListModel addItemToList] Insert Query:', insertQuery, 'Params:', [listId, itemId, itemType]);
         const result = await client.query(insertQuery, [listId, itemId, itemType]);
-        // 4. Update the list's timestamp
         await client.query('UPDATE Lists SET updated_at = NOW() WHERE id = $1', [listId]);
         await client.query('COMMIT');
 
         if (!result.rows[0]) throw new Error("Failed to add item, no row returned.");
-        // Return the structured data expected by the service/frontend
+        // Return data matching AddItemResult type used in listService
         return {
             id: parseInt(result.rows[0].id, 10),
             list_id: parseInt(result.rows[0].list_id, 10),
@@ -379,8 +381,149 @@ export const createList = async (listData: Partial<List> & { name: string }, use
     } catch (err) {
         await client.query('ROLLBACK');
         console.error(`[ListModel addItemToList] Error adding item to list ${listId}:`, err);
-        throw err; // Re-throw error
+        throw err;
     } finally {
         client.release();
     }
  };
+
+// --- NEWLY ADDED FUNCTION SIGNATURES (Implement Logic) ---
+
+export const isFollowing = async (listId: number, userId: number): Promise<boolean> => {
+    console.log(`[ListModel] Checking if user ${userId} follows list ${listId}`);
+    const query = 'SELECT 1 FROM listfollows WHERE list_id = $1 AND user_id = $2';
+    try {
+        const result = await db.query(query, [listId, userId]);
+        return result.rowCount > 0;
+    } catch (error) {
+        console.error(`[ListModel isFollowing] Error checking follow status for list ${listId}, user ${userId}:`, error);
+        throw error; // Re-throw error
+    }
+};
+
+export const followList = async (listId: number, userId: number): Promise<void> => {
+    console.log(`[ListModel] User ${userId} following list ${listId}`);
+    const query = 'INSERT INTO listfollows (list_id, user_id, followed_at) VALUES ($1, $2, NOW()) ON CONFLICT (list_id, user_id) DO NOTHING';
+    try {
+        await db.query(query, [listId, userId]);
+        // Note: saved_count is updated separately in the route transaction
+    } catch (error) {
+         console.error(`[ListModel followList] Error following list ${listId} for user ${userId}:`, error);
+        throw error;
+    }
+};
+
+export const unfollowList = async (listId: number, userId: number): Promise<void> => {
+     console.log(`[ListModel] User ${userId} unfollowing list ${listId}`);
+    const query = 'DELETE FROM listfollows WHERE list_id = $1 AND user_id = $2';
+    try {
+        await db.query(query, [listId, userId]);
+         // Note: saved_count is updated separately in the route transaction
+    } catch (error) {
+        console.error(`[ListModel unfollowList] Error unfollowing list ${listId} for user ${userId}:`, error);
+        throw error;
+    }
+};
+
+// Returns the *new* saved_count
+export const updateListSavedCount = async (listId: number, adjustment: number): Promise<number> => {
+    console.log(`[ListModel] Updating saved_count for list ${listId} by ${adjustment}`);
+    const query = `
+        UPDATE lists
+        SET saved_count = GREATEST(0, saved_count + $1) -- Ensure count doesn't go below 0
+        WHERE id = $2
+        RETURNING saved_count;
+    `;
+    try {
+        const result = await db.query<{ saved_count: number }>(query, [adjustment, listId]);
+        if (result.rowCount === 0) {
+            // Attempt to fetch current count if list exists but wasn't updated (maybe count was already 0 and adjustment was negative)
+            const currentCountResult = await db.query<{ saved_count: number }>('SELECT saved_count FROM lists WHERE id = $1', [listId]);
+            if(currentCountResult.rowCount === 0) {
+                 throw new Error('List not found when trying to update saved_count.');
+            }
+            return currentCountResult.rows[0].saved_count; // Return current count
+        }
+        return result.rows[0].saved_count; // Return updated count
+    } catch (error) {
+         console.error(`[ListModel updateListSavedCount] Error updating count for list ${listId}:`, error);
+        throw error;
+    }
+};
+
+export const checkListTypeCompatibility = async (listId: number, itemType: 'restaurant' | 'dish'): Promise<boolean> => {
+    console.log(`[ListModel] Checking compatibility for item type ${itemType} in list ${listId}`);
+    const query = 'SELECT list_type FROM lists WHERE id = $1';
+     try {
+         const result = await db.query<{ list_type: string }>(query, [listId]);
+         if (result.rowCount === 0) {
+             throw new Error('List not found for compatibility check.');
+         }
+         const listType = result.rows[0].list_type;
+         return listType === 'mixed' || listType === itemType;
+     } catch (error) {
+          console.error(`[ListModel checkListTypeCompatibility] Error checking list ${listId}:`, error);
+         throw error;
+     }
+};
+
+export const removeItemFromList = async (listId: number, listItemId: number): Promise<boolean> => {
+    console.log(`[ListModel] Removing list item ${listItemId} from list ${listId}`);
+    const client = await db.getClient();
+    try {
+        await client.query('BEGIN');
+        const deleteQuery = 'DELETE FROM listitems WHERE id = $1 AND list_id = $2 RETURNING id';
+        const deleteResult = await client.query(deleteQuery, [listItemId, listId]);
+        const deleted = deleteResult.rowCount > 0;
+
+        if (deleted) {
+            await client.query('UPDATE Lists SET updated_at = NOW() WHERE id = $1', [listId]);
+        } else {
+             console.warn(`[ListModel removeItemFromList] Item ${listItemId} not found in list ${listId} or already deleted.`);
+        }
+        await client.query('COMMIT');
+        return deleted;
+    } catch (error) {
+         await client.query('ROLLBACK');
+         console.error(`[ListModel removeItemFromList] Error removing item ${listItemId} from list ${listId}:`, error);
+         throw error;
+    } finally {
+        client.release();
+    }
+};
+
+export const updateListVisibility = async (listId: number, is_public: boolean): Promise<List | null> => {
+    console.log(`[ListModel] Updating visibility for list ${listId} to ${is_public}`);
+    const query = `
+        UPDATE lists
+        SET is_public = $1, updated_at = NOW()
+        WHERE id = $2
+        RETURNING *;
+    `;
+    try {
+        const result = await db.query<RawListRow>(query, [is_public, listId]);
+        // Fetch item count after update
+        const updatedList = formatListForResponse(result.rows[0]);
+         if(updatedList) {
+             const countResult = await db.query<{count: string}>('SELECT COUNT(*) FROM listitems WHERE list_id = $1', [listId]);
+             updatedList.item_count = parseInt(countResult.rows[0]?.count || '0', 10);
+        }
+        return updatedList;
+    } catch (error) {
+        console.error(`[ListModel updateListVisibility] Error updating visibility for list ${listId}:`, error);
+        throw error;
+    }
+};
+
+export const deleteList = async (listId: number): Promise<boolean> => {
+    console.log(`[ListModel] Deleting list ${listId}`);
+    // Schema has ON DELETE CASCADE for ListItems and ListFollows, so they should be deleted automatically.
+    const query = 'DELETE FROM lists WHERE id = $1 RETURNING id';
+    try {
+        const result = await db.query(query, [listId]);
+        return (result.rowCount ?? 0) > 0;
+    } catch (error) {
+         console.error(`[ListModel deleteList] Error deleting list ${listId}:`, error);
+         throw error;
+    }
+};

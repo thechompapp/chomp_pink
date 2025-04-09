@@ -91,25 +91,29 @@ export const findDishById = async (id: number): Promise<Dish | null> => {
     }
 };
 
-export const findDishesByName = async (name: string, limit: number = 20, offset: number = 0): Promise<Array<{ id: number; name: string; restaurant_name: string | undefined }>> => {
+export const findDishesByName = async (name: string, limit: number = 20, offset: number = 0): Promise<Dish[]> => {
     console.log(`[DishModel] Finding dishes by name like: ${name}`);
     const query = `
-        SELECT d.id, d.name, d.adds, r.name AS restaurant_name, r.city_name, r.neighborhood_name
+        SELECT
+            d.id, d.name, d.adds, d.created_at, d.restaurant_id,
+            r.name AS restaurant_name,
+            r.city_name,
+            r.neighborhood_name,
+            COALESCE(array_agg(DISTINCT h.name) FILTER (WHERE h.id IS NOT NULL), '{}'::text[]) as tags
         FROM Dishes d
         JOIN Restaurants r ON d.restaurant_id = r.id
+        LEFT JOIN DishHashtags dh ON d.id = dh.dish_id
+        LEFT JOIN Hashtags h ON dh.hashtag_id = h.id
         WHERE d.name ILIKE $1
-        ORDER BY d.name ASC, d.adds DESC NULLS LAST
+        GROUP BY d.id, r.id -- Group by primary keys to get tags correctly
+        ORDER BY d.adds DESC NULLS LAST, d.name ASC
         LIMIT $2 OFFSET $3
     `;
     const params = [`%${name}%`, limit, offset];
     try {
-        const result = await db.query(query, params);
-        // Safely map results
-        return (result.rows || []).map(d => ({
-            id: parseInt(String(d.id), 10),
-            name: d.name || 'Unnamed Dish',
-            restaurant_name: d.restaurant_name || undefined
-        }));
+        const result = await db.query<RawDishRow>(query, params);
+        // Safely map results using the formatter
+        return (result.rows || []).map(formatDishForResponse).filter((d): d is Dish => d !== null);
     } catch (error) {
         console.error(`[DishModel findDishesByName] Error fetching dishes for name ${name}:`, error);
         throw error;
@@ -127,17 +131,21 @@ export const createDish = async (dishData: { name: string; restaurant_id: number
         INSERT INTO Dishes (name, restaurant_id, adds, created_at, updated_at)
         VALUES ($1, $2, 0, NOW(), NOW())
         ON CONFLICT (name, restaurant_id) DO NOTHING
-        RETURNING *;
+        RETURNING id; -- Only return ID
     `;
     try {
-        const result = await db.query<RawDishRow>(query, [name, restaurant_id]);
+        const result = await db.query<{ id: number | string }>(query, [name, restaurant_id]);
         if (result.rows.length === 0) {
             console.warn(`[DishModel createDish] Dish "${name}" for restaurant ID ${restaurant_id} might already exist.`);
-            // Optionally fetch the existing one
-            const existing = await db.query<RawDishRow>('SELECT * FROM Dishes WHERE name = $1 AND restaurant_id = $2', [name, restaurant_id]);
-            return formatDishForResponse(existing.rows[0]);
+            // Optionally fetch the existing one if needed, but returning null is okay for ON CONFLICT DO NOTHING
+             const existing = await db.query<RawDishRow>(
+                 'SELECT * FROM Dishes WHERE name = $1 AND restaurant_id = $2',
+                 [name, restaurant_id]
+             );
+             // If it exists, fetch its full details to return
+             return existing.rows[0] ? findDishById(parseInt(String(existing.rows[0].id), 10)) : null;
         }
-        // Fetch the full details including joined data after creation
+        // Fetch the full details including joined data after successful creation
         return findDishById(parseInt(String(result.rows[0].id), 10));
     } catch (error) {
         console.error(`[DishModel createDish] Error creating dish "${name}":`, error);
@@ -157,7 +165,11 @@ export const updateDish = async (id: number, dishData: Partial<Pick<Dish, 'name'
     let paramIndex = 1;
 
     if (name !== undefined) { fields.push(`name = $${paramIndex++}`); values.push(name); }
-    if (adds !== undefined && typeof adds === 'number' && !isNaN(adds)) { fields.push(`adds = $${paramIndex++}`); values.push(adds); }
+    // Only update 'adds' if provided explicitly (be cautious)
+    if (adds !== undefined && typeof adds === 'number' && !isNaN(adds)) {
+        fields.push(`adds = $${paramIndex++}`);
+        values.push(adds);
+    }
     if (restaurant_id !== undefined && typeof restaurant_id === 'number' && !isNaN(restaurant_id) && restaurant_id > 0) {
         fields.push(`restaurant_id = $${paramIndex++}`); values.push(restaurant_id);
     }
@@ -178,12 +190,14 @@ export const updateDish = async (id: number, dishData: Partial<Pick<Dish, 'name'
     values.push(id); // Add ID as the last parameter
 
     try {
-        const result = await db.query(query, values);
+        const result = await db.query<{ id: number }>(query, values);
         if (result.rows.length > 0) {
             return findDishById(id); // Fetch updated full details
         } else {
             console.warn(`[DishModel Update] Dish with ID ${id} not found or no changes made.`);
-            return null;
+            // Check if it exists at all
+            const exists = await findDishById(id);
+            return exists; // Return current data if it exists but wasn't updated
         }
     } catch (error) {
         console.error(`[DishModel Update] Error updating dish ${id}:`, error);
@@ -200,9 +214,15 @@ export const deleteDish = async (id: number): Promise<boolean> => {
     const query = 'DELETE FROM Dishes WHERE id = $1 RETURNING id';
     try {
         const result = await db.query(query, [id]);
+        // Check rowCount to confirm deletion
         return result.rowCount !== null && result.rowCount > 0;
     } catch (error) {
         console.error(`[DishModel deleteDish] Error deleting dish ${id}:`, error);
-        throw error;
+        // Check for specific foreign key violation errors if needed
+         if ((error as any)?.code === '23503') {
+            console.warn(`[DishModel deleteDish] Cannot delete dish ${id} due to foreign key constraints.`);
+            throw new Error(`Cannot delete dish: It is referenced by other items (e.g., list items, votes).`);
+         }
+        throw error; // Re-throw other errors
     }
 };

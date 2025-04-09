@@ -9,11 +9,12 @@ import type { AuthenticatedRequest } from '../middleware/auth.js'; // Import typ
 const router = express.Router();
 
 // Validation Error Handler
-const handleValidationErrors = (req: Request, res: Response, next: NextFunction): void => {
+const handleValidationErrors = (req: Request, res: Response, next: NextFunction): void => { // Added void return type
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         console.warn(`[Analytics Route Validation Error] Path: ${req.path}`, errors.array());
-        return res.status(400).json({ error: errors.array()[0].msg });
+         res.status(400).json({ error: errors.array()[0].msg }); // Removed return keyword
+         return; // Explicit return
     }
     next();
 };
@@ -102,7 +103,8 @@ router.get(
             console.error(`[Analytics GET /aggregate-trends] Error fetching aggregate trends for ${itemType}, period ${period}:`, err);
             // Check for specific DB errors if needed, e.g., table missing
             if (err instanceof Error && (err as any).code === '42P01') { // PostgreSQL table does not exist code
-                return res.status(500).json({ error: 'Database schema error encountered while fetching trends.' });
+                res.status(500).json({ error: 'Database schema error encountered while fetching trends.' });
+                 return; // Explicit return
             }
             next(err); // Pass other errors to the global handler
         }

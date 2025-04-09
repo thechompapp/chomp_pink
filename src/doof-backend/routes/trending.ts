@@ -2,12 +2,12 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { getTrendingRestaurants, getTrendingDishes, getTrendingLists } from '../models/trending.js';
 import optionalAuthMiddleware from '../middleware/optionalAuth.js';
+// Import AuthenticatedRequest type instead of redefining
+import type { AuthenticatedRequest } from '../middleware/auth.js';
 
 const router = express.Router();
 
-interface AuthenticatedRequest extends Request {
-    user?: { id: number };
-}
+// Removed local AuthenticatedRequest interface definition
 
 router.get('/restaurants', async (req: Request, res: Response, next: NextFunction) => {
     const limit = parseInt(String(req.query.limit), 10) || 10;
@@ -32,7 +32,7 @@ router.get('/dishes', async (req: Request, res: Response, next: NextFunction) =>
 });
 
 router.get('/lists', optionalAuthMiddleware, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    const userId = req.user?.id;
+    const userId = req.user?.id; // Uses optional chaining correctly
     const limit = parseInt(String(req.query.limit), 10) || 10;
     console.log(`[TRENDING GET /lists] User ID: ${userId || 'Guest'}`);
 

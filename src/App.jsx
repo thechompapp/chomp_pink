@@ -1,151 +1,161 @@
 /* src/App.jsx */
 import React, { Suspense, lazy, useEffect, useRef, useMemo, useCallback } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-// Context and Layouts - Use aliases
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QuickAddProvider } from '@/context/QuickAddContext';
-import PageContainer from '@/layouts/PageContainer.jsx'; // Assuming .jsx is needed
-import QuickAddPopup from '@/components/QuickAddPopup.jsx'; // Assuming .jsx is needed
-import ErrorBoundary from '@/components/ErrorBoundary.jsx'; // Assuming .jsx is needed
-import LoadingSpinner from '@/components/UI/LoadingSpinner.jsx'; // Assuming .jsx is needed
-// Stores - Use aliases
+import PageContainer from '@/layouts/PageContainer.jsx';
+import QuickAddPopup from '@/components/QuickAddPopup.jsx';
+import ErrorBoundary from '@/components/ErrorBoundary.jsx';
+import LoadingSpinner from '@/components/UI/LoadingSpinner.jsx';
 import useAuthStore from '@/stores/useAuthStore';
-import useUIStateStore from '@/stores/useUIStateStore';
+import { useShallow } from 'zustand/react/shallow'; // Import shallow selector helper
+import { useUIStateStore } from '@/stores/useUIStateStore';
 import useUserListStore from '@/stores/useUserListStore';
-// Components - Use aliases
-import ProtectedRoute from '@/components/ProtectedRoute.jsx'; // Assuming .jsx is needed
+import ProtectedRoute from '@/components/ProtectedRoute.jsx';
 
-// Lazy load pages using aliases
-const FloatingQuickAdd = lazy(() => import('@/components/FloatingQuickAdd.jsx')); // Assuming .jsx
-const Home = lazy(() => import('@/pages/Home/index.jsx')); // Assuming .jsx
-const Trending = lazy(() => import('@/pages/Trending/index.jsx')); // Assuming .jsx
-const Dashboard = lazy(() => import('@/pages/Dashboard/index.jsx')); // Assuming .jsx
-const Lists = lazy(() => import('@/pages/Lists/index.jsx')); // Parent layout for lists Assuming .jsx
-const MyLists = lazy(() => import('@/pages/Lists/MyLists.jsx')); // Assuming .jsx
-const NewList = lazy(() => import('@/pages/Lists/NewList.jsx')); // Assuming .jsx
-const ListDetail = lazy(() => import('@/pages/Lists/ListDetail.jsx')); // Assuming .jsx
-const RestaurantDetail = lazy(() => import('@/pages/RestaurantDetail/index.jsx')); // Assuming .jsx
-const DishDetail = lazy(() => import('@/pages/DishDetail/index.jsx')); // Assuming .jsx
-const AdminPanel = lazy(() => import('@/pages/AdminPanel/index.jsx')); // Assuming .jsx
-const Login = lazy(() => import('@/pages/Login/index.jsx')); // Assuming .jsx
-const Register = lazy(() => import('@/pages/Register/index.jsx')); // Assuming .jsx
-const Profile = lazy(() => import('@/pages/Profile/index.jsx')); // Assuming .jsx
-const BulkAdd = lazy(() => import('@/pages/BulkAdd/index.jsx')); // Assuming .jsx
-const SearchResultsPage = lazy(() => import('@/pages/Search/index.jsx')); // Assuming .jsx
+// Lazy load pages (keep as is)
+const FloatingQuickAdd = lazy(() => import('@/components/FloatingQuickAdd.jsx'));
+const Home = lazy(() => import('@/pages/Home/index.jsx'));
+const Trending = lazy(() => import('@/pages/Trending/index.jsx'));
+const Dashboard = lazy(() => import('@/pages/Dashboard/index.jsx'));
+const Lists = lazy(() => import('@/pages/Lists/index.jsx'));
+const MyLists = lazy(() => import('@/pages/Lists/MyLists.jsx'));
+const NewList = lazy(() => import('@/pages/Lists/NewList.jsx'));
+const ListDetail = lazy(() => import('@/pages/Lists/ListDetail.jsx'));
+const RestaurantDetail = lazy(() => import('@/pages/RestaurantDetail/index.jsx'));
+const DishDetail = lazy(() => import('@/pages/DishDetail/index.jsx'));
+const AdminPanel = lazy(() => import('@/pages/AdminPanel/index.jsx'));
+const Login = lazy(() => import('@/pages/Login/index.jsx'));
+const Register = lazy(() => import('@/pages/Register/index.jsx'));
+const Profile = lazy(() => import('@/pages/Profile/index.jsx'));
+const BulkAdd = lazy(() => import('@/pages/BulkAdd/index.jsx'));
+const SearchResultsPage = lazy(() => import('@/pages/Search/index.jsx'));
 
-// Fallback component for Suspense
 const SuspenseFallback = () => (
   <div className="flex justify-center items-center h-[calc(100vh-150px)]">
     <LoadingSpinner message="Loading page..." />
   </div>
 );
 
-const App = () => {
-  // --- Select state and actions from stores ---
-  const checkAuth = useAuthStore(state => state.checkAuthStatus);
-  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
-  const isSuperuser = useAuthStore(state => state.isSuperuser); // Use selector method
+// Separate component to handle initial data fetching logic
+const AppInitializer = () => {
+  // Select only necessary functions, which are stable
+  const checkAuthStatus = useAuthStore(state => state.checkAuthStatus);
   const fetchCuisines = useUIStateStore(state => state.fetchCuisines);
   const fetchCities = useUIStateStore(state => state.fetchCities);
-  const userLists = useUserListStore(state => state.userLists);
-  const addToList = useUserListStore(state => state.addToList); // Get action for QuickAddProvider
-  const uiError = useUIStateStore(state => state.errorCities || state.errorCuisines); // Combine potential UI fetch errors
 
-  // Refs to prevent multiple initial fetches
   const hasFetchedInitialCommon = useRef(false);
-  const fetchErrorRef = useRef(null); // Store potential critical fetch errors
+  const fetchErrorRef = useRef(null);
 
-  // --- Initial Data Fetching Effect ---
   useEffect(() => {
-    // Check auth status on mount
-    checkAuth();
-
-    // Fetch common data only once
+    checkAuthStatus(); // Check auth on mount
     if (!hasFetchedInitialCommon.current) {
-      hasFetchedInitialCommon.current = true; // Set flag immediately
+      hasFetchedInitialCommon.current = true;
+      // Fetch initial data
       Promise.all([
         fetchCities().catch((err) => {
-          console.error('[App] fetchCities failed:', err);
+          console.error('[AppInitializer] fetchCities failed:', err);
           if (!fetchErrorRef.current) fetchErrorRef.current = err.message || 'Failed to load cities';
-          return []; // Return empty on error
         }),
         fetchCuisines().catch((err) => {
-          console.error('[App] fetchCuisines failed:', err);
+          console.error('[AppInitializer] fetchCuisines failed:', err);
           if (!fetchErrorRef.current) fetchErrorRef.current = err.message || 'Failed to load cuisines';
-          return []; // Return empty on error
         }),
       ]).then(() => {
-         console.log("[App] Initial city/cuisine fetch attempt complete.");
+        console.log('[AppInitializer] Initial city/cuisine fetch attempt complete.');
       });
     }
-    // Dependencies: Only run checkAuth on mount, and fetch logic once.
-    // fetchCities/fetchCuisines are stable references from Zustand.
-  }, [checkAuth, fetchCities, fetchCuisines]);
+    // Only run once on mount
+  }, [checkAuthStatus, fetchCities, fetchCuisines]);
 
-  // Memoize values passed to context to prevent unnecessary re-renders
-  const memoizedUserLists = useMemo(() => userLists, [userLists]);
-  const memoizedAddToList = useCallback(addToList, [addToList]); // addToList action is stable
+  // This component doesn't render UI directly, just runs effects
+  // Return the potential error message stored in the ref
+  return fetchErrorRef.current;
+};
+
+
+const App = () => {
+  // Use stable selectors or shallow comparison for objects/arrays
+  // Select only the needed values or use shallow compare
+  const { userLists, addToList } = useUserListStore(
+    useShallow(state => ({ userLists: state.userLists, addToList: state.addToList }))
+  );
+  const { isAuthenticated, isSuperuser } = useAuthStore(
+    useShallow(state => ({ isAuthenticated: state.isAuthenticated, isSuperuser: state.isSuperuser }))
+  );
+  // Get error states separately if needed, they are likely less frequent changes
+  const errorCities = useUIStateStore(state => state.errorCities);
+  const errorCuisines = useUIStateStore(state => state.errorCuisines);
+
+  // Run initializer effects
+  const fetchError = AppInitializer();
+  // Combine potential errors
+  const uiError = fetchError || errorCities || errorCuisines;
+
+  // Memoize provider value if necessary, but individual props are likely stable enough
+  const providerValue = useMemo(() => ({
+      userLists: userLists,
+      addToList: addToList,
+      fetchError: uiError
+  }), [userLists, addToList, uiError]);
 
   return (
-    <QuickAddProvider userLists={memoizedUserLists} addToList={memoizedAddToList} fetchError={fetchErrorRef.current || uiError}>
+    // Pass stable or memoized value to provider
+    <QuickAddProvider {...providerValue}>
       <BrowserRouter>
-        <QuickAddPopup /> {/* Render popup outside of PageContainer */}
+        <QuickAddPopup /> {/* Render Popup globally */}
         <Suspense fallback={<SuspenseFallback />}>
           <Routes>
-            {/* Public routes without Navbar */}
+            {/* Public routes without layout */}
             <Route path="/login" element={<ErrorBoundary><Login /></ErrorBoundary>} />
             <Route path="/register" element={<ErrorBoundary><Register /></ErrorBoundary>} />
 
-            {/* Routes with Navbar and standard page layout */}
+            {/* Routes with PageContainer layout */}
             <Route element={<PageContainer />}>
-              {/* Publicly accessible pages */}
+              {/* Public routes */}
               <Route path="/" element={<ErrorBoundary><Home /></ErrorBoundary>} />
               <Route path="/trending" element={<ErrorBoundary><Trending /></ErrorBoundary>} />
               <Route path="/restaurant/:id" element={<ErrorBoundary><RestaurantDetail /></ErrorBoundary>} />
               <Route path="/dish/:id" element={<ErrorBoundary><DishDetail /></ErrorBoundary>} />
               <Route path="/search" element={<ErrorBoundary><SearchResultsPage /></ErrorBoundary>} />
+              <Route path="/lists/:id" element={<ErrorBoundary><ListDetail /></ErrorBoundary>} />
 
-              {/* Protected routes requiring authentication */}
+              {/* Protected routes */}
               <Route element={<ProtectedRoute />}>
-                 {/* Dashboard - Now correctly fetched in its own component */}
-                 <Route path="/dashboard" element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
-
-                {/* Nested List Routes */}
+                <Route path="/dashboard" element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
                 <Route path="/lists" element={<ErrorBoundary><Lists /></ErrorBoundary>}>
-                  {/* Default view for /lists - shows MyLists */}
                   <Route index element={<ErrorBoundary><MyLists /></ErrorBoundary>} />
-                  {/* Route for creating a new list */}
                   <Route path="new" element={<ErrorBoundary><NewList /></ErrorBoundary>} />
-                  {/* Route for viewing a specific list */}
-                  <Route path=":id" element={<ErrorBoundary><ListDetail /></ErrorBoundary>} />
+                  {/* Detail route is public now */}
                 </Route>
+                <Route
+                  path="/admin"
+                  element={
+                    isSuperuser() ? (
+                      <ErrorBoundary><AdminPanel /></ErrorBoundary>
+                    ) : (
+                      <Navigate to="/" replace />
+                    )
+                  }
+                />
+                <Route path="/profile" element={<ErrorBoundary><Profile /></ErrorBoundary>} />
+                <Route
+                  path="/bulk-add"
+                  element={
+                    isSuperuser() ? (
+                      <ErrorBoundary><BulkAdd /></ErrorBoundary>
+                    ) : (
+                      <Navigate to="/" replace />
+                    )
+                  }
+                />
+              </Route>
 
-                {/* Admin Panel (Requires Superuser) */}
-                {/* Check superuser status dynamically */}
-                <Route path="/admin" element={
-                  isSuperuser()
-                    ? <ErrorBoundary><AdminPanel /></ErrorBoundary>
-                    : <Navigate to="/" replace /> // Redirect if not superuser
-                } />
-
-                 {/* Profile Page */}
-                 <Route path="/profile" element={<ErrorBoundary><Profile /></ErrorBoundary>} />
-
-                {/* Bulk Add (Requires Superuser) */}
-                {/* Check superuser status dynamically */}
-                 <Route path="/bulk-add" element={
-                   isSuperuser()
-                     ? <ErrorBoundary><BulkAdd /></ErrorBoundary>
-                     : <Navigate to="/" replace /> // Redirect if not superuser
-                 } />
-              </Route> {/* End ProtectedRoute */}
-
-              {/* Fallback for unmatched routes within PageContainer */}
+              {/* Catch-all route */}
               <Route path="*" element={<Navigate to="/" replace />} />
-            </Route> {/* End PageContainer */}
-
+            </Route>
           </Routes>
 
-          {/* Floating Action Button (only if authenticated) */}
+          {/* Floating Quick Add button visible only when logged in */}
           {isAuthenticated && (
             <Suspense fallback={<div className="fixed bottom-6 right-6 z-50"><LoadingSpinner size="sm" /></div>}>
               <FloatingQuickAdd />
@@ -157,4 +167,4 @@ const App = () => {
   );
 };
 
-export default React.memo(App); // Memoize App if its props rarely change
+export default React.memo(App);

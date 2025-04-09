@@ -1,12 +1,15 @@
 /* src/doof-backend/routes/admin.ts */
 import express, { Request, Response, NextFunction } from 'express';
-import { param, query, body, validationResult } from 'express-validator';
-import * as AdminModel from '../models/adminModel.js'; // Added .js
-import * as SubmissionModel from '../models/submissionModel.js'; // Added .js
-import db from '../db/index.js'; // Added .js
-import authMiddleware from '../middleware/auth.js'; // Added .js
-import requireSuperuser from '../middleware/requireSuperuser.js'; // Added .js
-import type { AuthenticatedRequest } from '../middleware/auth.js'; // Import type
+import { param, query, body, validationResult, ValidationChain } from 'express-validator'; // Added ValidationChain
+import * as AdminModel from '../models/adminModel.js'; // Keep .js
+import * as SubmissionModel from '../models/submissionModel.js'; // Keep .js
+import db from '../db/index.js'; // Keep .js
+import authMiddleware from '../middleware/auth.js'; // Keep .js
+import requireSuperuser from '../middleware/requireSuperuser.js'; // Keep .js
+// FIX: Changed type import to use .js extension for consistency
+import type { AuthenticatedRequest } from '../middleware/auth.js';
+// Removed unused queryClient import
+// import { queryClient } from '@/queryClient';
 
 const router = express.Router();
 
@@ -25,12 +28,13 @@ const typeToTable: Record<string, string> = {
 };
 
 // Validation error handler
-const handleValidationErrors = (req: Request, res: Response, next: NextFunction) => {
+const handleValidationErrors = (req: Request, res: Response, next: NextFunction): void => { // Added void return type
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         console.warn(`[Admin Route Validation Error] Path: ${req.path}`, errors.array());
         // Return only the first error message for simplicity
-        return res.status(400).json({ error: errors.array()[0].msg });
+         res.status(400).json({ error: errors.array()[0].msg }); // Removed return keyword
+         return; // Explicit return to stop execution
     }
     next();
 };
@@ -44,13 +48,15 @@ interface AdminRequest extends AuthenticatedRequest {
 const attachResourceInfo = (req: AdminRequest, res: Response, next: NextFunction) => {
     const typeParam = req.params.type;
     if (!ALLOWED_TYPES.includes(typeParam)) {
-        return res.status(400).json({ error: 'Invalid resource type specified.' });
+        res.status(400).json({ error: 'Invalid resource type specified.' });
+         return; // Explicit return
     }
     req.resourceType = typeParam;
     req.tableName = typeToTable[typeParam];
     if (!req.tableName) {
         // This case should theoretically not happen if ALLOWED_TYPES and typeToTable are synced
-        return res.status(500).json({ error: 'Internal server error: Invalid resource type mapping.' });
+         res.status(500).json({ error: 'Internal server error: Invalid resource type mapping.' });
+         return; // Explicit return
     }
     next();
 };
@@ -64,7 +70,7 @@ router.use(requireSuperuser); // Apply superuser check to all admin routes
 const validateTypeParam = param('type').isIn(ALLOWED_TYPES).withMessage('Invalid resource type specified');
 const validateIdParam = param('id').isInt({ gt: 0 }).withMessage('ID must be a positive integer').toInt();
 const validateSortQuery = query('sort').optional().isString().matches(/^[a-zA-Z0-9_.]+_(asc|desc)$/i).withMessage('Invalid sort format (column_direction)');
-const validateGetListQuery = [
+const validateGetListQuery: ValidationChain[] = [ // Added type
     query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer').toInt(),
     query('limit').optional().isInt({ min: 1, max: 200 }).withMessage('Limit must be between 1 and 200').toInt(),
     query('search').optional().isString().trim().escape().isLength({ max: 100 }).withMessage('Search term too long or invalid characters'),
@@ -73,7 +79,7 @@ const validateGetListQuery = [
     query('list_type').optional().isIn(['mixed', 'restaurant', 'dish']).withMessage('Invalid list type filter'),
     query('hashtag_category').optional().isString().trim().escape().isLength({ max: 50 }).withMessage('Invalid hashtag category'),
 ];
-const validateBulkAdd = [
+const validateBulkAdd: ValidationChain[] = [ // Added type
     body('items').isArray({ min: 1 }).withMessage('Items must be a non-empty array'),
     body('items.*.type').isIn(['restaurant', 'dish']).withMessage('Invalid item type in bulk add'),
     body('items.*.name').trim().notEmpty().withMessage('Item name is required').isLength({ max: 255 }).escape(),
@@ -165,7 +171,7 @@ router.get(
 
             // Basic validation for search field name
              if (/^[a-z0-9_.]+$/.test(searchField)) {
-                 whereConditions.push(`${tableName}.${searchField} ILIKE $${paramIndex++}`);
+                 whereConditions.push(`${tableName}.${searchField} ILIKE $${paramIndex++}`); // Fixed template literal
                  queryParams.push(`%${search}%`);
              }
         }
@@ -189,7 +195,8 @@ router.get(
 
         // Combine query parts
         const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
-        const orderByClause = `ORDER BY "${sortColumn}" ${sortDirection} NULLS LAST`; // Use validated sort params
+        // Ensure sort column is quoted to handle potential reserved words or cases
+        const orderByClause = `ORDER BY "${sortColumn}" ${sortDirection} NULLS LAST`;
         const limitOffsetClause = `LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
 
         const dataQuery = `SELECT ${selectFields} FROM ${tableName} ${joins} ${whereClause} ${orderByClause} ${limitOffsetClause}`;
@@ -231,22 +238,30 @@ router.post(
     validateIdParam, // Validate ID
     handleValidationErrors,
     async (req: AdminRequest, res: Response, next: NextFunction) => {
-        const submissionId = req.params.id; // ID is already parsed by validation
+        const submissionId = req.params.id as unknown as number; // ID is already parsed by validation
         try {
             const reviewerId = req.user?.id; // Get superuser ID from authenticated request
-            if (!reviewerId) return res.status(401).json({ error: 'User details not found in request.' });
+            if (!reviewerId) {
+                res.status(401).json({ error: 'User details not found in request.' });
+                return; // Explicit return
+            }
 
             const updatedSubmission = await SubmissionModel.updateSubmissionStatus(submissionId, 'approved', reviewerId);
 
             if (!updatedSubmission) {
                 // Check if submission exists but wasn't pending
                 const currentSub = await SubmissionModel.findSubmissionById(submissionId);
-                if (currentSub) return res.status(409).json({ error: `Submission ${submissionId} already processed (status: ${currentSub.status}).` });
-                else return res.status(404).json({ error: 'Submission not found.' });
+                if (currentSub) {
+                     res.status(409).json({ error: `Submission ${submissionId} already processed (status: ${currentSub.status}).` });
+                } else {
+                     res.status(404).json({ error: 'Submission not found.' });
+                }
+                return; // Explicit return
             }
 
             console.log(`[Admin Action] Submission ${submissionId} approved by user ${reviewerId}.`);
             // Optionally trigger cache invalidation here if needed
+            // queryClient.invalidateQueries({ queryKey: ['adminData', { tab: 'submissions' }] });
             res.json({ data: updatedSubmission }); // Return updated submission
         } catch (err) {
             console.error(`[Admin Approve /submissions/${submissionId}] Error:`, err);
@@ -261,21 +276,29 @@ router.post(
     validateIdParam, // Validate ID
     handleValidationErrors,
     async (req: AdminRequest, res: Response, next: NextFunction) => {
-        const submissionId = req.params.id;
+        const submissionId = req.params.id as unknown as number;
         try {
             const reviewerId = req.user?.id;
-            if (!reviewerId) return res.status(401).json({ error: 'User details not found in request.' });
+            if (!reviewerId) {
+                res.status(401).json({ error: 'User details not found in request.' });
+                return; // Explicit return
+            }
 
             const updatedSubmission = await SubmissionModel.updateSubmissionStatus(submissionId, 'rejected', reviewerId);
 
             if (!updatedSubmission) {
                  // Check if submission exists but wasn't pending
                  const currentSub = await SubmissionModel.findSubmissionById(submissionId);
-                 if (currentSub) return res.status(409).json({ error: `Submission ${submissionId} already processed (status: ${currentSub.status}).` });
-                 else return res.status(404).json({ error: 'Submission not found.' });
+                 if (currentSub) {
+                     res.status(409).json({ error: `Submission ${submissionId} already processed (status: ${currentSub.status}).` });
+                 } else {
+                     res.status(404).json({ error: 'Submission not found.' });
+                 }
+                 return; // Explicit return
             }
             console.log(`[Admin Action] Submission ${submissionId} rejected by user ${reviewerId}.`);
             // Optionally trigger cache invalidation here
+            // queryClient.invalidateQueries({ queryKey: ['adminData', { tab: 'submissions' }] });
             res.json({ data: updatedSubmission }); // Return updated submission
         } catch (err) {
              console.error(`[Admin Reject /submissions/${submissionId}] Error:`, err);
@@ -295,27 +318,32 @@ router.delete(
         const { type, id } = req.params;
         const tableName = req.tableName!;
         const resourceType = req.resourceType!;
+        const numericId = parseInt(id, 10); // Correctly parse ID here
 
         // Check if deletion is allowed for this type
         if (!ALLOWED_MUTATE_TYPES.includes(type)) {
-            return res.status(400).json({ error: `Deletion not allowed for resource type: ${type}.` });
+             res.status(400).json({ error: `Deletion not allowed for resource type: ${type}.` });
+             return; // Explicit return
         }
 
         try {
-            const deleted = await AdminModel.deleteResourceById(tableName, id); // Use the model function
+            const deleted = await AdminModel.deleteResourceById(tableName, numericId); // Pass number
             if (!deleted) {
-                return res.status(404).json({ error: `${resourceType.slice(0, -1)} not found.` });
+                 res.status(404).json({ error: `${resourceType.slice(0, -1)} not found.` });
+                 return; // Explicit return
             }
-            console.log(`[Admin DELETE /${type}/${id}] Deletion successful. User: ${req.user?.id}`);
+            console.log(`[Admin DELETE /${type}/${id}] Deletion successful. User: ${req.user?.id}`); // Fixed template literal
              // Optionally trigger cache invalidation
+             // queryClient.invalidateQueries({ queryKey: ['adminData', { tab: type }] });
             res.status(204).send(); // No content on successful deletion
         } catch (err: unknown) {
             // Check for foreign key constraint violation (PostgreSQL code '23503')
             if (err instanceof Error && (err as any).code === '23503') {
-                console.warn(`[Admin DELETE /${type}/${id}] Foreign key violation.`);
-                return res.status(409).json({ error: `Cannot delete ${type.slice(0, -1)}: It is referenced by other items.` });
+                console.warn(`[Admin DELETE /${type}/${id}] Foreign key violation.`); // Fixed template literal
+                res.status(409).json({ error: `Cannot delete ${type.slice(0, -1)}: It is referenced by other items.` });
+                 return; // Explicit return
             }
-             console.error(`[Admin DELETE /${type}/${id}] Error:`, err);
+             console.error(`[Admin DELETE /${type}/${id}] Error:`, err); // Fixed template literal
             next(err); // Pass other errors to the global handler
         }
     }
@@ -343,13 +371,13 @@ router.post(
                 typesAdded.forEach(typeKey => {
                     if (ALLOWED_TYPES.includes(typeKey)) { // Ensure typeKey is valid
                         console.log(`[Admin Bulk Add] Invalidation recommended for adminData type: ${typeKey}`);
-                         queryClient.invalidateQueries({ queryKey: ['adminData', { tab: typeKey }] }); // Example invalidation
+                        // queryClient.invalidateQueries({ queryKey: ['adminData', { tab: typeKey }] }); // Example invalidation
                     }
                 });
                 console.log('[Admin Bulk Add] Invalidation recommended for trending/search');
-                 queryClient.invalidateQueries({ queryKey: ['trendingData'] });
-                 queryClient.invalidateQueries({ queryKey: ['trendingDataHome'] });
-                 queryClient.invalidateQueries({ queryKey: ['searchResults'] });
+                // queryClient.invalidateQueries({ queryKey: ['trendingData'] });
+                // queryClient.invalidateQueries({ queryKey: ['trendingDataHome'] });
+                // queryClient.invalidateQueries({ queryKey: ['searchResults'] });
             }
 
             res.status(200).json(results); // Send back detailed results

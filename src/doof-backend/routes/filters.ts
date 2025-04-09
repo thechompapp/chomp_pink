@@ -1,7 +1,6 @@
-/* src/doof-backend/routes/filters.ts */
 import express, { Request, Response, NextFunction } from 'express';
 import { query as queryValidator, validationResult, ValidationChain } from 'express-validator';
-import * as FilterModel from '../models/filterModel.js'; // Added .js
+import * as FilterModel from '../models/filterModel.js';
 
 const router = express.Router();
 
@@ -10,7 +9,8 @@ const handleValidationErrors = (req: Request, res: Response, next: NextFunction)
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         console.warn(`[Filters Route Validation Error] Path: ${req.path}`, errors.array());
-        return res.status(400).json({ error: errors.array()[0].msg });
+        res.status(400).json({ error: errors.array()[0].msg });
+        return;
     }
     next();
 };
