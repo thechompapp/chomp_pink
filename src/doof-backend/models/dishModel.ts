@@ -23,7 +23,7 @@ interface RawDishRow extends QueryResultRow { // Extend QueryResultRow
     id: number | string;
     name: string;
     adds?: number | string | null;
-    created_at: string | Date; // Allow both string and Date types
+    created_at: string | Date; // Could be either string or Date
     restaurant_id: number | string;
     restaurant_name?: string | null;
     city_name?: string | null;
@@ -46,7 +46,7 @@ export const formatDishForResponse = (dishRow: RawDishRow | undefined): Dish | n
             id: parseInt(String(dishRow.id), 10),
             name: dishRow.name || 'Unnamed Dish',
             adds: dishRow.adds != null ? parseInt(String(dishRow.adds), 10) : 0,
-            created_at: typeof dishRow.created_at === 'string' ? dishRow.created_at : (dishRow.created_at instanceof Date ? dishRow.created_at.toISOString() : ''), // Ensure string
+            created_at: typeof dishRow.created_at === 'string' ? dishRow.created_at : (dishRow.created_at as Date)?.toISOString() ?? '', // Ensure string
             restaurant_id: parseInt(String(dishRow.restaurant_id), 10), // Should always exist
             restaurant_name: dishRow.restaurant_name || undefined,
             city_name: dishRow.city_name || undefined,
@@ -67,13 +67,14 @@ export const findDishById = async (id: number): Promise<Dish | null> => {
           console.warn(`[DishModel FindByID] Invalid ID: ${id}`);
           return null;
      }
+     // Use lowercase 'dishes' and 'restaurants', 'dishhashtags', 'hashtags'
      const query = `
         SELECT d.*, r.name as restaurant_name, r.city_name, r.neighborhood_name,
                COALESCE(array_agg(DISTINCT h.name) FILTER (WHERE h.name IS NOT NULL), '{}'::text[]) as tags
-        FROM Dishes d
-        JOIN Restaurants r ON d.restaurant_id = r.id
-        LEFT JOIN DishHashtags dh ON d.id = dh.dish_id
-        LEFT JOIN Hashtags h ON dh.hashtag_id = h.id
+        FROM dishes d
+        JOIN restaurants r ON d.restaurant_id = r.id
+        LEFT JOIN dishhashtags dh ON d.id = dh.dish_id
+        LEFT JOIN hashtags h ON dh.hashtag_id = h.id
         WHERE d.id = $1
         GROUP BY d.id, r.name, r.city_name, r.neighborhood_name;
      `;
@@ -88,14 +89,14 @@ export const findDishById = async (id: number): Promise<Dish | null> => {
 
 export const findDishesByName = async (name: string, limit: number = 20, offset: number = 0): Promise<Dish[]> => {
      const searchPattern = `%${name}%`;
-     // Assuming a query that joins restaurant info and aggregates tags
+     // Use lowercase 'dishes', 'restaurants', 'dishhashtags', 'hashtags'
      const query = `
          SELECT d.*, r.name as restaurant_name, r.city_name, r.neighborhood_name,
                 COALESCE(array_agg(DISTINCT h.name) FILTER (WHERE h.name IS NOT NULL), '{}'::text[]) as tags
-         FROM Dishes d
-         JOIN Restaurants r ON d.restaurant_id = r.id
-         LEFT JOIN DishHashtags dh ON d.id = dh.dish_id
-         LEFT JOIN Hashtags h ON dh.hashtag_id = h.id
+         FROM dishes d
+         JOIN restaurants r ON d.restaurant_id = r.id
+         LEFT JOIN dishhashtags dh ON d.id = dh.dish_id
+         LEFT JOIN hashtags h ON dh.hashtag_id = h.id
          WHERE d.name ILIKE $1
          GROUP BY d.id, r.name, r.city_name, r.neighborhood_name
          ORDER BY d.adds DESC NULLS LAST, d.name ASC
@@ -115,8 +116,9 @@ export const createDish = async (dishData: { name: string; restaurant_id: number
       if (!dishData.name || typeof dishData.restaurant_id !== 'number') {
           throw new Error('Invalid data: Name and numeric restaurant_id required.');
       }
+      // Use lowercase 'dishes'
       const query = `
-         INSERT INTO Dishes (name, restaurant_id, adds, created_at, updated_at)
+         INSERT INTO dishes (name, restaurant_id, adds, created_at, updated_at)
          VALUES ($1, $2, 0, NOW(), NOW())
          ON CONFLICT (name, restaurant_id) DO NOTHING
          RETURNING id;
@@ -124,11 +126,7 @@ export const createDish = async (dishData: { name: string; restaurant_id: number
       try {
          const result = await db.query<{ id: number | string }>(query, [dishData.name, dishData.restaurant_id]);
          if (result.rows.length === 0) {
-             // Handle conflict or failure
              console.warn(`[DishModel Create] Dish "${dishData.name}" likely already exists for restaurant ${dishData.restaurant_id}.`);
-             // Optionally fetch the existing dish
-             // const existing = await findDishByNameAndRestaurant(dishData.name, dishData.restaurant_id);
-             // return existing;
              return null; // Or throw specific conflict error
          }
          // Fetch the newly created dish with all details
@@ -158,8 +156,6 @@ export const updateDish = async (id: number, dishData: Partial<Pick<Dish, 'name'
         fields.push(`name = $${paramIndex++}`);
         values.push(dishData.name.trim());
     }
-    // We decided 'adds' shouldn't be updated via generic PUT in admin routes
-    // if (dishData.adds !== undefined) { ... }
 
     if (dishData.restaurant_id !== undefined) {
          if (typeof dishData.restaurant_id !== 'number' || isNaN(dishData.restaurant_id) || dishData.restaurant_id <= 0) {
@@ -169,7 +165,6 @@ export const updateDish = async (id: number, dishData: Partial<Pick<Dish, 'name'
         values.push(dishData.restaurant_id);
     }
     // Note: Tags are not updated directly on the Dishes table in this schema.
-    // Tag updates would require separate operations on the DishHashtags table.
 
     if (fields.length === 0) { // No valid fields provided
         console.warn(`[DishModel Update] No fields to update for dish ID ${id}.`);
@@ -178,11 +173,11 @@ export const updateDish = async (id: number, dishData: Partial<Pick<Dish, 'name'
 
     fields.push(`updated_at = NOW()`); // Always update timestamp
 
-    // Construct the query string
-    const query = `UPDATE "Dishes" SET ${fields.join(', ')} WHERE id = $${paramIndex} RETURNING id;`;
+    // Construct the query string - Use lowercase 'dishes'
+    const query = `UPDATE dishes SET ${fields.join(', ')} WHERE id = $${paramIndex} RETURNING id;`;
     values.push(id); // Add the ID for the WHERE clause
 
-    // --- ADDED LOGGING ---
+    // --- Logging ---
     console.log(`[DishModel Update] Executing Query for Dish ID ${id}:`);
     console.log(`   SQL: ${query}`);
     console.log(`   Values: ${JSON.stringify(values)}`);
@@ -223,7 +218,8 @@ export const deleteDish = async (id: number): Promise<boolean> => {
           console.warn(`[DishModel Delete] Invalid ID: ${id}`);
           return false;
      }
-     const query = 'DELETE FROM Dishes WHERE id = $1 RETURNING id';
+     // Use lowercase 'dishes'
+     const query = 'DELETE FROM dishes WHERE id = $1 RETURNING id';
      try {
          const result = await db.query(query, [id]);
          console.log(`[DishModel Delete] Result for dish ID ${id}:`, result.rowCount);
