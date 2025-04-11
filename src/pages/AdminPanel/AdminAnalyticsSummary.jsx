@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/services/apiClient';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
 import ErrorMessage from '@/components/UI/ErrorMessage';
-import Button from '@/components/Button';
+import Button from '@/components/UI/Button';
 import { BarChart, Store, Utensils, List, Users, Loader2, CheckCircle, XCircle, FileText, PieChart, CheckSquare } from 'lucide-react';
 
 // Fetcher functions remain specific to this summary view

@@ -5,7 +5,7 @@ import apiClient from '@/services/apiClient';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
 import ErrorMessage from '@/components/UI/ErrorMessage';
 import TrendChart from '@/components/UI/TrendChart';
-import Button from '@/components/Button';
+import Button from '@/components/UI/Button';
 import { Activity, BarChart2, Filter, MapPin, Tag, Hash } from 'lucide-react'; // Added icons
 
 // --- Fetcher Functions ---

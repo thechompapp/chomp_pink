@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/services/apiClient';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
 import ErrorMessage from '@/components/UI/ErrorMessage';
-import Button from '@/components/Button';
+import Button from '@/components/UI/Button';
 import {
   AreaChart, // Changed from LineChart
   Area,      // Changed from Line

@@ -2,13 +2,23 @@
 import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { Plus, Utensils, Store, List, X, Loader2, Send } from 'lucide-react';
 import { useQuickAdd } from '@/context/QuickAddContext';
-import Button from '@/components/Button.jsx';
+import Button from '@/components/UI/Button.jsx'; // Corrected path
+import Modal from '@/components/UI/Modal.jsx'; // Corrected path
 import useSubmissionStore from '@/stores/useSubmissionStore';
 import { useUIStateStore } from '@/stores/useUIStateStore';
 import { useShallow } from 'zustand/react/shallow';
-import useFormHandler from '@/hooks/useFormHandler';
-import { placeService } from '@/services/placeService';
+import useFormHandler from '@/hooks/useFormHandler.ts'; // Use .ts extension
+import { placeService } from '@/services/placeService.ts'; // Use .ts extension
 import { GOOGLE_PLACES_API_KEY } from '@/config';
+
+// Debounce function
+const debounce = (func, wait) => {
+    let timeout;
+    return (...args) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func(...args), wait);
+    };
+};
 
 const FloatingQuickAddComponent = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -44,6 +54,7 @@ const FloatingQuickAddComponent = () => {
 
     const hasGooglePlacesKey = !!GOOGLE_PLACES_API_KEY;
 
+    // --- State Resets ---
     const resetLocalFormState = useCallback(() => {
         setFormState({ formType: null, tagInput: '', selectedTags: [], restaurantSuggestions: [], placeDetails: null });
         setShowTagSuggestionsUI(false);
@@ -53,33 +64,35 @@ const FloatingQuickAddComponent = () => {
 
     const resetAllState = useCallback(() => {
         resetLocalFormState();
-        resetForm();
+        resetForm({ newItemName: '', restaurantInput: '' });
         setSubmitError(null);
     }, [resetForm, setSubmitError, resetLocalFormState]);
 
+    // --- Place Suggestions ---
     const fetchPlaceSuggestions = useCallback(
         async (input) => {
             if (!hasGooglePlacesKey) {
-                setSubmitError('Google Places API key is missing; restaurant suggestions are unavailable.');
                 setFormState((prev) => ({ ...prev, restaurantSuggestions: [] }));
                 setShowRestaurantSuggestionsUI(false);
                 return;
             }
-            if (!input || input.trim().length < 2) {
+            const trimmedInput = input?.trim();
+            if (!trimmedInput || trimmedInput.length < 2) {
                 setFormState((prev) => ({ ...prev, restaurantSuggestions: [] }));
                 setShowRestaurantSuggestionsUI(false);
                 return;
             }
             setIsFetchingPlaceSuggestions(true);
             try {
-                const predictions = await placeService.getAutocompleteSuggestions(input);
-                setFormState((prev) => ({
-                    ...prev,
-                    restaurantSuggestions: (Array.isArray(predictions) ? predictions : [])
-                        .map((p) => ({ name: p?.description, placeId: p?.place_id }))
-                        .filter((p) => p.name && p.placeId),
-                }));
-                setShowRestaurantSuggestionsUI(predictions && predictions.length > 0);
+                const predictions = await placeService.getAutocompleteSuggestions(trimmedInput);
+                // --- Corrected Filter Line (Removed TypeScript Type Predicate) ---
+                const validPredictions = (Array.isArray(predictions) ? predictions : [])
+                    .map((p) => ({ name: p?.description, placeId: p?.place_id }))
+                    .filter(p => !!p.name && !!p.placeId); // Use simple boolean check
+                // --- End Correction ---
+
+                setFormState((prev) => ({ ...prev, restaurantSuggestions: validPredictions }));
+                setShowRestaurantSuggestionsUI(validPredictions.length > 0);
             } catch (error) {
                 console.error('[FloatingQuickAdd] Error fetching place suggestions:', error);
                 setSubmitError('Failed to load restaurant suggestions.');
@@ -92,9 +105,10 @@ const FloatingQuickAddComponent = () => {
         [setSubmitError, hasGooglePlacesKey]
     );
 
+    // Debounce restaurant input changes
     useEffect(() => {
         if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-        if (formState.formType === 'dish' && formData.restaurantInput && formData.restaurantInput.trim().length >= 2) {
+        if (formState.formType === 'dish' || formState.formType === 'restaurant') {
             debounceTimerRef.current = setTimeout(() => fetchPlaceSuggestions(formData.restaurantInput), 350);
         } else {
             setFormState((prev) => ({ ...prev, restaurantSuggestions: [] }));
@@ -105,6 +119,7 @@ const FloatingQuickAddComponent = () => {
         };
     }, [formData.restaurantInput, formState.formType, fetchPlaceSuggestions]);
 
+    // --- Click Outside Handling ---
     useEffect(() => {
         const handleClickOutside = (event) => {
             const fabButton = document.getElementById('floating-quick-add-button');
@@ -118,19 +133,15 @@ const FloatingQuickAddComponent = () => {
             } else if (mainContainer && mainContainer.contains(event.target)) {
                 if (
                     showTagSuggestionsUI &&
-                    tagInputRef.current &&
-                    !tagInputRef.current.contains(event.target) &&
-                    tagSuggestionsRef.current &&
-                    !tagSuggestionsRef.current.contains(event.target)
+                    tagInputRef.current && !tagInputRef.current.contains(event.target) &&
+                    tagSuggestionsRef.current && !tagSuggestionsRef.current.contains(event.target)
                 ) {
                     setShowTagSuggestionsUI(false);
                 }
                 if (
                     showRestaurantSuggestionsUI &&
-                    restaurantInputRef.current &&
-                    !restaurantInputRef.current.contains(event.target) &&
-                    restaurantSuggestionsRef.current &&
-                    !restaurantSuggestionsRef.current.contains(event.target)
+                    restaurantInputRef.current && !restaurantInputRef.current.contains(event.target) &&
+                    restaurantSuggestionsRef.current && !restaurantSuggestionsRef.current.contains(event.target)
                 ) {
                     setShowRestaurantSuggestionsUI(false);
                 }
@@ -141,6 +152,7 @@ const FloatingQuickAddComponent = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [isMenuOpen, resetAllState, showTagSuggestionsUI, showRestaurantSuggestionsUI]);
 
+    // --- Button Actions ---
     const handleOpenMainButton = useCallback(() => {
         setIsMenuOpen((prev) => {
             const nextState = !prev;
@@ -167,6 +179,7 @@ const FloatingQuickAddComponent = () => {
         resetAllState();
     }, [openQuickAdd, resetAllState]);
 
+    // --- Tag Handling ---
     const handleAddTag = useCallback(() => {
         const newTag = formState.tagInput.trim().toLowerCase();
         if (!newTag) return;
@@ -177,8 +190,8 @@ const FloatingQuickAddComponent = () => {
             return;
         }
 
-        const isValidCuisine = cuisines.some((c) => c.name.toLowerCase() === newTag);
-        if (isValidCuisine) {
+        const isValidTag = cuisines.some((c) => c.name.toLowerCase() === newTag);
+        if (isValidTag) {
             setFormState((prev) => ({ ...prev, selectedTags: [...prev.selectedTags, newTag], tagInput: '' }));
             setShowTagSuggestionsUI(false);
             setSubmitError(null);
@@ -187,32 +200,27 @@ const FloatingQuickAddComponent = () => {
         }
     }, [formState.tagInput, formState.selectedTags, setSubmitError, cuisines]);
 
-    const handleTagInputKeyDown = useCallback(
-        (e) => {
-            if (e.key === 'Enter' || e.key === ',') {
-                e.preventDefault();
-                handleAddTag();
-            }
-        },
-        [handleAddTag]
-    );
+    const handleTagInputKeyDown = useCallback((e) => {
+        if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            handleAddTag();
+        }
+    }, [handleAddTag]);
 
     const handleRemoveTag = useCallback((tagToRemove) => {
         setFormState((prev) => ({ ...prev, selectedTags: prev.selectedTags.filter((tag) => tag !== tagToRemove) }));
     }, []);
 
-    const handleSelectTagSuggestion = useCallback(
-        (tag) => {
-            if (tag && !formState.selectedTags.includes(tag)) {
-                setFormState((prev) => ({ ...prev, selectedTags: [...prev.selectedTags, tag], tagInput: '' }));
-            } else {
-                setFormState((prev) => ({ ...prev, tagInput: '' }));
-            }
-            setShowTagSuggestionsUI(false);
-        },
-        [formState.selectedTags]
-    );
+    const handleSelectTagSuggestion = useCallback((tag) => {
+        if (tag && !formState.selectedTags.includes(tag)) {
+            setFormState((prev) => ({ ...prev, selectedTags: [...prev.selectedTags, tag], tagInput: '' }));
+        } else {
+            setFormState((prev) => ({ ...prev, tagInput: '' }));
+        }
+        setShowTagSuggestionsUI(false);
+    }, [formState.selectedTags]);
 
+    // --- Restaurant Selection ---
     const handleSelectRestaurantSuggestion = useCallback(
         async (suggestion) => {
             if (!suggestion || !suggestion.placeId) return;
@@ -255,6 +263,7 @@ const FloatingQuickAddComponent = () => {
         [setFormData, formState.formType, setSubmitError, formData.newItemName, hasGooglePlacesKey]
     );
 
+    // --- Input Change Handlers ---
     const handleRestaurantInputChange = useCallback((event) => {
         handleChange(event);
         if (formState.placeDetails) {
@@ -262,19 +271,27 @@ const FloatingQuickAddComponent = () => {
         }
     }, [handleChange, formState.placeDetails]);
 
-    const handleRestaurantInputFocus = useCallback(() => {
+    const handleHashtagInputChange = useCallback((e) => {
+        const value = e.target.value;
+        setFormState((prev) => ({ ...prev, tagInput: value }));
+        if (value.trim()) {
+            setShowTagSuggestionsUI(true);
+        } else {
+            setShowTagSuggestionsUI(false);
+        }
+    }, []);
+
+     const handleRestaurantInputFocus = useCallback(() => {
         if (formState.restaurantSuggestions.length > 0) {
             setShowRestaurantSuggestionsUI(true);
         }
-        if (formData.restaurantInput && formData.restaurantInput.trim().length >= 2) {
-            fetchPlaceSuggestions(formData.restaurantInput);
-        }
-    }, [formData.restaurantInput, formState.restaurantSuggestions, fetchPlaceSuggestions]);
+    }, [formState.restaurantSuggestions.length]);
 
+    // --- Submission Logic ---
     const performSubmit = useCallback(
         async (currentHookFormData) => {
             if (!currentHookFormData?.newItemName?.trim()) {
-                throw new Error('Please provide a name.');
+                throw new Error('Please provide a name for the item.');
             }
             if (formState.formType === 'dish' && !currentHookFormData?.restaurantInput?.trim()) {
                 throw new Error('Please provide the restaurant name for the dish.');
@@ -287,7 +304,9 @@ const FloatingQuickAddComponent = () => {
                 city: formState.placeDetails?.city ?? null,
                 neighborhood: formState.placeDetails?.neighborhood ?? null,
                 place_id: formState.placeDetails?.placeId ?? null,
-                restaurant_name: formState.formType === 'dish' && !formState.placeDetails?.placeId ? currentHookFormData.restaurantInput.trim() : null,
+                restaurant_name: (formState.formType === 'dish' && !formState.placeDetails?.placeId)
+                                 ? currentHookFormData.restaurantInput.trim()
+                                 : null,
                 tags: Array.isArray(formState.selectedTags) ? formState.selectedTags : [],
             };
 
@@ -300,32 +319,21 @@ const FloatingQuickAddComponent = () => {
         [formState.formType, formState.selectedTags, formState.placeDetails, addPendingSubmission, resetAllState]
     );
 
-    const handleFormSubmit = useCallback(
-        (e) => {
-            e.preventDefault();
-            handleSubmit(performSubmit);
-        },
-        [handleSubmit, performSubmit]
-    );
+    const handleFormSubmit = useCallback((e) => {
+        e.preventDefault();
+        handleSubmit(performSubmit);
+    }, [handleSubmit, performSubmit]);
 
+    // --- Derived State ---
     const filteredHashtags = useMemo(() => {
         const inputLower = formState.tagInput.trim().toLowerCase();
-        if (!inputLower || isLoadingCuisines) return [];
+        if (!inputLower || isLoadingCuisines || !Array.isArray(cuisines)) return [];
         return cuisines
             .filter((cuisine) => cuisine.name.toLowerCase().includes(inputLower) && !formState.selectedTags.includes(cuisine.name.toLowerCase()))
-            .map((cuisine) => cuisine.name.toLowerCase())
+            .map((cuisine) => cuisine.name)
             .slice(0, 5);
     }, [formState.tagInput, formState.selectedTags, cuisines, isLoadingCuisines]);
 
-    const handleHashtagInputChange = useCallback((e) => {
-        const value = e.target.value;
-        setFormState((prev) => ({ ...prev, tagInput: value }));
-        if (value.trim()) {
-            setShowTagSuggestionsUI(true);
-        } else {
-            setShowTagSuggestionsUI(false);
-        }
-    }, []);
 
     return (
         <>
@@ -459,10 +467,7 @@ const FloatingQuickAddComponent = () => {
                                                     <button
                                                         type="button"
                                                         className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
-                                                        onMouseDown={(e) => {
-                                                            e.preventDefault();
-                                                            handleSelectTagSuggestion(tag);
-                                                        }}
+                                                        onMouseDown={(e) => { e.preventDefault(); handleSelectTagSuggestion(tag); }}
                                                     >
                                                         #{tag}
                                                     </button>

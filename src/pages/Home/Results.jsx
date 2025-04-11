@@ -14,7 +14,7 @@ import RestaurantCardSkeleton from '@/components/UI/RestaurantCardSkeleton';
 import DishCardSkeleton from '@/components/UI/DishCardSkeleton';
 import ListCardSkeleton from '@/pages/Lists/ListCardSkeleton';
 import { useQuickAdd } from '@/context/QuickAddContext';
-import Button from '@/components/Button';
+import Button from '@/components/UI/Button';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
 import HeaderBillboard from '@/components/HeaderBillboard';
 import { useShallow } from 'zustand/react/shallow'; // Import useShallow if needed, or use individual selectors

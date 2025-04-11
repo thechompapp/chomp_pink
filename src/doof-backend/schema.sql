@@ -795,6 +795,14 @@ ALTER TABLE ONLY public.submissions
 
 
 --
+-- Name: restaurants uq_restaurant_name_city; Type: CONSTRAINT; Schema: public; Owner: doof_user
+--
+
+ALTER TABLE ONLY public.restaurants
+    ADD CONSTRAINT uq_restaurant_name_city UNIQUE (name, city_id);
+
+
+--
 -- Name: users users_email_key; Type: CONSTRAINT; Schema: public; Owner: doof_user
 --
 
@@ -889,6 +897,13 @@ CREATE INDEX idx_engagements_type_time ON public.engagements USING btree (engage
 
 
 --
+-- Name: idx_engagements_type_time_item; Type: INDEX; Schema: public; Owner: doof_user
+--
+
+CREATE INDEX idx_engagements_type_time_item ON public.engagements USING btree (item_type, engagement_timestamp DESC, item_id);
+
+
+--
 -- Name: idx_engagements_user; Type: INDEX; Schema: public; Owner: doof_user
 --
 
@@ -956,6 +971,13 @@ CREATE INDEX idx_lists_is_public_saved ON public.lists USING btree (is_public, s
 --
 
 CREATE INDEX idx_lists_list_type ON public.lists USING btree (list_type);
+
+
+--
+-- Name: idx_lists_public_saved_created; Type: INDEX; Schema: public; Owner: doof_user
+--
+
+CREATE INDEX idx_lists_public_saved_created ON public.lists USING btree (is_public, saved_count DESC NULLS LAST, created_at DESC);
 
 
 --

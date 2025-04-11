@@ -7,7 +7,8 @@ export interface City {
 export interface Neighborhood {
     id: number;
     name: string;
-    city_id?: number; // Optional if not always present
+    city_id: number; // Changed to required based on schema
+    city_name?: string; // *** ADDED: Optional city name for display ***
 }
 
 export interface Cuisine { // Essentially a Hashtag with category='cuisine'

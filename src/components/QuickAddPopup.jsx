@@ -5,7 +5,7 @@ import useAuthStore from '@/stores/useAuthStore';
 import { useUIStateStore } from '@/stores/useUIStateStore';
 import { useShallow } from 'zustand/react/shallow';
 import Modal from '@/components/UI/Modal';
-import Button from '@/components/Button';
+import Button from '@/components/UI/Button';
 import { Link } from 'react-router-dom';
 import { Loader2, CheckCircle, Info, X } from 'lucide-react';
 
