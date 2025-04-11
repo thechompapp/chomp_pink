@@ -1,5 +1,5 @@
 /* src/doof-backend/models/filterModel.ts */
-import db from '../db/index.js';
+import db from '../db/index.js'; // Corrected import path
 
 export interface City {
     id: number;
@@ -21,7 +21,7 @@ export interface Cuisine {
 export const getCities = async (): Promise<City[]> => {
     const query = `SELECT id, name FROM Cities ORDER BY name`;
     const result = await db.query<City>(query);
-    return (result.rows || []).map(city => ({
+    return (result.rows || []).map((city: City) => ({ // Added explicit type for city
         ...city,
         id: typeof city.id === 'string' ? parseInt(city.id, 10) : city.id
     }));

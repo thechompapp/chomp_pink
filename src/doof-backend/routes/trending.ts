@@ -1,13 +1,11 @@
 /* src/doof-backend/routes/trending.ts */
 import express, { Request, Response, NextFunction } from 'express';
+// Corrected imports - Add .js extension back
 import { getTrendingRestaurants, getTrendingDishes, getTrendingLists } from '../models/trending.js';
 import optionalAuthMiddleware from '../middleware/optionalAuth.js';
-// Import AuthenticatedRequest type instead of redefining
 import type { AuthenticatedRequest } from '../middleware/auth.js';
 
 const router = express.Router();
-
-// Removed local AuthenticatedRequest interface definition
 
 router.get('/restaurants', async (req: Request, res: Response, next: NextFunction) => {
     const limit = parseInt(String(req.query.limit), 10) || 10;

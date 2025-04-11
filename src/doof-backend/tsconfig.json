@@ -3,8 +3,9 @@
     "target": "ES2020",                   // Or your desired ECMAScript target
     "module": "NodeNext",                 // Essential for Node.js ES Modules
     "moduleResolution": "NodeNext",       // Essential for Node.js ES Modules
-    "allowJs": true,                      // Added: Allows importing .js files
-    "baseUrl": ".",                       // Base directory for module resolution
+    "allowJs": true,                      // Allows importing .js files
+    // "baseUrl": ".",                    // Removed
+    // "paths": {},                       // Removed
     "outDir": "./dist",                   // Output directory for compiled JS
     "rootDir": ".",                       // Root directory of source files (relative to tsconfig.json)
     "esModuleInterop": true,              // Enables compatibility with CommonJS modules
@@ -17,6 +18,6 @@
     "experimentalDecorators": true,       // Enable experimental decorators if used
     "emitDecoratorMetadata": true         // Emit design-type metadata for decorated declarations if used
   },
-  "include": ["**/*.ts", "**/*.js"],      // Updated: Include both TS and JS files
+  "include": ["**/*.ts", "**/*.js"],      // Include both TS and JS files within rootDir
   "exclude": ["node_modules", "dist", "**/*.spec.ts", "**/*.test.ts"] // Exclude node_modules, output dir, and test files
 }

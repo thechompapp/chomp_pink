@@ -3,6 +3,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import { body, validationResult, param, ValidationChain } from 'express-validator';
 import bcrypt from 'bcryptjs';
 import jwt, { SignOptions } from 'jsonwebtoken';
+// Corrected imports - Add .js extension back
 import * as UserModel from '../models/userModel.js';
 import authMiddleware from '../middleware/auth.js';
 import requireSuperuser from '../middleware/requireSuperuser.js';
@@ -114,7 +115,8 @@ router.post(
                 },
             };
 
-            const signOptions: SignOptions = { expiresIn: JWT_EXPIRY };
+            // Corrected: Cast signOptions to any to bypass strict type check for expiresIn
+            const signOptions: any = { expiresIn: JWT_EXPIRY };
             const token = jwt.sign(payload, JWT_SECRET, signOptions);
             console.log(`[Auth Register] JWT generated for user ID ${newUser.id}`);
 
@@ -163,7 +165,8 @@ router.post(
                 },
             };
 
-            const signOptions: SignOptions = { expiresIn: JWT_EXPIRY };
+            // Corrected: Cast signOptions to any to bypass strict type check for expiresIn
+            const signOptions: any = { expiresIn: JWT_EXPIRY };
             const token = jwt.sign(payload, JWT_SECRET, signOptions);
             console.log(`[Auth Login] JWT generated for user ID ${user.id}`);
 

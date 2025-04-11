@@ -1,13 +1,12 @@
 /* src/doof-backend/routes/dishes.ts */
 import express, { Request, Response, NextFunction } from 'express';
 import { param, query as queryValidator, body, validationResult, ValidationChain } from 'express-validator';
-// FIX: Import from .ts file implicitly
-import * as DishModel from '../models/dishModel';
-// FIX: Import from .ts file implicitly
-import * as RestaurantModel from '../models/restaurantModel';
-import authMiddleware from '../middleware/auth.js'; // Keep .js for compiled middleware
-import requireSuperuser from '../middleware/requireSuperuser.js'; // Keep .js for compiled middleware
-import type { AuthenticatedRequest } from '../middleware/auth.js'; // Keep .js for compiled middleware
+// Corrected imports - Add .js extension back
+import * as DishModel from '../models/dishModel.js';
+import * as RestaurantModel from '../models/restaurantModel.js';
+import authMiddleware from '../middleware/auth.js';
+import requireSuperuser from '../middleware/requireSuperuser.js';
+import type { AuthenticatedRequest } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -64,11 +63,6 @@ const validateDishBody: ValidationChain[] = [
     .withMessage('Valid Restaurant ID is required')
     .toInt(),
   // Removed 'adds' validation - shouldn't typically be set via API directly
-  // body('adds')
-  //   .optional({ checkFalsy: true }) // Allow 0
-  //   .isInt({ min: 0 })
-  //   .withMessage('Adds must be a non-negative integer')
-  //   .toInt(),
 ];
 
 // --- Routes ---
@@ -137,7 +131,7 @@ router.post(
          // This can happen due to ON CONFLICT or other DB issues
          console.warn(`[Dishes POST /] Dish "${name}" likely already exists for restaurant ${restaurant_id}.`);
          // Check if it exists to confirm
-         const existing = await DishModel.findDishById(name); // Assuming findByName/ID exists or adapt check
+         const existing = await DishModel.findDishById(name as any); // Assuming findByName/ID exists or adapt check
          if (existing && existing.restaurant_id === restaurant_id) {
             res.status(409).json({ error: 'Dish with this name already exists for this restaurant.' });
          } else {

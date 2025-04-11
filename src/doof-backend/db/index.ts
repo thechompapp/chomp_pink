@@ -3,7 +3,7 @@
 import pg from 'pg';
 const { Pool } = pg;
 // Import types directly (or use pg.PoolConfig, pg.QueryResult etc. later)
-import type { PoolConfig, QueryResult, PoolClient, QueryResultRow } from 'pg';
+import type { PoolConfig, QueryResult, PoolClient, QueryResultRow, Pool as PgPool } from 'pg'; // Renamed Pool type import to avoid conflict
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -85,7 +85,7 @@ type QueryParams = any[];
 interface Db {
     query: <T extends QueryResultRow = any>(text: string, params?: QueryParams) => Promise<QueryResult<T>>;
     getClient: () => Promise<PoolClient>;
-    pool: Pool; // Use the imported Pool type here
+    pool: PgPool; // Corrected: Use the imported and renamed PgPool type here
 }
 
 const db: Db = {

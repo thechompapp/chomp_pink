@@ -1,5 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { body, validationResult, ValidationChain } from 'express-validator';
+// Corrected imports - Add .js extension back
 import * as EngageModel from '../models/engageModel.js';
 import optionalAuthMiddleware from '../middleware/optionalAuth.js';
 import type { AuthenticatedRequest } from '../middleware/auth.js';

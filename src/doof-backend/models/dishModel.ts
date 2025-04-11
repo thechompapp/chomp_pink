@@ -1,9 +1,9 @@
 /* src/doof-backend/models/dishModel.ts */
-import db from '../db/index.js'; // Ensure .js extension
-import type { QueryResult } from 'pg';
+import db from '../db/index.js'; // Corrected import path
+import type { QueryResult, QueryResultRow } from 'pg';
 
 // Define Dish type locally or import if defined globally
-export interface Dish {
+export interface Dish extends QueryResultRow { // Extend QueryResultRow
     id: number;
     name: string;
     adds: number;
@@ -19,11 +19,11 @@ export interface Dish {
 }
 
 // Type for the raw DB row before formatting
-interface RawDishRow extends Record<string, any> {
+interface RawDishRow extends QueryResultRow { // Extend QueryResultRow
     id: number | string;
     name: string;
     adds?: number | string | null;
-    created_at: string; // Or Date
+    created_at: string | Date; // Allow both string and Date types
     restaurant_id: number | string;
     restaurant_name?: string | null;
     city_name?: string | null;
@@ -31,9 +31,12 @@ interface RawDishRow extends Record<string, any> {
     tags?: string[] | null;
 }
 
-// Helper to safely format data from the database
-const formatDishForResponse = (dishRow: RawDishRow | undefined): Dish | null => {
-    if (!dishRow) return null;
+// Exported formatter function
+export const formatDishForResponse = (dishRow: RawDishRow | undefined): Dish | null => {
+    if (!dishRow || dishRow.id == null) {
+        console.warn('[DishModel Format Error] Invalid or incomplete dish data received:', dishRow);
+        return null;
+    }
     try {
         const tagsArray = Array.isArray(dishRow.tags)
             ? dishRow.tags.filter((tag): tag is string => typeof tag === 'string' && tag !== null)
@@ -43,7 +46,7 @@ const formatDishForResponse = (dishRow: RawDishRow | undefined): Dish | null => 
             id: parseInt(String(dishRow.id), 10),
             name: dishRow.name || 'Unnamed Dish',
             adds: dishRow.adds != null ? parseInt(String(dishRow.adds), 10) : 0,
-            created_at: dishRow.created_at,
+            created_at: typeof dishRow.created_at === 'string' ? dishRow.created_at : (dishRow.created_at instanceof Date ? dishRow.created_at.toISOString() : ''), // Ensure string
             restaurant_id: parseInt(String(dishRow.restaurant_id), 10), // Should always exist
             restaurant_name: dishRow.restaurant_name || undefined,
             city_name: dishRow.city_name || undefined,
@@ -59,170 +62,174 @@ const formatDishForResponse = (dishRow: RawDishRow | undefined): Dish | null => 
     }
 };
 
-
 export const findDishById = async (id: number): Promise<Dish | null> => {
-    if (isNaN(id) || id <= 0) {
-        console.warn(`[DishModel findDishById] Invalid ID provided: ${id}`);
-        return null;
-    }
-    console.log(`[DishModel] Finding dish by ID: ${id}`);
-    const query = `
-        SELECT
-            d.id, d.name, d.adds, d.created_at, d.restaurant_id,
-            r.name AS restaurant_name,
-            r.city_name,
-            r.neighborhood_name,
-            -- Ensure tags are aggregated correctly, handling NULLs
-            COALESCE(array_agg(DISTINCT h.name) FILTER (WHERE h.id IS NOT NULL), '{}'::text[]) as tags
+     if (isNaN(id) || id <= 0) {
+          console.warn(`[DishModel FindByID] Invalid ID: ${id}`);
+          return null;
+     }
+     const query = `
+        SELECT d.*, r.name as restaurant_name, r.city_name, r.neighborhood_name,
+               COALESCE(array_agg(DISTINCT h.name) FILTER (WHERE h.name IS NOT NULL), '{}'::text[]) as tags
         FROM Dishes d
-        -- Use INNER JOIN if a dish MUST have a restaurant
         JOIN Restaurants r ON d.restaurant_id = r.id
         LEFT JOIN DishHashtags dh ON d.id = dh.dish_id
         LEFT JOIN Hashtags h ON dh.hashtag_id = h.id
         WHERE d.id = $1
-        GROUP BY d.id, r.id -- Group by primary keys of joined tables
-    `;
-    try {
-        const result: QueryResult<RawDishRow> = await db.query(query, [id]);
-        return formatDishForResponse(result.rows[0]);
-    } catch (error) {
-        console.error(`[DishModel findDishById] Error fetching dish ${id}:`, error);
-        throw error; // Re-throw the error for handler upstream
-    }
+        GROUP BY d.id, r.name, r.city_name, r.neighborhood_name;
+     `;
+     try {
+         const result: QueryResult<RawDishRow> = await db.query(query, [id]);
+         return formatDishForResponse(result.rows[0]);
+     } catch (error) {
+          console.error(`[DishModel FindByID] Error fetching dish ${id}:`, error);
+          throw error;
+     }
 };
 
 export const findDishesByName = async (name: string, limit: number = 20, offset: number = 0): Promise<Dish[]> => {
-    console.log(`[DishModel] Finding dishes by name like: ${name}`);
-    const query = `
-        SELECT
-            d.id, d.name, d.adds, d.created_at, d.restaurant_id,
-            r.name AS restaurant_name,
-            r.city_name,
-            r.neighborhood_name,
-            COALESCE(array_agg(DISTINCT h.name) FILTER (WHERE h.id IS NOT NULL), '{}'::text[]) as tags
-        FROM Dishes d
-        JOIN Restaurants r ON d.restaurant_id = r.id
-        LEFT JOIN DishHashtags dh ON d.id = dh.dish_id
-        LEFT JOIN Hashtags h ON dh.hashtag_id = h.id
-        WHERE d.name ILIKE $1
-        GROUP BY d.id, r.id -- Group by primary keys to get tags correctly
-        ORDER BY d.adds DESC NULLS LAST, d.name ASC
-        LIMIT $2 OFFSET $3
-    `;
-    const params = [`%${name}%`, limit, offset];
-    try {
-        const result = await db.query<RawDishRow>(query, params);
-        // Safely map results using the formatter
-        return (result.rows || []).map(formatDishForResponse).filter((d): d is Dish => d !== null);
-    } catch (error) {
-        console.error(`[DishModel findDishesByName] Error fetching dishes for name ${name}:`, error);
-        throw error;
-    }
+     const searchPattern = `%${name}%`;
+     // Assuming a query that joins restaurant info and aggregates tags
+     const query = `
+         SELECT d.*, r.name as restaurant_name, r.city_name, r.neighborhood_name,
+                COALESCE(array_agg(DISTINCT h.name) FILTER (WHERE h.name IS NOT NULL), '{}'::text[]) as tags
+         FROM Dishes d
+         JOIN Restaurants r ON d.restaurant_id = r.id
+         LEFT JOIN DishHashtags dh ON d.id = dh.dish_id
+         LEFT JOIN Hashtags h ON dh.hashtag_id = h.id
+         WHERE d.name ILIKE $1
+         GROUP BY d.id, r.name, r.city_name, r.neighborhood_name
+         ORDER BY d.adds DESC NULLS LAST, d.name ASC
+         LIMIT $2 OFFSET $3;
+     `;
+     const params = [searchPattern, limit, offset];
+     try {
+         const result = await db.query<RawDishRow>(query, params);
+         return (result.rows || []).map(formatDishForResponse).filter((d): d is Dish => d !== null);
+     } catch (error) {
+          console.error(`[DishModel FindByName] Error searching dishes for "${name}":`, error);
+          throw error;
+     }
 };
 
 export const createDish = async (dishData: { name: string; restaurant_id: number }): Promise<Dish | null> => {
-    console.log('[DishModel] Creating dish:', dishData);
-    const { name, restaurant_id } = dishData;
-     if (!name || typeof restaurant_id !== 'number' || isNaN(restaurant_id) || restaurant_id <= 0) {
-          console.error('[DishModel createDish] Invalid input data:', dishData);
-          throw new Error('Invalid data for creating dish.');
-     }
-    const query = `
-        INSERT INTO Dishes (name, restaurant_id, adds, created_at, updated_at)
-        VALUES ($1, $2, 0, NOW(), NOW())
-        ON CONFLICT (name, restaurant_id) DO NOTHING
-        RETURNING id; -- Only return ID
-    `;
-    try {
-        const result = await db.query<{ id: number | string }>(query, [name, restaurant_id]);
-        if (result.rows.length === 0) {
-            console.warn(`[DishModel createDish] Dish "${name}" for restaurant ID ${restaurant_id} might already exist.`);
-            // Optionally fetch the existing one if needed, but returning null is okay for ON CONFLICT DO NOTHING
-             const existing = await db.query<RawDishRow>(
-                 'SELECT * FROM Dishes WHERE name = $1 AND restaurant_id = $2',
-                 [name, restaurant_id]
-             );
-             // If it exists, fetch its full details to return
-             return existing.rows[0] ? findDishById(parseInt(String(existing.rows[0].id), 10)) : null;
-        }
-        // Fetch the full details including joined data after successful creation
-        return findDishById(parseInt(String(result.rows[0].id), 10));
-    } catch (error) {
-        console.error(`[DishModel createDish] Error creating dish "${name}":`, error);
-        throw error;
-    }
+      if (!dishData.name || typeof dishData.restaurant_id !== 'number') {
+          throw new Error('Invalid data: Name and numeric restaurant_id required.');
+      }
+      const query = `
+         INSERT INTO Dishes (name, restaurant_id, adds, created_at, updated_at)
+         VALUES ($1, $2, 0, NOW(), NOW())
+         ON CONFLICT (name, restaurant_id) DO NOTHING
+         RETURNING id;
+      `;
+      try {
+         const result = await db.query<{ id: number | string }>(query, [dishData.name, dishData.restaurant_id]);
+         if (result.rows.length === 0) {
+             // Handle conflict or failure
+             console.warn(`[DishModel Create] Dish "${dishData.name}" likely already exists for restaurant ${dishData.restaurant_id}.`);
+             // Optionally fetch the existing dish
+             // const existing = await findDishByNameAndRestaurant(dishData.name, dishData.restaurant_id);
+             // return existing;
+             return null; // Or throw specific conflict error
+         }
+         // Fetch the newly created dish with all details
+         return findDishById(parseInt(String(result.rows[0].id), 10));
+      } catch (error) {
+           console.error(`[DishModel Create] Error creating dish "${dishData.name}":`, error);
+           throw error;
+      }
 };
 
 export const updateDish = async (id: number, dishData: Partial<Pick<Dish, 'name' | 'adds' | 'restaurant_id'>>): Promise<Dish | null> => {
     if (isNaN(id) || id <= 0) {
-        console.warn(`[DishModel Update] Invalid ID provided: ${id}`);
-        return null;
+         console.warn(`[DishModel Update] Invalid ID: ${id}`);
+         return null;
     }
-    console.log(`[DishModel] Updating dish ID: ${id}`, dishData);
-    const { name, adds, restaurant_id } = dishData;
     const fields: string[] = [];
     const values: any[] = [];
-    let paramIndex = 1;
+    let paramIndex = 1; // Parameter index starts at 1
 
-    if (name !== undefined) { fields.push(`name = $${paramIndex++}`); values.push(name); }
-    // Only update 'adds' if provided explicitly (be cautious)
-    if (adds !== undefined && typeof adds === 'number' && !isNaN(adds)) {
-        fields.push(`adds = $${paramIndex++}`);
-        values.push(adds);
-    }
-    if (restaurant_id !== undefined && typeof restaurant_id === 'number' && !isNaN(restaurant_id) && restaurant_id > 0) {
-        fields.push(`restaurant_id = $${paramIndex++}`); values.push(restaurant_id);
-    }
+    console.log(`[DishModel Update] Received data for dish ${id}:`, dishData);
 
-    if (fields.length === 0) {
-        console.warn(`[DishModel Update] No valid fields provided for update on dish ${id}`);
-        return findDishById(id); // Return current data if no valid changes
+    // Build fields/values dynamically
+    if (dishData.name !== undefined) {
+        if (typeof dishData.name !== 'string' || dishData.name.trim() === '') {
+            throw new Error("Invalid name provided for update.");
+        }
+        fields.push(`name = $${paramIndex++}`);
+        values.push(dishData.name.trim());
+    }
+    // We decided 'adds' shouldn't be updated via generic PUT in admin routes
+    // if (dishData.adds !== undefined) { ... }
+
+    if (dishData.restaurant_id !== undefined) {
+         if (typeof dishData.restaurant_id !== 'number' || isNaN(dishData.restaurant_id) || dishData.restaurant_id <= 0) {
+             throw new Error("Invalid restaurant_id provided for update.");
+         }
+        fields.push(`restaurant_id = $${paramIndex++}`);
+        values.push(dishData.restaurant_id);
+    }
+    // Note: Tags are not updated directly on the Dishes table in this schema.
+    // Tag updates would require separate operations on the DishHashtags table.
+
+    if (fields.length === 0) { // No valid fields provided
+        console.warn(`[DishModel Update] No fields to update for dish ID ${id}.`);
+        return findDishById(id); // Return current data
     }
 
     fields.push(`updated_at = NOW()`); // Always update timestamp
 
-    const query = `
-        UPDATE Dishes
-        SET ${fields.join(', ')}
-        WHERE id = $${paramIndex}
-        RETURNING id; -- Only return ID to confirm update
-    `;
-    values.push(id); // Add ID as the last parameter
+    // Construct the query string
+    const query = `UPDATE "Dishes" SET ${fields.join(', ')} WHERE id = $${paramIndex} RETURNING id;`;
+    values.push(id); // Add the ID for the WHERE clause
+
+    // --- ADDED LOGGING ---
+    console.log(`[DishModel Update] Executing Query for Dish ID ${id}:`);
+    console.log(`   SQL: ${query}`);
+    console.log(`   Values: ${JSON.stringify(values)}`);
+    // --- END LOGGING ---
 
     try {
         const result = await db.query<{ id: number }>(query, values);
         if (result.rows.length > 0) {
-            return findDishById(id); // Fetch updated full details
-        } else {
-            console.warn(`[DishModel Update] Dish with ID ${id} not found or no changes made.`);
-            // Check if it exists at all
-            const exists = await findDishById(id);
-            return exists; // Return current data if it exists but wasn't updated
+            console.log(`[DishModel Update] Successfully updated dish ID ${id}. Refetching...`);
+            return findDishById(id); // Refetch the updated dish
         }
+        // If no rows returned, check if the dish exists
+        console.warn(`[DishModel Update] Update query affected 0 rows for dish ID ${id}. Checking existence.`);
+        const exists = await findDishById(id);
+        if (exists) {
+             console.log(`[DishModel Update] Dish ID ${id} exists but was not updated (possibly no changes or concurrent modification).`);
+        } else {
+             console.warn(`[DishModel Update] Dish ID ${id} not found.`);
+        }
+        return exists; // Return existing data if no update occurred but dish exists, or null if not found
     } catch (error) {
-        console.error(`[DishModel Update] Error updating dish ${id}:`, error);
-        throw error;
+         console.error(`[DishModel Update] Error during SQL execution for dish ${id}:`, error);
+         if ((error as any)?.code === '23505') { // Unique constraint violation
+              throw new Error(`Update failed: Dish name conflicts with an existing dish for this restaurant.`);
+         } else if ((error as any)?.code === '23503') { // Foreign key violation (e.g., restaurant_id doesn't exist)
+              throw new Error(`Update failed: Invalid restaurant ID provided.`);
+         } else if ((error as Error).message?.includes('syntax error')) {
+              // Log extra info if it's specifically a syntax error
+              console.error("[DishModel Update] Potential Syntax Error Detail:", (error as Error).stack);
+         }
+         // Re-throw other errors
+         throw error;
     }
 };
 
 export const deleteDish = async (id: number): Promise<boolean> => {
      if (isNaN(id) || id <= 0) {
-         console.warn(`[DishModel deleteDish] Invalid ID provided: ${id}`);
-         return false;
+          console.warn(`[DishModel Delete] Invalid ID: ${id}`);
+          return false;
      }
-    console.log(`[DishModel] Deleting dish ID: ${id}`);
-    const query = 'DELETE FROM Dishes WHERE id = $1 RETURNING id';
-    try {
-        const result = await db.query(query, [id]);
-        // Check rowCount to confirm deletion
-        return result.rowCount !== null && result.rowCount > 0;
-    } catch (error) {
-        console.error(`[DishModel deleteDish] Error deleting dish ${id}:`, error);
-        // Check for specific foreign key violation errors if needed
-         if ((error as any)?.code === '23503') {
-            console.warn(`[DishModel deleteDish] Cannot delete dish ${id} due to foreign key constraints.`);
-            throw new Error(`Cannot delete dish: It is referenced by other items (e.g., list items, votes).`);
-         }
-        throw error; // Re-throw other errors
-    }
+     const query = 'DELETE FROM Dishes WHERE id = $1 RETURNING id';
+     try {
+         const result = await db.query(query, [id]);
+         console.log(`[DishModel Delete] Result for dish ID ${id}:`, result.rowCount);
+         return (result.rowCount ?? 0) > 0;
+     } catch (error) {
+          console.error(`[DishModel Delete] Error deleting dish ${id}:`, error);
+          throw error;
+     }
 };

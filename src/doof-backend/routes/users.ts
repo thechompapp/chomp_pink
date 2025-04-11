@@ -1,14 +1,12 @@
 /* src/doof-backend/routes/users.ts */
 import express, { Request, Response, NextFunction } from 'express';
 import { param, validationResult, ValidationChain } from 'express-validator';
+// Corrected imports - Add .js extension back
 import * as UserModel from '../models/userModel.js';
 import authMiddleware from '../middleware/auth.js';
-// Import AuthenticatedRequest type instead of redefining
 import type { AuthenticatedRequest } from '../middleware/auth.js';
 
 const router = express.Router();
-
-// Removed local AuthenticatedRequest interface definition
 
 const validateUserId: ValidationChain[] = [
     param('userId').isInt({ gt: 0 }).withMessage('User ID must be a positive integer').toInt()
@@ -29,14 +27,11 @@ router.get(
     validateUserId,
     handleValidationErrors,
     async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+        // req.params is available on AuthenticatedRequest which extends Request
         const userIdParam = req.params.userId;
         // req.user is guaranteed by authMiddleware here
         const requestingUserId = req.user!.id;
 
-        // No need for this check if authMiddleware is used correctly
-        // if (requestingUserId === undefined) {
-        //     return res.status(401).json({ error: "Authentication details missing." });
-        // }
         const userId = parseInt(userIdParam, 10); // Already parsed by validation .toInt()
 
         try {

@@ -1,5 +1,5 @@
 /* src/doof-backend/models/analyticsModel.ts */
-import db from '../db/index.js';
+import db from '../db/index.js'; // Corrected import path
 
 // --- Helper ---
 const getStartDate = (period: string = '30d'): string => {
@@ -52,7 +52,7 @@ export const getSubmissionStats = async (): Promise<{ [key: string]: number }> =
     `;
     const result = await db.query<{ status: string; count: number }>(query);
     const stats: { [key: string]: number } = { pending: 0, approved: 0, rejected: 0 };
-    result.rows.forEach(row => {
+    result.rows.forEach((row: { status: string; count: number }) => { // Added explicit type for row
         if (stats.hasOwnProperty(row.status)) {
             stats[row.status] = row.count;
         }
@@ -91,7 +91,7 @@ export const getContentDistribution = async (): Promise<{
     return {
         byCity: cityResult.rows || [],
         byCuisine: cuisineResult.rows || []
-    }; // Added the closing brace and return statement
+    };
 };
 
 
@@ -130,7 +130,7 @@ export const getEngagementDetails = async (): Promise<{
     `;
     const result = await db.query<{ engagement_type: string; count: number }>(query);
     const details: { [key: string]: number } = { views: 0, clicks: 0, adds: 0, shares: 0 };
-    result.rows.forEach(row => {
+    result.rows.forEach((row: { engagement_type: string; count: number }) => { // Added explicit type for row
         const key = row.engagement_type === 'add_to_list' ? 'adds' : row.engagement_type;
         if (details.hasOwnProperty(key)) {
             details[key] = row.count;

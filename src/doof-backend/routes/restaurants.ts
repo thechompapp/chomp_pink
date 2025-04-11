@@ -1,11 +1,10 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { param, query as queryValidator, body, validationResult, ValidationChain } from 'express-validator';
-// FIX: Import from .ts file implicitly
-import * as RestaurantModel from '../models/restaurantModel';
-import authMiddleware from '../middleware/auth.js'; // Keep .js for compiled middleware
-import requireSuperuser from '../middleware/requireSuperuser.js'; // Keep .js for compiled middleware
-// Import AuthenticatedRequest if needed for superuser routes
-import type { AuthenticatedRequest } from '../middleware/auth.js'; // Keep .js for compiled middleware
+// Corrected imports - Add .js extension back for middleware
+import * as RestaurantModel from '../models/restaurantModel.js';
+import authMiddleware from '../middleware/auth.js';
+import requireSuperuser from '../middleware/requireSuperuser.js';
+import type { AuthenticatedRequest } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -63,7 +62,7 @@ router.post('/', authMiddleware, requireSuperuser, validateRestaurantBody, handl
             console.warn(`[Restaurants POST /] Restaurant creation did not return a result, likely duplicate or error.`);
             // Check if it exists to provide a better error message
              const existing = await RestaurantModel.findRestaurantById(req.body.name); // Assuming findByName exists or adapt check
-             if (existing) {
+             if (existing && existing.city_id === req.body.city_id) { // Check name AND city_id for conflict
                 res.status(409).json({ error: "Restaurant creation failed: name likely already exists in this city." });
              } else {
                 res.status(400).json({ error: "Restaurant creation failed for an unknown reason." });
@@ -104,7 +103,7 @@ router.put('/:id', authMiddleware, requireSuperuser, validateIdParam, validateRe
         console.error(`[Restaurants PUT /:id] Error updating restaurant ${id}:`, err);
          // Check for specific error codes if possible (e.g., unique constraint violations on update)
         if ((err as any)?.code === '23505') {
-             res.status(409).json({ error: "Update failed, conflicts with existing data." });
+             res.status(409).json({ error: "Update failed, conflicts with existing data (e.g., name in city)." });
              return;
         }
         next(err);

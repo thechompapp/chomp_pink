@@ -1,7 +1,8 @@
 /* src/doof-backend/routes/lists.ts */
 import express, { Request, Response, NextFunction } from 'express';
 import { query as queryValidator, validationResult, param, body, ValidationChain } from 'express-validator';
-import * as ListModel from '../models/listModel.js'; // Corrected to .js
+// Corrected imports - Add .js extension back
+import * as ListModel from '../models/listModel.js';
 import authMiddleware from '../middleware/auth.js';
 import optionalAuthMiddleware from '../middleware/optionalAuth.js';
 import db from '../db/index.js';

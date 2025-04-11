@@ -1,4 +1,3 @@
-/* src/types/Submission.ts */
 export interface Submission {
     id: number;
     user_id?: number | null;
@@ -10,13 +9,12 @@ export interface Submission {
     tags?: string[] | null;
     place_id?: string | null;
     status: 'pending' | 'approved' | 'rejected';
-    created_at: string; // Or Date
-    reviewed_at?: string | null; // Or Date
+    created_at: string;
+    reviewed_at?: string | null;
     reviewed_by?: number | null;
-    user_handle?: string | null; // Added from backend join
-    restaurant_name?: string | null; // Added to match data structure in formatSubmission
+    user_handle?: string | null;
+    restaurant_name?: string | null;
 }
-
 export interface CreateSubmissionData {
     type: 'restaurant' | 'dish';
     name: string;
@@ -25,6 +23,5 @@ export interface CreateSubmissionData {
     neighborhood?: string | null;
     tags?: string[];
     place_id?: string | null;
-    // restaurant_name might be needed for dish submissions if place_id not used
     restaurant_name?: string | null;
 }

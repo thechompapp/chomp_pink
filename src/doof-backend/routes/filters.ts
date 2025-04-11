@@ -1,5 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { query as queryValidator, validationResult, ValidationChain } from 'express-validator';
+// Corrected import - Add .js extension back
 import * as FilterModel from '../models/filterModel.js';
 
 const router = express.Router();

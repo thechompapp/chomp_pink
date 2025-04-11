@@ -1,12 +1,14 @@
 /* src/doof-backend/routes/analytics.ts */
 import express, { Request, Response, NextFunction } from 'express';
 import { query as queryValidator, body, validationResult, ValidationChain } from 'express-validator';
+// Corrected imports - Add .js extension back
 import * as AnalyticsModel from '../models/analyticsModel.js';
 import authMiddleware from '../middleware/auth.js';
 import requireSuperuser from '../middleware/requireSuperuser.js';
 import type { AuthenticatedRequest } from '../middleware/auth.js';
 
 const router = express.Router();
+const publicAnalyticsRouter = express.Router(); // Separate router for non-superuser routes
 
 const handleValidationErrors = (req: Request, res: Response, next: NextFunction): void => {
     const errors = validationResult(req);
@@ -35,10 +37,9 @@ const validateLogBody: ValidationChain[] = [
     body('item_type').isString().isIn(['restaurant', 'dish', 'list']).withMessage('Invalid item type (must be restaurant, dish, or list)')
 ];
 
-// Apply auth and superuser check to all analytics routes except /popular and /log
+// --- Superuser Only Routes ---
 router.use(authMiddleware, requireSuperuser);
 
-// GET /api/analytics/summary
 router.get('/summary', async (req: Request, res: Response, next: NextFunction) => {
     try {
         const summary = await AnalyticsModel.getSiteSummary();
@@ -49,7 +50,6 @@ router.get('/summary', async (req: Request, res: Response, next: NextFunction) =
     }
 });
 
-// GET /api/analytics/submissions
 router.get('/submissions', async (req: Request, res: Response, next: NextFunction) => {
     try {
         const stats = await AnalyticsModel.getSubmissionStats();
@@ -60,7 +60,6 @@ router.get('/submissions', async (req: Request, res: Response, next: NextFunctio
     }
 });
 
-// GET /api/analytics/content-distribution
 router.get('/content-distribution', async (req: Request, res: Response, next: NextFunction) => {
     try {
         const distribution = await AnalyticsModel.getContentDistribution();
@@ -71,7 +70,6 @@ router.get('/content-distribution', async (req: Request, res: Response, next: Ne
     }
 });
 
-// GET /api/analytics/users
 router.get('/users', async (req: Request, res: Response, next: NextFunction) => {
     const period = (req.query.period as string) || '30d';
     try {
@@ -83,7 +81,6 @@ router.get('/users', async (req: Request, res: Response, next: NextFunction) => 
     }
 });
 
-// GET /api/analytics/engagements
 router.get('/engagements', async (req: Request, res: Response, next: NextFunction) => {
     try {
         const details = await AnalyticsModel.getEngagementDetails();
@@ -94,7 +91,6 @@ router.get('/engagements', async (req: Request, res: Response, next: NextFunctio
     }
 });
 
-// GET /api/analytics/aggregate-trends
 router.get(
     '/aggregate-trends',
     validateAggregateTrendsQuery,
@@ -116,7 +112,6 @@ router.get(
     }
 );
 
-// GET /api/analytics/events (Consolidated from analyticsRoutes.ts)
 router.get('/events', async (req: Request, res: Response, next: NextFunction) => {
     const limit = Number(req.query.limit || 100);
     try {
@@ -128,9 +123,9 @@ router.get('/events', async (req: Request, res: Response, next: NextFunction) =>
     }
 });
 
-// Consolidated Routes without Superuser Middleware (from analyticsRoutes.ts)
-// Remove middleware for these specific routes by mounting them before the global middleware
-router.get(
+// --- Public/Auth Required Routes (Mounted Separately in server.ts) ---
+
+publicAnalyticsRouter.get(
     '/popular',
     validatePopularQuery,
     handleValidationErrors,
@@ -148,7 +143,9 @@ router.get(
     }
 );
 
-router.post(
+// Note: This '/log' might conflict with '/api/engage' route depending on mounting order in server.ts.
+// If '/api/engage' is the intended route for logging, this might be redundant or need adjustment.
+publicAnalyticsRouter.post(
     '/log',
     authMiddleware, // Only auth required, not superuser
     validateLogBody,
@@ -167,4 +164,6 @@ router.post(
     }
 );
 
+// Export the main router (superuser) as default, and public router as named
 export default router;
+export { publicAnalyticsRouter };

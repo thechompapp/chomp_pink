@@ -3,7 +3,7 @@ import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 
-// Import routes - Ensure ALL local imports use .js extension
+// Corrected imports - Add .js extension back for local files
 import authRoutes from './routes/auth.js';
 import usersRoutes from './routes/users.js';
 import filtersRoutes from './routes/filters.js';
@@ -16,14 +16,14 @@ import restaurantsRoutes from './routes/restaurants.js';
 import dishesRoutes from './routes/dishes.js';
 import searchRoutes from './routes/search.js';
 import engageRoutes from './routes/engage.js';
-import analyticsRoutes from './routes/analytics.js'; // Corrected path assuming it exists
-// import analyticsRoutes from './routes/analyticsRoutes.js'; // If the file is named analyticsRoutes.ts
+// Corrected: Use default export and named export for analytics routers
+import analyticsSuperuserRouter, { publicAnalyticsRouter } from './routes/analytics.js';
 
-// Import middleware - Ensure .js extension
+// Corrected imports for middleware
 import authMiddleware from './middleware/auth.js';
 import optionalAuthMiddleware from './middleware/optionalAuth.js';
 
-// Import DB - Ensure .js extension
+// Corrected import for DB
 import db from './db/index.js';
 
 // Load environment variables
@@ -43,20 +43,30 @@ app.use(express.json());
 
 app.set('db', db); // Make DB accessible via req.app.get('db')
 
-// Route Mounting (Looks correct with .js extensions)
-app.use('/api/auth', authRoutes);
-app.use('/api/users', usersRoutes);
-app.use('/api/filters', filtersRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/lists', listsRoutes);
-app.use('/api/trending', trendingRoutes);
+// --- Route Mounting ---
+
+// Mount public/optional auth routes first if they exist separately
 app.use('/api/places', placesRoutes);
-app.use('/api/submissions', submissionsRoutes);
-app.use('/api/restaurants', restaurantsRoutes);
-app.use('/api/dishes', dishesRoutes);
+app.use('/api/filters', filtersRoutes);
+app.use('/api/trending', trendingRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/engage', engageRoutes);
-app.use('/api/analytics', analyticsRoutes); // Ensure this matches the imported variable name
+app.use('/api/analytics', publicAnalyticsRouter); // Mount public analytics routes
+
+// Mount auth routes (register/login)
+app.use('/api/auth', authRoutes);
+
+// Mount protected routes that require standard authentication
+app.use('/api/users', usersRoutes); // Profile route needs auth
+app.use('/api/lists', listsRoutes); // Most list routes need auth
+app.use('/api/submissions', submissionsRoutes); // Creating/viewing submissions needs auth
+
+// Mount protected routes that require superuser authentication
+app.use('/api/admin', adminRoutes);
+app.use('/api/analytics', analyticsSuperuserRouter); // Mount superuser analytics routes under the same base path
+app.use('/api/restaurants', restaurantsRoutes); // Assuming POST/PUT/DELETE need superuser
+app.use('/api/dishes', dishesRoutes); // Assuming POST/PUT/DELETE need superuser
+
 
 // Global Error Handler
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {

@@ -1,5 +1,5 @@
 /* src/doof-backend/models/adminModel.ts */
-import db from '../db/index.js';
+import db from '../db/index.js'; // Corrected: Add .js back
 import type { PoolClient } from 'pg';
 
 interface BulkAddItem {

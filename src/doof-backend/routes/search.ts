@@ -1,7 +1,8 @@
 /* src/doof-backend/routes/search.ts */
 import express, { Request, Response, NextFunction } from 'express';
 import { query as queryValidator, validationResult, ValidationChain } from 'express-validator';
-import * as SearchModel from '../models/searchModel'; // Use .ts since this is a TS file and assumes TS compilation
+// Corrected imports - Add .js extension back
+import * as SearchModel from '../models/searchModel.js';
 
 const router = express.Router();
 
@@ -19,7 +20,7 @@ const validateSearchQuery: ValidationChain[] = [
     queryValidator('q').optional().isString().trim().withMessage('Query must be a string'),
     queryValidator('limit').optional().isInt({ min: 1, max: 50 }).withMessage('Limit must be between 1 and 50').toInt(),
     queryValidator('offset').optional().isInt({ min: 0 }).withMessage('Offset must be non-negative').toInt(),
-    queryValidator('type').optional().isIn(['all', 'restaurants', 'dishes', 'lists']).withMessage('Invalid type')
+    queryValidator('type').optional().isIn(['all', 'restaurant', 'dish', 'list']).withMessage('Invalid type')
 ];
 
 router.get('/', validateSearchQuery, handleValidationErrors, async (req: Request, res: Response, next: NextFunction) => {
@@ -50,9 +51,10 @@ router.get('/', validateSearchQuery, handleValidationErrors, async (req: Request
             default:
                 responsePayload = {
                     restaurants: results.restaurants,
-                    dishes: results.dishes.map((dish) => ({
+                    // Added explicit type 'any' for dish in map, or define a more specific intermediate type if needed
+                    dishes: results.dishes.map((dish: any) => ({
                         ...dish,
-                        restaurant: dish.restaurant_name || null
+                        restaurant: dish.restaurant_name || null // Use null instead of undefined for JSON consistency
                     })),
                     lists: results.lists,
                 };

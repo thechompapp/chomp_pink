@@ -1,4 +1,7 @@
-/* src/types/Submission.ts */
+/* src/doof-backend/models/submissionTypes.ts */
+
+// Duplicated from src/types/Submission.ts to resolve build issues
+
 export interface Submission {
     id: number;
     user_id?: number | null;
@@ -10,11 +13,11 @@ export interface Submission {
     tags?: string[] | null;
     place_id?: string | null;
     status: 'pending' | 'approved' | 'rejected';
-    created_at: string; // Or Date
+    created_at: string; // Or Date, ensure consistency with usage
     reviewed_at?: string | null; // Or Date
     reviewed_by?: number | null;
     user_handle?: string | null; // Added from backend join
-    restaurant_name?: string | null; // Added to match data structure in formatSubmission
+    restaurant_name?: string | null; // Added based on usage
 }
 
 export interface CreateSubmissionData {

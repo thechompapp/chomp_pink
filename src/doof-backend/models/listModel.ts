@@ -1,5 +1,5 @@
 /* src/doof-backend/models/listModel.ts */
-import db from '../db/index.js';
+import db from '../db/index.js'; // Corrected import path
 import type { PoolClient, QueryResult, QueryResultRow } from 'pg';
 
 // Define and EXPORT interfaces

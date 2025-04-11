@@ -1,5 +1,5 @@
 /* src/doof-backend/models/engageModel.ts */
-import db from '../db/index.js'; // Corrected import path
+import db from '../db/index.js'; // Added .js extension back
 
 // Define allowed types explicitly
 type ItemType = 'restaurant' | 'dish' | 'list';
