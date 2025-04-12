@@ -3,7 +3,7 @@ import React, { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '@/stores/useAuthStore';
 import useFormHandler from '@/hooks/useFormHandler';
-import Button from '@/components/Button';
+import Button from '@/components/UI/Button';
 import { Loader2 } from 'lucide-react';
 
 const Login = () => {

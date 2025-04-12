@@ -342,7 +342,8 @@ CREATE TABLE public.neighborhoods (
     name character varying(100) NOT NULL,
     city_id integer NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    zipcode_ranges text[] DEFAULT '{}'::text[]
 );
 
 

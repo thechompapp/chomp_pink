@@ -8,6 +8,9 @@ import authRoutes from './routes/auth.js';
 import usersRoutes from './routes/users.js';
 import filtersRoutes from './routes/filters.js';
 import adminRoutes from './routes/admin.js';
+// **** ADDED Import for new neighborhoods route ****
+import neighborhoodsRoutes from './routes/neighborhoods.js';
+// **** END ADDED Import ****
 import listsRoutes from './routes/lists.js';
 import trendingRoutes from './routes/trending.js';
 import placesRoutes from './routes/places.js';
@@ -48,6 +51,9 @@ app.set('db', db); // Make DB accessible via req.app.get('db')
 // Mount public/optional auth routes first if they exist separately
 app.use('/api/places', placesRoutes);
 app.use('/api/filters', filtersRoutes);
+// **** ADDED Mounting for new neighborhoods route ****
+app.use('/api/neighborhoods', neighborhoodsRoutes);
+// **** END ADDED Mounting ****
 app.use('/api/trending', trendingRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/engage', engageRoutes);
@@ -62,7 +68,7 @@ app.use('/api/lists', listsRoutes); // Most list routes need auth
 app.use('/api/submissions', submissionsRoutes); // Creating/viewing submissions needs auth
 
 // Mount protected routes that require superuser authentication
-app.use('/api/admin', adminRoutes);
+app.use('/api/admin', adminRoutes); // This handles /api/admin/neighborhoods now
 app.use('/api/analytics', analyticsSuperuserRouter); // Mount superuser analytics routes under the same base path
 app.use('/api/restaurants', restaurantsRoutes); // Assuming POST/PUT/DELETE need superuser
 app.use('/api/dishes', dishesRoutes); // Assuming POST/PUT/DELETE need superuser

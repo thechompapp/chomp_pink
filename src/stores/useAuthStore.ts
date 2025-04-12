@@ -1,4 +1,3 @@
-/* src/stores/useAuthStore.ts */
 import { create } from 'zustand';
 import { devtools, persist, createJSONStorage, PersistOptions } from 'zustand/middleware';
 import { jwtDecode } from 'jwt-decode';
@@ -51,7 +50,9 @@ const isTokenValid = (token: string | null): boolean => {
     try {
         const decoded: DecodedJwtPayload = jwtDecode(token);
         const currentTime = Date.now() / 1000;
-        return typeof decoded.exp === 'number' && decoded.exp > currentTime;
+        const isValid = typeof decoded.exp === 'number' && decoded.exp > currentTime;
+        console.log('[AuthStore] Token validation:', { token, decoded, isValid });
+        return isValid;
     } catch (error) {
         console.error('[AuthStore] Error decoding token:', error);
         return false;
@@ -155,6 +156,7 @@ const useAuthStore = create<AuthStore>()(
 
                 checkAuthStatus: () => {
                     const { token, isAuthenticated, user, isLoading } = get();
+                    console.log('[AuthStore checkAuthStatus] Current state:', { token: token ? 'Present' : 'Not Present', isAuthenticated, user, isLoading });
                     if (token && isTokenValid(token)) {
                         try {
                             const decoded: DecodedJwtPayload = jwtDecode(token);
@@ -162,8 +164,8 @@ const useAuthStore = create<AuthStore>()(
                                 const userAccountType = decoded.user.account_type || 'user';
                                 const decodedUser: User = { ...decoded.user, account_type: userAccountType };
 
-                                // Only update if state differs or loading needs to end
                                 if (!isAuthenticated || user?.id !== decodedUser.id || user?.account_type !== decodedUser.account_type || isLoading) {
+                                    console.log('[AuthStore checkAuthStatus] Token valid. Setting authenticated state.');
                                     set({
                                         user: decodedUser,
                                         isAuthenticated: true,
@@ -171,7 +173,8 @@ const useAuthStore = create<AuthStore>()(
                                         error: null
                                     });
                                 } else if (isLoading) {
-                                    set({ isLoading: false }); // Ensure loading ends even if no other changes
+                                    console.log('[AuthStore checkAuthStatus] Token valid. Clearing loading state.');
+                                    set({ isLoading: false });
                                 }
                             } else {
                                 console.warn('[AuthStore checkAuthStatus] Invalid token payload structure.');
@@ -184,9 +187,12 @@ const useAuthStore = create<AuthStore>()(
                             else set({ isLoading: false });
                         }
                     } else {
+                        console.log('[AuthStore checkAuthStatus] Token invalid or missing.');
                         if (isAuthenticated || token) {
+                            console.log('[AuthStore checkAuthStatus] Logging out due to invalid/missing token.');
                             get().logout();
                         } else if (isLoading) {
+                            console.log('[AuthStore checkAuthStatus] Clearing loading state.');
                             set({ isLoading: false });
                         }
                     }

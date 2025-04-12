@@ -11,7 +11,7 @@ import ErrorMessage from '@/components/UI/ErrorMessage'; // Used for non-query e
 import RestaurantCardSkeleton from '@/components/UI/RestaurantCardSkeleton'; // Global alias
 import DishCardSkeleton from '@/components/UI/DishCardSkeleton'; // Global alias
 import ListCardSkeleton from '@/pages/Lists/ListCardSkeleton'; // Global alias
-import Button from '@/components/Button'; // Global alias
+import Button from '@/components/UI/Button'; // Global alias
 import QueryResultDisplay from '@/components/QueryResultDisplay'; // Import the new component
 import { Flame, Utensils, Bookmark, SortAsc, Clock, Star, Store, List as ListIcon, TrendingUp } from 'lucide-react'; // Added TrendingUp
 import { useQuickAdd } from '@/context/QuickAddContext'; // Global alias

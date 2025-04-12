@@ -6,7 +6,7 @@ import { ArrowLeft, MapPin, Share2 } from 'lucide-react';
 import { dishService } from '@/services/dishService';
 import { engagementService } from '@/services/engagementService';
 import useAuthStore from '@/stores/useAuthStore';
-import Button from '@/components/Button';
+import Button from '@/components/UI/Button';
 import { useQuickAdd } from '@/context/QuickAddContext';
 import ErrorMessage from '@/components/UI/ErrorMessage';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';

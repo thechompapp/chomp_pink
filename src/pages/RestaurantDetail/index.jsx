@@ -9,7 +9,7 @@ import {
 import { restaurantService } from '@/services/restaurantService';
 import { engagementService } from '@/services/engagementService';
 import useAuthStore from '@/stores/useAuthStore';
-import Button from '@/components/Button';
+import Button from '@/components/UI/Button';
 import { useQuickAdd } from '@/context/QuickAddContext';
 import ErrorMessage from '@/components/UI/ErrorMessage';
 import QueryResultDisplay from '@/components/QueryResultDisplay';

@@ -1,4 +1,3 @@
-/* src/services/apiClient.ts */
 import useAuthStore from '@/stores/useAuthStore';
 import { API_BASE_URL } from '@/config';
 
@@ -32,6 +31,7 @@ const apiClient = async <T = any>(
     let token: string | null = null;
     try {
         token = useAuthStore.getState().token;
+        console.log(`[apiClient ${errorContext}] Retrieved token:`, token ? 'Present' : 'Not Present');
     } catch (storeError) {
         console.error(`[apiClient ${errorContext}] Error retrieving token from store:`, storeError);
     }
@@ -89,11 +89,17 @@ const apiClient = async <T = any>(
             console.error(`[apiClient ${errorContext}] Request failed: ${response.status} "${errorResponse.error}". URL: ${url}. Details:`, responseText);
 
             if (response.status === 401) {
-                console.warn(`[apiClient ${errorContext}] Unauthorized (401). Triggering logout.`);
-                try {
-                    useAuthStore.getState().logout();
-                } catch (logoutError) {
-                    console.error(`[apiClient ${errorContext}] Error during logout after 401:`, logoutError);
+                console.warn(`[apiClient ${errorContext}] Unauthorized (401).`);
+                // Only trigger logout if a token was present (avoid redundant logouts)
+                if (token) {
+                    console.log(`[apiClient ${errorContext}] Token was present but invalid. Triggering logout.`);
+                    try {
+                        useAuthStore.getState().logout();
+                    } catch (logoutError) {
+                        console.error(`[apiClient ${errorContext}] Error during logout after 401:`, logoutError);
+                    }
+                } else {
+                    console.log(`[apiClient ${errorContext}] No token was present. Skipping logout.`);
                 }
                 errorResponse.error = 'Session expired. Please log in again.';
                 const authError = new Error(errorResponse.error);

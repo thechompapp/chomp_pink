@@ -3,7 +3,7 @@ import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { listService } from '@/services/listService';
 import useAuthStore from '@/stores/useAuthStore';
-import Button from '@/components/Button';
+import Button from '@/components/UI/Button';
 import * as Tabs from '@radix-ui/react-tabs';
 import ListCard from '@/pages/Lists/ListCard';
 import ListCardSkeleton from '@/pages/Lists/ListCardSkeleton';

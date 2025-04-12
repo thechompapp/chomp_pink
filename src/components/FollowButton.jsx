@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { Heart, HeartOff, Loader2, AlertTriangle } from 'lucide-react';
-import Button from '@/components/Button';
+import Button from '@/components/UI/Button';
 // Corrected: Use default import for useAuthStore
 import useAuthStore from '@/stores/useAuthStore';
 import { listService } from '@/services/listService';
