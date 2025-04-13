@@ -16,12 +16,17 @@ interface PlaceDetails {
     neighborhood?: string | null;
     placeId?: string; // Typically place_id
     location?: { lat: number; lng: number };
-    // Add other relevant fields returned by your backend /api/places/details
+    addressComponents?: any[]; // Include address components if needed
+    // Add other relevant fields returned by your backend proxy endpoint
 }
 
-interface PlaceDetailsResponse {
-  data?: PlaceDetails; // Assuming apiClient wraps in 'data'
+// Type for the response structure from *our backend proxy*
+interface BackendApiResponse<T> {
+  success: boolean;
+  data?: T;
+  message?: string; // For errors from the proxy
 }
+
 
 // Type the function parameters and return values
 const getAutocompleteSuggestions = async (input: string | null | undefined): Promise<AutocompletePrediction[]> => {
@@ -30,36 +35,57 @@ const getAutocompleteSuggestions = async (input: string | null | undefined): Pro
         return [];
     }
     try {
-        // Assuming backend '/api/places/autocomplete' returns AutocompletePrediction[] directly (or wrapped in { data: [...] })
-        // Adjust the expected type <AutocompletePrediction[]> based on actual API response structure
-        const response = await apiClient<AutocompletePrediction[]>(`/api/places/autocomplete?input=${encodeURIComponent(trimmedInput)}`, 'PlaceService Autocomplete');
-        // If apiClient wraps in { data: [...] }, access response.data
-        const data = response; // Modify if needed: response?.data
-        return Array.isArray(data) ? data : [];
+        // Call the NEW backend proxy endpoint
+        const response = await apiClient<BackendApiResponse<AutocompletePrediction[]>>(
+            // IMPORTANT: Use the new proxy route
+            `/api/places/proxy/autocomplete?input=${encodeURIComponent(trimmedInput)}`,
+            'PlaceService Autocomplete via Proxy'
+        );
+
+        // Check the success flag from our backend wrapper
+        if (!response.success || !Array.isArray(response.data)) {
+            console.warn('[placeService Autocomplete] Proxy request failed or returned invalid data:', response.message || 'No data');
+            return []; // Return empty on failure or invalid data
+        }
+
+        return response.data;
     } catch (error) {
-        console.error('[placeService] Error fetching autocomplete suggestions:', error instanceof Error ? error.message : error);
+        console.error('[placeService] Error fetching autocomplete suggestions via proxy:', error instanceof Error ? error.message : error);
         // Re-throw or return empty based on how calling code handles errors
-        throw error; // Re-throwing allows React Query to handle it
+        // Returning empty might be safer for UI components
+        return [];
     }
 };
 
-const getPlaceDetails = async (placeId: string | null | undefined): Promise<PlaceDetails> => {
+const getPlaceDetails = async (placeId: string | null | undefined): Promise<PlaceDetails | null> => { // Return null on error/not found
     if (!placeId) {
         console.warn('[placeService getPlaceDetails] placeId is missing.');
-        return {}; // Return empty object for consistency
+        return null;
     }
     try {
-        // Assuming backend '/api/places/details' returns { data: PlaceDetails }
-        const response = await apiClient<PlaceDetailsResponse>(`/api/places/details?placeId=${encodeURIComponent(placeId)}`, 'PlaceService Details');
-        const data = response?.data; // Access data property
-        // Check if data is a valid object before returning
-        return (typeof data === 'object' && data !== null) ? data : {};
+        // Call the NEW backend proxy endpoint
+        const response = await apiClient<BackendApiResponse<PlaceDetails>>(
+             // IMPORTANT: Use the new proxy route
+            `/api/places/proxy/details?placeId=${encodeURIComponent(placeId)}`,
+            'PlaceService Details via Proxy'
+        );
+
+        // Check the success flag and data presence from our backend wrapper
+        if (!response.success || !response.data) {
+            console.warn(`[placeService Details] Proxy request failed or returned no data for placeId ${placeId}:`, response.message || 'No data');
+            return null; // Return null on failure or if data is missing
+        }
+
+        // Return the details object contained within 'data'
+        return response.data;
     } catch (error) {
-        console.error('[placeService] Error fetching place details:', error instanceof Error ? error.message : error);
-        throw error; // Re-throw for React Query
+        console.error(`[placeService] Error fetching place details via proxy for ${placeId}:`, error instanceof Error ? error.message : error);
+        // Return null instead of throwing to allow components to handle "not found" gracefully
+        return null;
     }
 };
 
+// Keep findPlaceByText if still needed, but update it to use the backend proxy if one exists
 const findPlaceByText = async (query: string | null | undefined): Promise<PlaceDetails | null> => {
     const trimmedQuery = query?.trim();
     if (!trimmedQuery) {
@@ -67,16 +93,28 @@ const findPlaceByText = async (query: string | null | undefined): Promise<PlaceD
         return null;
     }
     try {
-        // Assuming backend '/api/places/find' returns { data: PlaceDetails | null }
-        const response = await apiClient<PlaceDetailsResponse>(`/api/places/find?query=${encodeURIComponent(trimmedQuery)}`, 'PlaceService Find');
-        const data = response?.data; // Access data property
-        // Check if data is a valid object with content before returning
-        return (typeof data === 'object' && data !== null && Object.keys(data).length > 0) ? data : null;
+        // Assuming you might create a '/api/places/proxy/find' endpoint as well
+        // If not, this function might become obsolete or need to call Google directly (undesirable)
+        // For now, let's assume a proxy endpoint exists or will be created:
+        const response = await apiClient<BackendApiResponse<PlaceDetails>>(
+             // IMPORTANT: Assumes a proxy route exists or will be created
+            `/api/places/proxy/find?query=${encodeURIComponent(trimmedQuery)}`,
+            'PlaceService Find via Proxy'
+        );
+
+        if (!response.success || !response.data) {
+            console.warn(`[placeService Find] Proxy request failed or returned no data for query "${trimmedQuery}":`, response.message || 'No data');
+            return null;
+        }
+
+        return response.data;
     } catch (error) {
-        console.error('[placeService] Error finding place by text:', error instanceof Error ? error.message : error);
-        throw error; // Re-throw for React Query
+        console.error('[placeService] Error finding place by text via proxy:', error instanceof Error ? error.message : error);
+        // Return null on error
+        return null;
     }
 };
+
 
 export const placeService = {
     getAutocompleteSuggestions,

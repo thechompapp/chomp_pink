@@ -1,17 +1,18 @@
 /* src/components/FloatingQuickAdd.jsx */
 import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
-import { Plus, Utensils, Store, List, X, Loader2, Send } from 'lucide-react';
+import { Plus, Utensils, Store, List, X as IconX, Loader2, Send } from 'lucide-react'; // Renamed X
 import { useQuickAdd } from '@/context/QuickAddContext';
-import Button from '@/components/UI/Button.jsx'; // Corrected path
-import Modal from '@/components/UI/Modal.jsx'; // Corrected path
+import Button from '@/components/UI/Button'; // Corrected path
+import Modal from '@/components/UI/Modal'; // Corrected path
 import useSubmissionStore from '@/stores/useSubmissionStore';
 import { useUIStateStore } from '@/stores/useUIStateStore';
 import { useShallow } from 'zustand/react/shallow';
 import useFormHandler from '@/hooks/useFormHandler.ts'; // Use .ts extension
-import { placeService } from '@/services/placeService.ts'; // Use .ts extension
-import { GOOGLE_PLACES_API_KEY } from '@/config';
+import { placeService } from '@/services/placeService'; // Use .ts extension
+// Removed import of GOOGLE_PLACES_API_KEY as it's no longer needed client-side for this
+// import { GOOGLE_PLACES_API_KEY } from '@/config';
 
-// Debounce function
+// Debounce function (keep as is)
 const debounce = (func, wait) => {
     let timeout;
     return (...args) => {
@@ -52,9 +53,10 @@ const FloatingQuickAddComponent = () => {
     const { formData, handleChange, handleSubmit, isSubmitting, submitError, setSubmitError, resetForm, setFormData } =
         useFormHandler({ newItemName: '', restaurantInput: '' });
 
-    const hasGooglePlacesKey = !!GOOGLE_PLACES_API_KEY;
+    // This check is no longer needed here as the key is only used server-side
+    // const hasGooglePlacesKey = !!GOOGLE_PLACES_API_KEY;
 
-    // --- State Resets ---
+    // State Resets (keep as is)
     const resetLocalFormState = useCallback(() => {
         setFormState({ formType: null, tagInput: '', selectedTags: [], restaurantSuggestions: [], placeDetails: null });
         setShowTagSuggestionsUI(false);
@@ -68,14 +70,10 @@ const FloatingQuickAddComponent = () => {
         setSubmitError(null);
     }, [resetForm, setSubmitError, resetLocalFormState]);
 
-    // --- Place Suggestions ---
+    // Place Suggestions (keep as is, relies on placeService which now calls proxy)
     const fetchPlaceSuggestions = useCallback(
         async (input) => {
-            if (!hasGooglePlacesKey) {
-                setFormState((prev) => ({ ...prev, restaurantSuggestions: [] }));
-                setShowRestaurantSuggestionsUI(false);
-                return;
-            }
+            // Removed the client-side check for hasGooglePlacesKey
             const trimmedInput = input?.trim();
             if (!trimmedInput || trimmedInput.length < 2) {
                 setFormState((prev) => ({ ...prev, restaurantSuggestions: [] }));
@@ -84,12 +82,11 @@ const FloatingQuickAddComponent = () => {
             }
             setIsFetchingPlaceSuggestions(true);
             try {
+                // placeService now calls the backend proxy
                 const predictions = await placeService.getAutocompleteSuggestions(trimmedInput);
-                // --- Corrected Filter Line (Removed TypeScript Type Predicate) ---
                 const validPredictions = (Array.isArray(predictions) ? predictions : [])
                     .map((p) => ({ name: p?.description, placeId: p?.place_id }))
-                    .filter(p => !!p.name && !!p.placeId); // Use simple boolean check
-                // --- End Correction ---
+                    .filter(p => !!p.name && !!p.placeId);
 
                 setFormState((prev) => ({ ...prev, restaurantSuggestions: validPredictions }));
                 setShowRestaurantSuggestionsUI(validPredictions.length > 0);
@@ -102,10 +99,10 @@ const FloatingQuickAddComponent = () => {
                 setIsFetchingPlaceSuggestions(false);
             }
         },
-        [setSubmitError, hasGooglePlacesKey]
+        [setSubmitError] // Removed hasGooglePlacesKey dependency
     );
 
-    // Debounce restaurant input changes
+    // Debounce restaurant input changes (keep as is)
     useEffect(() => {
         if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
         if (formState.formType === 'dish' || formState.formType === 'restaurant') {
@@ -119,7 +116,7 @@ const FloatingQuickAddComponent = () => {
         };
     }, [formData.restaurantInput, formState.formType, fetchPlaceSuggestions]);
 
-    // --- Click Outside Handling ---
+    // Click Outside Handling (keep as is)
     useEffect(() => {
         const handleClickOutside = (event) => {
             const fabButton = document.getElementById('floating-quick-add-button');
@@ -152,7 +149,7 @@ const FloatingQuickAddComponent = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [isMenuOpen, resetAllState, showTagSuggestionsUI, showRestaurantSuggestionsUI]);
 
-    // --- Button Actions ---
+    // Button Actions (keep as is)
     const handleOpenMainButton = useCallback(() => {
         setIsMenuOpen((prev) => {
             const nextState = !prev;
@@ -179,7 +176,7 @@ const FloatingQuickAddComponent = () => {
         resetAllState();
     }, [openQuickAdd, resetAllState]);
 
-    // --- Tag Handling ---
+    // Tag Handling (keep as is)
     const handleAddTag = useCallback(() => {
         const newTag = formState.tagInput.trim().toLowerCase();
         if (!newTag) return;
@@ -220,7 +217,7 @@ const FloatingQuickAddComponent = () => {
         setShowTagSuggestionsUI(false);
     }, [formState.selectedTags]);
 
-    // --- Restaurant Selection ---
+    // Restaurant Selection (keep as is, relies on placeService which now calls proxy)
     const handleSelectRestaurantSuggestion = useCallback(
         async (suggestion) => {
             if (!suggestion || !suggestion.placeId) return;
@@ -233,24 +230,31 @@ const FloatingQuickAddComponent = () => {
             setShowRestaurantSuggestionsUI(false);
             setFormState((prev) => ({ ...prev, restaurantSuggestions: [] }));
 
-            if (!hasGooglePlacesKey) {
-                setSubmitError('Google Places API key is missing; place details unavailable.');
-                return;
-            }
+            // Removed client-side API key check
+            // if (!hasGooglePlacesKey) {
+            //     setSubmitError('Google Places API key is missing; place details unavailable.');
+            //     return;
+            // }
 
             setIsFetchingPlaceSuggestions(true);
             setFormState((prev) => ({ ...prev, placeDetails: null }));
             setSubmitError(null);
 
             try {
+                 // placeService now calls the backend proxy
                 const details = await placeService.getPlaceDetails(suggestion.placeId);
-                if (details && typeof details === 'object') {
+                // Handle null case where details might not be found or proxy failed
+                if (details && typeof details === 'object' && Object.keys(details).length > 0) {
                     setFormState((prev) => ({ ...prev, placeDetails: details }));
+                    // Update restaurant name field only if it wasn't already set (e.g., if form type is restaurant)
                     if (formState.formType === 'restaurant' && !formData.newItemName) {
-                        setFormData((prev) => ({ ...prev, newItemName: details.name || suggestion.name }));
+                         setFormData((prev) => ({ ...prev, newItemName: details.name || suggestion.name }));
                     }
                 } else {
-                    throw new Error('Received invalid details from place service.');
+                     console.warn(`[FloatingQuickAdd] No place details returned from service for ${suggestion.placeId}`);
+                     // Optionally set an error or keep placeDetails null
+                     setSubmitError('Could not retrieve full place details.');
+                     setFormState((prev) => ({ ...prev, placeDetails: null }));
                 }
             } catch (error) {
                 console.error('[FloatingQuickAdd] Error fetching place details:', error);
@@ -260,10 +264,10 @@ const FloatingQuickAddComponent = () => {
                 setIsFetchingPlaceSuggestions(false);
             }
         },
-        [setFormData, formState.formType, setSubmitError, formData.newItemName, hasGooglePlacesKey]
+        [setFormData, formState.formType, setSubmitError, formData.newItemName] // Removed hasGooglePlacesKey dependency
     );
 
-    // --- Input Change Handlers ---
+    // Input Change Handlers (keep as is)
     const handleRestaurantInputChange = useCallback((event) => {
         handleChange(event);
         if (formState.placeDetails) {
@@ -287,7 +291,7 @@ const FloatingQuickAddComponent = () => {
         }
     }, [formState.restaurantSuggestions.length]);
 
-    // --- Submission Logic ---
+    // Submission Logic (keep as is)
     const performSubmit = useCallback(
         async (currentHookFormData) => {
             if (!currentHookFormData?.newItemName?.trim()) {
@@ -324,7 +328,7 @@ const FloatingQuickAddComponent = () => {
         handleSubmit(performSubmit);
     }, [handleSubmit, performSubmit]);
 
-    // --- Derived State ---
+    // Derived State (keep as is)
     const filteredHashtags = useMemo(() => {
         const inputLower = formState.tagInput.trim().toLowerCase();
         if (!inputLower || isLoadingCuisines || !Array.isArray(cuisines)) return [];
@@ -335,6 +339,7 @@ const FloatingQuickAddComponent = () => {
     }, [formState.tagInput, formState.selectedTags, cuisines, isLoadingCuisines]);
 
 
+    // JSX Render (largely unchanged, removed hasGooglePlacesKey checks)
     return (
         <>
             <button
@@ -358,6 +363,7 @@ const FloatingQuickAddComponent = () => {
                 aria-labelledby="fq-dialog-title"
             >
                 {!formState.formType ? (
+                    // Initial menu options (unchanged)
                     <div className="bg-white border border-gray-200 rounded-lg shadow-xl p-4 space-y-3">
                         <h3 id="fq-dialog-title" className="text-sm font-semibold text-gray-600 text-center mb-2">Quick Add</h3>
                         <Button onClick={handleOpenDishForm} variant="tertiary" className="w-full flex items-center justify-start space-x-2 text-gray-700 hover:bg-gray-100 py-2 px-3">
@@ -371,17 +377,20 @@ const FloatingQuickAddComponent = () => {
                         </Button>
                     </div>
                 ) : (
+                    // Form display (unchanged logic, just removed key check)
                     <form onSubmit={handleFormSubmit} className="bg-white border border-gray-200 rounded-lg shadow-xl p-4 max-h-[calc(100vh-12rem)] overflow-y-auto">
+                       {/* Form header and inputs remain the same */}
                         <div className="flex items-center justify-between mb-4">
                             <h3 id="fq-dialog-title" className="text-lg font-semibold text-gray-900">
                                 {formState.formType === 'dish' ? 'Submit a Dish' : 'Submit a Restaurant'}
                             </h3>
                             <Button onClick={resetAllState} variant="tertiary" size="sm" className="p-1 text-gray-400 hover:text-gray-600" aria-label="Back to quick add menu">
-                                <X size={18} />
+                                <IconX size={18} />
                             </Button>
                         </div>
 
                         <div className="space-y-3 text-sm">
+                            {/* Item Name */}
                             <div>
                                 <label htmlFor="fq-item-name" className="block text-gray-700 font-medium mb-1">
                                     {formState.formType === 'dish' ? 'Dish Name*' : 'Restaurant Name*'}
@@ -399,6 +408,7 @@ const FloatingQuickAddComponent = () => {
                                 />
                             </div>
 
+                            {/* Restaurant Input (for Dish) */}
                             {formState.formType === 'dish' && (
                                 <div ref={restaurantInputRef} className="relative">
                                     <label htmlFor="fq-restaurant-name" className="block text-gray-700 font-medium mb-1">Restaurant Name*</label>
@@ -445,6 +455,7 @@ const FloatingQuickAddComponent = () => {
                                 </div>
                             )}
 
+                            {/* Tags Input */}
                             <div ref={tagInputRef} className="relative">
                                 <label htmlFor="fq-tags" className="block text-gray-700 font-medium mb-1">Tags (optional, comma or Enter)</label>
                                 <input
@@ -488,7 +499,7 @@ const FloatingQuickAddComponent = () => {
                                                     className="ml-1 -mr-0.5 p-0.5 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-full focus:outline-none focus:bg-gray-200 disabled:cursor-not-allowed"
                                                     aria-label={`Remove tag ${tag}`}
                                                 >
-                                                    <X size={12} />
+                                                    <IconX size={12} />
                                                 </button>
                                             </span>
                                         ))}
@@ -496,6 +507,7 @@ const FloatingQuickAddComponent = () => {
                                 )}
                             </div>
 
+                            {/* Display Place Details */}
                             {formState.placeDetails && (
                                 <div className="text-xs text-gray-500 border-t pt-2 mt-2">
                                     <p><strong>Selected Location:</strong> {formState.placeDetails.formattedAddress}</p>
@@ -503,6 +515,7 @@ const FloatingQuickAddComponent = () => {
                                 </div>
                             )}
 
+                             {/* Error and Submit Button */}
                             {submitError && (
                                 <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2 mt-2 text-center">
                                     {submitError}
@@ -513,7 +526,7 @@ const FloatingQuickAddComponent = () => {
                                 type="submit"
                                 variant="primary"
                                 className="w-full flex justify-center py-2 px-4 mt-4"
-                                disabled={isSubmitting || isFetchingPlaceSuggestions}
+                                disabled={isSubmitting || isFetchingPlaceSuggestions} // Also disable while fetching place suggestions
                             >
                                 {isSubmitting ? (
                                     <Loader2 className="animate-spin h-5 w-5" />

@@ -13,6 +13,8 @@ import { useNavigate } from 'react-router-dom';
 import useAuthStore from '@/stores/useAuthStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useAdminTableState } from '@/hooks/useAdminTableState';
+import RestaurantLocationEditor from '@/components/Admin/RestaurantLocationEditor';
+import apiClient from '@/services/apiClient';
 
 // --- Types ---
 interface City {
@@ -45,6 +47,8 @@ interface AdminTableProps {
   onSortChange: (type: string, column: string, direction: string) => void;
   onDataMutated?: () => void;
   isLoading?: boolean;
+  cities?: City[] | { success: boolean; status: number; data: City[]; error?: string };
+  citiesError?: Error | null;
 }
 
 // --- Column Definitions ---
@@ -190,6 +194,8 @@ const AdminTable: React.FC<AdminTableProps> = ({
   onSortChange,
   onDataMutated,
   isLoading = false,
+  cities: propCities = [], // Renamed to avoid conflict
+  citiesError,
 }) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -201,14 +207,40 @@ const AdminTable: React.FC<AdminTableProps> = ({
     }))
   );
 
-  // Fetch Cities and Neighborhoods
-  const { data: cities = [], error: citiesError } = useQuery<City[], Error>({
-    queryKey: ['adminCitiesSimple'],
-    queryFn: adminService.getAdminCitiesSimple,
-    staleTime: Infinity,
-    placeholderData: [],
-    onError: (err) => console.error('[AdminTable] Error fetching cities:', err),
+  // Log the propCities to debug what the parent is passing
+  useEffect(() => {
+    console.log('[AdminTable] propCities received:', propCities);
+  }, [propCities]);
+
+  // Fetch cities if propCities is empty
+  const { data: fetchedCitiesData, error: fetchedCitiesError } = useQuery<{ data: City[] }, Error>({
+    queryKey: ['adminCities'],
+    queryFn: async () => {
+      const response = await apiClient<{ data: City[] }>(
+        '/api/filters/cities',
+        'AdminTable Fetch Cities'
+      );
+      console.log('[AdminTable] Raw cities response from /api/filters/cities:', response);
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to fetch cities');
+      }
+      return response;
+    },
+    staleTime: 0,
+    enabled: isAuthenticated && !authLoading,
+    onError: (err) => {
+      console.error('[AdminTable] Error fetching cities:', err);
+      if (err.message?.includes('Authentication required')) navigate('/login');
+    },
   });
+
+  const cities = useMemo(() => {
+    const citiesFromProp = Array.isArray(propCities) ? propCities : (propCities?.data || []);
+    const citiesFromFetch = fetchedCitiesData?.data || [];
+    const finalCities = citiesFromProp.length > 0 ? citiesFromProp : citiesFromFetch;
+    console.log('[AdminTable] Final cities:', finalCities);
+    return finalCities;
+  }, [propCities, fetchedCitiesData]);
 
   const {
     data: neighborhoodsData,
@@ -216,22 +248,54 @@ const AdminTable: React.FC<AdminTableProps> = ({
     refetch,
     isLoading: neighborhoodsLoading,
     isFetching: neighborhoodsFetching,
-  } = useQuery<{ data: Neighborhood[] }, Error>({
-    queryKey: ['adminNeighborhoods'],
-    queryFn: () => adminService.getAdminNeighborhoods(),
+  } = useQuery<{ data: Neighborhood[]; pagination: { total: number; page: number; limit: number; totalPages: number } }, Error>({
+    queryKey: ['neighborhoods'],
+    queryFn: async () => {
+      let allNeighborhoods: Neighborhood[] = [];
+      let page = 1;
+      const limit = 100;
+
+      while (true) {
+        const response = await apiClient(
+          `/api/neighborhoods?page=${page}&limit=${limit}`,
+          `AdminTable Fetch Neighborhoods Page ${page}`
+        );
+        console.log(`[AdminTable] Raw neighborhoods response (page ${page}):`, response);
+        if (!response.success) {
+          throw new Error(response.error || 'Failed to fetch neighborhoods');
+        }
+
+        // Handle nested data structure
+        const responseData = response.data?.data ? response.data : { data: response.data, pagination: response.pagination };
+        if (!Array.isArray(responseData.data)) {
+          throw new Error('Invalid neighborhoods response: data is not an array');
+        }
+
+        allNeighborhoods = allNeighborhoods.concat(responseData.data);
+
+        const pagination = responseData.pagination;
+        if (!pagination || page >= pagination.totalPages) {
+          break;
+        }
+        page++;
+      }
+
+      return { data: allNeighborhoods, pagination: { total: allNeighborhoods.length, page: 1, limit: allNeighborhoods.length, totalPages: 1 } };
+    },
     staleTime: 0,
-    cacheTime: 0,
-    placeholderData: { data: [] },
+    placeholderData: { data: [], pagination: { total: 0, page: 1, limit: 20, totalPages: 0 } },
     enabled: isAuthenticated && !authLoading,
     onError: (err) => {
+      console.error('[AdminTable] Neighborhoods fetch error:', err);
       if (err.message?.includes('Authentication required')) navigate('/login');
     },
   });
 
-  const neighborhoods = useMemo(
-    () => (Array.isArray(neighborhoodsData?.data) ? neighborhoodsData.data : []),
-    [neighborhoodsData]
-  );
+  const neighborhoods = useMemo(() => {
+    const processed = Array.isArray(neighborhoodsData?.data) ? neighborhoodsData.data : [];
+    console.log('[AdminTable] Processed neighborhoods:', processed);
+    return processed;
+  }, [neighborhoodsData]);
 
   // Use Custom Hook
   const {
@@ -419,7 +483,7 @@ const AdminTable: React.FC<AdminTableProps> = ({
       </div>
     );
   }
-  if (citiesError) return <ErrorMessage message="Failed to load city data." />;
+  if (citiesError || fetchedCitiesError) return <ErrorMessage message="Failed to load city data." />;
   if (neighborhoodsError && !neighborhoodsFetching)
     return <ErrorMessage message={neighborhoodsError.message || 'Failed to load neighborhood data.'} onRetry={refetch} />;
 

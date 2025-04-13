@@ -1,4 +1,3 @@
-// src/pages/AdminPanel/AdminTableRow.tsx
 import React from 'react';
 import EditableCell from './EditableCell';
 import ActionCell from './ActionCell';
@@ -57,8 +56,8 @@ interface AdminTableRowProps {
   type: string;
   canEdit: boolean;
   canMutate: boolean;
-  cities: City[];
-  neighborhoods: Neighborhood[];
+  cities: City[] | undefined;
+  neighborhoods: Neighborhood[] | undefined;
   setEditError: React.Dispatch<React.SetStateAction<string | null>>;
   setError: React.Dispatch<React.SetStateAction<string | null>>;
   setActionState: React.Dispatch<React.SetStateAction<ActionState>>;
@@ -108,8 +107,6 @@ const AdminTableRow: React.FC<AdminTableRowProps> = ({
   const rowData = editFormData[row.id] || {};
   const isRowBusy =
     isSaving || actionState.deletingId === row.id || actionState.approvingId === row.id || actionState.rejectingId === row.id;
-
-  console.log('[AdminTableRow] Rendering row', row.id, 'isEditing:', isEditing, 'rowData:', rowData);
 
   return (
     <tr

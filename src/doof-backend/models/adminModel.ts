@@ -10,6 +10,16 @@ import * as ListModel from './listModel.js';
 import * as HashtagModel from './hashtagModel.js';
 import * as UserModel from './userModel.js';
 import * as NeighborhoodModel from './neighborhoodModel.js'; // Import Neighborhood model
+import * as SubmissionModel from './submissionModel.js'; // Import Submission model for types/functions
+
+// Re-import types if needed locally, adjust paths as necessary
+import type { Restaurant } from '../../types/Restaurant.js';
+import type { Dish } from '../../types/Dish.js';
+import type { List } from '../../types/List.js';
+import type { User } from '../../types/User.js';
+import type { Submission } from '../../types/Submission.js';
+import type { Hashtag } from './hashtagModel.js'; // Assuming local definition here
+import type { Neighborhood } from './neighborhoodModel.js'; // Assuming local definition here
 
 interface BulkAddItem {
     type: 'restaurant' | 'dish';
@@ -44,12 +54,13 @@ interface BulkAddResults {
 }
 
 // Type definition for allowed update/create payloads (adjust as needed)
-type MutatePayload = Partial<RestaurantModel.Restaurant>
-                   | Partial<DishModel.Dish>
-                   | Partial<ListModel.List>
-                   | Partial<HashtagModel.Hashtag>
-                   | Partial<NeighborhoodModel.Neighborhood> // Add Neighborhood type
-                   | Partial<Omit<UserModel.User, 'password_hash' | 'created_at'>> & { password?: string }; // Allow password for create
+// Using imported types now
+type MutatePayload = Partial<Restaurant>
+                   | Partial<Dish>
+                   | Partial<List>
+                   | Partial<Hashtag>
+                   | Partial<Neighborhood> // Add Neighborhood type
+                   | Partial<Omit<User, 'password_hash' | 'created_at'>> & { password?: string }; // Allow password for create
 
 type ResourceType = 'restaurants' | 'dishes' | 'lists' | 'hashtags' | 'users' | 'neighborhoods';
 
@@ -73,45 +84,48 @@ export const createResource = async (
 
     switch (resourceType) {
         case 'restaurants':
-            return RestaurantModel.createRestaurant(createData as Partial<RestaurantModel.Restaurant>);
+             // Use the imported RestaurantModel function
+            return RestaurantModel.createRestaurant(createData as Partial<Restaurant>);
         case 'dishes':
             // Ensure required fields for dish are present before casting
-            if (!createData.name || typeof createData.restaurant_id !== 'number') {
+            if (!createData.name || typeof (createData as Partial<Dish>).restaurant_id !== 'number') {
                  throw new Error("Dish name and valid restaurant_id are required.");
             }
+             // Use the imported DishModel function
             return DishModel.createDish(createData as { name: string; restaurant_id: number });
         case 'lists':
             if (!createData.name || !userId || !userHandle) {
                 throw new Error("List name, userId, and userHandle are required to create a list.");
             }
-            // Cast carefully after validation
-            return ListModel.createList(createData as Partial<ListModel.List> & { name: string }, userId, userHandle);
+             // Use the imported ListModel function
+            return ListModel.createList(createData as Partial<List> & { name: string }, userId, userHandle);
         case 'hashtags':
             // Hashtag creation logic likely resides in a tag assignment flow,
             // but if direct creation is needed:
              if (!createData.name) throw new Error("Hashtag name is required.");
+             // Use the imported HashtagModel function
              // return HashtagModel.createHashtag(createData as { name: string; category?: string });
              console.warn(`[AdminModel] Direct hashtag creation not typically expected via admin update. Implement HashtagModel.createHashtag if needed.`);
              return null; // Placeholder
         case 'users':
-            if (!createData.username || !createData.email || !createData.password) {
+            if (!(createData as Partial<User>).username || !(createData as Partial<User>).email || !(createData as { password?: string }).password) {
                 throw new Error("Username, email, and password are required for user creation.");
             }
-            const passwordHash = await bcrypt.hash(createData.password, 10);
-            // Ensure required fields exist before calling createUser
+            const passwordHash = await bcrypt.hash((createData as { password: string }).password, 10);
+             // Use the imported UserModel function
              return UserModel.createUser(
-                 createData.username,
-                 createData.email,
-                 passwordHash
-                 // Account type defaults to 'user' in model if not provided
+                 (createData as Partial<User>).username!,
+                 (createData as Partial<User>).email!,
+                 passwordHash,
+                  (createData as Partial<User>).account_type // Pass account type if provided
              );
         case 'neighborhoods':
              // Ensure required fields are present
-            if (!createData.name || typeof createData.city_id !== 'number') {
+            if (!createData.name || typeof (createData as Partial<Neighborhood>).city_id !== 'number') {
                 throw new Error("Neighborhood name and valid city_id are required.");
             }
             // Use the imported NeighborhoodModel function
-             return NeighborhoodModel.createNeighborhood(createData as { name: string; city_id: number });
+             return NeighborhoodModel.createNeighborhood(createData as CreateNeighborhoodData); // Use correct type
         default:
             console.error(`[AdminModel createResource] Unsupported resource type: ${resourceType}`);
             throw new Error(`Creation not supported for resource type: ${resourceType}`);
@@ -141,17 +155,20 @@ export const updateResource = async (
     // Delegate to the specific model's update function
     switch (resourceType) {
         case 'restaurants':
-            return RestaurantModel.updateRestaurant(id, updateData as Partial<RestaurantModel.Restaurant>);
+            // Use the imported RestaurantModel function
+            return RestaurantModel.updateRestaurant(id, updateData as Partial<Restaurant>);
         case 'dishes':
-            return DishModel.updateDish(id, updateData as Partial<DishModel.Dish>);
+             // Use the imported DishModel function
+            return DishModel.updateDish(id, updateData as Partial<Dish>);
         case 'lists':
+             // Use the imported ListModel function
             // Ensure list updates don't try to set user_id or creator_handle directly if not allowed
-            delete updateData.user_id;
-            delete updateData.creator_handle;
-            return ListModel.updateList(id, updateData as Partial<ListModel.List>);
+            delete (updateData as Partial<List>).user_id;
+            delete (updateData as Partial<List>).creator_handle;
+            return ListModel.updateList(id, updateData as Partial<List>);
         case 'hashtags':
-            // Ensure required fields exist if updating name/category
-            return HashtagModel.updateHashtag(id, updateData as Partial<HashtagModel.Hashtag>);
+             // Use the imported HashtagModel function
+            return HashtagModel.updateHashtag(id, updateData as Partial<Hashtag>);
         case 'users':
             // IMPORTANT: Prevent password updates via this generic route.
             // Handle password changes separately in a dedicated, secure endpoint.
@@ -159,12 +176,12 @@ export const updateResource = async (
                 console.error(`[AdminModel updateResource] Attempted password update via generic route for user ${id}. Denied.`);
                 throw new Error("Password updates must use a dedicated route.");
             }
-            delete updateData.password_hash; // Ensure hash isn't accidentally passed
-            // Ensure required fields exist if updating username/email
-            return UserModel.updateUser(id, updateData as Partial<UserModel.User>);
+            delete (updateData as Partial<User>).password_hash; // Ensure hash isn't accidentally passed
+             // Use the imported UserModel function
+            return UserModel.updateUser(id, updateData as Partial<User>);
          case 'neighborhoods':
             // Use the imported NeighborhoodModel function
-             return NeighborhoodModel.updateNeighborhood(id, updateData as Partial<NeighborhoodModel.Neighborhood>);
+             return NeighborhoodModel.updateNeighborhood(id, updateData as UpdateNeighborhoodData); // Use correct type
         default:
             console.error(`[AdminModel updateResource] Unsupported resource type: ${resourceType}`);
             throw new Error(`Updates not supported for resource type: ${resourceType}`);
@@ -346,25 +363,104 @@ export const deleteResourceById = async (tableName: string, id: number): Promise
     return (result.rowCount ?? 0) > 0;
 };
 
-// Need to define the getAdminNeighborhoods and other related functions if they belong here
-// Or confirm they exist in neighborhoodModel.ts and are used correctly in admin.ts route
-
-// Example placeholder if needed (likely should be in neighborhoodModel.ts)
-/*
-export const getAdminNeighborhoods = async (options: { page: number, limit: number, sortBy: string, sortOrder: string, search?: string, cityId?: number }) => {
-    // Implementation using neighborhoodModel.getAllNeighborhoods
-    console.warn("[AdminModel] getAdminNeighborhoods called, should likely use neighborhoodModel directly.");
-    const { neighborhoods, total } = await NeighborhoodModel.getAllNeighborhoods(
-        options.limit,
-        (options.page - 1) * options.limit,
-        options.sortBy,
-        options.sortOrder as 'ASC' | 'DESC',
-        options.search,
-        options.cityId
-    );
-    return {
-        data: neighborhoods,
-        pagination: { total, page: options.page, limit: options.limit, totalPages: Math.ceil(total / options.limit) }
-    };
+// --- Submission Admin Functions ---
+// Assuming functions like getSubmissions, updateSubmissionStatus are in submissionModel.ts
+export const getSubmissions = async (params: {
+    status?: Submission['status'];
+    limit: number;
+    offset: number;
+    sortBy: string;
+    sortOrder: 'asc' | 'desc';
+}): Promise<{ submissions: Submission[], total: number }> => {
+    // Delegate to SubmissionModel
+    return SubmissionModel.getSubmissions(params);
 };
-*/
+
+export const updateSubmissionStatus = async (
+    id: number,
+    status: Submission['status'],
+    reviewerId: number
+): Promise<Submission | null> => {
+     // Delegate to SubmissionModel
+    return SubmissionModel.updateSubmissionStatus(id, status, reviewerId);
+};
+
+
+// --- User Admin Functions ---
+// Assuming functions like getAllUsers, updateUserRole are in userModel.ts
+export const getAllUsers = async (limit: number, offset: number): Promise<{ users: User[], total: number }> => {
+     // Delegate to UserModel
+    return UserModel.getUsers({ limit, offset });
+};
+
+export const updateUserRole = async (userId: number, isSuperuser: boolean): Promise<User | null> => {
+     // Delegate to UserModel
+    return UserModel.updateUserRole(userId, isSuperuser);
+};
+
+// --- Restaurant Admin Functions (New) ---
+
+/**
+ * Fetches all restaurants for the admin panel with pagination and basic details.
+ * Includes neighborhood name via JOIN.
+ */
+export const getAllRestaurantsForAdmin = async (
+    limit: number,
+    offset: number
+): Promise<{ restaurants: (Restaurant & { neighborhood_name?: string })[], total: number }> => {
+    const countQuery = 'SELECT COUNT(*) FROM restaurants';
+    const dataQuery = `
+        SELECT r.*, n.name as neighborhood_name
+        FROM restaurants r
+        LEFT JOIN neighborhoods n ON r.neighborhood_id = n.id
+        ORDER BY r.name ASC -- Default sort
+        LIMIT $1 OFFSET $2
+    `;
+    try {
+        const countResult = await db.query(countQuery);
+        const total = parseInt(countResult.rows[0].count, 10);
+        const dataResult = await db.query(dataQuery, [limit, offset]);
+        // Format response if needed, though basic join is likely okay
+        return { restaurants: dataResult.rows || [], total };
+    } catch (error) {
+        console.error('[AdminModel getAllRestaurantsForAdmin] Error fetching restaurants:', error);
+        throw error;
+    }
+};
+
+/**
+ * Fetches a single restaurant by ID for admin editing.
+ * Includes neighborhood name via JOIN.
+ */
+export const getRestaurantByIdForAdmin = async (id: number): Promise<(Restaurant & { neighborhood_name?: string }) | null> => {
+  const query = `
+    SELECT r.*, n.name as neighborhood_name
+    FROM restaurants r
+    LEFT JOIN neighborhoods n ON r.neighborhood_id = n.id
+    WHERE r.id = $1
+  `;
+  try {
+    const { rows } = await db.query(query, [id]);
+    return rows.length > 0 ? rows[0] : null;
+  } catch (error) {
+    console.error(`[AdminModel getRestaurantByIdForAdmin] Error fetching restaurant ID ${id}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Updates a restaurant's details based on admin input.
+ * Uses the specific RestaurantModel.updateRestaurant function.
+ */
+export const updateRestaurant = async (id: number, restaurantData: Partial<Restaurant>): Promise<Restaurant | null> => {
+    console.log(`[AdminModel updateRestaurant] Updating ID ${id} with data:`, restaurantData);
+    try {
+         // Delegate directly to the specialized RestaurantModel function
+         // This assumes RestaurantModel.updateRestaurant handles allowed fields, etc.
+        return await RestaurantModel.updateRestaurant(id, restaurantData);
+    } catch (error) {
+        console.error(`[AdminModel updateRestaurant] Error updating restaurant ID ${id}:`, error);
+        // Handle specific errors (like unique constraints) if needed, or re-throw
+        throw error;
+    }
+};

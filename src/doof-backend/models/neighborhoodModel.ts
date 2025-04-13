@@ -3,14 +3,15 @@ import pool from '../db'; // Assuming db connection pool is exported from here
 import type { QueryResultRow, QueryResult } from 'pg';
 
 // Define Neighborhood type matching frontend/shared types if possible, or define locally
-// Make sure it includes zipcode_ranges
+// Make sure it includes zipcode_ranges / zip_codes
 export interface Neighborhood {
     id: number;
     name: string;
     city_id: number;
     created_at?: Date | string;
     updated_at?: Date | string;
-    zipcode_ranges?: string[] | null; // Added zipcode_ranges
+    // Match the column name used in your schema/dump ('zipcode_ranges')
+    zipcode_ranges?: string[] | null; // Use 'zipcode_ranges' based on schema.sql/dump
 }
 
 // Type for raw DB row results, including joined city_name
@@ -19,7 +20,13 @@ interface RawNeighborhoodRow extends Neighborhood, QueryResultRow {
 }
 
 // Type for creation (omit id and timestamps)
-type CreateNeighborhoodData = Omit<Neighborhood, 'id' | 'created_at' | 'updated_at'>;
+// Ensure this aligns with your frontend/shared types if possible
+type CreateNeighborhoodData = {
+    name: string;
+    city_id: number;
+    zip_codes?: string | string[] | null; // Accept various inputs
+};
+
 // Type for update (all optional except id)
 type UpdateNeighborhoodData = Partial<Omit<Neighborhood, 'id' | 'created_at' | 'updated_at'>>;
 
@@ -34,6 +41,7 @@ const formatNeighborhood = (row: RawNeighborhoodRow | undefined): (Neighborhood 
         city_id: Number(row.city_id), // Ensure city_id is number
         created_at: row.created_at,
         updated_at: row.updated_at,
+        // Use the actual column name 'zipcode_ranges' from DB
         zipcode_ranges: Array.isArray(row.zipcode_ranges) ? row.zipcode_ranges.filter(Boolean).map(String) : null, // Ensure it's string array or null
         city_name: row.city_name ?? undefined, // Include joined city name
     };
@@ -81,7 +89,7 @@ export const getAllNeighborhoods = async (
     const safeSortBy = validSortColumns.includes(sortBy) ? sortBy : 'neighborhoods.name';
     const safeSortOrder = sortOrder.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
 
-    // Select zipcode_ranges as well
+    // Select zip_codes as well
     let query = `
         SELECT
             neighborhoods.*,
@@ -114,18 +122,17 @@ export const getAllNeighborhoods = async (
         paramIndex++;
     }
 
-    if (whereClauses.length > 0) {
-        const whereString = ' WHERE ' + whereClauses.join(' AND ');
-        query += whereString;
-        // countQuery already includes the JOIN correctly
-    }
+    const whereString = whereClauses.length > 0 ? ' WHERE ' + whereClauses.join(' AND ') : '';
+    query += whereString;
+    const countWhereString = whereClauses.length > 0 ? ' WHERE ' + whereClauses.map((_, i) => whereClauses[i].replace(`$${i + 1 + (search ? 1 : 0) + (cityId ? 1 : 0)}`, `$${i + 1}`)).join(' AND ') : '';
+
 
     // Get total count matching filters (before pagination)
-    const totalResult = await pool.query(countQuery + (whereClauses.length > 0 ? ' WHERE ' + whereClauses.join(' AND ') : ''), countQueryParams);
+    const totalResult = await pool.query(countQuery + countWhereString, countQueryParams);
     const total = parseInt(totalResult.rows[0].count, 10);
 
     // Add sorting and pagination to main query
-    query += ` ORDER BY ${safeSortBy} ${safeSortOrder}`;
+    query += ` ORDER BY ${safeSortBy} ${safeSortOrder} NULLS LAST`; // Added NULLS LAST
     queryParams.push(limit);
     query += ` LIMIT $${paramIndex++}`;
     queryParams.push(offset);
@@ -148,7 +155,7 @@ export const getNeighborhoodById = async (id: number): Promise<(Neighborhood & {
         console.warn(`[NeighborhoodModel getNeighborhoodById] Invalid ID: ${id}`);
         return null;
     }
-    // Select zipcode_ranges
+    // Select zip_codes
     const query = `
         SELECT
             neighborhoods.*,
@@ -163,10 +170,10 @@ export const getNeighborhoodById = async (id: number): Promise<(Neighborhood & {
 
 /**
  * Create a new neighborhood.
- * Handles zipcode_ranges input (expects comma-separated string or array).
+ * Handles zip_codes input (expects comma-separated string or array).
  */
 export const createNeighborhood = async (data: CreateNeighborhoodData): Promise<Neighborhood | null> => {
-    const { name, city_id, zipcode_ranges } = data;
+    const { name, city_id, zip_codes } = data;
 
     // Basic validation
     if (!name || !city_id || typeof city_id !== 'number' || city_id <= 0) {
@@ -174,9 +181,9 @@ export const createNeighborhood = async (data: CreateNeighborhoodData): Promise<
     }
 
     // Prepare zipcode array
-    const preparedZipcodes = prepareZipcodeRanges(zipcode_ranges);
+    const preparedZipcodes = prepareZipcodeRanges(zip_codes);
 
-    // Insert zipcode_ranges
+    // Insert zip_codes
     const query = `
         INSERT INTO neighborhoods (name, city_id, zipcode_ranges, created_at, updated_at)
         VALUES ($1, $2, $3, NOW(), NOW())
@@ -184,12 +191,16 @@ export const createNeighborhood = async (data: CreateNeighborhoodData): Promise<
     `;
     try {
         const result = await pool.query<RawNeighborhoodRow>(query, [name, city_id, preparedZipcodes]);
-        return formatNeighborhood(result.rows[0]);
+        // Refetch to include city_name after insert
+        return getNeighborhoodById(result.rows[0].id);
     } catch (error: any) {
         if (error.code === '23503') { // Foreign key violation
             throw new Error(`Create failed: City with ID ${city_id} does not exist.`);
         }
         // Consider unique constraint on name+city_id if needed
+         if (error.code === '23505') { // Unique constraint violation
+             throw new Error(`Create failed: A neighborhood named "${name}" likely already exists in this city.`);
+         }
         console.error(`[NeighborhoodModel createNeighborhood] Error:`, error);
         throw error; // Re-throw other errors
     }
@@ -197,9 +208,9 @@ export const createNeighborhood = async (data: CreateNeighborhoodData): Promise<
 
 /**
  * Update an existing neighborhood.
- * Handles zipcode_ranges input (expects comma-separated string or array).
+ * Handles zip_codes input (expects comma-separated string or array).
  */
-export const updateNeighborhood = async (id: number, data: UpdateNeighborhoodData): Promise<Neighborhood | null> => {
+export const updateNeighborhood = async (id: number, data: UpdateNeighborhoodData): Promise<(Neighborhood & { city_name?: string }) | null> => {
      if (isNaN(id) || id <= 0) {
         console.warn(`[NeighborhoodModel updateNeighborhood] Invalid ID: ${id}`);
         return null;
@@ -226,6 +237,7 @@ export const updateNeighborhood = async (id: number, data: UpdateNeighborhoodDat
     }
 
     if (fields.length === 0) {
+         console.log(`[NeighborhoodModel updateNeighborhood] No valid fields provided for update on ID ${id}.`);
         return getNeighborhoodById(id); // No fields to update
     }
 
@@ -235,19 +247,25 @@ export const updateNeighborhood = async (id: number, data: UpdateNeighborhoodDat
         UPDATE neighborhoods
         SET ${fields.join(', ')}
         WHERE id = $${paramIndex}
-        RETURNING *
+        RETURNING id
     `;
     values.push(id); // Add ID for WHERE clause
 
     try {
-        const result = await pool.query<RawNeighborhoodRow>(query, values);
-        if (result.rowCount === 0) return null; // Neighborhood not found
+        const result = await pool.query<{id: number}>(query, values);
+        if (result.rowCount === 0) {
+             console.warn(`[NeighborhoodModel updateNeighborhood] Neighborhood with ID ${id} not found for update.`);
+             return null; // Neighborhood not found
+        }
         // Refetch to include city_name after update
         return getNeighborhoodById(id);
     } catch (error: any) {
         if (error.code === '23503') { // Foreign key violation
             throw new Error(`Update failed: City with ID ${data.city_id} does not exist.`);
         }
+        if (error.code === '23505') { // Unique constraint violation
+             throw new Error(`Update failed: A neighborhood named "${data.name}" likely already exists in this city.`);
+         }
         console.error(`[NeighborhoodModel updateNeighborhood] Error updating ID ${id}:`, error);
         throw error;
     }
@@ -278,7 +296,8 @@ export const deleteNeighborhood = async (id: number): Promise<boolean> => {
 
 /**
  * Find a single neighborhood by a zipcode.
- * Returns the first match found, prioritizing neighborhoods with fewer zipcodes for more specific matches.
+ * Returns the first match found based on DB order (typically ID).
+ * Includes city name.
  */
 export const findNeighborhoodByZipcode = async (zipcode: string): Promise<(Neighborhood & { city_name?: string }) | null> => {
     // Basic validation
@@ -288,30 +307,33 @@ export const findNeighborhoodByZipcode = async (zipcode: string): Promise<(Neigh
         return null;
     }
 
-    // Query using array containment operator, prioritize by number of zipcodes
+    // Query using array containment operator with proper casting
     const query = `
         SELECT
             n.*,
-            c.name as city_name,
-            array_length(n.zipcode_ranges, 1) as zipcode_count
+            c.name as city_name
         FROM neighborhoods n
         JOIN cities c ON n.city_id = c.id
-        WHERE $1 = ANY(n.zipcode_ranges)
-        ORDER BY array_length(n.zipcode_ranges, 1) ASC, n.id ASC
+        WHERE $1::text = ANY(n.zipcode_ranges::text[])
+        ORDER BY n.id ASC
         LIMIT 1;
     `;
 
     try {
-        const result = await pool.query<RawNeighborhoodRow & { zipcode_count: number }>(query, [zipcode]);
+        const result = await pool.query<RawNeighborhoodRow>(query, [zipcode]);
         if (result.rowCount === 0) {
-            return null; // No neighborhood found for this zipcode
+            console.log(`[NeighborhoodModel findNeighborhoodByZipcode] No neighborhood found for zipcode ${zipcode}`);
+            return null;
         }
-        return formatNeighborhood(result.rows[0]);
+        const neighborhood = formatNeighborhood(result.rows[0]);
+        console.log(`[NeighborhoodModel findNeighborhoodByZipcode] Found neighborhood for zipcode ${zipcode}:`, neighborhood);
+        return neighborhood;
     } catch (error) {
         console.error(`[NeighborhoodModel findNeighborhoodByZipcode] Error searching for zipcode ${zipcode}:`, error);
-        throw error; // Re-throw error
+        throw error;
     }
 };
+
 
 /**
  * Get all cities for dropdowns.

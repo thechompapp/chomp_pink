@@ -1,5 +1,6 @@
 export * from './List';
 export * from './User';
+export * from './Places';
 
 export interface DishDetail {
     id: number;

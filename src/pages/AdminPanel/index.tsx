@@ -401,14 +401,18 @@ const AdminPanel: React.FC = () => {
                 )}
                 {!isLoading && !isError && (
                   <>
-                    <AdminTable
-                      type={tab}
-                      data={responseData}
-                      sort={currentSort}
-                      onSortChange={handleSortChange}
-                      onDataMutated={handleDataMutation}
-                      isLoading={isFetching}
-                    />
+                    {activeTab !== 'analytics' && (
+                      <AdminTable
+                        data={responseData}
+                        type={activeTab}
+                        sort={currentSort}
+                        onSortChange={handleSortChange}
+                        onDataMutated={handleDataMutation}
+                        isLoading={isLoading || isFetching}
+                        cities={cities}
+                        citiesError={citiesError}
+                      />
+                    )}
                     {pagination && pagination.totalPages > 1 && (
                       <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
                         <div>

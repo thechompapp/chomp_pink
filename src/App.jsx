@@ -2,6 +2,7 @@
 import React, { Suspense, lazy, useEffect, useRef, useMemo, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { QuickAddProvider } from '@/context/QuickAddContext';
+import { PlacesApiProvider } from '@/context/PlacesApiContext';
 import PageContainer from '@/layouts/PageContainer.jsx';
 import QuickAddPopup from '@/components/QuickAddPopup.jsx';
 import ErrorBoundary from '@/components/ErrorBoundary.jsx';
@@ -11,6 +12,8 @@ import { useShallow } from 'zustand/react/shallow';
 import { useUIStateStore } from '@/stores/useUIStateStore';
 import useUserListStore from '@/stores/useUserListStore';
 import ProtectedRoute from '@/components/ProtectedRoute.jsx';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from '@/queryClient';
 
 // Lazy load pages
 const FloatingQuickAdd = lazy(() => import('@/components/FloatingQuickAdd.jsx'));
@@ -112,60 +115,64 @@ const App = () => {
   }
 
   return (
-    <QuickAddProvider {...providerValue}>
-      <BrowserRouter>
-        <QuickAddPopup />
-        <Suspense fallback={<SuspenseFallback />}>
-          <AppInitializer />
-          <Routes>
-            <Route path="/login" element={<ErrorBoundary><Login /></ErrorBoundary>} />
-            <Route path="/register" element={<ErrorBoundary><Register /></ErrorBoundary>} />
-            <Route element={<PageContainer />}>
-              <Route path="/" element={<ErrorBoundary><Home /></ErrorBoundary>} />
-              <Route path="/trending" element={<ErrorBoundary><Trending /></ErrorBoundary>} />
-              <Route path="/restaurant/:id" element={<ErrorBoundary><RestaurantDetail /></ErrorBoundary>} />
-              <Route path="/dish/:id" element={<ErrorBoundary><DishDetail /></ErrorBoundary>} />
-              <Route path="/search" element={<ErrorBoundary><SearchResultsPage /></ErrorBoundary>} />
-              <Route path="/lists/:id" element={<ErrorBoundary><ListDetail /></ErrorBoundary>} />
-              <Route element={<ProtectedRoute />}>
-                <Route path="/dashboard" element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
-                <Route path="/lists" element={<ErrorBoundary><Lists /></ErrorBoundary>}>
-                  <Route index element={<ErrorBoundary><MyLists /></ErrorBoundary>} />
-                  <Route path="new" element={<ErrorBoundary><NewList /></ErrorBoundary>} />
+    <QueryClientProvider client={queryClient}>
+      <PlacesApiProvider>
+        <QuickAddProvider {...providerValue}>
+          <BrowserRouter>
+            <QuickAddPopup />
+            <Suspense fallback={<SuspenseFallback />}>
+              <AppInitializer />
+              <Routes>
+                <Route path="/login" element={<ErrorBoundary><Login /></ErrorBoundary>} />
+                <Route path="/register" element={<ErrorBoundary><Register /></ErrorBoundary>} />
+                <Route element={<PageContainer />}>
+                  <Route path="/" element={<ErrorBoundary><Home /></ErrorBoundary>} />
+                  <Route path="/trending" element={<ErrorBoundary><Trending /></ErrorBoundary>} />
+                  <Route path="/restaurant/:id" element={<ErrorBoundary><RestaurantDetail /></ErrorBoundary>} />
+                  <Route path="/dish/:id" element={<ErrorBoundary><DishDetail /></ErrorBoundary>} />
+                  <Route path="/search" element={<ErrorBoundary><SearchResultsPage /></ErrorBoundary>} />
+                  <Route path="/lists/:id" element={<ErrorBoundary><ListDetail /></ErrorBoundary>} />
+                  <Route element={<ProtectedRoute />}>
+                    <Route path="/dashboard" element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
+                    <Route path="/lists" element={<ErrorBoundary><Lists /></ErrorBoundary>}>
+                      <Route index element={<ErrorBoundary><MyLists /></ErrorBoundary>} />
+                      <Route path="new" element={<ErrorBoundary><NewList /></ErrorBoundary>} />
+                    </Route>
+                    <Route
+                      path="/admin/*"
+                      element={
+                        isAuthenticated && isSuperuser ? (
+                          <ErrorBoundary><AdminPanel /></ErrorBoundary>
+                        ) : (
+                          <Navigate to="/" replace />
+                        )
+                      }
+                    />
+                    <Route path="/profile" element={<ErrorBoundary><Profile /></ErrorBoundary>} />
+                    <Route
+                      path="/bulk-add"
+                      element={
+                        isAuthenticated && isSuperuser ? (
+                          <ErrorBoundary><BulkAdd /></ErrorBoundary>
+                        ) : (
+                          <Navigate to="/" replace />
+                        )
+                      }
+                    />
+                  </Route>
+                  <Route path="*" element={<Navigate to="/" replace />} />
                 </Route>
-                <Route
-                  path="/admin/*"
-                  element={
-                    isAuthenticated && isSuperuser ? (
-                      <ErrorBoundary><AdminPanel /></ErrorBoundary>
-                    ) : (
-                      <Navigate to="/" replace />
-                    )
-                  }
-                />
-                <Route path="/profile" element={<ErrorBoundary><Profile /></ErrorBoundary>} />
-                <Route
-                  path="/bulk-add"
-                  element={
-                    isAuthenticated && isSuperuser ? (
-                      <ErrorBoundary><BulkAdd /></ErrorBoundary>
-                    ) : (
-                      <Navigate to="/" replace />
-                    )
-                  }
-                />
-              </Route>
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Route>
-          </Routes>
-          {isAuthenticated && (
-            <Suspense fallback={<div className="fixed bottom-6 right-6 z-50"><LoadingSpinner size="sm" /></div>}>
-              <FloatingQuickAdd />
+              </Routes>
+              {isAuthenticated && (
+                <Suspense fallback={<div className="fixed bottom-6 right-6 z-50"><LoadingSpinner size="sm" /></div>}>
+                  <FloatingQuickAdd />
+                </Suspense>
+              )}
             </Suspense>
-          )}
-        </Suspense>
-      </BrowserRouter>
-    </QuickAddProvider>
+          </BrowserRouter>
+        </QuickAddProvider>
+      </PlacesApiProvider>
+    </QueryClientProvider>
   );
 };
 

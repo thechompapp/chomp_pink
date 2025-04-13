@@ -1,27 +1,61 @@
-import useAuthStore from '@/stores/useAuthStore';
-import { API_BASE_URL } from '@/config';
+/* src/services/apiClient.ts */
+import useAuthStore from '@/stores/useAuthStore'; // Use global alias
+import { API_BASE_URL } from '@/config'; // Use global alias
 
+// Interface for standard API options
 interface ApiClientOptions {
     method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD';
     headers?: Record<string, string>;
-    body?: string;
+    body?: string; // Expecting stringified JSON body
     signal?: AbortSignal;
 }
 
-export interface ApiResponse<T = any> {
-    data: T | null;
-    message?: string;
-    pagination?: {
-        total: number;
-        page: number;
-        limit: number;
-        totalPages: number;
-    };
-    success: boolean;
-    error?: string;
+// Standardized pagination structure (if used by backend)
+// Exporting this allows other services to potentially type their responses better
+export interface Pagination {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
 }
 
-const apiClient = async <T = any>(
+// Standardized API response structure
+// Use a more specific error field, default data to 'unknown' initially
+export interface ApiResponse<T = unknown> {
+    data: T | null; // Use 'unknown' as default, allowing specific types later
+    message?: string; // General message (success or info)
+    pagination?: Pagination; // Optional pagination info
+    success: boolean; // Indicate overall success/failure
+    error?: string; // Specific error message from backend or client
+    status?: number; // Add HTTP status for context
+}
+
+// Custom Error class to include ApiResponse details
+class ApiError extends Error {
+    status: number;
+    response?: ApiResponse<null>; // Include response structure in error
+
+    constructor(message: string, status: number, response?: ApiResponse<null>) {
+        super(message);
+        this.name = 'ApiError';
+        this.status = status;
+        this.response = response;
+        // Ensure the prototype chain is set correctly
+        Object.setPrototypeOf(this, ApiError.prototype);
+    }
+}
+
+
+/**
+ * Generic API client function.
+ *
+ * @template T The expected type of the 'data' field in a successful response. Defaults to 'unknown'.
+ * @param {string} endpoint The API endpoint (e.g., '/users').
+ * @param {string} [errorContext='API Request'] Context for error logging.
+ * @param {ApiClientOptions} [options={}] Fetch options (method, headers, body, signal).
+ * @returns {Promise<ApiResponse<T>>} A promise resolving to the standardized API response.
+ */
+const apiClient = async <T = unknown>(
     endpoint: string,
     errorContext = 'API Request',
     options: ApiClientOptions = {}
@@ -30,10 +64,13 @@ const apiClient = async <T = any>(
 
     let token: string | null = null;
     try {
+        // Fetch token directly from store state
         token = useAuthStore.getState().token;
-        console.log(`[apiClient ${errorContext}] Retrieved token:`, token ? 'Present' : 'Not Present');
+        // Avoid logging token value itself for security, just its presence
+        // console.log(`[apiClient ${errorContext}] Token Status:`, token ? 'Present' : 'Absent');
     } catch (storeError) {
-        console.error(`[apiClient ${errorContext}] Error retrieving token from store:`, storeError);
+        console.error(`[apiClient ${errorContext}] Error accessing auth store:`, storeError);
+        // Proceed without token, but log the error
     }
 
     const finalEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
@@ -49,9 +86,10 @@ const apiClient = async <T = any>(
         requestHeaders['Authorization'] = `Bearer ${token}`;
     }
 
+    // Development logging (optional)
     if (import.meta.env.DEV) {
-        console.log(`[apiClient ${errorContext}] Request: ${method} ${url}`, {
-            headers: requestHeaders,
+        console.log(`[apiClient ${errorContext}] Requesting: ${method} ${url}`, {
+            headers: requestHeaders, // Be careful logging sensitive headers
             body: body ? '(Body Present)' : '(No Body)',
         });
     }
@@ -60,76 +98,93 @@ const apiClient = async <T = any>(
         const response = await fetch(url, {
             method,
             headers: requestHeaders,
-            body: method !== 'GET' && method !== 'HEAD' && body ? body : undefined,
+            // Only include body for relevant methods and if body is provided
+            body: (method !== 'GET' && method !== 'HEAD' && body) ? body : undefined,
             signal,
         });
 
-        const responseText = await response.text();
+        // --- Handle Response ---
+        let responseBodyText: string | null = null;
+        try {
+             responseBodyText = await response.text();
+        } catch (textError) {
+            console.warn(`[apiClient ${errorContext}] Could not read response body text for ${response.status} at ${url}:`, textError);
+            // Continue processing status code even if body is unreadable
+        }
+
 
         if (!response.ok) {
-            let errorResponse: ApiResponse<T> = { data: null, success: false };
             let errorMsg = `HTTP error! Status: ${response.status}`;
+            let parsedError: any = null;
+            let apiResponseMessage: string | undefined = undefined;
 
             try {
-                if (responseText) {
-                    const parsedError = JSON.parse(responseText);
-                    errorResponse = {
-                        data: null,
-                        success: false,
-                        error: parsedError.error || parsedError.message || errorMsg,
-                        message: parsedError.message,
-                    };
+                if (responseBodyText) {
+                    parsedError = JSON.parse(responseBodyText);
+                    // Prioritize specific 'message' or 'error' field from backend JSON error
+                    errorMsg = parsedError.message || parsedError.error || errorMsg;
+                    apiResponseMessage = parsedError.message; // Store message separately if needed
                 } else {
-                    errorResponse.error = response.statusText || errorMsg;
+                    // Use status text if body is empty or unparseable
+                    errorMsg = response.statusText || errorMsg;
                 }
             } catch (e) {
-                errorResponse.error = response.statusText || errorMsg;
+                // JSON parsing failed, stick with the initial HTTP error message or status text
+                errorMsg = response.statusText || errorMsg;
+                console.warn(`[apiClient ${errorContext}] Failed to parse error response body for status ${response.status}:`, responseBodyText);
             }
 
-            console.error(`[apiClient ${errorContext}] Request failed: ${response.status} "${errorResponse.error}". URL: ${url}. Details:`, responseText);
+             // Construct standardized error response structure
+             const errorResponse: ApiResponse<null> = {
+                 data: null,
+                 success: false,
+                 error: errorMsg, // Use the refined error message
+                 message: apiResponseMessage, // Include original message if available
+                 status: response.status
+             };
 
+            console.error(`[apiClient ${errorContext}] Request Failed: ${response.status} - "${errorMsg}". URL: ${url}.`);
+
+            // Specific handling for 401 Unauthorized
             if (response.status === 401) {
-                console.warn(`[apiClient ${errorContext}] Unauthorized (401).`);
-                // Only trigger logout if a token was present (avoid redundant logouts)
+                console.warn(`[apiClient ${errorContext}] Unauthorized (401) - Possible expired token or invalid credentials.`);
+                // Trigger logout only if a token was actually used for the request
                 if (token) {
-                    console.log(`[apiClient ${errorContext}] Token was present but invalid. Triggering logout.`);
-                    try {
-                        useAuthStore.getState().logout();
-                    } catch (logoutError) {
-                        console.error(`[apiClient ${errorContext}] Error during logout after 401:`, logoutError);
-                    }
+                    console.log(`[apiClient ${errorContext}] Invalidating session due to 401 with token.`);
+                    useAuthStore.getState().logout(); // Assuming logout clears token and user state
+                     errorResponse.error = 'Your session has expired. Please log in again.'; // User-friendly message
                 } else {
-                    console.log(`[apiClient ${errorContext}] No token was present. Skipping logout.`);
+                     errorResponse.error = 'Authentication required. Please log in.';
                 }
-                errorResponse.error = 'Session expired. Please log in again.';
-                const authError = new Error(errorResponse.error);
-                authError.name = 'AuthError';
-                (authError as any).status = 401;
-                (authError as any).response = errorResponse;
-                throw authError;
+                 throw new ApiError(errorResponse.error, response.status, errorResponse);
             }
 
-            const httpError = new Error(errorResponse.error);
-            (httpError as any).status = response.status;
-            (httpError as any).response = errorResponse;
-            throw httpError;
+            // Throw a custom error containing the standardized response
+             throw new ApiError(errorMsg, response.status, errorResponse);
         }
 
-        if (response.status === 204 || !responseText) {
+        // Handle success responses (including 204 No Content)
+        if (response.status === 204 || !responseBodyText) {
             if (import.meta.env.DEV) {
-                console.log(`[apiClient ${errorContext}] Success (Status: ${response.status}): ${url}`);
+                console.log(`[apiClient ${errorContext}] Success (Status: ${response.status}): No Content from ${url}`);
             }
-            return { data: null, success: true } as ApiResponse<T>;
+             // Ensure correct generic type T for data (null in this case)
+             return { data: null, success: true, status: response.status } as ApiResponse<T>;
         }
 
+        // Attempt to parse successful JSON response
         try {
-            const jsonData = JSON.parse(responseText);
+            const jsonData = JSON.parse(responseBodyText);
+
+            // Standardize the successful response structure
             const standardizedResponse: ApiResponse<T> = {
+                // Prefer 'data' field if backend nests, otherwise assume top-level is data
                 data: jsonData.data ?? jsonData ?? null,
-                success: jsonData.success !== false,
+                success: jsonData.success !== false, // Default to true if success field is missing
                 message: jsonData.message || undefined,
                 pagination: jsonData.pagination || undefined,
-                error: jsonData.error || undefined,
+                error: jsonData.error || undefined, // Include error even in success if API provides it
+                status: response.status,
             };
 
             if (import.meta.env.DEV) {
@@ -137,29 +192,40 @@ const apiClient = async <T = any>(
             }
 
             return standardizedResponse;
+
         } catch (parseError) {
-            console.error(`[apiClient ${errorContext}] JSON parse error for success response (${response.status} - ${url}):`, responseText, parseError);
-            const formatError = new Error('Invalid server response format.');
-            formatError.name = 'ParseError';
-            (formatError as any).status = 500;
-            (formatError as any).response = { data: null, success: false, error: 'Invalid response format', details: responseText };
-            throw formatError;
+            console.error(`[apiClient ${errorContext}] JSON Parse Error for Success Response (${response.status} - ${url}). Body:`, responseBodyText, parseError);
+             const formatError = new ApiError('Invalid server response format.', 500, {
+                 data: null,
+                 success: false,
+                 error: 'Invalid server response format.',
+                 status: 500,
+             });
+             throw formatError;
         }
+
     } catch (error: unknown) {
-        console.error(`[apiClient ${errorContext}] FAILED:`, error);
-        const fallbackResponse: ApiResponse<T> = {
-            data: null,
-            success: false,
-            error: error instanceof Error ? error.message : 'Network or processing error',
-        };
-        if (error instanceof Error) {
-            (error as any).response = fallbackResponse;
-            throw error;
-        }
-        const genericError = new Error(`Network or processing error during ${errorContext}: ${String(error)}`);
-        (genericError as any).response = fallbackResponse;
-        throw genericError;
+         // Catch network errors, previously thrown ApiErrors, or other exceptions
+        console.error(`[apiClient ${errorContext}] FAILED Execution:`, error);
+
+         // If it's already our custom ApiError, re-throw it
+         if (error instanceof ApiError) {
+             throw error;
+         }
+
+         // Create a generic ApiError for other cases
+         const errorMessage = error instanceof Error ? error.message : 'Network request failed or an unexpected error occurred.';
+         const genericApiError = new ApiError(errorMessage, 500, { // Default to 500 for unknown/network errors
+             data: null,
+             success: false,
+             error: errorMessage,
+             status: 500,
+         });
+         throw genericApiError;
     }
 };
 
 export default apiClient;
+
+// Re-export ApiError if needed by other modules
+export { ApiError };

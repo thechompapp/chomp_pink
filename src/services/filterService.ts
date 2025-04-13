@@ -1,32 +1,22 @@
 /* src/services/filterService.ts */
 import apiClient from '@/services/apiClient';
-import type { City, Cuisine, Neighborhood } from '@/types/Filters'; // Use types
+import type { City, Cuisine, Neighborhood } from '@/types/Filters';
 
-// Type the response data expected from apiClient
-// Assuming the API returns { data: ... }
 interface CitiesResponse { data?: City[] }
 interface CuisinesResponse { data?: Cuisine[] }
-interface NeighborhoodsResponse { data?: Neighborhood[] }
-// **** ADDED Response type for single neighborhood lookup ****
-interface NeighborhoodLookupResponse { data?: Neighborhood | null }
-
+interface NeighborhoodsResponse { data?: Neighborhood[], pagination?: { total: number, page: number, limit: number, totalPages: number } }
 
 const getCities = async (): Promise<City[]> => {
     try {
-        // Explicitly type the expected response structure
         const response = await apiClient<CitiesResponse>('/api/filters/cities', 'FilterService Cities');
         const data = response?.data || [];
         const validCities = Array.isArray(data)
             ? data.filter((item): item is City => !!item && item.id != null && typeof item.name === 'string')
             : [];
-        // Ensure IDs are numbers if they come as strings
         return validCities
             .map(city => ({ ...city, id: Number(city.id) }))
             .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
     } catch (error) {
-        console.error('[FilterService] Error fetching cities:', error);
-        // Throw a new error or return empty array based on desired behavior
-        // throw new Error('Failed to load cities.');
         return [];
     }
 };
@@ -38,12 +28,10 @@ const getCuisines = async (): Promise<Cuisine[]> => {
         const validCuisines = Array.isArray(data)
             ? data.filter((item): item is Cuisine => !!item && item.id != null && typeof item.name === 'string')
             : [];
-         // Ensure IDs are numbers
          return validCuisines
             .map(cuisine => ({ ...cuisine, id: Number(cuisine.id) }))
             .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
      } catch (error) {
-         console.error('[FilterService] Error fetching cuisines:', error);
          return [];
      }
 };
@@ -52,7 +40,6 @@ const getNeighborhoodsByCity = async (cityId: number | string | null | undefined
     const cityIdNum = cityId != null ? parseInt(String(cityId), 10) : NaN;
 
     if (isNaN(cityIdNum) || cityIdNum <= 0) {
-        console.warn(`[FilterService] Invalid or missing cityId provided: ${cityId}. Returning empty array.`);
         return [];
     }
 
@@ -62,49 +49,115 @@ const getNeighborhoodsByCity = async (cityId: number | string | null | undefined
         const validNeighborhoods = Array.isArray(data)
             ? data.filter((item): item is Neighborhood => !!item && item.id != null && typeof item.name === 'string')
             : [];
-         // Ensure IDs are numbers
          return validNeighborhoods
             .map(nb => ({
                  ...nb,
                  id: Number(nb.id),
                  city_id: nb.city_id ? Number(nb.city_id) : undefined,
-                 zipcode_ranges: Array.isArray(nb.zipcode_ranges) ? nb.zipcode_ranges : null // Ensure correct type
+                 zipcode_ranges: Array.isArray(nb.zipcode_ranges) ? nb.zipcode_ranges : null
             }))
             .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
     } catch (error) {
-        console.error(`[FilterService] Error fetching neighborhoods for city ${cityIdNum}:`, error);
-        // Rethrow error for React Query to handle
         const message = error instanceof Error ? error.message : `Failed to load neighborhoods for city ${cityIdNum}.`;
         throw new Error(message);
     }
 };
 
-// **** ADDED Function ****
 const findNeighborhoodByZipcode = async (zipcode: string): Promise<Neighborhood | null> => {
     const validZipRegex = /^\d{5}$/;
     if (!zipcode || !validZipRegex.test(zipcode)) {
-        console.warn(`[FilterService] Invalid zipcode provided for lookup: ${zipcode}`);
-        return null; // Don't call API with invalid zip
+        return null;
     }
 
     try {
-        const response = await apiClient<NeighborhoodLookupResponse>(
-            `/api/neighborhoods/by-zipcode?zipcode=${zipcode}`,
-            `FilterService Neighborhood by Zip ${zipcode}`
+        let allNeighborhoods: Neighborhood[] = [];
+        let page = 1;
+        const limit = 100; // Increase limit to fetch more entries per page
+
+        // Fetch all pages of neighborhoods
+        while (true) {
+            const response = await apiClient<NeighborhoodsResponse>(
+                `/api/neighborhoods?page=${page}&limit=${limit}`,
+                `FilterService Fetch Neighborhoods Page ${page}`
+            );
+            console.log(`[FilterService] Response from /api/neighborhoods (page ${page}):`, response);
+
+            if (!response.success || !Array.isArray(response.data)) {
+                console.error('[FilterService] Invalid response from /api/neighborhoods:', response);
+                return null;
+            }
+
+            allNeighborhoods = allNeighborhoods.concat(response.data);
+
+            const pagination = response.pagination;
+            if (!pagination || page >= pagination.totalPages) {
+                break;
+            }
+            page++;
+        }
+
+        // Log all neighborhood names and IDs
+        console.log('[FilterService] All neighborhoods fetched:', allNeighborhoods.map(n => ({ id: n.id, name: n.name })));
+
+        // Log the zipcode_ranges for "East Village" specifically
+        const eastVillage = allNeighborhoods.find(n => n.name.toLowerCase() === 'east village');
+        if (eastVillage) {
+            console.log('[FilterService] East Village zipcode_ranges:', eastVillage.zipcode_ranges);
+        } else {
+            console.log('[FilterService] East Village not found in API response');
+        }
+
+        const matchingNeighborhood = allNeighborhoods.find(n => {
+            let zipRanges = n.zipcode_ranges;
+            if (typeof zipRanges === 'string') {
+                try {
+                    zipRanges = JSON.parse(zipRanges.replace(/^{|}$/g, '').replace(/,/g, '","').replace(/^/, '["').replace(/$/, '"]'));
+                } catch (e) {
+                    console.warn('[FilterService] Failed to parse zipcode_ranges as JSON for neighborhood:', n, 'Error:', e);
+                    zipRanges = zipRanges.split(',').map(s => s.trim());
+                }
+            }
+
+            if (!Array.isArray(zipRanges)) {
+                console.warn('[FilterService] zipcode_ranges not an array for neighborhood:', n, 'Value:', zipRanges);
+                return false;
+            }
+
+            // Normalize zipcode and zipRanges for comparison
+            const zipcodeStr = String(zipcode).trim();
+            const includesZipcode = zipRanges.some(range => String(range).trim() === zipcodeStr);
+            if (includesZipcode) {
+                console.log(`[FilterService] Found match for zipcode ${zipcode} in neighborhood:`, n);
+            }
+            return includesZipcode;
+        });
+
+        console.log(`[FilterService] Neighborhood lookup for zipcode ${zipcode} resolved to:`, matchingNeighborhood || 'null');
+
+        if (!matchingNeighborhood) {
+            return null;
+        }
+
+        const cityResponse = await apiClient<{ data: City[] }>(
+            `/api/filters/cities`,
+            `FilterService Fetch Cities`
         );
-        // The backend returns { data: Neighborhood } or { data: null }
-        return response?.data ?? null;
+        const cities = cityResponse?.data || [];
+        const city = cities.find(c => c.id === matchingNeighborhood.city_id);
+
+        return {
+            ...matchingNeighborhood,
+            city_name: city?.name || ''
+        };
     } catch (error) {
-        console.error(`[FilterService] Error fetching neighborhood for zipcode ${zipcode}:`, error);
-        // Don't throw, return null so the calling code can handle not finding one
+        console.error(`[FilterService] Neighborhood lookup failed for zipcode ${zipcode}:`, error instanceof Error ? error.message : 'Unknown error');
         return null;
     }
 };
-// **** END ADDED Function ****
 
 export const filterService = {
     getCities,
     getCuisines,
     getNeighborhoodsByCity,
-    findNeighborhoodByZipcode, // **** ADDED Export ****
+    findNeighborhoodByZipcode,
 };

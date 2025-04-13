@@ -1,4 +1,3 @@
-// src/pages/AdminPanel/ActionCell.tsx
 import React from 'react';
 import Button from '@/components/UI/Button';
 import { Edit, Trash2, Check, Save, XCircle as CancelIcon, Loader2 } from 'lucide-react';
@@ -122,40 +121,18 @@ const ActionCell: React.FC<ActionCellProps> = ({
           const neighborhood = await filterService.findNeighborhoodByZipcode(zipcode);
           console.log(`[ActionCell] Resolved neighborhood for zipcode ${zipcode} on edit start:`, neighborhood);
           if (neighborhood && neighborhood.id) {
-            initialData.neighborhood_id = neighborhood.id;
+            initialData.neighborhood_id = String(neighborhood.id);
             initialData.neighborhood_name = neighborhood.name;
-            initialData.city_id = neighborhood.city_id;
+            initialData.city_id = String(neighborhood.city_id);
             initialData.city_name = neighborhood.city_name;
             initialData.lookupFailed = false;
           } else {
             console.warn(`[ActionCell] No neighborhood found for zipcode ${zipcode} on edit start`);
             initialData.lookupFailed = true;
           }
-          const neighborhoodEvent = new CustomEvent('neighborhood-resolved', {
-            detail: {
-              rowId: row.id,
-              neighborhoodId: neighborhood?.id ?? null,
-              neighborhoodName: neighborhood?.name ?? null,
-              cityId: neighborhood?.city_id ?? null,
-              cityName: neighborhood?.city_name ?? null,
-              zipcode,
-            },
-          });
-          document.dispatchEvent(neighborhoodEvent);
         } catch (lookupError) {
           console.error(`[ActionCell] Zip lookup error for zipcode ${zipcode} on edit start:`, lookupError);
           initialData.lookupFailed = true;
-          const neighborhoodEvent = new CustomEvent('neighborhood-resolved', {
-            detail: {
-              rowId: row.id,
-              neighborhoodId: null,
-              neighborhoodName: null,
-              cityId: null,
-              cityName: null,
-              zipcode,
-            },
-          });
-          document.dispatchEvent(neighborhoodEvent);
         }
       }
     }
