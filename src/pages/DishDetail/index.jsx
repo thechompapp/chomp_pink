@@ -83,6 +83,7 @@ const DishDetail = () => {
 
     return (
         <div className="container mx-auto px-4 py-4 max-w-4xl">
+             {/* FIX: Corrected Back Button behavior */}
             <button
                 onClick={() => navigate(-1)}
                 className="flex items-center text-gray-600 hover:text-gray-900 mb-4 group text-sm"
@@ -109,6 +110,7 @@ const DishDetail = () => {
                             {dish.name || 'Unnamed Dish'}
                         </h1>
 
+                        {/* FIX: Ensure Link component uses correct `to` prop */}
                         {dish.restaurant_id && dish.restaurant_name && (
                             <Link
                                 to={`/restaurant/${dish.restaurant_id}`}

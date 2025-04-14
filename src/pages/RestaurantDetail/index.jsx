@@ -18,8 +18,8 @@ import DishCard from '@/components/UI/DishCard';
 import ListCard from '@/pages/Lists/ListCard'; // Check path if ListCard moved
 import RestaurantCard from '@/components/UI/RestaurantCard'; // Use UI component
 
-// Fetcher function - Needs to align with updated backend response structure eventually
-const fetchRestaurantDetails = async (restaurantId) => { // REMOVED: Type hints
+// Fetcher function
+const fetchRestaurantDetails = async (restaurantId) => {
     if (!restaurantId) {
         const error = new Error('Restaurant ID is required.');
         error.status = 400;
@@ -27,7 +27,6 @@ const fetchRestaurantDetails = async (restaurantId) => { // REMOVED: Type hints
     }
     try {
         const response = await restaurantService.getRestaurantDetails(restaurantId);
-        // Check if response is valid object with id
         if (!response || typeof response !== 'object' || typeof response.id === 'undefined') {
              const error = new Error('Restaurant not found or invalid data.');
              error.status = 404;
@@ -81,13 +80,12 @@ const RestaurantDetail = () => {
 
     useEffect(() => {
         const numericId = id ? parseInt(id, 10) : NaN;
-        if (!isNaN(numericId) && numericId > 0 && queryResult.isSuccess && !queryResult.isLoading) { // Added isLoading check
-            console.log(`[RestaurantDetail] Logging view for restaurant ID: ${numericId}`);
+        if (!isNaN(numericId) && numericId > 0 && queryResult.isSuccess && !queryResult.isLoading) {
             engagementService.logEngagement({
                 item_id: numericId, item_type: 'restaurant', engagement_type: 'view',
             }).catch((err) => { console.error('[RestaurantDetail] Failed to log view engagement:', err); });
         }
-    }, [id, queryResult.isLoading, queryResult.isSuccess]); // Dependencies corrected
+    }, [id, queryResult.isLoading, queryResult.isSuccess]);
 
     const handleAddToList = useCallback((restaurant) => {
          if (!isAuthenticated) {
@@ -115,20 +113,37 @@ const RestaurantDetail = () => {
              type: 'dish',
              id: dish.id,
              name: dish.name,
-             restaurantId: dish.restaurant_id, // Ensure this field exists on dish object
+             restaurantId: dish.restaurant_id,
              restaurantName: restaurantName,
              tags: dish.tags || [],
          });
      }, [isAuthenticated, openQuickAdd, navigate, location]);
 
-    const formatWebsiteUrl = (url) => { /* ... same logic ... */ };
-    const formatInstagramUrl = (handle) => { /* ... same logic ... */ };
+    const formatWebsiteUrl = (url) => {
+      if (!url) return null;
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        return `https://${url}`;
+      }
+      return url;
+    };
+
+    const formatInstagramUrl = (handle) => {
+      if (!handle) return null;
+      const cleanedHandle = handle.startsWith('@') ? handle.substring(1) : handle;
+      return `https://www.instagram.com/${cleanedHandle}`;
+    };
+
+    const getGoogleMapsLink = (placeId) => {
+        if (!placeId) return '#';
+        return `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=$${placeId}`;
+    };
+
 
     return (
         <div className="p-3 md:p-5 max-w-4xl mx-auto text-gray-900">
-             <button onClick={() => navigate(-1)} className="..."> {/* Back Button */}
-                 <ArrowLeft size={16} className="..." />
-                 <span className="...">Back to search</span>
+             <button onClick={() => navigate(-1)} className="flex items-center text-gray-600 hover:text-gray-900 mb-4 group text-sm">
+                 <ArrowLeft size={16} className="mr-1 transition-colors group-hover:text-[#A78B71]" />
+                 <span className="transition-colors group-hover:text-[#A78B71]">Back</span>
              </button>
 
             <QueryResultDisplay
@@ -143,7 +158,7 @@ const RestaurantDetail = () => {
                     </Button>
                 }
             >
-                {(restaurant) => ( // restaurant data is valid here
+                {(restaurant) => (
                     <div className="space-y-6">
                         {/* Header Section */}
                         <div className="bg-white rounded-lg shadow-sm p-4 sm:p-5 border border-gray-100">
@@ -167,11 +182,13 @@ const RestaurantDetail = () => {
                                 {/* Right: Actions */}
                                 <div className="flex-shrink-0 flex items-center gap-2 w-full sm:w-auto">
                                     {restaurant.website && formatWebsiteUrl(restaurant.website) && (
-                                        <a href={formatWebsiteUrl(restaurant.website) ?? '#'} target="_blank" rel="noopener noreferrer" className="flex-1 sm:flex-none">
-                                            <Button as="span" variant="primary" size="sm" className="w-full !bg-[#FF69B4] hover:!bg-[#f550a3]"><ExternalLink size={14} className="mr-1" /> Visit</Button>
+                                        <a href={formatWebsiteUrl(restaurant.website)} target="_blank" rel="noopener noreferrer" className="flex-1 sm:flex-none">
+                                            {/* CSS reverted: Removed !bg-[#FF69B4] etc. */}
+                                            <Button as="span" variant="primary" size="sm" className="w-full"><ExternalLink size={14} className="mr-1" /> Visit</Button>
                                         </a>
                                     )}
-                                    <Button variant="secondary" size="sm" onClick={() => handleAddToList(restaurant)} className="flex-1 sm:flex-none !border-[#FF69B4] !text-[#FF69B4] hover:!bg-[#FF69B4]/10"><PlusCircle size={14} className="mr-1" /> Add to List</Button>
+                                     {/* CSS reverted: Removed !border-[#FF69B4] etc. */}
+                                    <Button variant="secondary" size="sm" onClick={() => handleAddToList(restaurant)} className="flex-1 sm:flex-none"><PlusCircle size={14} className="mr-1" /> Add to List</Button>
                                 </div>
                             </div>
                         </div>
@@ -203,9 +220,9 @@ const RestaurantDetail = () => {
                                               <h3 className="font-semibold text-gray-800 mb-2">Contact</h3>
                                               <div className="space-y-1 text-gray-700">
                                                   {restaurant.phone && <p className="flex items-center gap-2"><Phone size={14} className="text-gray-400"/> {restaurant.phone}</p>}
-                                                  {restaurant.website && formatWebsiteUrl(restaurant.website) && <p className="flex items-center gap-2"><Globe size={14} className="text-gray-400"/> <a href={formatWebsiteUrl(restaurant.website) ?? '#'} target="_blank" rel="noopener noreferrer" className="text-[#A78B71] hover:underline break-all">{restaurant.website}</a></p>}
+                                                  {restaurant.website && formatWebsiteUrl(restaurant.website) && <p className="flex items-center gap-2"><Globe size={14} className="text-gray-400"/> <a href={formatWebsiteUrl(restaurant.website)} target="_blank" rel="noopener noreferrer" className="text-[#A78B71] hover:underline break-all">{restaurant.website}</a></p>}
                                                   {restaurant.hours && <p className="flex items-center gap-2"><Clock size={14} className="text-gray-400"/> {restaurant.hours}</p>}
-                                                  {restaurant.instagram_handle && formatInstagramUrl(restaurant.instagram_handle) && <p className="flex items-center gap-2"><Instagram size={14} className="text-gray-400"/> <a href={formatInstagramUrl(restaurant.instagram_handle) ?? '#'} target="_blank" rel="noopener noreferrer" className="text-[#A78B71] hover:underline">@{restaurant.instagram_handle}</a></p>}
+                                                  {restaurant.instagram_handle && formatInstagramUrl(restaurant.instagram_handle) && <p className="flex items-center gap-2"><Instagram size={14} className="text-gray-400"/> <a href={formatInstagramUrl(restaurant.instagram_handle)} target="_blank" rel="noopener noreferrer" className="text-[#A78B71] hover:underline">@{restaurant.instagram_handle}</a></p>}
                                               </div>
                                           </div>
                                           <div>
@@ -221,7 +238,7 @@ const RestaurantDetail = () => {
                                          <div className="aspect-video bg-gray-200 rounded flex items-center justify-center text-gray-500">
                                              <MapPin size={24} className="mr-2"/> Map Placeholder
                                               {restaurant.google_place_id && (
-                                                  <a href={`https://www.google.com/maps/place/?q=place_id:${restaurant.google_place_id}`} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline ml-2">(View on Google Maps)</a> // Corrected link format
+                                                  <a href={getGoogleMapsLink(restaurant.google_place_id)} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline ml-2">(View on Google Maps)</a>
                                               )}
                                          </div>
                                      </div>
@@ -240,7 +257,7 @@ const RestaurantDetail = () => {
                                                      key={`dish-${dish.id}`}
                                                      id={dish.id}
                                                      name={dish.name}
-                                                     restaurant={restaurant.name} // Pass parent restaurant name
+                                                     restaurant={restaurant.name}
                                                      tags={dish.tags || []}
                                                      adds={dish.adds || 0}
                                                      onQuickAdd={(e) => {
@@ -249,7 +266,7 @@ const RestaurantDetail = () => {
                                                          handleDishQuickAdd(dish, restaurant.name);
                                                      }}
                                                  />
-                                             ) : null // Render nothing if dish is invalid
+                                             ) : null
                                          ))}
                                      </div>
                                  ) : (
@@ -267,7 +284,7 @@ const RestaurantDetail = () => {
                                 <h2 className="text-xl font-semibold text-gray-800 mb-3">Featured on Lists</h2>
                                 <div className="space-y-3">
                                      {restaurant.featured_on_lists.map((list) => (
-                                         list && list.id != null ? ( // Check list validity
+                                         list && list.id != null ? (
                                              <div key={`featured-${list.id}`} className="bg-white border border-gray-200 p-3 rounded-md flex justify-between items-center text-sm">
                                                   <div>
                                                        <Link to={`/lists/${list.id}`} className="font-medium hover:text-[#A78B71]">{list.name}</Link>
@@ -277,7 +294,7 @@ const RestaurantDetail = () => {
                                                        <Button size="xs" variant="tertiary" title={`Add ${restaurant.name} to your list`} onClick={() => handleAddToList(restaurant)} className="!p-1.5"><PlusCircle size={16}/></Button>
                                                    )}
                                               </div>
-                                          ) : null // Render nothing if list is invalid
+                                          ) : null
                                         ))}
                                 </div>
                              </div>
@@ -289,7 +306,7 @@ const RestaurantDetail = () => {
                                 <h2 className="text-xl font-semibold text-gray-800 mb-3">Similar Places Nearby</h2>
                                 <div className="flex space-x-4 overflow-x-auto pb-2 -mx-4 sm:-mx-5 px-4 sm:px-5 no-scrollbar">
                                     {restaurant.similar_places.map((place) => (
-                                        place && place.id != null ? ( // Check place validity
+                                        place && place.id != null ? (
                                              <div key={`similar-${place.id}`} className="min-w-[240px] sm:min-w-[280px] flex-shrink-0">
                                                   <RestaurantCard
                                                       id={place.id}
@@ -302,7 +319,7 @@ const RestaurantDetail = () => {
                                                   />
                                                   {place.distance && <p className="text-center text-xs text-gray-500 mt-1">{place.distance}</p>}
                                              </div>
-                                         ) : null // Render nothing if place is invalid
+                                         ) : null
                                     ))}
                                 </div>
                              </div>
@@ -315,4 +332,4 @@ const RestaurantDetail = () => {
     );
 };
 
-export default RestaurantDetail; // Removed React.memo as it might be premature
+export default RestaurantDetail;
