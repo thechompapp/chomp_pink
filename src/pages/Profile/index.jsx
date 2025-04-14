@@ -3,56 +3,65 @@ import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, CheckCircle, List, Heart } from 'lucide-react';
-import Button from '@/components/Button'; // Use global alias
-import useAuthStore from '@/stores/useAuthStore'; // Use global alias
-import apiClient from '@/services/apiClient'; // Use global alias
-import QueryResultDisplay from '@/components/QueryResultDisplay'; // Import the new component
-import LoadingSpinner from '@/components/UI/LoadingSpinner'; // Keep for auth check loading
+import Button from '@/components/UI/Button';
+import useAuthStore from '@/stores/useAuthStore';
+import apiClient from '@/services/apiClient';
+import QueryResultDisplay from '@/components/QueryResultDisplay';
+import LoadingSpinner from '@/components/UI/LoadingSpinner';
 
-// Fetcher function (keep as is)
+// Fetcher function
 const fetchUserProfile = async (userId) => {
-  if (!userId) throw new Error('User ID is required');
-  // Assuming API response is now { data: { ...profile stats... } }
+  if (!userId) throw new Error('User ID is required for profile fetch');
+  // Assume apiClient returns { success: boolean, data: { user: User, stats: Stats } } or similar
   const response = await apiClient(`/api/users/${userId}/profile`, 'UserProfile Fetch');
-  if (!response?.data) throw new Error("Invalid profile data received from server.");
-  return response.data; // Return the data object directly
+  if (!response?.success || !response.data || !response.data.user || !response.data.stats) {
+      const status = response?.status ?? 500;
+      const message = response?.error || "Invalid profile data received from server.";
+      const error = new Error(message);
+      error.status = status; // Attach status if available
+      throw error;
+  }
+  // Return the nested data containing user and stats
+  return response.data;
 };
 
 const Profile = () => {
   const navigate = useNavigate();
   const user = useAuthStore(state => state.user);
   const isAuthenticated = useAuthStore(state => state.isAuthenticated);
-  const isLoadingAuth = useAuthStore(state => state.isLoading); // Use auth loading state
+  const isLoadingAuth = useAuthStore(state => state.isLoading);
   const queryClient = useQueryClient();
 
-  // React Query setup
+  // Ensure userId is valid number before enabling query
+  const currentUserId = user?.id ? Number(user.id) : null;
+
   const queryResult = useQuery({
-    queryKey: ['userProfile', user?.id],
-    queryFn: () => fetchUserProfile(user?.id),
-    enabled: !!user?.id && isAuthenticated, // Only fetch if user is logged in and ID known
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    queryKey: ['userProfile', currentUserId], // Use validated ID
+    queryFn: () => fetchUserProfile(currentUserId),
+    // ** FIXED: Enable query only if authenticated AND userId is a valid number **
+    enabled: isAuthenticated && typeof currentUserId === 'number' && currentUserId > 0,
+    staleTime: 5 * 60 * 1000,
   });
 
-  // Refetch listener (Keep as is)
+  // Refetch listener (remains the same)
   useEffect(() => {
     const handleListFollowToggle = () => {
-      console.log('[Profile] List follow toggled, invalidating userProfile query');
-      queryClient.invalidateQueries({ queryKey: ['userProfile', user?.id] });
+        if(currentUserId) { // Only invalidate if we have a user ID
+            console.log('[Profile] List follow toggled, invalidating userProfile query');
+            queryClient.invalidateQueries({ queryKey: ['userProfile', currentUserId] });
+        }
     };
     window.addEventListener('listFollowToggled', handleListFollowToggle);
     return () => window.removeEventListener('listFollowToggled', handleListFollowToggle);
-  }, [queryClient, user?.id]);
+  }, [queryClient, currentUserId]); // Dependency on potentially changing userId
 
-  // Handle auth loading state separately
+  // Handle auth loading state
   if (isLoadingAuth) {
-     return <LoadingSpinner message="Loading user data..." />;
+     return <div className="flex items-center justify-center h-screen"><LoadingSpinner message="Loading user data..." /></div>;
   }
 
   // Handle not authenticated state
-  if (!isAuthenticated) {
-    // Redirect or show login prompt
-    // Using navigate hook is generally preferred over direct component return for redirection
-    // useEffect(() => { navigate('/login'); }, [navigate]); // Example redirection
+  if (!isAuthenticated || !currentUserId) { // Also check if currentUserId is valid
      return (
         <div className="container mx-auto px-4 py-8">
           <div className="bg-red-50 p-6 rounded-lg border border-red-200 text-center">
@@ -64,10 +73,10 @@ const Profile = () => {
       );
   }
 
-  // Render profile using QueryResultDisplay for API data
+  // Render profile using QueryResultDisplay
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <Button onClick={() => navigate(-1)} variant="tertiary" size="sm" className="mb-4 flex items-center">
+      <Button onClick={() => navigate(-1)} variant="tertiary" size="sm" className="mb-4 flex items-center text-sm text-gray-600 hover:text-gray-900">
         <ArrowLeft size={16} className="mr-1" /> Back
       </Button>
 
@@ -75,59 +84,52 @@ const Profile = () => {
             queryResult={queryResult}
             loadingMessage="Loading profile stats..."
             errorMessagePrefix="Could not load profile data"
-            // Use default empty data message or customize if needed
-            isDataEmpty={(data) => !data} // Check if data object exists
-             ErrorChildren={
-                <Button onClick={() => navigate('/')} variant="secondary" size="sm" className="mt-2">
-                    Back to Home
-                </Button>
-            }
+            // Check profileData.user as well
+            isDataEmpty={(profileData) => !profileData || !profileData.user}
+            ErrorChildren={ <Button onClick={() => navigate('/')} variant="secondary" size="sm" className="mt-2"> Back to Home </Button> }
         >
-            {(profileData) => (
-                // Profile content rendering based on successful data fetch
-                <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
-                    {/* User Info Section */}
-                    <div className="flex items-center mb-6">
-                        <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center text-2xl font-bold text-gray-600 mr-4">
-                             {user?.username?.charAt(0).toUpperCase() || 'U'} {/* Use username from user object */}
-                         </div>
-                        <div>
-                             <h1 className="text-2xl font-bold text-gray-800 flex items-center">
-                                 @{user?.username || 'Unknown'} {/* Use username */}
-                                 {user?.account_type === 'contributor' && (
-                                     <CheckCircle size={16} className="ml-2 text-green-500" title="Verified Contributor" />
-                                 )}
-                             </h1>
-                             <p className="text-sm text-gray-600">
-                                Email: {user?.email || 'N/A'} {/* Display email */}
-                             </p>
-                             <p className="text-sm text-gray-600 capitalize">
-                                Account Type: {user?.account_type || 'User'} {/* Use correct account type */}
-                             </p>
+            {(profileData) => { // profileData contains { user, stats }
+                const displayUser = profileData.user || {}; // Fallback to empty object
+                const displayStats = profileData.stats || {}; // Fallback to empty object
+                return (
+                    <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+                        {/* User Info */}
+                        <div className="flex items-center mb-6">
+                            <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center text-2xl font-bold text-gray-600 mr-4">
+                                 {displayUser.username?.charAt(0).toUpperCase() || '?'}
+                             </div>
+                            <div>
+                                 <h1 className="text-2xl font-bold text-gray-800 flex items-center">
+                                     @{displayUser.username || 'Unknown'}
+                                     {displayUser.account_type === 'contributor' && ( <CheckCircle size={16} className="ml-2 text-green-500" title="Verified Contributor" /> )}
+                                     {displayUser.account_type === 'superuser' && ( <CheckCircle size={16} className="ml-2 text-blue-500" title="Admin" /> )}
+                                 </h1>
+                                 <p className="text-sm text-gray-600"> Email: {displayUser.email || 'N/A'} </p>
+                                 <p className="text-sm text-gray-600 capitalize"> Account Type: {displayUser.account_type || 'User'} </p>
+                            </div>
+                        </div>
+                        {/* Stats */}
+                        <div className="grid grid-cols-2 gap-4">
+                             <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
+                                <div className="flex items-center gap-2"> <List size={16} className="text-[#A78B71]" /> <span className="text-sm font-medium text-gray-800">Lists Created</span> </div>
+                                <p className="text-lg font-bold text-gray-900 mt-1">{displayStats.listsCreated ?? 0}</p>
+                            </div>
+                            <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
+                                 <div className="flex items-center gap-2"> <List size={16} className="text-[#A78B71]" /> <span className="text-sm font-medium text-gray-800">Lists Following</span> </div>
+                                 <p className="text-lg font-bold text-gray-900 mt-1">{displayStats.listsFollowing ?? 0}</p>
+                            </div>
+                            <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
+                                 <div className="flex items-center gap-2"> <Heart size={16} className="text-[#A78B71]" /> <span className="text-sm font-medium text-gray-800">Dishes Liked</span> </div>
+                                 <p className="text-lg font-bold text-gray-900 mt-1">{displayStats.dishesFollowing ?? 0}</p>
+                            </div>
+                            <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
+                                 <div className="flex items-center gap-2"> <Heart size={16} className="text-[#A78B71]" /> <span className="text-sm font-medium text-gray-800">Restaurants Liked</span> </div>
+                                 <p className="text-lg font-bold text-gray-900 mt-1">{displayStats.restaurantsFollowing ?? 0}</p>
+                            </div>
                         </div>
                     </div>
-
-                    {/* Stats Section */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
-                            <div className="flex items-center gap-2"> <List size={16} className="text-[#A78B71]" /> <span className="text-sm font-medium text-gray-800">Lists Created</span> </div>
-                            <p className="text-lg font-bold text-gray-900 mt-1">{profileData.listsCreated ?? 0}</p> {/* Use nullish coalescing */}
-                        </div>
-                        <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
-                             <div className="flex items-center gap-2"> <List size={16} className="text-[#A78B71]" /> <span className="text-sm font-medium text-gray-800">Lists Following</span> </div>
-                             <p className="text-lg font-bold text-gray-900 mt-1">{profileData.listsFollowing ?? 0}</p>
-                        </div>
-                        <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
-                             <div className="flex items-center gap-2"> <Heart size={16} className="text-[#A78B71]" /> <span className="text-sm font-medium text-gray-800">Dishes Liked</span> </div> {/* Changed label */}
-                             <p className="text-lg font-bold text-gray-900 mt-1">{profileData.dishesFollowing ?? 0}</p> {/* Kept key, changed label */}
-                        </div>
-                        <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
-                             <div className="flex items-center gap-2"> <Heart size={16} className="text-[#A78B71]" /> <span className="text-sm font-medium text-gray-800">Restaurants Liked</span> </div> {/* Changed label */}
-                             <p className="text-lg font-bold text-gray-900 mt-1">{profileData.restaurantsFollowing ?? 0}</p> {/* Kept key, changed label */}
-                        </div>
-                    </div>
-                </div>
-            )}
+                 );
+             }}
         </QueryResultDisplay>
     </div>
   );

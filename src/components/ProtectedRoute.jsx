@@ -1,32 +1,32 @@
-// src/components/ProtectedRoute.jsx
+/* src/components/ProtectedRoute.jsx */
+/* REMOVED: All TypeScript syntax */
 import React from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import useAuthStore from '@/stores/useAuthStore';
-// Removed useShallow import as we'll select primitives individually
-import LoadingSpinner from '@/components/UI/LoadingSpinner';
+import LoadingSpinner from '@/components/UI/LoadingSpinner'; // Assuming JS/JSX
 
 const ProtectedRoute = () => {
-  // Select primitives individually for maximum stability
+  // Select state primitives directly
   const isAuthenticated = useAuthStore(state => state.isAuthenticated);
   const isLoading = useAuthStore(state => state.isLoading);
-  const location = useLocation(); // Get current location
+  const location = useLocation();
 
-  // Show loading indicator while initial auth status is determined
+  // Show loading indicator while checking auth status
   if (isLoading) {
     return (
-        <div className="flex justify-center items-center h-[calc(100vh-150px)]">
+        <div className="flex justify-center items-center h-[calc(100vh-150px)]"> {/* Adjust height as needed */}
             <LoadingSpinner message="Checking authentication..." />
         </div>
     );
   }
 
+  // Redirect to login if not authenticated
   if (!isAuthenticated) {
-    // Redirect to login page if not authenticated
-    // Pass the current location to redirect back after login
+    // Pass the current location so user can be redirected back after login
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Render the child route (component) if authenticated
+  // Render the child routes if authenticated
   return <Outlet />;
 };
 

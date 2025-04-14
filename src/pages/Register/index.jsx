@@ -1,20 +1,19 @@
-// src/pages/Register/index.jsx
+/* src/pages/Register/index.jsx */
+/* REMOVED: All TypeScript syntax */
 import React, { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '@/stores/useAuthStore';
 import useFormHandler from '@/hooks/useFormHandler';
-import Button from '@/components/Button';
+import Button from '@/components/UI/Button'; // Corrected path
 import { Loader2 } from 'lucide-react';
 
 const Register = () => {
   const navigate = useNavigate();
 
-  // Get actions and auth state from the store
   const registerAction = useAuthStore((state) => state.register);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const clearAuthError = useAuthStore((state) => state.clearError);
 
-  // Initialize the form handler hook
   const {
     formData,
     handleChange,
@@ -29,34 +28,26 @@ const Register = () => {
     confirmPassword: '',
   });
 
-  // Clear any lingering auth errors from the store when the component mounts
   useEffect(() => {
     clearAuthError();
     setSubmitError(null);
   }, [clearAuthError, setSubmitError]);
 
-  // Redirect if user is already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      // Removed console.log for redirect
       navigate('/', { replace: true });
     }
   }, [isAuthenticated, navigate]);
 
-  // Define the actual registration logic to be passed to the hook's handleSubmit
-  const performRegistration = async (currentFormData) => {
-    // Removed console.log for performRegistration call
-
-    // --- Local Validation ---
+  const performRegistration = async (currentFormData) => { // REMOVED: Type hint
     if (currentFormData.password !== currentFormData.confirmPassword) {
-      setSubmitError("Passwords do not match.");
-      throw new Error("Passwords do not match.");
+      setSubmitError("Passwords do not match."); // Set error locally
+      throw new Error("Passwords do not match."); // Throw to stop handleSubmit
     }
     if (currentFormData.password.length < 6) {
       setSubmitError("Password must be at least 6 characters long.");
       throw new Error("Password must be at least 6 characters long.");
     }
-    // --- End Local Validation ---
 
     // Call the register action from the store
     const success = await registerAction(
@@ -65,18 +56,16 @@ const Register = () => {
       currentFormData.password
     );
 
-    if (success) {
-       // Removed console.log for successful registration
-    } else {
-      // Removed console.log for failed registration
+    if (!success) {
+      // Throw error based on store state for handleSubmit to catch
       throw new Error(useAuthStore.getState().error || 'Registration failed.');
     }
+    // Success is handled by the useEffect redirecting based on isAuthenticated
   };
 
-  // Wrapper function for the form's onSubmit event
   const handleFormSubmit = (e) => {
     e.preventDefault();
-    handleSubmit(performRegistration);
+    handleSubmit(performRegistration); // Pass the async function
   };
 
   return (
@@ -118,7 +107,7 @@ const Register = () => {
           </div>
           {/* Display Error from hook */}
           {submitError && (
-              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2 text-center"> {submitError} </p>
+              <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2 text-center"> {submitError} </p>
           )}
           {/* Submit Button */}
           <div>

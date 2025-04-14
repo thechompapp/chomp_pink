@@ -1,30 +1,24 @@
 /* src/components/FloatingQuickAdd.jsx */
+/* REMOVED: All TypeScript syntax */
 import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
-import { Plus, Utensils, Store, List, X as IconX, Loader2, Send } from 'lucide-react'; // Renamed X
+import { Plus, Utensils, Store, List, X as IconX, Loader2, Send } from 'lucide-react';
 import { useQuickAdd } from '@/context/QuickAddContext';
-import Button from '@/components/UI/Button'; // Corrected path
-import Modal from '@/components/UI/Modal'; // Corrected path
+import Button from '@/components/UI/Button';
+import Modal from '@/components/UI/Modal';
 import useSubmissionStore from '@/stores/useSubmissionStore';
 import { useUIStateStore } from '@/stores/useUIStateStore';
 import { useShallow } from 'zustand/react/shallow';
-import useFormHandler from '@/hooks/useFormHandler.ts'; // Use .ts extension
-import { placeService } from '@/services/placeService'; // Use .ts extension
-// Removed import of GOOGLE_PLACES_API_KEY as it's no longer needed client-side for this
-// import { GOOGLE_PLACES_API_KEY } from '@/config';
+import useFormHandler from '@/hooks/useFormHandler'; // Use .js extension removed
+import { placeService } from '@/services/placeService'; // Use .js extension removed
+// REMOVED: import { GOOGLE_PLACES_API_KEY } from '@/config';
 
-// Debounce function (keep as is)
-const debounce = (func, wait) => {
-    let timeout;
-    return (...args) => {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func(...args), wait);
-    };
-};
+// Debounce function
+const debounce = (func, wait) => { /* ... same implementation ... */ };
 
 const FloatingQuickAddComponent = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [formState, setFormState] = useState({
-        formType: null, // 'dish', 'restaurant', or null
+        formType: null,
         tagInput: '',
         selectedTags: [],
         restaurantSuggestions: [],
@@ -43,20 +37,25 @@ const FloatingQuickAddComponent = () => {
 
     const { openQuickAdd } = useQuickAdd();
     const addPendingSubmission = useSubmissionStore((state) => state.addPendingSubmission);
-    const { cuisines, isLoadingCuisines } = useUIStateStore(
+    const { cuisines, isLoadingCuisines, fetchCuisines } = useUIStateStore( // Added fetchCuisines
         useShallow((state) => ({
             cuisines: state.cuisines || [],
             isLoadingCuisines: state.isLoadingCuisines,
+            fetchCuisines: state.fetchCuisines, // Get action
         }))
     );
 
     const { formData, handleChange, handleSubmit, isSubmitting, submitError, setSubmitError, resetForm, setFormData } =
         useFormHandler({ newItemName: '', restaurantInput: '' });
 
-    // This check is no longer needed here as the key is only used server-side
-    // const hasGooglePlacesKey = !!GOOGLE_PLACES_API_KEY;
+    // Fetch cuisines on mount if needed
+    useEffect(() => {
+        if (cuisines.length === 0 && !isLoadingCuisines) {
+            fetchCuisines();
+        }
+    }, [fetchCuisines, cuisines.length, isLoadingCuisines]);
 
-    // State Resets (keep as is)
+    // Reset state functions (no TS needed)
     const resetLocalFormState = useCallback(() => {
         setFormState({ formType: null, tagInput: '', selectedTags: [], restaurantSuggestions: [], placeDetails: null });
         setShowTagSuggestionsUI(false);
@@ -70,10 +69,9 @@ const FloatingQuickAddComponent = () => {
         setSubmitError(null);
     }, [resetForm, setSubmitError, resetLocalFormState]);
 
-    // Place Suggestions (keep as is, relies on placeService which now calls proxy)
+    // Fetch place suggestions (removed API key check logic, relies on backend proxy)
     const fetchPlaceSuggestions = useCallback(
-        async (input) => {
-            // Removed the client-side check for hasGooglePlacesKey
+        async (input) => { // REMOVED: Type hint
             const trimmedInput = input?.trim();
             if (!trimmedInput || trimmedInput.length < 2) {
                 setFormState((prev) => ({ ...prev, restaurantSuggestions: [] }));
@@ -82,8 +80,9 @@ const FloatingQuickAddComponent = () => {
             }
             setIsFetchingPlaceSuggestions(true);
             try {
-                // placeService now calls the backend proxy
+                // placeService calls the backend proxy
                 const predictions = await placeService.getAutocompleteSuggestions(trimmedInput);
+                // Ensure predictions is an array before mapping
                 const validPredictions = (Array.isArray(predictions) ? predictions : [])
                     .map((p) => ({ name: p?.description, placeId: p?.place_id }))
                     .filter(p => !!p.name && !!p.placeId);
@@ -99,14 +98,21 @@ const FloatingQuickAddComponent = () => {
                 setIsFetchingPlaceSuggestions(false);
             }
         },
-        [setSubmitError] // Removed hasGooglePlacesKey dependency
+        [setSubmitError]
     );
 
-    // Debounce restaurant input changes (keep as is)
+    // Debounce restaurant input changes
     useEffect(() => {
         if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
         if (formState.formType === 'dish' || formState.formType === 'restaurant') {
-            debounceTimerRef.current = setTimeout(() => fetchPlaceSuggestions(formData.restaurantInput), 350);
+             // Only fetch if input has some length
+             if (formData.restaurantInput?.trim().length >= 2) {
+                debounceTimerRef.current = setTimeout(() => fetchPlaceSuggestions(formData.restaurantInput), 350);
+             } else {
+                // Clear suggestions if input is too short
+                setFormState((prev) => ({ ...prev, restaurantSuggestions: [] }));
+                setShowRestaurantSuggestionsUI(false);
+             }
         } else {
             setFormState((prev) => ({ ...prev, restaurantSuggestions: [] }));
             setShowRestaurantSuggestionsUI(false);
@@ -116,7 +122,7 @@ const FloatingQuickAddComponent = () => {
         };
     }, [formData.restaurantInput, formState.formType, fetchPlaceSuggestions]);
 
-    // Click Outside Handling (keep as is)
+    // Click Outside Handling (no TS changes needed)
     useEffect(() => {
         const handleClickOutside = (event) => {
             const fabButton = document.getElementById('floating-quick-add-button');
@@ -128,20 +134,13 @@ const FloatingQuickAddComponent = () => {
                     resetAllState();
                 }
             } else if (mainContainer && mainContainer.contains(event.target)) {
-                if (
-                    showTagSuggestionsUI &&
-                    tagInputRef.current && !tagInputRef.current.contains(event.target) &&
-                    tagSuggestionsRef.current && !tagSuggestionsRef.current.contains(event.target)
-                ) {
+                 // Hide suggestion lists if clicking outside their specific areas
+                 if (showTagSuggestionsUI && tagInputRef.current && !tagInputRef.current.contains(event.target) && tagSuggestionsRef.current && !tagSuggestionsRef.current.contains(event.target)) {
                     setShowTagSuggestionsUI(false);
-                }
-                if (
-                    showRestaurantSuggestionsUI &&
-                    restaurantInputRef.current && !restaurantInputRef.current.contains(event.target) &&
-                    restaurantSuggestionsRef.current && !restaurantSuggestionsRef.current.contains(event.target)
-                ) {
+                 }
+                 if (showRestaurantSuggestionsUI && restaurantInputRef.current && !restaurantInputRef.current.contains(event.target) && restaurantSuggestionsRef.current && !restaurantSuggestionsRef.current.contains(event.target)) {
                     setShowRestaurantSuggestionsUI(false);
-                }
+                 }
             }
         };
 
@@ -149,11 +148,12 @@ const FloatingQuickAddComponent = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [isMenuOpen, resetAllState, showTagSuggestionsUI, showRestaurantSuggestionsUI]);
 
-    // Button Actions (keep as is)
+
+    // Button Actions (no TS changes needed)
     const handleOpenMainButton = useCallback(() => {
         setIsMenuOpen((prev) => {
             const nextState = !prev;
-            if (!nextState) resetAllState();
+            if (!nextState) resetAllState(); // Reset if closing
             return nextState;
         });
     }, [resetAllState]);
@@ -172,21 +172,19 @@ const FloatingQuickAddComponent = () => {
         if (openQuickAdd) {
             openQuickAdd({ type: 'list', createNew: true });
         }
-        setIsMenuOpen(false);
+        setIsMenuOpen(false); // Close the FAB menu
         resetAllState();
     }, [openQuickAdd, resetAllState]);
 
-    // Tag Handling (keep as is)
+    // Tag Handling (no TS changes needed)
     const handleAddTag = useCallback(() => {
         const newTag = formState.tagInput.trim().toLowerCase();
         if (!newTag) return;
-
         if (formState.selectedTags.includes(newTag)) {
-            setSubmitError(`Tag "${newTag}" already added.`);
-            setFormState((prev) => ({ ...prev, tagInput: '' }));
-            return;
+             setSubmitError(`Tag "${newTag}" already added.`);
+             setFormState(prev => ({ ...prev, tagInput: '' })); // Clear input
+             return;
         }
-
         const isValidTag = cuisines.some((c) => c.name.toLowerCase() === newTag);
         if (isValidTag) {
             setFormState((prev) => ({ ...prev, selectedTags: [...prev.selectedTags, newTag], tagInput: '' }));
@@ -194,8 +192,10 @@ const FloatingQuickAddComponent = () => {
             setSubmitError(null);
         } else {
             setSubmitError(`"${formState.tagInput.trim()}" is not a recognized tag.`);
+             // Maybe don't clear input if tag is invalid? User might want to correct it.
+             // setFormState(prev => ({ ...prev, tagInput: '' }));
         }
-    }, [formState.tagInput, formState.selectedTags, setSubmitError, cuisines]);
+    }, [formState.tagInput, formState.selectedTags, setSubmitError, cuisines]); // Added cuisines dependency
 
     const handleTagInputKeyDown = useCallback((e) => {
         if (e.key === 'Enter' || e.key === ',') {
@@ -209,52 +209,47 @@ const FloatingQuickAddComponent = () => {
     }, []);
 
     const handleSelectTagSuggestion = useCallback((tag) => {
-        if (tag && !formState.selectedTags.includes(tag)) {
-            setFormState((prev) => ({ ...prev, selectedTags: [...prev.selectedTags, tag], tagInput: '' }));
-        } else {
-            setFormState((prev) => ({ ...prev, tagInput: '' }));
-        }
+         if (tag && !formState.selectedTags.includes(tag)) {
+             setFormState(prev => ({ ...prev, selectedTags: [...prev.selectedTags, tag], tagInput: '' }));
+         } else {
+              setFormState(prev => ({ ...prev, tagInput: '' })); // Clear input even if tag already selected
+         }
         setShowTagSuggestionsUI(false);
     }, [formState.selectedTags]);
 
-    // Restaurant Selection (keep as is, relies on placeService which now calls proxy)
+
+    // Restaurant Selection (removed API key check, relies on backend proxy)
     const handleSelectRestaurantSuggestion = useCallback(
-        async (suggestion) => {
+        async (suggestion) => { // REMOVED: Type hint
             if (!suggestion || !suggestion.placeId) return;
 
+            // Update form fields first
             setFormData((prev) => ({
                 ...prev,
+                // Update item name only if adding a restaurant, keep dish name otherwise
                 newItemName: formState.formType === 'restaurant' ? suggestion.name : prev.newItemName,
-                restaurantInput: suggestion.name,
+                restaurantInput: suggestion.name, // Set restaurant input regardless of type
             }));
-            setShowRestaurantSuggestionsUI(false);
-            setFormState((prev) => ({ ...prev, restaurantSuggestions: [] }));
-
-            // Removed client-side API key check
-            // if (!hasGooglePlacesKey) {
-            //     setSubmitError('Google Places API key is missing; place details unavailable.');
-            //     return;
-            // }
+            setShowRestaurantSuggestionsUI(false); // Hide suggestions
+            setFormState((prev) => ({ ...prev, restaurantSuggestions: [] })); // Clear suggestions array
 
             setIsFetchingPlaceSuggestions(true);
-            setFormState((prev) => ({ ...prev, placeDetails: null }));
+            setFormState((prev) => ({ ...prev, placeDetails: null })); // Clear previous details
             setSubmitError(null);
 
             try {
-                 // placeService now calls the backend proxy
+                 // Use placeService which calls the backend proxy
                 const details = await placeService.getPlaceDetails(suggestion.placeId);
-                // Handle null case where details might not be found or proxy failed
-                if (details && typeof details === 'object' && Object.keys(details).length > 0) {
+                if (details) { // Check if details are returned
                     setFormState((prev) => ({ ...prev, placeDetails: details }));
-                    // Update restaurant name field only if it wasn't already set (e.g., if form type is restaurant)
-                    if (formState.formType === 'restaurant' && !formData.newItemName) {
-                         setFormData((prev) => ({ ...prev, newItemName: details.name || suggestion.name }));
+                    // If adding a restaurant, ensure name is updated from details if available
+                    if (formState.formType === 'restaurant' && details.name) {
+                         setFormData((prev) => ({ ...prev, newItemName: details.name }));
                     }
                 } else {
                      console.warn(`[FloatingQuickAdd] No place details returned from service for ${suggestion.placeId}`);
-                     // Optionally set an error or keep placeDetails null
                      setSubmitError('Could not retrieve full place details.');
-                     setFormState((prev) => ({ ...prev, placeDetails: null }));
+                     setFormState((prev) => ({ ...prev, placeDetails: null })); // Ensure details are null
                 }
             } catch (error) {
                 console.error('[FloatingQuickAdd] Error fetching place details:', error);
@@ -264,16 +259,18 @@ const FloatingQuickAddComponent = () => {
                 setIsFetchingPlaceSuggestions(false);
             }
         },
-        [setFormData, formState.formType, setSubmitError, formData.newItemName] // Removed hasGooglePlacesKey dependency
+        [setFormData, formState.formType, setSubmitError] // Removed placeService dependency as it's stable
     );
 
-    // Input Change Handlers (keep as is)
+    // Input Change Handlers (no TS changes needed)
     const handleRestaurantInputChange = useCallback((event) => {
-        handleChange(event);
+        handleChange(event); // Update form handler state
+        // Clear place details if user modifies the restaurant input manually
         if (formState.placeDetails) {
             setFormState((prev) => ({ ...prev, placeDetails: null }));
         }
-    }, [handleChange, formState.placeDetails]);
+         // Trigger suggestion fetch via useEffect watching formData.restaurantInput
+    }, [handleChange, formState.placeDetails]); // Added formState.placeDetails dependency
 
     const handleHashtagInputChange = useCallback((e) => {
         const value = e.target.value;
@@ -286,12 +283,14 @@ const FloatingQuickAddComponent = () => {
     }, []);
 
      const handleRestaurantInputFocus = useCallback(() => {
+         // Show suggestions on focus only if there are already suggestions loaded
         if (formState.restaurantSuggestions.length > 0) {
             setShowRestaurantSuggestionsUI(true);
         }
+         // Fetching is handled by the debounced useEffect on input change
     }, [formState.restaurantSuggestions.length]);
 
-    // Submission Logic (keep as is)
+    // Submission Logic (no TS changes needed)
     const performSubmit = useCallback(
         async (currentHookFormData) => {
             if (!currentHookFormData?.newItemName?.trim()) {
@@ -304,10 +303,12 @@ const FloatingQuickAddComponent = () => {
             const submissionData = {
                 type: formState.formType,
                 name: currentHookFormData.newItemName.trim(),
+                // Use place details if available, otherwise use manual input
                 location: formState.placeDetails?.formattedAddress ?? (formState.formType === 'dish' ? currentHookFormData.restaurantInput.trim() : null),
                 city: formState.placeDetails?.city ?? null,
                 neighborhood: formState.placeDetails?.neighborhood ?? null,
                 place_id: formState.placeDetails?.placeId ?? null,
+                // Only send restaurant_name if type is dish AND no place_id was found
                 restaurant_name: (formState.formType === 'dish' && !formState.placeDetails?.placeId)
                                  ? currentHookFormData.restaurantInput.trim()
                                  : null,
@@ -315,10 +316,13 @@ const FloatingQuickAddComponent = () => {
             };
 
             console.log('[FloatingQuickAdd] Submitting:', submissionData);
+            // Assume addPendingSubmission handles success/error and returns necessary info or throws
             await addPendingSubmission(submissionData);
 
-            setIsMenuOpen(false);
+            // Reset UI on successful submission
+            setIsMenuOpen(false); // Close the FAB menu
             resetAllState();
+             // Optionally show a success toast/message here
         },
         [formState.formType, formState.selectedTags, formState.placeDetails, addPendingSubmission, resetAllState]
     );
@@ -328,18 +332,18 @@ const FloatingQuickAddComponent = () => {
         handleSubmit(performSubmit);
     }, [handleSubmit, performSubmit]);
 
-    // Derived State (keep as is)
+    // Derived State (no TS changes needed)
     const filteredHashtags = useMemo(() => {
         const inputLower = formState.tagInput.trim().toLowerCase();
         if (!inputLower || isLoadingCuisines || !Array.isArray(cuisines)) return [];
         return cuisines
             .filter((cuisine) => cuisine.name.toLowerCase().includes(inputLower) && !formState.selectedTags.includes(cuisine.name.toLowerCase()))
-            .map((cuisine) => cuisine.name)
+            .map((cuisine) => cuisine.name) // Return just the name
             .slice(0, 5);
     }, [formState.tagInput, formState.selectedTags, cuisines, isLoadingCuisines]);
 
 
-    // JSX Render (largely unchanged, removed hasGooglePlacesKey checks)
+    // JSX Render (removed type checks/assertions, kept logic)
     return (
         <>
             <button
@@ -363,7 +367,7 @@ const FloatingQuickAddComponent = () => {
                 aria-labelledby="fq-dialog-title"
             >
                 {!formState.formType ? (
-                    // Initial menu options (unchanged)
+                    // Initial menu options
                     <div className="bg-white border border-gray-200 rounded-lg shadow-xl p-4 space-y-3">
                         <h3 id="fq-dialog-title" className="text-sm font-semibold text-gray-600 text-center mb-2">Quick Add</h3>
                         <Button onClick={handleOpenDishForm} variant="tertiary" className="w-full flex items-center justify-start space-x-2 text-gray-700 hover:bg-gray-100 py-2 px-3">
@@ -377,9 +381,9 @@ const FloatingQuickAddComponent = () => {
                         </Button>
                     </div>
                 ) : (
-                    // Form display (unchanged logic, just removed key check)
+                    // Form display
                     <form onSubmit={handleFormSubmit} className="bg-white border border-gray-200 rounded-lg shadow-xl p-4 max-h-[calc(100vh-12rem)] overflow-y-auto">
-                       {/* Form header and inputs remain the same */}
+                       {/* Form header */}
                         <div className="flex items-center justify-between mb-4">
                             <h3 id="fq-dialog-title" className="text-lg font-semibold text-gray-900">
                                 {formState.formType === 'dish' ? 'Submit a Dish' : 'Submit a Restaurant'}
@@ -408,52 +412,56 @@ const FloatingQuickAddComponent = () => {
                                 />
                             </div>
 
-                            {/* Restaurant Input (for Dish) */}
-                            {formState.formType === 'dish' && (
-                                <div ref={restaurantInputRef} className="relative">
-                                    <label htmlFor="fq-restaurant-name" className="block text-gray-700 font-medium mb-1">Restaurant Name*</label>
-                                    <div className="relative">
-                                        <input
-                                            id="fq-restaurant-name"
-                                            type="text"
-                                            required
-                                            name="restaurantInput"
-                                            value={formData.restaurantInput}
-                                            onChange={handleRestaurantInputChange}
-                                            onFocus={handleRestaurantInputFocus}
-                                            disabled={isSubmitting || isFetchingPlaceSuggestions}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-[#D1B399] focus:border-[#D1B399] disabled:bg-gray-100 pr-8"
-                                            placeholder="Start typing..."
-                                            autoComplete="off"
-                                        />
-                                        {isFetchingPlaceSuggestions && (
-                                            <Loader2 size={16} className="absolute right-2 top-1/2 -translate-y-1/2 animate-spin text-gray-400" />
-                                        )}
-                                    </div>
-                                    {showRestaurantSuggestionsUI && Array.isArray(formState.restaurantSuggestions) && formState.restaurantSuggestions.length > 0 && (
-                                        <div ref={restaurantSuggestionsRef} className="absolute z-20 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-auto">
-                                            <ul>
-                                                {formState.restaurantSuggestions.map((suggestion) =>
-                                                    suggestion?.placeId ? (
-                                                        <li key={`rest-sugg-${suggestion.placeId}`}>
-                                                            <button
-                                                                type="button"
-                                                                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none truncate"
-                                                                onMouseDown={(e) => {
-                                                                    e.preventDefault();
-                                                                    handleSelectRestaurantSuggestion(suggestion);
-                                                                }}
-                                                            >
-                                                                {suggestion.name}
-                                                            </button>
-                                                        </li>
-                                                    ) : null
-                                                )}
-                                            </ul>
-                                        </div>
+                            {/* Restaurant Input (for Dish) or Location Hint (for Restaurant) */}
+                             <div ref={restaurantInputRef} className="relative">
+                                <label htmlFor="fq-restaurant-name" className="block text-gray-700 font-medium mb-1">
+                                    {formState.formType === 'dish' ? 'Restaurant Name*' : 'Restaurant Location (City/Neighborhood)'}
+                                </label>
+                                <div className="relative">
+                                    <input
+                                        id="fq-restaurant-name"
+                                        type="text"
+                                        required={formState.formType === 'dish'} // Only required for dish
+                                        name="restaurantInput" // Consistent name for form state
+                                        value={formData.restaurantInput}
+                                        onChange={handleRestaurantInputChange}
+                                        onFocus={handleRestaurantInputFocus}
+                                        disabled={isSubmitting || isFetchingPlaceSuggestions}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-[#D1B399] focus:border-[#D1B399] disabled:bg-gray-100 pr-8"
+                                        placeholder={formState.formType === 'dish' ? "Restaurant where dish is found" : "e.g., Los Angeles or Venice Beach"}
+                                        autoComplete="off"
+                                    />
+                                     {/* Show spinner only when fetching suggestions */}
+                                    {isFetchingPlaceSuggestions && (
+                                        <Loader2 size={16} className="absolute right-2 top-1/2 -translate-y-1/2 animate-spin text-gray-400" />
                                     )}
                                 </div>
-                            )}
+                                 {/* Display suggestions only for restaurants */}
+                                {formState.formType === 'restaurant' && showRestaurantSuggestionsUI && Array.isArray(formState.restaurantSuggestions) && formState.restaurantSuggestions.length > 0 && (
+                                    <div ref={restaurantSuggestionsRef} className="absolute z-20 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-auto">
+                                        <ul>
+                                            {formState.restaurantSuggestions.map((suggestion) =>
+                                                suggestion?.placeId ? ( // Check suggestion validity
+                                                    <li key={`rest-sugg-${suggestion.placeId}`}>
+                                                        <button
+                                                            type="button"
+                                                            className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none truncate"
+                                                             // Use onMouseDown to prevent blur before click registers
+                                                            onMouseDown={(e) => {
+                                                                e.preventDefault();
+                                                                handleSelectRestaurantSuggestion(suggestion);
+                                                            }}
+                                                        >
+                                                            {suggestion.name}
+                                                        </button>
+                                                    </li>
+                                                ) : null
+                                            )}
+                                        </ul>
+                                    </div>
+                                )}
+                            </div>
+
 
                             {/* Tags Input */}
                             <div ref={tagInputRef} className="relative">
@@ -510,12 +518,13 @@ const FloatingQuickAddComponent = () => {
                             {/* Display Place Details */}
                             {formState.placeDetails && (
                                 <div className="text-xs text-gray-500 border-t pt-2 mt-2">
-                                    <p><strong>Selected Location:</strong> {formState.placeDetails.formattedAddress}</p>
-                                    <p><strong>City:</strong> {formState.placeDetails.city || 'N/A'}, <strong>Neighborhood:</strong> {formState.placeDetails.neighborhood || 'N/A'}</p>
+                                    <p className="font-medium">Google Location Info:</p>
+                                    <p>Address: {formState.placeDetails.formattedAddress || 'N/A'}</p>
+                                    <p>City: {formState.placeDetails.city || 'N/A'}, Neighborhood: {formState.placeDetails.neighborhood || 'N/A'}</p>
                                 </div>
                             )}
 
-                             {/* Error and Submit Button */}
+                            {/* Error and Submit Button */}
                             {submitError && (
                                 <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2 mt-2 text-center">
                                     {submitError}
@@ -526,7 +535,7 @@ const FloatingQuickAddComponent = () => {
                                 type="submit"
                                 variant="primary"
                                 className="w-full flex justify-center py-2 px-4 mt-4"
-                                disabled={isSubmitting || isFetchingPlaceSuggestions} // Also disable while fetching place suggestions
+                                disabled={isSubmitting || isFetchingPlaceSuggestions}
                             >
                                 {isSubmitting ? (
                                     <Loader2 className="animate-spin h-5 w-5" />

@@ -1,4 +1,5 @@
 /* src/pages/DishDetail/index.jsx */
+/* REMOVED: All TypeScript syntax */
 import React, { useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -13,16 +14,17 @@ import LoadingSpinner from '@/components/UI/LoadingSpinner';
 import QueryResultDisplay from '@/components/QueryResultDisplay';
 
 // Fetcher function implementation
-const fetchDishDetails = async (dishId) => {
-    if (!dishId || isNaN(parseInt(dishId, 10))) {
+const fetchDishDetails = async (dishId) => { // REMOVED: Type hints
+    if (!dishId || isNaN(parseInt(String(dishId), 10))) { // Use String() for safety
         throw new Error('Invalid dish ID');
     }
-    const numericDishId = parseInt(dishId, 10);
-    const data = await dishService.getDishDetails(numericDishId); // Assuming dishService exists
-    if (!data || typeof data.id === 'undefined') {
+    const numericDishId = parseInt(String(dishId), 10);
+    const data = await dishService.getDishDetails(numericDishId);
+    // Check if data is an object and has an id property
+    if (!data || typeof data !== 'object' || typeof data.id === 'undefined') {
         throw new Error('Dish not found or invalid response');
     }
-    return data; // Ensure a defined value (object or throws error)
+    return data;
 };
 
 const DishDetail = () => {
@@ -37,7 +39,9 @@ const DishDetail = () => {
         enabled: !!id,
         staleTime: 5 * 60 * 1000,
         retry: (failureCount, error) => {
-            return error?.status !== 404 && failureCount < 1;
+            // Check error status without TS assertion
+            const status = error?.status;
+            return status !== 404 && failureCount < 1;
         },
         refetchOnWindowFocus: true,
     });
@@ -46,25 +50,33 @@ const DishDetail = () => {
         window.scrollTo(0, 0);
     }, [id]);
 
+    // Log engagement view
     useEffect(() => {
-        if (id && !queryResult.isLoading) {
-            console.log(`[DishDetail] Logging view for dish ID: ${id}`);
+        const numericId = id ? parseInt(id, 10) : NaN;
+        // Check if id is valid and query is successful before logging
+        if (!isNaN(numericId) && numericId > 0 && queryResult.isSuccess && !queryResult.isLoading) {
+            console.log(`[DishDetail] Logging view for dish ID: ${numericId}`);
             engagementService.logEngagement({
-                item_id: parseInt(id, 10),
+                item_id: numericId,
                 item_type: 'dish',
                 engagement_type: 'view',
-            });
+            }).catch(err => console.error("[DishDetail] Failed to log view:", err)); // Add catch
         }
-    }, [id, queryResult.isLoading]);
+    }, [id, queryResult.isLoading, queryResult.isSuccess]); // Add isSuccess
+
 
     const handleAddToList = (dish) => {
-        if (!dish || !dish.id) return;
+        if (!dish || !dish.id) {
+            console.error("Cannot add invalid dish data to list:", dish);
+            return;
+        }
+        // Ensure restaurant_name is passed correctly
         openQuickAdd({
             type: 'dish',
             id: dish.id,
             name: dish.name,
-            restaurantId: dish.restaurant_id,
-            restaurantName: dish.restaurant_name,
+            restaurantId: dish.restaurant_id, // Keep original id
+            restaurantName: dish.restaurant_name, // Pass name
             tags: dish.tags || [],
         });
     };
@@ -91,7 +103,7 @@ const DishDetail = () => {
                     </Button>
                 }
             >
-                {(dish) => (
+                {(dish) => ( // dish data is guaranteed to be valid here by QueryResultDisplay
                     <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 border border-gray-100">
                         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 break-words mb-2">
                             {dish.name || 'Unnamed Dish'}
@@ -108,6 +120,7 @@ const DishDetail = () => {
                             </Link>
                         )}
 
+                        {/* Use city/neighborhood from dish object */}
                         {(dish.city || dish.neighborhood) && (
                             <div className="flex items-center text-gray-600 text-sm mb-4">
                                 <MapPin size={14} className="mr-1.5 text-gray-400 flex-shrink-0" />
@@ -146,7 +159,7 @@ const DishDetail = () => {
                                 variant="secondary"
                                 size="md"
                                 className="flex items-center justify-center min-w-[100px]"
-                                onClick={() => alert('Share function not implemented yet.')}
+                                onClick={() => alert('Share function not implemented yet.')} // Replace with actual share logic
                                 aria-label={`Share ${dish.name}`}
                             >
                                 <Share2 size={16} className="mr-1" />

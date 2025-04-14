@@ -18,6 +18,6 @@
     "experimentalDecorators": true,       // Enable experimental decorators if used
     "emitDecoratorMetadata": true         // Emit design-type metadata for decorated declarations if used
   },
-  "include": ["**/*.ts", "**/*.js"],      // Include both TS and JS files within rootDir
+  "include": ["**/*.ts", "**/*.js", "routes/engage.js"],      // Include both TS and JS files within rootDir
   "exclude": ["node_modules", "dist", "**/*.spec.ts", "**/*.test.ts"] // Exclude node_modules, output dir, and test files
 }
