@@ -1,11 +1,15 @@
+/* src/hooks/useAdminTableState.js */
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { adminService } from '@/services/adminService';
-import apiClient from '@/services/apiClient';
+import { adminService } from '@/services/adminService.js'; // Keep for generic updates/creates/deletes
+import useSubmissionStore from '@/stores/useSubmissionStore'; // *** ADDED: Import the submission store ***
+import apiClient from '@/services/apiClient.js';
+// REMOVED: Incorrect backend model import
+// import * as SubmissionModel from '../../doof-backend/models/submissionModel.js';
 
-// Helper function
-const parseAndValidateZipcodes = (value) => {
+// Helper function (remains the same)
+const parseAndValidateZipcodes = (value) => { /* ... implementation ... */
     if (value === null || value === undefined) return [];
     const zipcodes = Array.isArray(value)
         ? value.map(String)
@@ -14,44 +18,60 @@ const parseAndValidateZipcodes = (value) => {
     return zipcodes.filter(z => validZipRegex.test(z));
 };
 
+
 export const useAdminTableState = ({
   initialData = [],
   type,
   columns = [],
   cities = [],
   neighborhoods = [],
-  onDataMutated,
+  onDataMutated, // Callback prop to notify parent of changes
 }) => {
   // --- State ---
   const [editingRowIds, setEditingRowIds] = useState(new Set());
   const [editFormData, setEditFormData] = useState({});
   const [editError, setEditError] = useState(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [actionState, setActionState] = useState({ deletingId: null, approvingId: null, rejectingId: null });
-  const [error, setError] = useState(null);
+  const [isSaving, setIsSaving] = useState(false); // Global saving state (for inline/bulk edits)
+  const [actionState, setActionState] = useState({ deletingId: null, approvingId: null, rejectingId: null }); // Specific row action states
+  const [error, setError] = useState(null); // General hook/action errors
   const [confirmDeleteInfo, setConfirmDeleteInfo] = useState({ isOpen: false, id: null, itemType: '' });
   const [isAdding, setIsAdding] = useState(false);
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [isBulkEditing, setIsBulkEditing] = useState(false);
   const [bulkSaveError, setBulkSaveError] = useState(null);
-  const [updatedData, setUpdatedData] = useState(initialData);
+  const [updatedData, setUpdatedData] = useState(initialData); // Local copy for rendering
+  // List Edit Modal State
   const [isListEditModalOpen, setIsListEditModalOpen] = useState(false);
   const [listToEditData, setListToEditData] = useState(null);
   const [listEditError, setListEditError] = useState(null);
+
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  // Get submission store actions
+  // Use getState() inside handlers to always get the latest store actions/state
+  // const { approveSubmission, rejectSubmission } = useSubmissionStore.getState();
 
 
-  // Effect to sync local data
+  // Effect to sync local data when initialData prop changes (like after fetch)
   useEffect(() => {
     setUpdatedData(initialData);
-    setEditingRowIds(new Set()); setEditFormData({}); setIsAdding(false); setIsBulkEditing(false);
-    setSelectedRows(new Set()); setEditError(null); setError(null); setListEditError(null);
-    setIsListEditModalOpen(false); setListToEditData(null);
+    // Reset local states when data source changes
+    setEditingRowIds(new Set());
+    setEditFormData({});
+    setIsAdding(false);
+    setIsBulkEditing(false);
+    setSelectedRows(new Set());
+    setEditError(null);
+    setError(null);
+    setListEditError(null);
+    setIsListEditModalOpen(false);
+    setListToEditData(null);
+    setActionState({ deletingId: null, approvingId: null, rejectingId: null });
   }, [initialData]);
 
   // --- Core Data Update Handler ---
-  const handleRowDataChange = useCallback(async (rowId, incomingChanges) => {
+  // Callback for handling inline data changes (remains the same)
+  const handleRowDataChange = useCallback(async (rowId, incomingChanges) => { /* ... implementation ... */
     setEditError(null); setError(null); setBulkSaveError(null); setListEditError(null);
     const isZipcodeChange = incomingChanges?.zipcode && typeof incomingChanges.zipcode === 'string' && type === 'restaurants';
     const isZipcodeClear = incomingChanges?.zipcode === '' && type === 'restaurants';
@@ -102,213 +122,368 @@ export const useAdminTableState = ({
       console.log(`[handleRowDataChange] Applying final state update for row ${rowId}:`, combinedUpdates);
       return { ...prev, [rowId]: combinedUpdates };
     });
-  }, [type, cities, editFormData]); // Added editFormData dependency
+  }, [type, cities, editFormData]);
+
 
   // --- Edit Mode Toggles & Handlers ---
+  // Callback to start editing a row (handles list modal logic)
   const handleStartEdit = useCallback((row) => {
     if (!row || row.id == null) return;
-    if (type === 'lists') { /* ... list modal logic ... */ return; }
+    setError(null); // Clear general errors when starting edit
 
+    // Handle list edit via modal
+    if (type === 'lists') {
+        console.log("[AdminTable] Opening list edit modal for:", row);
+        setListToEditData(row);
+        setIsListEditModalOpen(true);
+        setListEditError(null); // Clear previous list modal errors
+        return; // Don't proceed with inline editing for lists
+    }
+
+    // Handle inline editing for other types
     const initialRowData = {};
     columns.forEach((col) => {
         if (col.editable && col.key !== 'select' && col.key !== 'actions') {
              let initialValue = row[col.key];
-             if ((col.key === 'tags' || col.key === 'zipcode_ranges') && Array.isArray(initialValue)) { initialValue = initialValue.join(', '); }
-             if (col.inputType === 'boolean') { initialValue = String(initialValue ?? false); }
-            initialRowData[col.key] = initialValue ?? '';
+             // Convert array types to string for input fields
+             if ((col.key === 'tags' || col.key === 'zipcode_ranges') && Array.isArray(initialValue)) {
+                  initialValue = initialValue.join(', ');
+             }
+              // Convert boolean to string 'true'/'false' for selects
+              if (col.inputType === 'boolean') {
+                 initialValue = String(initialValue ?? false);
+             }
+            initialRowData[col.key] = initialValue ?? ''; // Use empty string for null/undefined
         }
     });
+     // Ensure relevant IDs/names are captured if available
      if (row.city_id !== undefined) initialRowData.city_id = row.city_id;
      if (row.city_name !== undefined) initialRowData.city_name = row.city_name;
      if (row.neighborhood_id !== undefined) initialRowData.neighborhood_id = row.neighborhood_id;
      if (row.neighborhood_name !== undefined) initialRowData.neighborhood_name = row.neighborhood_name;
      if (row.restaurant_id !== undefined) { initialRowData.restaurant_id = row.restaurant_id; initialRowData.restaurant_name = row.restaurant_name; }
 
-    // *** LOGGING: Confirm row ID is added to edit set ***
-    const currentEditingIds = editingRowIds; // Get current state
-    const newEditingRowIds = new Set(currentEditingIds).add(row.id);
-    console.log(`[handleStartEdit] Adding rowId ${row.id} to editingRowIds. Prev size: ${currentEditingIds.size}, New size: ${newEditingRowIds.size}`);
-    setEditingRowIds(newEditingRowIds); // Update state
-
+    setEditingRowIds((prev) => new Set(prev).add(row.id)); // Add to editing set
     setEditFormData((prev) => ({ ...prev, [row.id]: initialRowData }));
-    setEditError(null);
-  }, [type, columns, editingRowIds]); // Added editingRowIds dependency
+    setEditError(null); // Clear edit-specific errors
+  }, [type, columns]); // Removed 'editingRowIds' from dependencies as it's being set
 
+  // Callback to cancel editing a row (remains the same)
   const handleCancelEdit = useCallback((rowId) => {
-    // *** LOGGING: Confirm row ID is removed from edit set ***
-    console.log(`[handleCancelEdit] Removing rowId ${rowId} from editingRowIds.`);
-    setEditingRowIds((prev) => {
-        const newSet = new Set(prev);
-        const deleted = newSet.delete(rowId);
-        console.log(`[handleCancelEdit] Row ${rowId} ${deleted ? 'removed' : 'not found'} from editingRowIds. New size: ${newSet.size}`);
-        return newSet;
-    });
+    setEditingRowIds((prev) => { const newSet = new Set(prev); newSet.delete(rowId); return newSet; });
     setEditFormData((prev) => { const newState = { ...prev }; delete newState[rowId]; return newState; });
     setEditError(null);
-  }, []);
+  }, []); // Keep dependencies minimal
 
   // --- Add Row Handlers ---
-  const handleStartAdd = useCallback(() => { /* ... keep implementation ... */ }, [isAdding, editingRowIds.size, columns]);
-  const handleCancelAdd = useCallback(() => { /* ... keep implementation ... */ }, []);
+  // Callback to start adding a new row (remains the same)
+  const handleStartAdd = useCallback(() => {
+    if (isAdding || editingRowIds.size > 0) return;
+    setError(null);
+    const newRowDefaults = {};
+    columns.forEach(col => {
+        if (col.editable && col.key !== 'actions' && col.key !== 'select') {
+             newRowDefaults[col.key] = col.inputType === 'boolean' ? 'false' : '';
+        }
+    });
+    setEditFormData({ '__NEW_ROW__': newRowDefaults });
+    setIsAdding(true);
+  }, [isAdding, editingRowIds.size, columns]); // Keep dependencies
+
+  // Callback to cancel adding a new row (remains the same)
+  const handleCancelAdd = useCallback(() => {
+    setIsAdding(false);
+    setEditFormData({});
+    setError(null);
+  }, []); // Keep dependencies minimal
 
   // --- Save Operations ---
 
-  // Save New Row
-  const handleSaveNewRow = useCallback(async () => { /* ... keep implementation ... */ }, [editFormData, isSaving, columns, type, onDataMutated, handleCancelAdd, setError, cities, neighborhoods]);
+  // Callback to save a new row (remains the same)
+  const handleSaveNewRow = useCallback(async () => {
+      const newRow = editFormData['__NEW_ROW__'];
+      if (!newRow || isSaving) return;
+      setError(null); // Clear previous general errors
+      setIsSaving(true);
+      try {
+          // Prepare data (convert types if needed, e.g., tags string to array)
+          const payload = { ...newRow };
+          columns.forEach(col => {
+              if (payload[col.key] !== undefined && (col.key === 'tags' || col.key === 'zipcode_ranges') && typeof payload[col.key] === 'string') {
+                 payload[col.key] = payload[col.key].split(',').map(s => s.trim()).filter(Boolean);
+              } else if (col.inputType === 'boolean') {
+                  payload[col.key] = payload[col.key] === 'true';
+              }
+          });
+          // Remove temporary fields if necessary before sending
+          // delete payload.city_name; // If only ID should be sent
+          // delete payload.neighborhood_name; // If only ID should be sent
+          // delete payload.restaurant_name; // If only ID should be sent
 
-  // Save Inline Edit for a Single Row
+          const result = await adminService.createResource(type, payload);
+          if (result.success) {
+              handleCancelAdd();
+              onDataMutated?.();
+          } else {
+              setError(result.error || `Failed to add new ${type.slice(0, -1)}.`);
+          }
+      } catch (err) {
+          console.error(`[AdminTable SaveNewRow] Error saving new ${type}:`, err);
+          setError(err.message || 'Save failed.');
+      } finally {
+          setIsSaving(false);
+      }
+  }, [editFormData, isSaving, columns, type, onDataMutated, handleCancelAdd, setError, cities, neighborhoods]); // Added dependencies
+
+
+  // Callback to save an edited row (remains the same)
   const handleSaveEdit = useCallback(async (rowId) => {
-    // *** LOGGING: Log entry and current state ***
-    console.log(`[handleSaveEdit] === Initiated for rowId: ${rowId}, type: ${type} ===`);
-    console.log(`[handleSaveEdit] Current isSaving state: ${isSaving}`);
-    console.log(`[handleSaveEdit] Current editingRowIds:`, editingRowIds); // Log the Set object
-    console.log(`[handleSaveEdit] Checking if editingRowIds has ${rowId}: ${editingRowIds.has(rowId)}`);
+      if (type === 'lists') return; // Lists handled by modal
+      const originalRow = updatedData.find((r) => r.id === rowId);
+      const currentRowFormData = editFormData[rowId];
+      if (!originalRow || !editingRowIds.has(rowId) || isSaving || typeof currentRowFormData !== 'object') {
+          console.warn(`[handleSaveEdit] Aborted for row ${rowId}. Conditions not met.`);
+          return;
+      }
+      setError(null); setEditError(null);
+      const apiPayload = {}; let validationFailed = false; let changedFields = false;
 
-    if (type === 'lists') return;
+      columns.forEach(col => {
+          if (validationFailed || !col.editable || col.key === 'select' || col.key === 'actions') return;
+          const key = col.key; const originalValue = originalRow[key]; const editedValue = currentRowFormData[key];
+          let processedEditedValue = editedValue; let processedOriginalValue = originalValue; let valueChanged = false;
 
-    const originalRow = updatedData.find((r) => r.id === rowId);
-    const currentRowFormData = editFormData[rowId];
-
-    // *** LOGGING: Log checks inside the guard clause ***
-    if (!originalRow || !editingRowIds.has(rowId) || isSaving || typeof currentRowFormData !== 'object') {
-      console.warn(`[handleSaveEdit] Aborted for row ${rowId}. Conditions not met:`, {
-          hasOriginalRow: !!originalRow,
-          isEditing: editingRowIds.has(rowId),
-          isSaving: isSaving,
-          hasFormData: typeof currentRowFormData === 'object'
+          if (key === 'tags' || key === 'zipcode_ranges') {
+              processedEditedValue = parseAndValidateZipcodes(editedValue);
+              processedOriginalValue = parseAndValidateZipcodes(originalValue);
+              if (JSON.stringify([...(processedOriginalValue || [])].sort()) !== JSON.stringify([...(processedEditedValue || [])].sort())) { valueChanged = true; }
+          } else if (col.inputType === 'boolean') {
+              processedEditedValue = editedValue === 'true' || editedValue === true;
+              processedOriginalValue = originalValue ?? false;
+              if (processedOriginalValue !== processedEditedValue) { valueChanged = true; }
+          } else if (['city_id', 'neighborhood_id', 'restaurant_id'].includes(key)) {
+              processedEditedValue = (editedValue === '' || editedValue === null || editedValue === undefined) ? null : Number(editedValue);
+              processedOriginalValue = (originalValue === null || originalValue === undefined) ? null : Number(originalValue);
+              if (editedValue != null && editedValue !== '' && editedValue !== undefined && (isNaN(processedEditedValue) || processedEditedValue <= 0)) { setEditError(`Invalid ${col.header || key}. Must be a positive number or empty.`); validationFailed = true; }
+              if (col.required && processedEditedValue === null) { setEditError(`${col.header || key} is required.`); validationFailed = true; }
+              if (processedOriginalValue !== processedEditedValue) { valueChanged = true; }
+          } else {
+              processedEditedValue = (typeof editedValue === 'string') ? (editedValue.trim() || null) : editedValue ?? null;
+              processedOriginalValue = originalValue ?? null;
+              if (col.required && (processedEditedValue === null || String(processedEditedValue).trim() === '')) { setEditError(`${col.header || key} is required.`); validationFailed = true; }
+              if (String(processedOriginalValue ?? '') !== String(processedEditedValue ?? '')) { valueChanged = true; }
+          }
+          if (valueChanged && !validationFailed) { apiPayload[key] = processedEditedValue; changedFields = true; }
       });
-      // Log which specific condition failed
-      if (!originalRow) console.warn('[handleSaveEdit] Reason: Original row not found.');
-      if (!editingRowIds.has(rowId)) console.warn(`[handleSaveEdit] Reason: Row ID ${rowId} not found in editingRowIds set.`);
-      if (isSaving) console.warn('[handleSaveEdit] Reason: Already saving.');
-      if (typeof currentRowFormData !== 'object') console.warn('[handleSaveEdit] Reason: Form data for row is not an object.');
-      return; // Exit early
-    }
 
-    // --- Proceed with save logic ---
-    console.log(`[handleSaveEdit] Row ${rowId} - Checks passed. Proceeding to build payload.`);
-    setError(null);
-    setEditError(null);
+      if (type === 'dishes' && !validationFailed && apiPayload.restaurant_id === undefined && currentRowFormData.restaurant_name !== undefined) {
+          const originalRestaurantId = originalRow?.restaurant_id;
+          const editedRestaurantName = currentRowFormData.restaurant_name?.trim();
+          const editedRestaurantId = currentRowFormData.restaurant_id; // Use ID if provided by autocomplete
 
-    const apiPayload = {};
-    let validationFailed = false;
-    let changedFields = false;
-
-    // Compare values and build payload
-    columns.forEach(col => {
-      if (validationFailed || !col.editable || col.key === 'select' || col.key === 'actions') return;
-
-      const key = col.key;
-      const originalValue = originalRow[key];
-      const editedValue = currentRowFormData[key];
-      let processedEditedValue = editedValue;
-      let processedOriginalValue = originalValue;
-      let valueChanged = false;
-
-      // *** LOGGING: Log comparison for each editable field ***
-      // console.log(`[handleSaveEdit] Row ${rowId}, Field '${key}': Original='${originalValue}', Edited='${editedValue}'`);
-
-      // --- Type-specific processing and change detection ---
-      if (key === 'tags' || key === 'zipcode_ranges') {
-        processedEditedValue = parseAndValidateZipcodes(editedValue);
-        processedOriginalValue = parseAndValidateZipcodes(originalValue);
-        if (JSON.stringify([...(processedOriginalValue || [])].sort()) !== JSON.stringify([...(processedEditedValue || [])].sort())) {
-          valueChanged = true;
-          // console.log(`[handleSaveEdit] Row ${rowId}, Field '${key}': Change detected (Array).`);
-        }
-      } else if (col.inputType === 'boolean') {
-        processedEditedValue = editedValue === 'true' || editedValue === true;
-        processedOriginalValue = originalValue ?? false;
-        if (processedOriginalValue !== processedEditedValue) {
-          valueChanged = true;
-          // console.log(`[handleSaveEdit] Row ${rowId}, Field '${key}': Change detected (Boolean).`);
-        }
-      } else if (['city_id', 'neighborhood_id', 'restaurant_id'].includes(key)) {
-        processedEditedValue = (editedValue === '' || editedValue === null || editedValue === undefined) ? null : Number(editedValue);
-        processedOriginalValue = (originalValue === null || originalValue === undefined) ? null : Number(originalValue);
-        if (editedValue !== null && editedValue !== '' && editedValue !== undefined && (isNaN(processedEditedValue) || processedEditedValue <= 0)) {
-          setEditError(`Invalid ${col.header || key}. Must be a positive number or empty.`); validationFailed = true;
-        }
-        if (col.required && processedEditedValue === null) {
-          setEditError(`${col.header || key} is required.`); validationFailed = true;
-        }
-        if (processedOriginalValue !== processedEditedValue) {
-          valueChanged = true;
-          // console.log(`[handleSaveEdit] Row ${rowId}, Field '${key}': Change detected (ID).`);
-        }
-      } else { // Default handling (strings, numbers, etc.)
-        processedEditedValue = (typeof editedValue === 'string') ? (editedValue.trim() || null) : editedValue ?? null;
-        processedOriginalValue = originalValue ?? null;
-        if (col.required && (processedEditedValue === null || String(processedEditedValue).trim() === '')) {
-          setEditError(`${col.header || key} is required.`); validationFailed = true;
-        }
-        if (String(processedOriginalValue ?? '') !== String(processedEditedValue ?? '')) {
-          valueChanged = true;
-          // console.log(`[handleSaveEdit] Row ${rowId}, Field '${key}': Change detected (Other).`);
-        }
+          if (editedRestaurantId !== undefined && Number(originalRestaurantId) !== Number(editedRestaurantId)) {
+              // If ID changed via autocomplete, it's already handled above
+          } else if (editedRestaurantId === undefined && editedRestaurantName && editedRestaurantName !== originalRow?.restaurant_name) {
+              // Name changed manually, need to look up ID - This is less reliable
+              console.warn(`[handleSaveEdit] Manual restaurant name change for dish ${rowId} - ID lookup not implemented in frontend. Restaurant ID will not be updated.`);
+              // If needed, implement lookup here or ensure autocomplete is always used
+              // delete apiPayload.restaurant_name; // Don't send name if ID wasn't looked up
+          }
       }
 
-      // Add to payload if changed and valid
-      if (valueChanged && !validationFailed) {
-        apiPayload[key] = processedEditedValue; changedFields = true;
-        // Include names when IDs change
-        if (key === 'city_id' && apiPayload[key] != null) { const city = cities?.find(c => String(c.id) === String(apiPayload[key])); apiPayload.city_name = city?.name ?? null; }
-        if (key === 'neighborhood_id' && apiPayload[key] != null) { const nb = neighborhoods?.find(n => String(n.id) === String(apiPayload[key])); apiPayload.neighborhood_name = nb?.name ?? null; }
-        // Clear names if IDs are cleared
-        if (key === 'city_id' && apiPayload[key] === null) { apiPayload.city_name = null; }
-        if (key === 'neighborhood_id' && apiPayload[key] === null) { apiPayload.neighborhood_name = null; }
-        if (key === 'restaurant_id' && apiPayload[key] === null) { apiPayload.restaurant_name = null; }
+      if (validationFailed) { console.warn(`[handleSaveEdit] Validation failed for row ${rowId}. Error:`, editError); return; }
+      if (!changedFields) { handleCancelEdit(rowId); return; }
+
+      console.log(`[handleSaveEdit] Row ${rowId} - Sending payload:`, apiPayload);
+      setIsSaving(true);
+
+      try {
+          const response = await adminService.updateResource(type, rowId, apiPayload);
+          if (!response.success) { throw new Error(response.error || response.message || `Failed to save ${type}.`); }
+          console.log(`[handleSaveEdit] Row ${rowId} - Save successful. Response:`, response.data);
+          handleCancelEdit(rowId);
+          onDataMutated?.();
+      } catch (err) {
+          console.error(`[handleSaveEdit] Row ${rowId} - Save Error:`, err);
+          setEditError(err.message || 'Save failed.');
+      } finally {
+          setIsSaving(false);
       }
-    });
-     // Special handling for restaurant_id/name update in Dishes (Keep as is)
-     if (type === 'dishes' && !validationFailed) { /* ... */ }
+  }, [updatedData, editFormData, isSaving, editingRowIds, columns, type, onDataMutated, handleCancelEdit, setEditError, cities, neighborhoods, setError]); // Keep dependencies
 
-    if (validationFailed) {
-      console.warn(`[handleSaveEdit] Validation failed for row ${rowId}. Error:`, editError);
-      return;
-    }
-    if (!changedFields) {
-      console.log(`[handleSaveEdit] No changes detected for row ${rowId}. Cancelling edit.`);
-      handleCancelEdit(rowId);
-      return;
-    }
 
-    console.log(`[handleSaveEdit] Row ${rowId} - Sending payload:`, apiPayload); // Log final payload
+  // --- List Edit Modal Handlers ---
+  // Callback to close list edit modal (remains the same)
+  const handleCloseListEditModal = useCallback(() => {
+    setIsListEditModalOpen(false);
+    setListToEditData(null);
+    setListEditError(null);
+  }, []);
+
+  // Callback to save list edits from modal (remains the same)
+  const handleSaveListEdit = useCallback(async (listId, editedListData) => {
+    if (isSaving) return;
     setIsSaving(true);
+    setListEditError(null);
+    try {
+        const payload = { ...editedListData };
+        // Convert tags string back to array
+        if (typeof payload.tags === 'string') {
+            payload.tags = payload.tags.split(',').map(s => s.trim()).filter(Boolean);
+        }
+        const result = await adminService.updateAdminList(listId, payload);
+        if (result.success) {
+            handleCloseListEditModal();
+            onDataMutated?.();
+        } else {
+             setListEditError(result.error || 'Failed to save list.');
+        }
+    } catch (err) {
+        console.error(`[AdminTable SaveListEdit] Error saving list ${listId}:`, err);
+        setListEditError(err.message || 'Save failed.');
+    } finally {
+        setIsSaving(false);
+    }
+  }, [isSaving, handleCloseListEditModal, onDataMutated]);
+
+  // --- Bulk Edit Handlers ---
+  // Callback to initiate bulk edit (remains the same)
+  const handleBulkEdit = useCallback(() => {
+    if (isAdding || editingRowIds.size > 0 || selectedRows.size === 0) return;
+    const initialBulkData = {};
+    const newEditingIds = new Set();
+    selectedRows.forEach(rowId => {
+        const row = updatedData.find(r => r.id === rowId);
+        if (row) {
+            const rowData = {};
+            columns.forEach(col => {
+                if (col.editable && col.key !== 'actions' && col.key !== 'select') {
+                     let value = row[col.key];
+                     if ((col.key === 'tags' || col.key === 'zipcode_ranges') && Array.isArray(value)) value = value.join(', ');
+                     if (col.inputType === 'boolean') value = String(value ?? false);
+                     rowData[col.key] = value ?? '';
+                }
+            });
+            // Include IDs/names
+            if (row.city_id !== undefined) rowData.city_id = row.city_id;
+            if (row.city_name !== undefined) rowData.city_name = row.city_name;
+            if (row.neighborhood_id !== undefined) rowData.neighborhood_id = row.neighborhood_id;
+            if (row.neighborhood_name !== undefined) rowData.neighborhood_name = row.neighborhood_name;
+            if (row.restaurant_id !== undefined) { rowData.restaurant_id = row.restaurant_id; rowData.restaurant_name = row.restaurant_name; }
+
+            initialBulkData[rowId] = rowData;
+            newEditingIds.add(rowId);
+        }
+    });
+    setEditFormData(initialBulkData);
+    setEditingRowIds(newEditingIds);
+    setIsBulkEditing(true);
+    setBulkSaveError(null);
+  }, [selectedRows, updatedData, columns, isAdding, editingRowIds]); // Added dependencies
+
+  // Callback to cancel bulk edit (remains the same)
+  const handleCancelBulkEdit = useCallback(() => {
+    setIsBulkEditing(false);
+    setEditingRowIds(new Set());
+    setEditFormData({});
+    setBulkSaveError(null);
+  }, []); // Keep dependencies minimal
+
+  // Callback to save all bulk edits (remains the same)
+  const handleSaveAllEdits = useCallback(async () => {
+    if (!isBulkEditing || isSaving) return;
+    setBulkSaveError(null);
+    setIsSaving(true); // Use global saving state
+
+    const savePromises = [];
+    editingRowIds.forEach(rowId => {
+        savePromises.push(handleSaveEdit(rowId)); // Call individual save handler
+    });
 
     try {
-      const response = await adminService.updateResource(type, rowId, apiPayload);
-      if (!response.success) { throw new Error(response.error || response.message || `Failed to save ${type}.`); }
-      console.log(`[handleSaveEdit] Row ${rowId} - Save successful. Response:`, response.data);
-      handleCancelEdit(rowId);
-      onDataMutated?.();
-    } catch (err) {
-      console.error(`[handleSaveEdit] Row ${rowId} - Save Error:`, err);
-      setEditError(err.message || 'Save failed.');
+        await Promise.all(savePromises);
+        // If all saves were successful (no errors thrown and set in editError), cancel bulk mode
+        // Note: Individual save errors are set in `editError`, check that if needed
+        handleCancelBulkEdit();
+        // Data mutation is handled by individual handleSaveEdit calls
+    } catch (bulkErr) {
+        // This catch block might not be reached if individual saves handle their errors
+        console.error("[AdminTable SaveAllEdits] Error during bulk save:", bulkErr);
+        setBulkSaveError("One or more rows failed to save. Check individual rows for errors.");
     } finally {
-      console.log(`[handleSaveEdit] Row ${rowId} - Resetting isSaving flag.`); // Log flag reset
-      setIsSaving(false);
+        setIsSaving(false); // Reset global saving state
     }
-  }, [
-    updatedData, editFormData, isSaving, editingRowIds, columns, type,
-    onDataMutated, handleCancelEdit, setEditError, cities, neighborhoods, setError // Keep dependencies
-  ]);
+  }, [isBulkEditing, isSaving, editingRowIds, handleSaveEdit, handleCancelBulkEdit]); // Added dependencies
 
-  // --- List Edit Modal Handlers --- (Keep as before)
-  const handleCloseListEditModal = useCallback(() => { /* ... */ }, []);
-  const handleSaveListEdit = useCallback(async (listId, editedListData) => { /* ... */ }, [isSaving, handleCloseListEditModal, onDataMutated]);
+  // --- Action Cell Handlers (Approve/Reject/Delete) ---
+  // *** MODIFIED: Use submission store actions ***
+  const handleApprove = useCallback(async (submissionId) => {
+    if (actionState.approvingId || actionState.rejectingId) return;
+    setError(null);
+    setActionState(prev => ({ ...prev, approvingId: submissionId }));
+    try {
+        // Get the store action
+        const { approveSubmission } = useSubmissionStore.getState();
+        await approveSubmission(submissionId); // Let the store handle API call and invalidation
+        // Success message or specific feedback handled by the store/component observing it
+        onDataMutated?.(); // Trigger general refetch if needed
+    } catch (err) {
+        console.error(`[AdminTable Approve] Error approving submission ${submissionId}:`, err);
+        setError(err.message || 'Approval failed.');
+    } finally {
+        setActionState(prev => ({ ...prev, approvingId: null }));
+    }
+  }, [actionState.approvingId, actionState.rejectingId, onDataMutated, setError]); // Removed direct model call
 
-  // --- Bulk Edit Handlers --- (Keep as before)
-  const handleBulkEdit = useCallback(() => { /* ... */ }, [selectedRows, updatedData, handleStartEdit, isAdding, editingRowIds.size]);
-  const handleCancelBulkEdit = useCallback(() => { /* ... */ }, [editingRowIds, selectedRows, handleCancelEdit]);
-  const handleSaveAllEdits = useCallback(async () => { /* ... */ }, [ isBulkEditing, isSaving, editingRowIds, selectedRows, handleSaveEdit, handleCancelBulkEdit ]);
+  // *** MODIFIED: Use submission store actions ***
+  const handleReject = useCallback(async (submissionId) => {
+    if (actionState.approvingId || actionState.rejectingId) return;
+    setError(null);
+    setActionState(prev => ({ ...prev, rejectingId: submissionId }));
+    try {
+         // Get the store action
+         const { rejectSubmission } = useSubmissionStore.getState();
+        await rejectSubmission(submissionId); // Let the store handle API call and invalidation
+        // Success message or specific feedback handled by the store/component observing it
+        onDataMutated?.(); // Trigger general refetch if needed
+    } catch (err) {
+        console.error(`[AdminTable Reject] Error rejecting submission ${submissionId}:`, err);
+        setError(err.message || 'Rejection failed.');
+    } finally {
+        setActionState(prev => ({ ...prev, rejectingId: null }));
+    }
+  }, [actionState.approvingId, actionState.rejectingId, onDataMutated, setError]); // Removed direct model call
 
-  // --- Action Cell Handlers (Delegated) --- (Keep as before)
-  const handleDeleteClick = useCallback((id, itemType) => { /* ... */ }, []);
-  const handleDeleteConfirm = useCallback(async () => { /* ... */ }, [confirmDeleteInfo, actionState.deletingId, onDataMutated]);
-  const handleApprove = useCallback(async (submissionId) => { /* ... */ }, [actionState.approvingId, actionState.rejectingId, onDataMutated]);
-  const handleReject = useCallback(async (submissionId) => { /* ... */ }, [actionState.approvingId, actionState.rejectingId, onDataMutated]);
+  // Callback to initiate delete confirmation (remains the same)
+  const handleDeleteClick = useCallback((id, itemType) => {
+    setConfirmDeleteInfo({ isOpen: true, id, itemType });
+  }, []);
 
+  // Callback to confirm deletion (remains the same)
+  const handleDeleteConfirm = useCallback(async () => {
+    const { id: idToDelete, itemType } = confirmDeleteInfo;
+    if (!idToDelete || !itemType || actionState.deletingId) return;
+
+    setError(null);
+    setActionState(prev => ({ ...prev, deletingId: idToDelete }));
+
+    try {
+        const result = await adminService.deleteResource(itemType, idToDelete);
+        if (result.success) {
+            setConfirmDeleteInfo({ isOpen: false, id: null, itemType: '' });
+            onDataMutated?.(); // Trigger refetch
+        } else {
+            setError(result.error || `Failed to delete ${itemType.slice(0, -1)}.`);
+        }
+    } catch (err) {
+        console.error(`[AdminTable DeleteConfirm] Error deleting ${itemType} ${idToDelete}:`, err);
+        setError(err.message || 'Deletion failed.');
+    } finally {
+        setActionState(prev => ({ ...prev, deletingId: null }));
+        // Keep dialog open on error? Close it here if preferred even on error.
+        // setConfirmDeleteInfo({ isOpen: false, id: null, itemType: '' });
+    }
+  }, [confirmDeleteInfo, actionState.deletingId, onDataMutated, setError]); // Added dependencies
 
   // --- Return hook state and handlers ---
   return {

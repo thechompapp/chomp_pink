@@ -3,8 +3,9 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import useAuthStore from '@/stores/useAuthStore';
 import SearchBar from '@/components/UI/SearchBar.jsx';
-import Button from '@/components/UI/Button.jsx'; // Assuming Button is not used directly here anymore
-import { Home, TrendingUp, List, LogIn, UserPlus, LogOut, Settings, ShieldCheck, UploadCloud, DatabaseZap, User } from 'lucide-react';
+import Button from '@/components/UI/Button.jsx'; // Keep import if needed elsewhere, but seems unused now
+// FIX: Updated UploadCloud icon import if needed for consistency, or remove if unused
+import { Home, TrendingUp, List, LogIn, UserPlus, LogOut, Settings, ShieldCheck, UploadCloud as MySubmissionsIcon, DatabaseZap, User } from 'lucide-react';
 
 // NavLink Component (No changes needed from previous versions)
 const NavLink = ({ to, children, Icon }) => {
@@ -76,7 +77,6 @@ const Navbar = () => {
 
   return (
     <nav className="bg-[#D1B399] p-3 shadow-md sticky top-0 z-30">
-      {/* Changed max-w-7xl to max-w-full for full width */}
       <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center gap-4">
         {/* Logo */}
         <Link to="/" className="text-2xl font-bold text-white flex-shrink-0">DOOF</Link>
@@ -91,11 +91,10 @@ const Navbar = () => {
           {isAuthenticated ? (
             <>
               <NavLink to="/lists" Icon={List}>My Lists</NavLink>
-              {/* Call isSuperuser function */}
               {isSuperuser() && <NavLink to="/admin" Icon={ShieldCheck}>Admin Panel</NavLink>}
               <NavLink to="/profile" Icon={User}>Profile</NavLink>
 
-              {/* Settings Dropdown - Adjusted trigger button styling */}
+              {/* Settings Dropdown */}
               <div className="relative" ref={settingsRef}>
                 <button
                     onClick={toggleSettings}
@@ -106,7 +105,7 @@ const Navbar = () => {
                     aria-controls="settings-menu"
                 >
                   <Settings size={16} />
-                  <span className="hidden sm:inline">{user?.username || 'Settings'}</span> {/* Hide text on small screens */}
+                  <span className="hidden sm:inline">{user?.username || 'Settings'}</span>
                 </button>
 
                 {isSettingsOpen && (
@@ -124,10 +123,10 @@ const Navbar = () => {
                      </div>
                      {/* Links */}
                      <div className="py-1" role="none">
-                        <DropdownLink to="/dashboard" Icon={UploadCloud} onClick={closeDropdown}>My Submissions</DropdownLink>
+                        {/* FIX: Updated path from "/dashboard" to "/mysubmissions" */}
+                        <DropdownLink to="/mysubmissions" Icon={MySubmissionsIcon} onClick={closeDropdown}>My Submissions</DropdownLink>
                         {isSuperuser() && (
                             <>
-                                {/* No changes needed inside dropdown */}
                                 <DropdownLink to="/admin" Icon={ShieldCheck} onClick={closeDropdown}>Admin Panel</DropdownLink>
                                 <DropdownLink to="/bulk-add" Icon={DatabaseZap} onClick={closeDropdown}>Bulk Add Tool</DropdownLink>
                             </>

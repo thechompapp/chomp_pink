@@ -1,40 +1,65 @@
-/* src/services/dishService.ts */
-import apiClient from '@/services/apiClient';
-import type { DishDetail } from '@/types';
+/* src/services/dishService.js */
+/* REMOVED: All TypeScript syntax */
+import apiClient, { ApiError } from '@/services/apiClient'; // Use .js extension and import ApiError
 
-const getDishDetails = async (dishId: number | string): Promise<DishDetail> => {
-    if (!dishId) throw new Error("Dish ID required.");
+// REMOVED: import type { DishDetail } from '@/types'; // Removed type import
 
-    const endpoint = `/api/dishes/${encodeURIComponent(dishId)}`;
-    const context = `DishService Details ${dishId}`;
+/**
+ * Fetches detailed information for a specific dish.
+ * @param {number|string} dishId - The ID of the dish to fetch.
+ * @returns {Promise<object>} A promise that resolves to the dish details object.
+ * @throws {ApiError} If the dish is not found (404) or another API error occurs.
+ */
+const getDishDetails = async (dishId) => { // REMOVED: Type hints & Promise return type
+    const numericId = Number(dishId); // Convert to number for validation
+    if (isNaN(numericId) || numericId <= 0) {
+        throw new ApiError('Invalid Dish ID provided.', 400); // Use ApiError
+    }
+
+    const endpoint = `/api/dishes/${numericId}`; // Use numeric ID
+    const context = `DishService Details ${numericId}`;
 
     try {
-        const response = await apiClient<DishDetail>(endpoint, context);
+        // Assume apiClient returns { success: boolean, data: any, error: string|null, status: number|null }
+        const response = await apiClient(endpoint, context); // REMOVED: Generic type
+
+        // Check the structure returned by your specific /api/dishes/:id endpoint
+        // Assuming it returns { success: true, data: DishDetailObject }
         const dishData = response.data;
 
-        if (!dishData || typeof dishData.id === 'undefined') {
-            const notFoundError = new Error(`Dish not found or invalid data received.`);
-            (notFoundError as any).status = 404;
-            throw notFoundError;
+        if (!response.success || !dishData || typeof dishData.id === 'undefined') {
+            const status = response.status === 404 ? 404 : (response.status || 500);
+            const message = response.error || `Dish not found or invalid data received for ID ${numericId}.`;
+            throw new ApiError(message, status, response);
         }
 
-        const formattedData: DishDetail = {
+        // Basic formatting/validation (ensure tags is array, ids are numbers)
+        const formattedData = {
             ...dishData,
-            tags: Array.isArray(dishData.tags) ? dishData.tags : []
+            id: Number(dishData.id),
+            restaurant_id: dishData.restaurant_id ? Number(dishData.restaurant_id) : null,
+            adds: Number(dishData.adds ?? 0),
+            tags: Array.isArray(dishData.tags) ? dishData.tags.filter(t => typeof t === 'string') : [],
+            // Ensure other expected fields exist or have defaults
+             city: dishData.city_name || dishData.city || null,
+             neighborhood: dishData.neighborhood_name || dishData.neighborhood || null,
+             restaurant_name: dishData.restaurant_name || 'Unknown Restaurant', // Provide default
         };
-        return formattedData;
 
-    } catch (error: unknown) {
-        if (error instanceof Error && (error as any).status === 404) {
-            const notFoundError = new Error(`Dish not found.`);
-            (notFoundError as any).status = 404;
-            throw notFoundError;
-        }
-        console.error(`[DishService] Error fetching details for ${dishId}:`, error);
-        if (error instanceof Error) {
+        return formattedData; // Return the formatted dish data
+
+    } catch (error) {
+        console.error(`[${context}] Error fetching dish details:`, error);
+        // Re-throw the error (it might already be an ApiError from apiClient)
+        if (error instanceof ApiError) {
             throw error;
         } else {
-            throw new Error(`An unexpected error occurred fetching dish ${dishId}`);
+            // Wrap other errors in ApiError for consistency
+            throw new ApiError(
+                error instanceof Error ? error.message : 'An unexpected error occurred',
+                error.status || 500, // Use status if available
+                error // Attach original error if needed
+            );
         }
     }
 };

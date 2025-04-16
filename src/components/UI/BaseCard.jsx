@@ -7,7 +7,7 @@ const BaseCard = ({
   linkTo,
   onQuickAdd,
   quickAddLabel,
-  children,
+  children, // Children are now the direct content (e.g., flex-grow div, flex-shrink-0 div)
   className = '',
   isHighlighted = false,
   isDisabled = false,
@@ -15,14 +15,15 @@ const BaseCard = ({
   onClick,
   ...rest
 }) => {
-  // FIX: Ensure consistent height using h-56 (adjust if needed based on final design)
+  // BaseCard is now the flex container with fixed height and padding
   const cardClasses = `
     relative group block overflow-hidden rounded-lg border
     ${isHighlighted ? 'border-[#A78B71] ring-1 ring-[#A78B71]' : 'border-gray-200 hover:border-gray-300'}
     bg-white transition-all duration-200
     ${isDisabled ? 'opacity-60 cursor-not-allowed' : 'hover:shadow-md'}
-    w-full h-56 // Enforce fixed height
-    flex // Make the card itself a flex container
+    w-full h-56 // Fixed height
+    flex flex-col // Make the card itself the column flex container
+    p-3 // Apply padding directly here
     ${className}
   `;
 
@@ -32,46 +33,43 @@ const BaseCard = ({
     if (onQuickAdd) onQuickAdd(e);
   };
 
-  // The inner div takes full height/width of the card and positions children
-  const CardContent = () => (
-    <div className="p-3 w-full h-full relative flex flex-col"> {/* Inner div takes full height/width */}
-        {children} {/* Children should use flex-grow/shrink as needed */}
-         {showQuickAdd && onQuickAdd && !isDisabled && (
-            <button
-              onClick={handleQuickAddClick}
-              aria-label={quickAddLabel || 'Quick Add'}
-              // Adjusted quick add button position/style if needed
-              className="absolute top-2 right-2 z-10 p-1 bg-[#A78B71]/70 text-white rounded-full opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity duration-150 hover:bg-[#A78B71]"
-              tabIndex={-1} // Keep -1 if focus management handled by card itself
-            >
-              <Plus size={14} />
-            </button>
-         )}
-    </div>
+  // Quick Add button remains positioned absolutely within the card
+  const QuickAddButton = () => (
+    showQuickAdd && onQuickAdd && !isDisabled && (
+      <button
+        onClick={handleQuickAddClick}
+        aria-label={quickAddLabel || 'Quick Add'}
+        className="absolute top-2 right-2 z-10 p-1 bg-[#A78B71]/70 text-white rounded-full opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity duration-150 hover:bg-[#A78B71]"
+        tabIndex={-1}
+      >
+        <Plus size={14} />
+      </button>
+    )
   );
 
-
+  // Render as Link or Div
   if (!isDisabled && linkTo) {
     return (
       <Link
         to={linkTo}
-        onClick={onClick} // Ensure onClick is passed if provided
+        onClick={onClick}
         className={`${cardClasses} focus:outline-none focus:ring-2 focus:ring-[#D1B399] focus:ring-offset-1`}
         {...rest}
       >
-        <CardContent />
+        {children} {/* Render content directly */}
+        <QuickAddButton />
       </Link>
     );
   }
 
-  // Render as div if no link or disabled
   return (
     <div
-        onClick={isDisabled ? undefined : onClick} // Ensure onClick is passed if provided
-        className={`${cardClasses} ${!isDisabled && onClick ? 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#D1B399] focus:ring-offset-1' : ''}`}
-        {...rest}
+      onClick={isDisabled ? undefined : onClick}
+      className={`${cardClasses} ${!isDisabled && onClick ? 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#D1B399] focus:ring-offset-1' : ''}`}
+      {...rest}
     >
-      <CardContent />
+      {children} {/* Render content directly */}
+      <QuickAddButton />
     </div>
   );
 };

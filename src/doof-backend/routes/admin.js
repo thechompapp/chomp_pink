@@ -6,23 +6,23 @@ import bcrypt from 'bcryptjs';
 // Corrected imports - Add .js extension back
 import * as AdminModel from '../models/adminModel.js';
 import * as SubmissionModel from '../models/submissionModel.js';
-import * as NeighborhoodModel from '../models/neighborhoodModel.js';
-import * as FilterModel from '../models/filterModel.js';
+import * as NeighborhoodModel from '../models/neighborhoodModel.js'; // Keep for city lookup?
+import * as FilterModel from '../models/filterModel.js'; // Use this for consistent city lookup
 import db from '../db/index.js';
 import authMiddleware from '../middleware/auth.js';
 import requireSuperuser from '../middleware/requireSuperuser.js';
 
 const router = express.Router();
-
-const ALLOWED_TYPES = ['submissions', 'restaurants', 'dishes', 'lists', 'hashtags', 'users', 'neighborhoods'];
-const ALLOWED_UPDATE_TYPES = ['restaurants', 'dishes', 'lists', 'hashtags', 'users', 'neighborhoods'];
-const ALLOWED_CREATE_TYPES = ['restaurants', 'dishes', 'lists', 'hashtags', 'users', 'neighborhoods'];
-const ALLOWED_MUTATE_TYPES = ['submissions', 'restaurants', 'dishes', 'lists', 'hashtags', 'users', 'neighborhoods'];
+const ALLOWED_TYPES = ['submissions', 'restaurants', 'dishes', 'lists', 'hashtags', 'users', 'neighborhoods', 'cities'];
+const ALLOWED_UPDATE_TYPES = ['restaurants', 'dishes', 'lists', 'hashtags', 'users', 'neighborhoods', 'cities'];
+const ALLOWED_CREATE_TYPES = ['restaurants', 'dishes', 'lists', 'hashtags', 'users', 'neighborhoods', 'cities'];
+const ALLOWED_MUTATE_TYPES = ['submissions', 'restaurants', 'dishes', 'lists', 'hashtags', 'users', 'neighborhoods', 'cities'];
 
 const DEFAULT_PAGE_LIMIT = 25;
 const typeToTable = {
     submissions: 'submissions', restaurants: 'restaurants', dishes: 'dishes',
-    lists: 'lists', hashtags: 'hashtags', users: 'users', neighborhoods: 'neighborhoods'
+    lists: 'lists', hashtags: 'hashtags', users: 'users', neighborhoods: 'neighborhoods',
+    cities: 'cities'
 };
 
 const handleValidationErrors = (req, res, next) => {
@@ -39,7 +39,7 @@ const attachResourceInfo = (req, res, next) => {
     const reqWithInfo = req;
     const typeParam = reqWithInfo.params.type;
     if (!typeParam || !ALLOWED_TYPES.includes(typeParam)) {
-        return res.status(400).json({ message: 'Invalid or missing resource type specified.' });
+        return res.status(400).json({ message: `Invalid or missing resource type specified. Allowed: ${ALLOWED_TYPES.join(', ')}` });
     }
     reqWithInfo.resourceType = typeParam;
     reqWithInfo.tableName = typeToTable[typeParam];
@@ -50,10 +50,13 @@ const attachResourceInfo = (req, res, next) => {
     next();
 };
 
+// Apply global middleware for admin routes
 router.use(authMiddleware);
 router.use(requireSuperuser);
 
-// --- Validation Schemas ---
+// --- Validation Schema Definitions ---
+// ... (Validation schemas remain the same - copy from previous step if needed) ...
+// Schema for *Updating* existing records (fields are optional)
 const getUpdateValidationSchema = (type) => {
     switch (type) {
         case 'restaurants':
@@ -69,7 +72,7 @@ const getUpdateValidationSchema = (type) => {
                 neighborhood_id: { optional: { options: { nullable: true } }, isInt: { options: { gt: 0 } }, toInt: true, errorMessage: 'Neighborhood ID must be a positive integer or null' },
                 photo_url: { optional: { options: { nullable: true } }, isURL: {}, trim: true, isLength: { options: { max: 2048 } } },
                 instagram_handle: { optional: { options: { nullable: true } }, isString: true, trim: true, isLength: { options: { max: 100 } }, escape: true },
-                city_id: { optional: { options: { nullable: true } }, isInt: { options: { gt: 0 } }, toInt: true, errorMessage: 'City ID must be a positive integer' }, // Added city_id
+                city_id: { optional: { options: { nullable: true } }, isInt: { options: { gt: 0 } }, toInt: true, errorMessage: 'City ID must be a positive integer' },
             };
         case 'dishes':
              return {
@@ -80,10 +83,10 @@ const getUpdateValidationSchema = (type) => {
              return {
                 name: { optional: true, isString: true, trim: true, notEmpty: true, isLength: { options: { max: 255 } }, escape: true },
                 description: { optional: { options: { nullable: true } }, isString: true, trim: true, isLength: { options: { max: 1000 } }, escape: true },
-                list_type: { optional: true, isIn: { options: [['restaurant', 'dish']] } }, // Removed 'mixed' if not intended
+                list_type: { optional: true, isIn: { options: [['restaurant', 'dish']] } },
                 is_public: { optional: true, isBoolean: true, toBoolean: true },
                 city_name: { optional: { options: { nullable: true } }, isString: true, trim: true, isLength: { options: { max: 100 } }, escape: true },
-                tags: { optional: true, isArray: true, errorMessage: 'Tags must be an array' }, // Handle tags update if needed
+                tags: { optional: true, isArray: true, errorMessage: 'Tags must be an array' },
                  'tags.*': { isString: true, trim: true, escape: true },
             };
         case 'hashtags':
@@ -101,7 +104,7 @@ const getUpdateValidationSchema = (type) => {
             return {
                 name: { optional: true, isString: true, trim: true, notEmpty: true, isLength: { options: { max: 100 } }, escape: true, errorMessage: 'Neighborhood name cannot be empty if provided.' },
                 city_id: { optional: true, isInt: { options: { gt: 0 } }, toInt: true, errorMessage: 'A valid City ID must be provided if changing the city.' },
-                zipcode_ranges: { // Match create/update logic in model
+                zipcode_ranges: {
                     optional: { options: { nullable: true } },
                     custom: {
                         options: (value) => {
@@ -113,11 +116,16 @@ const getUpdateValidationSchema = (type) => {
                      }
                 },
             };
+        case 'cities':
+            return {
+                name: { optional: true, isString: true, trim: true, notEmpty: true, isLength: { options: { max: 100 } }, escape: true, errorMessage: 'City name cannot be empty if provided.' },
+            };
         default:
             return {};
     }
 };
 
+// Schema for *Creating* new records (fields might be required)
 const getCreateValidationSchema = (type) => {
     switch (type) {
         case 'restaurants':
@@ -127,7 +135,6 @@ const getCreateValidationSchema = (type) => {
                 zipcode: { optional: true, isString: true, trim: true, matches: { options: /^\d{5}$/ }, errorMessage: 'Zipcode must be 5 digits' },
                 city_id: { optional: { options: { nullable: true } }, isInt: { options: { gt: 0 } }, toInt: true, errorMessage: 'City ID must be a positive integer' },
                 neighborhood_id: { optional: { options: { nullable: true } }, isInt: { options: { gt: 0 } }, toInt: true, errorMessage: 'Neighborhood ID must be a positive integer' },
-                 // Allow other fields from update schema optionally
                  latitude: { optional: { options: { nullable: true } }, isFloat: true, toFloat: true },
                  longitude: { optional: { options: { nullable: true } }, isFloat: true, toFloat: true },
                  phone_number: { optional: { options: { nullable: true } }, isString: true, trim: true, isLength: { options: { max: 30 } }, escape: true },
@@ -135,7 +142,6 @@ const getCreateValidationSchema = (type) => {
                  google_place_id: { optional: { options: { nullable: true } }, isString: true, trim: true, isLength: { options: { max: 255 } }, escape: true },
                  photo_url: { optional: { options: { nullable: true } }, isURL: {}, trim: true, isLength: { options: { max: 2048 } } },
                  instagram_handle: { optional: { options: { nullable: true } }, isString: true, trim: true, isLength: { options: { max: 100 } }, escape: true },
-
             };
         case 'dishes':
              return {
@@ -146,18 +152,18 @@ const getCreateValidationSchema = (type) => {
             return {
                 name: { isString: true, trim: true, notEmpty: true, errorMessage: 'List name is required', isLength: { options: { max: 255 } }, escape: true },
                 description: { optional: { options: { nullable: true } }, isString: true, trim: true, isLength: { options: { max: 1000 } }, escape: true },
-                list_type: { notEmpty: true, isIn: { options: [['restaurant', 'dish']] }, errorMessage: 'List type (restaurant or dish) is required' }, // Removed 'mixed' if not intended
+                list_type: { notEmpty: true, isIn: { options: [['restaurant', 'dish']] }, errorMessage: 'List type (restaurant or dish) is required' },
                 is_public: { optional: true, isBoolean: true, toBoolean: true },
-                city_name: { optional: { options: { nullable: true } }, isString: true, trim: true, isLength: { options: { max: 100 } }, escape: true },
-                 tags: { optional: true, isArray: true, errorMessage: 'Tags must be an array' },
+                tags: { optional: true, isArray: true, errorMessage: 'Tags must be an array' },
                  'tags.*': { isString: true, trim: true, escape: true },
+                city_name: { optional: { options: { nullable: true } }, isString: true, trim: true, isLength: { options: { max: 100 } }, escape: true },
             };
         case 'hashtags':
              return {
                 name: { isString: true, trim: true, notEmpty: true, errorMessage: 'Hashtag name is required', isLength: { options: { max: 100 } }, escape: true },
                 category: { optional: true, isString: true, trim: true, isLength: { options: { max: 50 } }, escape: true },
             };
-        case 'users':
+        case 'users': // Requires password for creation
             return {
                 username: { isString: true, trim: true, notEmpty: true, isLength: { options: { min: 3, max: 50 } }, errorMessage: 'Username must be 3-50 characters', escape: true },
                 email: { isEmail: true, errorMessage: 'Valid email is required', normalizeEmail: true },
@@ -168,7 +174,7 @@ const getCreateValidationSchema = (type) => {
              return {
                 name: { isString: true, trim: true, notEmpty: true, isLength: { options: { max: 100 } }, escape: true, errorMessage: 'Neighborhood name is required.' },
                 city_id: { notEmpty: true, isInt: { options: { gt: 0 } }, toInt: true, errorMessage: 'A valid City ID is required.' },
-                zipcode_ranges: { // Match update schema
+                zipcode_ranges: {
                      optional: { options: { nullable: true } },
                      custom: {
                          options: (value) => {
@@ -180,12 +186,17 @@ const getCreateValidationSchema = (type) => {
                       }
                  },
             };
+        case 'cities':
+            return {
+                name: { isString: true, trim: true, notEmpty: true, isLength: { options: { max: 100 } }, escape: true, errorMessage: 'City name is required.' },
+            };
         default:
             return {};
     }
 };
 
-// Common Validation Chains
+
+// --- Static Validation Chains ---
 const validateIdParam = param('id').isInt({ gt: 0 }).withMessage('ID must be a positive integer').toInt();
 const validateTypeParam = param('type').isIn(ALLOWED_TYPES).withMessage('Invalid resource type specified');
 const validateSortQuery = query('sort').optional().isString().matches(/^[a-zA-Z0-9_.]+_(asc|desc)$/i).withMessage('Invalid sort format (column_direction)');
@@ -194,7 +205,7 @@ const validateGetListQuery = [
     query('limit').optional().isInt({ min: 1, max: 200 }).withMessage('Limit must be between 1 and 200').toInt(),
     query('search').optional().isString().trim().escape().isLength({ max: 100 }).withMessage('Search term too long or invalid characters'),
     query('status').optional().isIn(['pending', 'approved', 'rejected']).withMessage('Invalid status filter'),
-    query('list_type').optional().isIn(['restaurant', 'dish']).withMessage('Invalid list type filter'), // Removed 'mixed'
+    query('list_type').optional().isIn(['restaurant', 'dish']).withMessage('Invalid list type filter'),
     query('hashtag_category').optional().isString().trim().escape().isLength({ max: 50 }).withMessage('Invalid hashtag category'),
     query('cityId').optional().isInt({ gt: 0 }).withMessage('City ID must be a positive integer').toInt(),
 ];
@@ -204,20 +215,23 @@ const validateBulkAdd = [
     body('items.*.name').trim().notEmpty().withMessage('Item name is required').isLength({ max: 255 }).escape(),
 ];
 
-// --- Lookup Routes ---
+
+// --- Routes ---
+
+// GET /api/admin/lookup/cities (Helper route for dropdowns)
 router.get('/lookup/cities', async (req, res, next) => {
+    // ... (implementation remains the same) ...
     try {
-        // Using NeighborhoodModel as it already has the helper
-        const cities = await NeighborhoodModel.getAllCitiesSimple();
-        console.log(`[Admin GET /lookup/cities] Fetched cities:`, cities.length);
+        const cities = await FilterModel.getCities();
         res.json({ data: cities });
-    } catch (error) {
+    }
+    catch (error) {
         console.error('[Admin GET /lookup/cities] Error fetching cities:', error);
         next(error);
     }
 });
 
-// --- Generic GET /:type Route ---
+// GET /api/admin/:type (List resources)
 router.get(
     "/:type",
     validateTypeParam,
@@ -239,19 +253,19 @@ router.get(
         const cityId = req.query.cityId ? Number(req.query.cityId) : undefined;
         const offset = (page - 1) * limit;
 
-        let sortColumn = 'created_at';
-        let sortDirection = 'DESC';
-        // Default sorts based on resource type
-        if (['users', 'hashtags', 'neighborhoods', 'restaurants', 'dishes', 'lists'].includes(resourceType)) {
-            sortColumn = 'name';
-            sortDirection = 'ASC';
+        let defaultSortColumn = 'created_at';
+        let defaultSortDirection = 'DESC';
+        if (['users'].includes(resourceType)) {
+            defaultSortColumn = 'id';
+        } else if (['hashtags', 'neighborhoods', 'restaurants', 'dishes', 'lists', 'cities'].includes(resourceType)) {
+            defaultSortColumn = 'name';
+            defaultSortDirection = 'ASC';
         }
-         if (resourceType === 'users') sortColumn = 'id'; // Special case for users?
+        let sortColumn = defaultSortColumn;
+        let sortDirection = defaultSortDirection;
 
-        // Apply user-defined sort if valid
         if (sort) {
-             // ... (sorting validation logic - needs adjustment, see notes below) ...
-             const parts = String(sort).split('_'); // Ensure string conversion
+             const parts = String(sort).split('_');
              const dir = parts.pop()?.toLowerCase();
              const col = parts.join('_');
              const allowedSortColumns = {
@@ -261,57 +275,70 @@ router.get(
                 hashtags: ['id', 'name', 'category', 'created_at', 'updated_at'],
                 users: ['id', 'username', 'email', 'account_type', 'created_at', 'updated_at'],
                 neighborhoods: ['id', 'name', 'city_name', 'created_at', 'updated_at'],
-                submissions: ['id', 'type', 'name', 'status', 'created_at', 'updated_at']
+                submissions: ['id', 'type', 'name', 'status', 'created_at', 'updated_at'],
+                cities: ['id', 'name', 'created_at', 'updated_at']
              };
             if (col && /^[a-zA-Z0-9_.]+$/.test(col) && ['asc', 'desc'].includes(dir || '') && allowedSortColumns[resourceType]?.includes(col)) {
                 sortColumn = col;
                 sortDirection = dir.toUpperCase();
             } else {
-                console.warn(`[Admin GET /${resourceType}] Invalid sort parameter ignored: ${sort}`);
+                console.warn(`[Admin GET /${resourceType}] Invalid sort parameter ignored: ${sort}. Using default: ${defaultSortColumn}_${defaultSortDirection}`);
+                sortColumn = defaultSortColumn;
+                sortDirection = defaultSortDirection;
             }
         }
 
-        let selectFields = `${tableName}.*`;
+        let selectFields = `"${tableName}".*`; // Start by quoting table name
         let joins = '';
         let whereConditions = [];
         let queryParams = [];
         let paramIndex = 1;
 
-        // Add joins based on type
+        // --- Add Joins ---
         if (resourceType === 'dishes') {
             selectFields += ', r.name as restaurant_name';
-            joins += ' LEFT JOIN restaurants r ON dishes.restaurant_id = r.id';
-        } else if (resourceType === 'submissions') {
+            // Quote join table name
+            joins += ' LEFT JOIN "restaurants" r ON "dishes".restaurant_id = r.id';
+        }
+        else if (resourceType === 'submissions') {
             selectFields += ', u.username as user_handle';
-            joins += ' LEFT JOIN users u ON submissions.user_id = u.id';
-        } else if (resourceType === 'lists') {
+            // Quote join table name
+            joins += ' LEFT JOIN "users" u ON "submissions".user_id = u.id';
+        }
+        else if (resourceType === 'lists') {
             selectFields += ', u.username as creator_handle';
-            joins += ' LEFT JOIN users u ON lists.user_id = u.id';
-            selectFields += ', COALESCE((SELECT COUNT(*) FROM listitems li WHERE li.list_id = lists.id), 0)::int as item_count';
-        } else if (resourceType === 'neighborhoods') {
+            // Quote join table name
+            joins += ' LEFT JOIN "users" u ON "lists".user_id = u.id';
+            // Quote table name in subquery
+            selectFields += ', COALESCE((SELECT COUNT(*) FROM "listitems" li WHERE li.list_id = "lists".id), 0)::int as item_count';
+        }
+        else if (resourceType === 'neighborhoods') {
             selectFields += ', c.name as city_name';
-            joins += ' LEFT JOIN cities c ON neighborhoods.city_id = c.id';
-        } else if (resourceType === 'restaurants') {
-            selectFields += ', n.name as neighborhood_name';
-            joins += ' LEFT JOIN neighborhoods n ON restaurants.neighborhood_id = n.id';
-             selectFields += ', c.name as city_name'; // Also join city name for restaurants
-             joins += ' LEFT JOIN cities c ON restaurants.city_id = c.id';
+            // Quote join table name
+            joins += ' LEFT JOIN "cities" c ON "neighborhoods".city_id = c.id';
+        }
+        else if (resourceType === 'restaurants') {
+            selectFields += ', n.name as neighborhood_name, c.name as city_name';
+            // Quote join table names
+            joins += ' LEFT JOIN "neighborhoods" n ON "restaurants".neighborhood_id = n.id';
+            joins += ' LEFT JOIN "cities" c ON "restaurants".city_id = c.id';
         }
 
-        // Add search conditions
+        // --- Add Search Conditions ---
         if (search) {
-             // ... (search column logic remains similar) ...
              const searchPattern = `%${search}%`;
              let searchColumns = [];
              switch (resourceType) {
-                case 'users': searchColumns = ['users.username', 'users.email']; break;
-                case 'restaurants': searchColumns = ['restaurants.name', 'restaurants.address', 'restaurants.city_name', 'n.name']; break; // Use alias n
-                case 'dishes': searchColumns = ['dishes.name', 'r.name']; break; // Use alias r
-                case 'lists': searchColumns = ['lists.name', 'lists.description', 'u.username']; break; // Use alias u
-                case 'hashtags': searchColumns = ['hashtags.name', 'hashtags.category']; break;
-                case 'neighborhoods': searchColumns = ['neighborhoods.name', 'c.name']; break; // Use alias c
-                case 'submissions': searchColumns = ['submissions.name', 'submissions.city', 'submissions.neighborhood', 'submissions.location']; break;
-                default: searchColumns = [`${tableName}.name`];
+                // Use aliases where available, otherwise quote table.column
+                case 'users': searchColumns = ['"users"."username"', '"users"."email"']; break;
+                case 'restaurants': searchColumns = ['"restaurants"."name"', '"restaurants"."address"', 'c.name', 'n.name']; break;
+                case 'dishes': searchColumns = ['"dishes"."name"', 'r.name']; break;
+                case 'lists': searchColumns = ['"lists"."name"', '"lists"."description"', 'u.username']; break;
+                case 'hashtags': searchColumns = ['"hashtags"."name"', '"hashtags"."category"']; break;
+                case 'neighborhoods': searchColumns = ['"neighborhoods"."name"', 'c.name']; break;
+                case 'submissions': searchColumns = ['"submissions"."name"', '"submissions"."city"', '"submissions"."neighborhood"', '"submissions"."location"']; break;
+                case 'cities': searchColumns = ['"cities"."name"']; break;
+                default: searchColumns = [`"${tableName}"."name"`];
              }
              if (searchColumns.length > 0) {
                  whereConditions.push(`(${searchColumns.map(col => `${col} ILIKE $${paramIndex++}`).join(' OR ')})`);
@@ -319,56 +346,71 @@ router.get(
              }
         }
 
-        // Add specific filters
-        if (resourceType === 'submissions' && status) {
-            whereConditions.push(`submissions.status = $${paramIndex++}`);
+        // --- Add Specific Filters ---
+        // Quote table names in filters
+        if (resourceType === 'submissions' && status && ['pending', 'approved', 'rejected'].includes(status)) {
+            whereConditions.push(`"submissions".status = $${paramIndex++}`);
             queryParams.push(status);
         }
-        if (resourceType === 'lists' && listType && listType !== 'all') {
-            whereConditions.push(`lists.list_type = $${paramIndex++}`);
+        if (resourceType === 'lists' && listType && listType !== 'all' && ['restaurant', 'dish'].includes(listType)) {
+            whereConditions.push(`"lists".list_type = $${paramIndex++}`);
             queryParams.push(listType);
         }
         if (resourceType === 'hashtags' && hashtagCategory && hashtagCategory !== 'all') {
-            whereConditions.push(`hashtags.category ILIKE $${paramIndex++}`);
+            whereConditions.push(`"hashtags".category ILIKE $${paramIndex++}`);
             queryParams.push(hashtagCategory);
         }
-        if (resourceType === 'neighborhoods' && cityId) {
-            whereConditions.push(`neighborhoods.city_id = $${paramIndex++}`);
-            queryParams.push(cityId);
-        }
-         if (resourceType === 'restaurants' && cityId) { // Filter restaurants by city
-             whereConditions.push(`restaurants.city_id = $${paramIndex++}`);
+        if (cityId && ['neighborhoods', 'restaurants'].includes(resourceType)) {
+             whereConditions.push(`"${tableName}".city_id = $${paramIndex++}`); // Quote table name
              queryParams.push(cityId);
-         }
+        }
 
+        // --- Construct Final Query Parts ---
         const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
         let safeSortColumn;
-        // Refine sort column handling
-         const columnMapping = { // Map frontend/logical names to actual DB columns/aliases
-            dishes: { restaurant_name: 'r.name' },
-            submissions: { user_handle: 'u.username' },
-            lists: { creator_handle: 'u.username', item_count: 'item_count' },
-            neighborhoods: { city_name: 'c.name' },
-            restaurants: { neighborhood_name: 'n.name', city_name: 'c.name' } // Added city_name mapping
+        const columnMapping = {
+            dishes: { restaurant_name: 'r.name', name: '"dishes"."name"', id: '"dishes"."id"', adds: '"dishes"."adds"', created_at: '"dishes"."created_at"', updated_at: '"dishes"."updated_at"'},
+            submissions: { user_handle: 'u.username', name: '"submissions"."name"', type: '"submissions"."type"', status: '"submissions"."status"', created_at: '"submissions"."created_at"', id: '"submissions"."id"' },
+            lists: { creator_handle: 'u.username', item_count: 'item_count', name: '"lists"."name"', id: '"lists"."id"', list_type: '"lists"."list_type"', saved_count: '"lists"."saved_count"', is_public: '"lists"."is_public"', city_name: '"lists"."city_name"', created_at: '"lists"."created_at"', updated_at: '"lists"."updated_at"' },
+            neighborhoods: { city_name: 'c.name', name: '"neighborhoods"."name"', id: '"neighborhoods"."id"', created_at: '"neighborhoods"."created_at"', updated_at: '"neighborhoods"."updated_at"' },
+            restaurants: { neighborhood_name: 'n.name', city_name: 'c.name', name: '"restaurants"."name"', id: '"restaurants"."id"', adds: '"restaurants"."adds"', created_at: '"restaurants"."created_at"', updated_at: '"restaurants"."updated_at"' },
+            hashtags: { name: '"hashtags"."name"', category: '"hashtags"."category"', id: '"hashtags"."id"', created_at: '"hashtags"."created_at"', updated_at: '"hashtags"."updated_at"' },
+            users: { username: '"users"."username"', email: '"users"."email"', account_type: '"users"."account_type"', id: '"users"."id"', created_at: '"users"."created_at"', updated_at: '"users"."updated_at"' },
+            cities: { name: '"cities"."name"', id: '"cities"."id"', created_at: '"cities"."created_at"', updated_at: '"cities"."updated_at"' }
          };
-         if (columnMapping[resourceType]?.[sortColumn]) {
-             safeSortColumn = columnMapping[resourceType][sortColumn];
-         } else if (sortColumn === 'item_count' && resourceType === 'lists') {
-             safeSortColumn = 'item_count'; // It's a calculated field
-         } else if (sortColumn.includes('.')) {
-              safeSortColumn = sortColumn; // Already qualified (e.g., users.email)
+
+         // *** REFINED safeSortColumn logic ***
+         const mappedColumn = columnMapping[resourceType]?.[sortColumn];
+         if (mappedColumn) {
+             safeSortColumn = mappedColumn;
+             // No extra quoting needed if mapping provides alias or already quoted identifier
          } else {
-             // Assume it's a column on the main table if not mapped
-             safeSortColumn = `"${tableName}"."${sortColumn}"`;
+             // Fallback: ONLY quote if not already quoted and doesn't contain alias dot
+             if (!sortColumn.includes('.') && !sortColumn.startsWith('"')) {
+                  safeSortColumn = `"${tableName}"."${sortColumn}"`;
+             } else {
+                  // Use as is if it's like 'u.username' or already quoted
+                  safeSortColumn = sortColumn;
+             }
+             console.warn(`[Admin GET /${resourceType}] Using fallback quoting for sort column: ${sortColumn} -> ${safeSortColumn}`);
          }
+
+        // *** ADD DEBUG LOG: Check final safeSortColumn ***
+        console.log(`[Admin GET /${resourceType}] Final safeSortColumn: [${safeSortColumn}], Direction: [${sortDirection}]`);
+
         const orderByClause = `ORDER BY ${safeSortColumn} ${sortDirection} NULLS LAST`;
         const limitOffsetClause = `LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
-        const dataQuery = `SELECT ${selectFields} FROM ${tableName} ${joins} ${whereClause} ${orderByClause} ${limitOffsetClause}`;
-        const countQuery = `SELECT COUNT(${tableName}.id) FROM ${tableName} ${joins} ${whereClause}`;
+        const dataQuery = `SELECT ${selectFields} FROM "${tableName}" ${joins} ${whereClause} ${orderByClause} ${limitOffsetClause}`;
+        const countQuery = `SELECT COUNT("${tableName}".id) FROM "${tableName}" ${joins} ${whereClause}`;
         const countParams = queryParams.slice(0, paramIndex - 3);
         const dataParams = [...queryParams, limit, offset];
 
         try {
+            console.log(`[Admin GET /${resourceType}] Executing Data Query: ${dataQuery}`);
+            console.log(`[Admin GET /${resourceType}] Data Params: ${JSON.stringify(dataParams)}`);
+            // console.log(`[Admin GET /${resourceType}] Executing Count Query: ${countQuery}`); // Optional log
+            // console.log(`[Admin GET /${resourceType}] Count Params: ${JSON.stringify(countParams)}`); // Optional log
+
             const [dataResult, countResult] = await Promise.all([
                 currentDb.query(dataQuery, dataParams),
                 currentDb.query(countQuery, countParams)
@@ -376,19 +418,25 @@ router.get(
             const totalItems = parseInt(countResult.rows[0]?.count || '0', 10);
             const totalPages = Math.ceil(totalItems / limit);
             const rows = dataResult.rows || [];
+
             res.json({
                 data: rows,
                 pagination: { total: totalItems, page, limit, totalPages }
             });
         } catch (err) {
             console.error(`[Admin GET /${resourceType}] Error executing query:`, err);
-            res.status(500).json({ message: 'Failed to retrieve data. ' + (process.env.NODE_ENV === 'development' ? err.message : 'Internal server error') });
-            next(err);
+            // Include SQL query in error log for easier debugging
+            console.error(`[Admin GET /${resourceType}] Failed SQL: ${dataQuery}`);
+            console.error(`[Admin GET /${resourceType}] Failed Params: ${JSON.stringify(dataParams)}`);
+            res.status(500).json({ message: `Failed to retrieve ${resourceType}. DB Error: ${err.message || 'Unknown DB Error'}` });
+            // DO NOT call next(err) here if you've already sent a response
         }
     }
 );
 
-// --- Generic POST /:type Route ---
+
+// ... (rest of the routes: POST, PUT, DELETE, approve/reject, bulk-add remain the same) ...
+// POST /api/admin/:type (Create new resource)
 router.post(
     '/:type',
     validateTypeParam,
@@ -427,7 +475,7 @@ router.post(
         try {
             const newRecord = await AdminModel.createResource(resourceType, createData, userId, userHandle);
             if (!newRecord) {
-                console.warn(`[Admin POST /${type}] Create operation returned null. Possible conflict or invalid data not caught by validation.`);
+                console.warn(`[Admin POST /${type}] Create operation returned null. Possible conflict or invalid data.`);
                 return res.status(409).json({ message: `Failed to create ${type.slice(0, -1)}. It might conflict with an existing entry.` });
             }
             console.log(`[Admin POST /${type}] Create successful. ID: ${newRecord.id}`);
@@ -435,12 +483,16 @@ router.post(
         } catch (err) {
             console.error(`[Admin POST /${type}] Model Error:`, err);
              if (err.code === '23505') {
-                 return res.status(409).json({ message: `Create failed: Value conflicts with an existing record (e.g., duplicate name/email/username).` });
+                 let conflictField = 'value';
+                 if (err.constraint?.includes('email')) conflictField = 'email';
+                 else if (err.constraint?.includes('username')) conflictField = 'username';
+                 else if (err.constraint?.includes('name')) conflictField = 'name';
+                 return res.status(409).json({ message: `Create failed: The provided ${conflictField} conflicts with an existing record.` });
              }
               if (err.code === '23503') {
-                 return res.status(400).json({ message: `Create failed: Invalid reference provided (e.g., non-existent City ID or Restaurant ID). Details: ${err.message}` });
+                 return res.status(400).json({ message: `Create failed: Invalid reference provided. Details: ${err.message}` });
              }
-              if (err.message?.includes("required")) {
+              if (err.message?.includes("required") || err.message?.includes("Invalid")) {
                   return res.status(400).json({ message: err.message });
               }
             next(err);
@@ -448,7 +500,7 @@ router.post(
     }
 );
 
-// --- Generic PUT /:type/:id Route ---
+// PUT /api/admin/:type/:id (Update resource)
 router.put(
     '/:type/:id',
     validateTypeParam,
@@ -485,13 +537,12 @@ router.put(
         const filteredUpdateData = Object.keys(updateData)
             .filter(key => allowedKeys.includes(key))
             .reduce((obj, key) => {
-                 if (resourceType === 'users' && key === 'is_superadmin') { // Handle boolean conversion specifically
-                      obj.account_type = updateData[key] === true ? 'superuser' : 'user'; // Assuming mapping like this
+                 if (resourceType === 'users' && key === 'is_superadmin') {
+                      obj.account_type = updateData[key] === true ? 'superuser' : 'user';
                  } else if (resourceType === 'neighborhoods' && key === 'zipcode_ranges') {
-                     obj[key] = updateData[key]; // Keep original for model to handle parsing
-                 }
-                 else if (resourceType === 'restaurants' && key === 'neighborhood_id' && updateData[key] === '') {
-                      obj[key] = null; // Allow clearing neighborhood
+                     obj[key] = updateData[key];
+                 } else if (resourceType === 'restaurants' && key === 'neighborhood_id' && updateData[key] === '') {
+                     obj[key] = null;
                  }
                  else {
                      obj[key] = updateData[key];
@@ -506,22 +557,22 @@ router.put(
         console.log(`[Admin PUT /${type}/${numericId}] User ${userId} updating resource. Filtered Data:`, filteredUpdateData);
 
         try {
-             if (resourceType === 'users' && numericId === userId && filteredUpdateData.account_type !== 'superuser') {
-                  return res.status(403).json({ message: "Action forbidden: Cannot remove your own superadmin status." });
+             if (resourceType === 'users' && numericId === userId && 'account_type' in filteredUpdateData && filteredUpdateData.account_type !== 'superuser') {
+                  return res.status(403).json({ message: "Action forbidden: Cannot remove your own superadmin status via this route." });
              }
 
             const updatedRecord = await AdminModel.updateResource(resourceType, numericId, filteredUpdateData, userId);
 
             if (!updatedRecord) {
-                const checkExistsQuery = `SELECT id FROM ${req.tableName} WHERE id = $1`;
+                const checkExistsQuery = `SELECT id FROM "${req.tableName}" WHERE id = $1`;
                 const checkExistsResult = await db.query(checkExistsQuery, [numericId]);
 
                 if (checkExistsResult.rowCount === 0) {
                     console.warn(`[Admin PUT /${type}/${numericId}] Resource not found.`);
                     return res.status(404).json({ message: `${resourceType.slice(0, -1)} with ID ${numericId} not found.` });
                 } else {
-                     console.warn(`[Admin PUT /${type}/${numericId}] Update returned null/no rows affected. Data might be identical or another issue occurred.`);
-                     const currentRecordResult = await db.query(`SELECT * FROM ${req.tableName} WHERE id = $1`, [numericId]);
+                     console.warn(`[Admin PUT /${type}/${numericId}] Update returned null/no rows affected.`);
+                     const currentRecordResult = await db.query(`SELECT * FROM "${req.tableName}" WHERE id = $1`, [numericId]);
                     return res.status(200).json({ data: currentRecordResult.rows[0], message: 'Update successful, but no changes were applied (data might be identical).' });
                 }
             }
@@ -532,16 +583,16 @@ router.put(
             console.error(`[Admin PUT /${type}/${numericId}] Model Error:`, err);
             if (err.code === '23505') {
                 let conflictField = 'value';
-                 if (err.message.includes('email')) conflictField = 'email';
-                 if (err.message.includes('username')) conflictField = 'username';
-                 if (err.message.includes('neighborhoods_name_city_id_key')) conflictField = 'name for this city';
-                 if (err.message.includes('restaurants_name_city_id_key')) conflictField = 'name for this city';
+                 if (err.constraint?.includes('email')) conflictField = 'email';
+                 if (err.constraint?.includes('username')) conflictField = 'username';
+                 if (err.constraint?.includes('neighborhoods_name_city_id_key')) conflictField = 'name for this city';
+                 if (err.constraint?.includes('restaurants_name_city_id_key')) conflictField = 'name for this city';
                 return res.status(409).json({ message: `Update failed: The provided ${conflictField} conflicts with an existing record.` });
             }
              if (err.code === '23503') {
-                 return res.status(400).json({ message: `Update failed: Invalid reference provided (e.g., non-existent City ID or Restaurant ID). Details: ${err.message}` });
+                 return res.status(400).json({ message: `Update failed: Invalid reference provided. Details: ${err.message}` });
              }
-             if (err.message?.includes("required") || err.message?.includes("Invalid") || err.message?.includes("cannot be empty")) {
+              if (err.message?.includes("required") || err.message?.includes("Invalid") || err.message?.includes("cannot be empty")) {
                   return res.status(400).json({ message: err.message });
              }
             next(err);
@@ -549,7 +600,8 @@ router.put(
     }
 );
 
-// --- Specific Submission Approval/Rejection Routes ---
+
+// POST /api/admin/submissions/:id/approve
 router.post(
     '/submissions/:id/approve',
     validateIdParam,
@@ -561,8 +613,9 @@ router.post(
 
         try {
             const updatedSubmission = await AdminModel.updateSubmissionStatus(submissionId, 'approved', reviewerId);
+
             if (!updatedSubmission) {
-                const currentSubmission = await SubmissionModel.findSubmissionById(submissionId);
+                 const currentSubmission = await SubmissionModel.findSubmissionById(submissionId);
                  if (!currentSubmission) return res.status(404).json({ message: 'Submission not found.' });
                  return res.status(409).json({ message: `Submission is already ${currentSubmission.status} or cannot be approved.` });
             }
@@ -577,6 +630,7 @@ router.post(
     }
 );
 
+// POST /api/admin/submissions/:id/reject
 router.post(
     '/submissions/:id/reject',
     validateIdParam,
@@ -601,7 +655,8 @@ router.post(
     }
 );
 
-// --- Generic DELETE /:type/:id Route ---
+
+// DELETE /api/admin/:type/:id
 router.delete(
     '/:type/:id',
     validateTypeParam,
@@ -609,38 +664,38 @@ router.delete(
     attachResourceInfo,
     handleValidationErrors,
     async (req, res, next) => {
-        const { type, id } = req.params;
-        const tableName = req.tableName;
-        const resourceType = req.resourceType;
-        const numericId = parseInt(id, 10);
+       const { type, id } = req.params;
+       const tableName = req.tableName;
+       const resourceType = req.resourceType;
+       const numericId = parseInt(id, 10);
 
-        if (!ALLOWED_MUTATE_TYPES.includes(resourceType)) {
-            return res.status(405).json({ message: `Deletions not allowed for resource type: ${resourceType}` });
+       if (!ALLOWED_MUTATE_TYPES.includes(resourceType)) {
+           return res.status(405).json({ message: `Deletions not allowed for resource type: ${resourceType}` });
+       }
+
+        if (resourceType === 'users' && numericId === req.user?.id) {
+            return res.status(403).json({ message: "Action forbidden: Cannot delete your own user account via this route." });
         }
 
-         if (resourceType === 'users' && numericId === req.user?.id) {
-             return res.status(403).json({ message: "Action forbidden: Cannot delete your own user account via this route." });
-         }
-
-        try {
-            const deleted = await AdminModel.deleteResourceById(tableName, numericId);
-            if (!deleted) {
-                 console.warn(`[Admin DELETE /${type}/${id}] Resource not found for deletion.`);
-                 return res.status(404).json({ message: `${resourceType.slice(0, -1)} with ID ${numericId} not found.` });
-            }
-             console.log(`[Admin DELETE /${type}/${id}] Deletion successful.`);
-            res.status(204).send();
-        } catch (err) {
-            console.error(`[Admin DELETE /${type}/${id}] Error:`, err);
-            if (err.code === '23503') { // Use err.code
-                return res.status(409).json({ message: `Cannot delete ${resourceType.slice(0, -1)}: It is referenced by other items in the database.` });
-            }
-            next(err);
-        }
+       try {
+           const deleted = await AdminModel.deleteResourceById(tableName, numericId);
+           if (!deleted) {
+                console.warn(`[Admin DELETE /${type}/${id}] Resource not found for deletion.`);
+                return res.status(404).json({ message: `${resourceType.slice(0, -1)} with ID ${numericId} not found.` });
+           }
+            console.log(`[Admin DELETE /${type}/${id}] Deletion successful.`);
+           res.status(204).send();
+       } catch (err) {
+           console.error(`[Admin DELETE /${type}/${id}] Error:`, err);
+           if (err.code === '23503') {
+               return res.status(409).json({ message: `Cannot delete ${resourceType.slice(0, -1)}: It is referenced by other items in the database.` });
+           }
+           next(err);
+       }
     }
 );
 
-// --- Bulk Add Route ---
+// POST /api/admin/bulk-add
 router.post(
     '/bulk-add',
     validateBulkAdd,
@@ -656,5 +711,6 @@ router.post(
         }
     }
 );
+
 
 export default router;

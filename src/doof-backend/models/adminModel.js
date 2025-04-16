@@ -10,16 +10,19 @@ import * as HashtagModel from './hashtagModel.js';
 import * as UserModel from './userModel.js';
 import * as NeighborhoodModel from './neighborhoodModel.js';
 import * as SubmissionModel from './submissionModel.js';
+import * as CityModel from './cityModel.js'; // Import CityModel
 
-
-const ALLOWED_TYPES = ['restaurants', 'dishes', 'lists', 'hashtags', 'users', 'neighborhoods'];
+// *** VERIFY THIS ARRAY ***
+const ALLOWED_TYPES = ['submissions', 'restaurants', 'dishes', 'lists', 'hashtags', 'users', 'neighborhoods', 'cities'];
 const typeToTable = {
-    restaurants: 'restaurants', dishes: 'dishes',
-    lists: 'lists', hashtags: 'hashtags', users: 'users', neighborhoods: 'neighborhoods'
+    submissions: 'submissions', restaurants: 'restaurants', dishes: 'dishes',
+    lists: 'lists', hashtags: 'hashtags', users: 'users', neighborhoods: 'neighborhoods',
+    cities: 'cities' // *** VERIFY THIS MAPPING ***
 };
 
 // Helper function to add tags (no TS needed)
 async function addTagsToItem(client, itemType, itemId, tags) {
+   // ... (function body remains the same) ...
     if (!tags || tags.length === 0) return;
 
     const tagPlaceholders = tags.map((_, i) => `$${i + 1}`).join(',');
@@ -35,7 +38,7 @@ async function addTagsToItem(client, itemType, itemId, tags) {
         const tagId = foundTagsMap.get(tagName);
         if (tagId) {
             const insertQuery = `
-                INSERT INTO ${junctionTable} (${itemIdColumn}, hashtag_id)
+                INSERT INTO <span class="math-inline">\{junctionTable\} \(</span>{itemIdColumn}, hashtag_id)
                 VALUES ($1, $2)
                 ON CONFLICT DO NOTHING;
             `;
@@ -51,6 +54,7 @@ async function addTagsToItem(client, itemType, itemId, tags) {
 export const createResource = async (resourceType, createData, userId, userHandle) => {
     console.log(`[AdminModel createResource] Type: ${resourceType}, Data:`, createData);
 
+    // *** VERIFY 'cities' CASE IN SWITCH ***
     switch (resourceType) {
         case 'restaurants':
             // Assume createRestaurant handles partial data validation
@@ -72,15 +76,17 @@ export const createResource = async (resourceType, createData, userId, userHandl
                  name: createData.name,
                  description: createData.description,
                  is_public: createData.is_public,
-                 type: createData.list_type, // Use list_type from input
+                 list_type: createData.list_type,
                  tags: createData.tags,
                  city_name: createData.city_name
              };
             return ListModel.createList(listPayload, userId, userHandle);
         case 'hashtags':
              if (!createData.name) throw new Error("Hashtag name is required.");
-             console.warn(`[AdminModel] Direct hashtag creation not typically expected via admin update. Implement HashtagModel.createHashtag if needed.`);
-             return null; // Or call HashtagModel.createHashtag if implemented
+             // Assuming HashtagModel.createHashtag exists if needed
+             // return HashtagModel.createHashtag(createData);
+             console.warn(`[AdminModel] Direct hashtag creation via generic route not implemented. Use specific HashtagModel function if available.`);
+             return null;
         case 'users':
             if (!createData.username || !createData.email || !createData.password) {
                 throw new Error("Username, email, and password are required for user creation.");
@@ -99,9 +105,12 @@ export const createResource = async (resourceType, createData, userId, userHandl
             const neighborhoodPayload = {
                 name: createData.name,
                 city_id: createData.city_id,
-                zip_codes: createData.zipcode_ranges // Map field name if needed
+                zipcode_ranges: createData.zipcode_ranges
             };
              return NeighborhoodModel.createNeighborhood(neighborhoodPayload);
+        case 'cities': // *** ENSURE THIS CASE EXISTS ***
+            if (!createData.name) throw new Error("City name is required.");
+            return CityModel.createCity(createData); // Delegate to CityModel
         default:
             console.error(`[AdminModel createResource] Unsupported resource type: ${resourceType}`);
             throw new Error(`Creation not supported for resource type: ${resourceType}`);
@@ -115,14 +124,12 @@ export const updateResource = async (resourceType, id, updateData, userId) => {
         console.warn(`[AdminModel updateResource] No data provided for update.`);
         return null; // Or fetch and return current resource?
     }
-
-    // Ensure numeric ID
     const numericId = typeof id === 'string' ? parseInt(id, 10) : id;
     if (isNaN(numericId) || numericId <= 0) {
         throw new Error(`Invalid ID provided for update: ${id}`);
     }
 
-
+    // *** VERIFY 'cities' CASE IN SWITCH ***
     switch (resourceType) {
         case 'restaurants':
             return RestaurantModel.updateRestaurant(numericId, updateData);
@@ -131,7 +138,12 @@ export const updateResource = async (resourceType, id, updateData, userId) => {
         case 'lists':
             delete updateData.user_id; // Prevent changing owner
             delete updateData.creator_handle;
-            return ListModel.updateList(numericId, updateData);
+            const listUpdatePayload = { ...updateData };
+            if (updateData.list_type) {
+                 listUpdatePayload.list_type = updateData.list_type;
+                 delete listUpdatePayload.type;
+            }
+            return ListModel.updateList(numericId, listUpdatePayload);
         case 'hashtags':
             return HashtagModel.updateHashtag(numericId, updateData);
         case 'users':
@@ -142,20 +154,43 @@ export const updateResource = async (resourceType, id, updateData, userId) => {
             return UserModel.updateUser(numericId, updateData);
          case 'neighborhoods':
             const neighborhoodUpdatePayload = { ...updateData };
-            if ('zip_codes' in neighborhoodUpdatePayload) {
-                neighborhoodUpdatePayload.zipcode_ranges = neighborhoodUpdatePayload.zip_codes;
-                delete neighborhoodUpdatePayload.zip_codes;
+            if ('zipcode_ranges' in neighborhoodUpdatePayload) {
+                 neighborhoodUpdatePayload.zipcode_ranges = neighborhoodUpdatePayload.zipcode_ranges;
             }
              return NeighborhoodModel.updateNeighborhood(numericId, neighborhoodUpdatePayload);
+        case 'cities': // *** ENSURE THIS CASE EXISTS ***
+            return CityModel.updateCity(numericId, updateData); // Delegate to CityModel
         default:
             console.error(`[AdminModel updateResource] Unsupported resource type: ${resourceType}`);
             throw new Error(`Updates not supported for resource type: ${resourceType}`);
     }
 };
 
+// *** VERIFY 'cities' IS IN allowedTables ***
+export const deleteResourceById = async (tableName, id) => {
+    const allowedTables = ['restaurants', 'dishes', 'lists', 'submissions', 'users', 'hashtags', 'neighborhoods', 'cities'];
+    if (!allowedTables.includes(tableName)) {
+        throw new Error(`Invalid table name: ${tableName}. Allowed tables: ${allowedTables.join(', ')}`);
+    }
+    const numericId = typeof id === 'string' ? parseInt(id, 10) : id;
+    if (isNaN(numericId) || numericId <= 0) {
+        throw new Error(`Invalid ID provided for deletion: ${id}`);
+    }
+
+    const query = `DELETE FROM ${tableName} WHERE id = $1 RETURNING id`;
+    const result = await db.query(query, [numericId]);
+    return (result.rowCount ?? 0) > 0;
+};
+
+// --- Submission Admin Functions --- (Keep as before - rely on specific submission model)
+export const getSubmissions = SubmissionModel.findSubmissionsByStatus;
+export const updateSubmissionStatus = SubmissionModel.updateSubmissionStatus;
+
+// --- Bulk Add Function --- (Keep as before)
 export const bulkAddItems = async (items) => {
+   // ... (bulk add implementation) ...
     const client = await db.getClient();
-    const results = { processedCount: 0, addedCount: 0, skippedCount: 0, details: [] };
+    const results = { processedCount: 0, addedCount: 0, skippedCount: 0, errorCount: 0, details: [] }; // Added errorCount
 
     try {
         await client.query('BEGIN');
@@ -169,100 +204,69 @@ export const bulkAddItems = async (items) => {
             let itemNeighborhoodId = item.neighborhood_id;
 
             try {
-                // Attempt to find City ID if name provided and ID missing
-                if (!itemCityId && item.city) {
-                    const cityRes = await client.query('SELECT id FROM cities WHERE name ILIKE $1 LIMIT 1', [item.city]);
-                    if (cityRes.rowCount > 0) itemCityId = cityRes.rows[0].id;
-                    else console.warn(`[BulkAdd] City '${item.city}' not found.`);
-                }
-
-                // Attempt to find Neighborhood ID if name/CityID provided and ID missing
-                if (itemCityId && !itemNeighborhoodId && item.neighborhood) {
-                    const nbRes = await client.query('SELECT id FROM neighborhoods WHERE name ILIKE $1 AND city_id = $2 LIMIT 1', [item.neighborhood, itemCityId]);
-                    if (nbRes.rowCount > 0) itemNeighborhoodId = nbRes.rows[0].id;
-                     else console.warn(`[BulkAdd] Neighborhood '${item.neighborhood}' not found in City ID ${itemCityId}.`);
-                }
-
-                // Process Restaurant or Dish
+                // --- Location Lookups (Restaurant/Neighborhood ONLY) ---
                 if (item.type === 'restaurant') {
-                    const query = `
-                        INSERT INTO restaurants (name, city_id, neighborhood_id, city_name, neighborhood_name, address, google_place_id, latitude, longitude, adds)
-                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 0)
-                        ON CONFLICT (name, city_id) DO NOTHING
-                        RETURNING *
-                    `;
-                    const result = await client.query(query, [
-                        item.name, itemCityId ?? null, itemNeighborhoodId ?? null, item.city || null,
-                        item.neighborhood || null, item.location || null, item.place_id || null,
-                        item.latitude || null, item.longitude || null
-                    ]);
-                    if (result.rows.length > 0) {
-                        addedItem = result.rows[0];
-                        status = 'added';
-                        results.addedCount++;
-                         if (addedItem && Array.isArray(item.tags) && item.tags.length > 0) {
-                             await addTagsToItem(client, 'restaurant', addedItem.id, item.tags);
-                         }
-                    } else {
-                        reason = 'Restaurant likely already exists with this name in the specified city.';
-                        results.skippedCount++;
+                    if (!itemCityId && item.city) {
+                        const cityRes = await client.query('SELECT id FROM cities WHERE name ILIKE $1 LIMIT 1', [item.city]);
+                        if (cityRes.rowCount > 0) itemCityId = cityRes.rows[0].id;
+                        else console.warn(`[BulkAdd] City '${item.city}' not found.`);
                     }
-                } else if (item.type === 'dish') {
-                    let restaurantId = null;
-                    if (item.restaurant_name) {
-                        // Find restaurant preferentially by name + city ID if available
-                        const findRestQuery = 'SELECT id FROM restaurants WHERE name ILIKE $1' + (itemCityId ? ' AND city_id = $2' : '') + ' LIMIT 1';
-                        const findRestParams = itemCityId ? [item.restaurant_name, itemCityId] : [item.restaurant_name];
-                        const restResult = await client.query(findRestQuery, findRestParams);
-
-                        if (restResult.rows.length > 0) {
-                            restaurantId = restResult.rows[0].id;
-                        } else {
-                            reason = `Restaurant '${item.restaurant_name}' ${itemCityId ? `in City ID ${itemCityId}` : ''} not found. Dish skipped.`;
-                        }
-                    } else {
-                        reason = 'Restaurant name missing for dish.';
-                    }
-
-                    if (restaurantId) {
-                        const query = `
-                            INSERT INTO dishes (name, restaurant_id, adds)
-                            VALUES ($1, $2, 0)
-                            ON CONFLICT (name, restaurant_id) DO NOTHING
-                            RETURNING *
-                        `;
-                        const result = await client.query(query, [item.name, restaurantId]);
-                        if (result.rows.length > 0) {
-                            addedItem = result.rows[0];
-                            status = 'added';
-                            results.addedCount++;
-                             if (addedItem && Array.isArray(item.tags) && item.tags.length > 0) {
-                                 await addTagsToItem(client, 'dish', addedItem.id, item.tags);
-                             }
-                        } else {
-                            reason = reason || 'Dish likely already exists for this restaurant.';
-                            results.skippedCount++;
-                        }
-                    } else {
-                        results.skippedCount++; // Restaurant not found or name missing
+                    if (itemCityId && !itemNeighborhoodId && item.neighborhood) {
+                        const nbRes = await client.query('SELECT id FROM neighborhoods WHERE name ILIKE $1 AND city_id = $2 LIMIT 1', [item.neighborhood, itemCityId]);
+                        if (nbRes.rowCount > 0) itemNeighborhoodId = nbRes.rows[0].id;
+                         else console.warn(`[BulkAdd] Neighborhood '${item.neighborhood}' not found in City ID ${itemCityId}.`);
                     }
                 }
-            } catch (itemError) {
-                let message = 'Unknown error during item processing.';
-                 if (itemError instanceof Error) {
-                     // Check for specific DB error codes
-                     if (itemError.code === '23503') { // Foreign key violation
-                         message = `Invalid reference detected (e.g., City ID, Neighborhood ID, Restaurant ID). Details: ${itemError.detail || itemError.message}`;
-                     } else {
-                         message = itemError.message;
-                     }
+                // --- End Location Lookups ---
+
+                // --- Resource Creation ---
+                const createPayload = {
+                    ...item, // Spread original item data
+                    city_id: itemCityId, // Use potentially looked-up ID
+                    neighborhood_id: itemNeighborhoodId, // Use potentially looked-up ID
+                };
+                // Remove potentially conflicting fields before calling createResource
+                delete createPayload.city;
+                delete createPayload.neighborhood;
+                // If type is 'dish', remove restaurant location fields
+                 if (item.type === 'dish') {
+                     delete createPayload.location;
+                     delete createPayload.place_id;
+                     delete createPayload.latitude;
+                     delete createPayload.longitude;
                  }
-                console.warn(`[Bulk Add Item Error] Item: ${JSON.stringify(item)}, Error: ${message}`);
-                status = 'error';
-                reason = message.substring(0, 200); // Limit reason length
-                results.skippedCount++;
+
+                // Call the appropriate create function via createResource (which uses models)
+                // This handles the actual INSERT logic and conflict checking
+                addedItem = await createResource(item.type, createPayload); // Pass looked-up IDs
+
+                if (addedItem) {
+                    status = 'added';
+                    results.addedCount++;
+                    // Add tags if provided and item was added successfully
+                    if (Array.isArray(item.tags) && item.tags.length > 0 && (item.type === 'restaurant' || item.type === 'dish')) {
+                        await addTagsToItem(client, item.type, addedItem.id, item.tags);
+                    }
+                } else {
+                    status = 'skipped'; // Assume skipped if createResource returns null (e.g., conflict)
+                    reason = `${item.type.charAt(0).toUpperCase() + item.type.slice(1)} likely already exists.`;
+                    results.skippedCount++;
+                }
+                 // --- End Resource Creation ---
+
+            } catch (itemError) {
+                 let message = 'Unknown error during item processing.';
+                 if (itemError instanceof Error) {
+                     message = itemError.message;
+                 }
+                 console.warn(`[Bulk Add Item Error] Item: ${JSON.stringify(item)}, Error: ${message}`);
+                 status = 'error';
+                 reason = message.substring(0, 200); // Truncate long messages
+                 results.errorCount++; // Increment error count
+                 results.skippedCount++; // Also count errors as skipped from adding
             }
-            // Record result detail
+
+            // Record detail for this item
             results.details.push({
                 input: { name: item.name, type: item.type },
                 status,
@@ -270,43 +274,16 @@ export const bulkAddItems = async (items) => {
                 id: addedItem?.id || undefined,
                 type: addedItem ? item.type : undefined,
             });
-        }
+        } // End loop through items
 
         await client.query('COMMIT');
-        results.message = `Processed ${results.processedCount} items. Added: ${results.addedCount}, Skipped/Existed/Error: ${results.skippedCount}.`;
+        results.message = `Processed ${results.processedCount} items. Added: ${results.addedCount}, Skipped/Existed: ${results.skippedCount}, Errors: ${results.errorCount}.`; // Updated message
         return results;
-    } catch (err) {
+    } catch (err) { // Transaction level error
         await client.query('ROLLBACK').catch(rbErr => console.error("Rollback Error:", rbErr));
         console.error('[AdminModel bulkAddItems] Transaction error:', err);
         throw new Error('Bulk add operation failed during transaction.');
     } finally {
         client.release();
     }
-};
-
-export const deleteResourceById = async (tableName, id) => {
-    const allowedTables = ['restaurants', 'dishes', 'lists', 'submissions', 'users', 'hashtags', 'neighborhoods'];
-    if (!allowedTables.includes(tableName)) {
-        throw new Error(`Invalid table name: ${tableName}. Allowed tables: ${allowedTables.join(', ')}`);
-    }
-    // Ensure numeric ID
-    const numericId = typeof id === 'string' ? parseInt(id, 10) : id;
-    if (isNaN(numericId) || numericId <= 0) {
-        throw new Error(`Invalid ID provided for deletion: ${id}`);
-    }
-
-    const query = `DELETE FROM ${tableName} WHERE id = $1 RETURNING id`;
-    const result = await db.query(query, [numericId]);
-    return (result.rowCount ?? 0) > 0;
-};
-
-// --- Submission Admin Functions ---
-export const getSubmissions = async (params) => {
-     console.warn("[AdminModel getSubmissions] Deprecated: Use adminService/getAdminData('submissions', params) instead.");
-     return SubmissionModel.findSubmissionsByStatus(params?.status || 'pending');
-};
-
-export const updateSubmissionStatus = async (id, status, reviewerId) => {
-     // Delegate to SubmissionModel
-     return SubmissionModel.updateSubmissionStatus(id, status, reviewerId);
 };

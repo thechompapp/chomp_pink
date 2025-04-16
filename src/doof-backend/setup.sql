@@ -1,3 +1,4 @@
+-- src/doof-backend/setup.sql
 /* Updated src/doof-backend/setup.sql - Data-Preserving Version */
 
 -- First, let's create any missing tables without dropping existing ones
@@ -16,19 +17,19 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'password_hash') THEN
     ALTER TABLE Users ADD COLUMN password_hash VARCHAR(255);
   END IF;
-  
+
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'account_type') THEN
     ALTER TABLE Users ADD COLUMN account_type VARCHAR(20) DEFAULT 'user';
-    
+
     -- Add constraint if column was just added
-    ALTER TABLE Users ADD CONSTRAINT users_account_type_check 
+    ALTER TABLE Users ADD CONSTRAINT users_account_type_check
     CHECK (account_type IN ('user', 'contributor', 'superuser'));
   END IF;
 END
 $$;
 
 -- Make columns NOT NULL if they need to be
-ALTER TABLE Users 
+ALTER TABLE Users
   ALTER COLUMN username SET NOT NULL,
   ALTER COLUMN email SET NOT NULL;
 
@@ -38,7 +39,7 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM Users WHERE password_hash IS NULL) THEN
     ALTER TABLE Users ALTER COLUMN password_hash SET NOT NULL;
   END IF;
-  
+
   IF NOT EXISTS (SELECT 1 FROM Users WHERE account_type IS NULL) THEN
     ALTER TABLE Users ALTER COLUMN account_type SET NOT NULL;
   END IF;
@@ -85,7 +86,7 @@ END
 $$;
 
 -- Add constraints if not already present
-ALTER TABLE Neighborhoods 
+ALTER TABLE Neighborhoods
   ALTER COLUMN name SET NOT NULL,
   ALTER COLUMN city_id SET NOT NULL,
   ADD CONSTRAINT IF NOT EXISTS fk_neighborhood_city FOREIGN KEY (city_id) REFERENCES Cities(id) ON DELETE CASCADE;
@@ -116,8 +117,20 @@ CREATE TABLE IF NOT EXISTS Restaurants (
   longitude DECIMAL(9,6),
   adds INTEGER DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  -- Add other restaurant fields if they don't exist
+  phone_number VARCHAR(30),
+  website VARCHAR(2048),
+  instagram_handle VARCHAR(100),
+  photo_url VARCHAR(2048)
 );
+
+-- Add other restaurant fields if they don't exist (using separate ALTER for clarity)
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='restaurants' AND column_name='phone_number') THEN ALTER TABLE Restaurants ADD COLUMN phone_number VARCHAR(30); END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='restaurants' AND column_name='website') THEN ALTER TABLE Restaurants ADD COLUMN website VARCHAR(2048); END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='restaurants' AND column_name='instagram_handle') THEN ALTER TABLE Restaurants ADD COLUMN instagram_handle VARCHAR(100); END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='restaurants' AND column_name='photo_url') THEN ALTER TABLE Restaurants ADD COLUMN photo_url VARCHAR(2048); END IF; END $$;
+
 
 -- Set NOT NULL constraints
 ALTER TABLE Restaurants ALTER COLUMN name SET NOT NULL;
@@ -126,28 +139,28 @@ ALTER TABLE Restaurants ALTER COLUMN name SET NOT NULL;
 DO $$
 BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM information_schema.table_constraints 
-    WHERE constraint_name = 'uq_restaurant_name_city' 
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name = 'uq_restaurant_name_city'
     AND table_name = 'restaurants'
   ) THEN
     ALTER TABLE Restaurants ADD CONSTRAINT uq_restaurant_name_city UNIQUE (name, city_id);
   END IF;
-  
+
   IF NOT EXISTS (
-    SELECT 1 FROM information_schema.table_constraints 
-    WHERE constraint_name = 'fk_restaurant_city' 
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name = 'fk_restaurant_city'
     AND table_name = 'restaurants'
   ) THEN
-    ALTER TABLE Restaurants ADD CONSTRAINT fk_restaurant_city 
-    FOREIGN KEY (city_id) REFERENCES Cities(id) ON DELETE SET NULL;
+    ALTER TABLE Restaurants ADD CONSTRAINT fk_restaurant_city
+    FOREIGN KEY (city_id) REFERENCES Cities(id) ON DELETE SET NULL; -- Changed to SET NULL based on previous review
   END IF;
-  
+
   IF NOT EXISTS (
-    SELECT 1 FROM information_schema.table_constraints 
-    WHERE constraint_name = 'fk_restaurant_neighborhood' 
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name = 'fk_restaurant_neighborhood'
     AND table_name = 'restaurants'
   ) THEN
-    ALTER TABLE Restaurants ADD CONSTRAINT fk_restaurant_neighborhood 
+    ALTER TABLE Restaurants ADD CONSTRAINT fk_restaurant_neighborhood
     FOREIGN KEY (neighborhood_id) REFERENCES Neighborhoods(id) ON DELETE SET NULL;
   END IF;
 END
@@ -169,11 +182,21 @@ CREATE TABLE IF NOT EXISTS Dishes (
   restaurant_id INTEGER,
   adds INTEGER DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  -- Add other dish fields if they don't exist
+  description TEXT,
+  price VARCHAR(50),
+  is_common BOOLEAN DEFAULT FALSE
 );
 
+-- Add other dish fields if they don't exist
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='dishes' AND column_name='description') THEN ALTER TABLE Dishes ADD COLUMN description TEXT; END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='dishes' AND column_name='price') THEN ALTER TABLE Dishes ADD COLUMN price VARCHAR(50); END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='dishes' AND column_name='is_common') THEN ALTER TABLE Dishes ADD COLUMN is_common BOOLEAN DEFAULT FALSE; END IF; END $$;
+
+
 -- Set NOT NULL constraints
-ALTER TABLE Dishes 
+ALTER TABLE Dishes
   ALTER COLUMN name SET NOT NULL,
   ALTER COLUMN restaurant_id SET NOT NULL;
 
@@ -181,20 +204,20 @@ ALTER TABLE Dishes
 DO $$
 BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM information_schema.table_constraints 
-    WHERE constraint_name = 'fk_dish_restaurant' 
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name = 'fk_dish_restaurant'
     AND table_name = 'dishes'
   ) THEN
-    ALTER TABLE Dishes ADD CONSTRAINT fk_dish_restaurant 
+    ALTER TABLE Dishes ADD CONSTRAINT fk_dish_restaurant
     FOREIGN KEY (restaurant_id) REFERENCES Restaurants(id) ON DELETE CASCADE;
   END IF;
-  
+
   IF NOT EXISTS (
-    SELECT 1 FROM information_schema.table_constraints 
-    WHERE constraint_name = 'dishes_name_restaurant_id_key' 
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name = 'dishes_name_restaurant_id_key'
     AND table_name = 'dishes'
   ) THEN
-    ALTER TABLE Dishes ADD CONSTRAINT dishes_name_restaurant_id_key 
+    ALTER TABLE Dishes ADD CONSTRAINT dishes_name_restaurant_id_key
     UNIQUE (name, restaurant_id);
   END IF;
 END
@@ -214,7 +237,8 @@ CREATE TABLE IF NOT EXISTS Lists (
   id SERIAL PRIMARY KEY,
   name VARCHAR(255),
   description TEXT,
-  list_type VARCHAR(20) DEFAULT 'mixed',
+  -- list_type VARCHAR(20) DEFAULT 'mixed', -- Old default
+  list_type VARCHAR(20) NOT NULL, -- Ensure NOT NULL
   saved_count INTEGER DEFAULT 0,
   city_name VARCHAR(100),
   tags TEXT[],
@@ -222,34 +246,46 @@ CREATE TABLE IF NOT EXISTS Lists (
   creator_handle VARCHAR(100),
   user_id INTEGER,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  -- Add missing columns from review if needed (e.g., created_by_user, is_following)
+  created_by_user BOOLEAN DEFAULT FALSE NOT NULL,
+  is_following BOOLEAN DEFAULT FALSE NOT NULL
 );
 
+-- Add missing list columns if they don't exist
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='lists' AND column_name='created_by_user') THEN ALTER TABLE Lists ADD COLUMN created_by_user BOOLEAN DEFAULT FALSE NOT NULL; END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='lists' AND column_name='is_following') THEN ALTER TABLE Lists ADD COLUMN is_following BOOLEAN DEFAULT FALSE NOT NULL; END IF; END $$;
+
+
 -- Set NOT NULL constraints and add check constraint
-ALTER TABLE Lists 
+ALTER TABLE Lists
   ALTER COLUMN name SET NOT NULL,
   ALTER COLUMN list_type SET NOT NULL,
   ALTER COLUMN saved_count SET NOT NULL,
-  ALTER COLUMN is_public SET NOT NULL;
+  ALTER COLUMN is_public SET NOT NULL,
+  ALTER COLUMN created_by_user SET NOT NULL,
+  ALTER COLUMN is_following SET NOT NULL;
 
--- Add check constraint if it doesn't exist
+
+-- Add check constraint for list_type ('restaurant', 'dish' ONLY)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'lists_list_type_check' AND table_name = 'lists') THEN
+     ALTER TABLE Lists DROP CONSTRAINT lists_list_type_check;
+  END IF;
+  ALTER TABLE Lists ADD CONSTRAINT lists_list_type_check CHECK (list_type IN ('restaurant', 'dish'));
+END
+$$;
+
+-- Add foreign key constraint if not present
 DO $$
 BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM information_schema.table_constraints 
-    WHERE constraint_name = 'lists_list_type_check' 
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name = 'fk_list_creator'
     AND table_name = 'lists'
   ) THEN
-    ALTER TABLE Lists ADD CONSTRAINT lists_list_type_check 
-    CHECK (list_type IN ('restaurant', 'dish', 'mixed'));
-  END IF;
-  
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.table_constraints 
-    WHERE constraint_name = 'fk_list_creator' 
-    AND table_name = 'lists'
-  ) THEN
-    ALTER TABLE Lists ADD CONSTRAINT fk_list_creator 
+    ALTER TABLE Lists ADD CONSTRAINT fk_list_creator
     FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE SET NULL;
   END IF;
 END
@@ -275,7 +311,7 @@ CREATE TABLE IF NOT EXISTS ListItems (
 );
 
 -- Set NOT NULL constraints and add check constraint
-ALTER TABLE ListItems 
+ALTER TABLE ListItems
   ALTER COLUMN list_id SET NOT NULL,
   ALTER COLUMN item_type SET NOT NULL,
   ALTER COLUMN item_id SET NOT NULL;
@@ -284,29 +320,29 @@ ALTER TABLE ListItems
 DO $$
 BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM information_schema.table_constraints 
-    WHERE constraint_name = 'listitems_item_type_check' 
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name = 'listitems_item_type_check'
     AND table_name = 'listitems'
   ) THEN
-    ALTER TABLE ListItems ADD CONSTRAINT listitems_item_type_check 
+    ALTER TABLE ListItems ADD CONSTRAINT listitems_item_type_check
     CHECK (item_type IN ('restaurant', 'dish'));
   END IF;
-  
+
   IF NOT EXISTS (
-    SELECT 1 FROM information_schema.table_constraints 
-    WHERE constraint_name = 'fk_listitem_list' 
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name = 'fk_listitem_list'
     AND table_name = 'listitems'
   ) THEN
-    ALTER TABLE ListItems ADD CONSTRAINT fk_listitem_list 
+    ALTER TABLE ListItems ADD CONSTRAINT fk_listitem_list
     FOREIGN KEY (list_id) REFERENCES Lists(id) ON DELETE CASCADE;
   END IF;
-  
+
   IF NOT EXISTS (
-    SELECT 1 FROM information_schema.table_constraints 
-    WHERE constraint_name = 'listitems_list_id_item_type_item_id_key' 
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name = 'listitems_list_id_item_type_item_id_key'
     AND table_name = 'listitems'
   ) THEN
-    ALTER TABLE ListItems ADD CONSTRAINT listitems_list_id_item_type_item_id_key 
+    ALTER TABLE ListItems ADD CONSTRAINT listitems_list_id_item_type_item_id_key
     UNIQUE (list_id, item_type, item_id);
   END IF;
 END
@@ -322,7 +358,7 @@ CREATE TABLE IF NOT EXISTS DishVotes (
 );
 
 -- Set NOT NULL constraints and add check constraint
-ALTER TABLE DishVotes 
+ALTER TABLE DishVotes
   ALTER COLUMN dish_id SET NOT NULL,
   ALTER COLUMN user_id SET NOT NULL,
   ALTER COLUMN vote_type SET NOT NULL;
@@ -331,38 +367,38 @@ ALTER TABLE DishVotes
 DO $$
 BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM information_schema.table_constraints 
-    WHERE constraint_name = 'dishvotes_vote_type_check' 
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name = 'dishvotes_vote_type_check'
     AND table_name = 'dishvotes'
   ) THEN
-    ALTER TABLE DishVotes ADD CONSTRAINT dishvotes_vote_type_check 
+    ALTER TABLE DishVotes ADD CONSTRAINT dishvotes_vote_type_check
     CHECK (vote_type IN ('up', 'neutral', 'down'));
   END IF;
-  
+
   IF NOT EXISTS (
-    SELECT 1 FROM information_schema.table_constraints 
-    WHERE constraint_name = 'fk_vote_dish' 
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name = 'fk_vote_dish'
     AND table_name = 'dishvotes'
   ) THEN
-    ALTER TABLE DishVotes ADD CONSTRAINT fk_vote_dish 
+    ALTER TABLE DishVotes ADD CONSTRAINT fk_vote_dish
     FOREIGN KEY (dish_id) REFERENCES Dishes(id) ON DELETE CASCADE;
   END IF;
-  
+
   IF NOT EXISTS (
-    SELECT 1 FROM information_schema.table_constraints 
-    WHERE constraint_name = 'fk_vote_user' 
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name = 'fk_vote_user'
     AND table_name = 'dishvotes'
   ) THEN
-    ALTER TABLE DishVotes ADD CONSTRAINT fk_vote_user 
+    ALTER TABLE DishVotes ADD CONSTRAINT fk_vote_user
     FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE;
   END IF;
-  
+
   IF NOT EXISTS (
-    SELECT 1 FROM information_schema.table_constraints 
-    WHERE constraint_name = 'dishvotes_dish_id_user_id_key' 
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name = 'dishvotes_dish_id_user_id_key'
     AND table_name = 'dishvotes'
   ) THEN
-    ALTER TABLE DishVotes ADD CONSTRAINT dishvotes_dish_id_user_id_key 
+    ALTER TABLE DishVotes ADD CONSTRAINT dishvotes_dish_id_user_id_key
     UNIQUE (dish_id, user_id);
   END IF;
 END
@@ -382,11 +418,19 @@ CREATE TABLE IF NOT EXISTS Submissions (
   status VARCHAR(20) DEFAULT 'pending',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   reviewed_at TIMESTAMP WITH TIME ZONE,
-  reviewed_by INTEGER
+  reviewed_by INTEGER,
+  -- Add restaurant_id and restaurant_name if they don't exist
+  restaurant_id INTEGER,
+  restaurant_name VARCHAR(255)
 );
 
+-- Add restaurant_id and restaurant_name if missing
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='submissions' AND column_name='restaurant_id') THEN ALTER TABLE Submissions ADD COLUMN restaurant_id INTEGER; END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='submissions' AND column_name='restaurant_name') THEN ALTER TABLE Submissions ADD COLUMN restaurant_name VARCHAR(255); END IF; END $$;
+
+
 -- Set NOT NULL constraints and add check constraints
-ALTER TABLE Submissions 
+ALTER TABLE Submissions
   ALTER COLUMN type SET NOT NULL,
   ALTER COLUMN name SET NOT NULL,
   ALTER COLUMN status SET NOT NULL;
@@ -395,39 +439,51 @@ ALTER TABLE Submissions
 DO $$
 BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM information_schema.table_constraints 
-    WHERE constraint_name = 'submissions_type_check' 
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name = 'submissions_type_check'
     AND table_name = 'submissions'
   ) THEN
-    ALTER TABLE Submissions ADD CONSTRAINT submissions_type_check 
+    ALTER TABLE Submissions ADD CONSTRAINT submissions_type_check
     CHECK (type IN ('restaurant', 'dish'));
   END IF;
-  
+
   IF NOT EXISTS (
-    SELECT 1 FROM information_schema.table_constraints 
-    WHERE constraint_name = 'submissions_status_check' 
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name = 'submissions_status_check'
     AND table_name = 'submissions'
   ) THEN
-    ALTER TABLE Submissions ADD CONSTRAINT submissions_status_check 
+    ALTER TABLE Submissions ADD CONSTRAINT submissions_status_check
     CHECK (status IN ('pending', 'approved', 'rejected'));
   END IF;
-  
+
   IF NOT EXISTS (
-    SELECT 1 FROM information_schema.table_constraints 
-    WHERE constraint_name = 'fk_submission_user' 
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name = 'fk_submission_user'
     AND table_name = 'submissions'
   ) THEN
-    ALTER TABLE Submissions ADD CONSTRAINT fk_submission_user 
+    ALTER TABLE Submissions ADD CONSTRAINT fk_submission_user
     FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE SET NULL;
   END IF;
-  
+
   IF NOT EXISTS (
-    SELECT 1 FROM information_schema.table_constraints 
-    WHERE constraint_name = 'fk_submission_reviewer' 
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name = 'fk_submission_reviewer'
     AND table_name = 'submissions'
   ) THEN
-    ALTER TABLE Submissions ADD CONSTRAINT fk_submission_reviewer 
+    ALTER TABLE Submissions ADD CONSTRAINT fk_submission_reviewer
     FOREIGN KEY (reviewed_by) REFERENCES Users(id) ON DELETE SET NULL;
+  END IF;
+
+  -- Add foreign key for restaurant_id if it exists
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='submissions' AND column_name='restaurant_id') THEN
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints
+        WHERE constraint_name = 'fk_submission_restaurant'
+        AND table_name = 'submissions'
+      ) THEN
+        ALTER TABLE Submissions ADD CONSTRAINT fk_submission_restaurant
+        FOREIGN KEY (restaurant_id) REFERENCES Restaurants(id) ON DELETE SET NULL; -- Or CASCADE? SET NULL seems safer
+      END IF;
   END IF;
 END
 $$;
@@ -443,7 +499,7 @@ CREATE TABLE IF NOT EXISTS Engagements (
 );
 
 -- Set NOT NULL constraints and add check constraints
-ALTER TABLE Engagements 
+ALTER TABLE Engagements
   ALTER COLUMN item_id SET NOT NULL,
   ALTER COLUMN item_type SET NOT NULL,
   ALTER COLUMN engagement_type SET NOT NULL;
@@ -452,29 +508,29 @@ ALTER TABLE Engagements
 DO $$
 BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM information_schema.table_constraints 
-    WHERE constraint_name = 'engagements_item_type_check' 
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name = 'engagements_item_type_check'
     AND table_name = 'engagements'
   ) THEN
-    ALTER TABLE Engagements ADD CONSTRAINT engagements_item_type_check 
+    ALTER TABLE Engagements ADD CONSTRAINT engagements_item_type_check
     CHECK (item_type IN ('restaurant', 'dish', 'list'));
   END IF;
-  
+
   IF NOT EXISTS (
-    SELECT 1 FROM information_schema.table_constraints 
-    WHERE constraint_name = 'engagements_engagement_type_check' 
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name = 'engagements_engagement_type_check'
     AND table_name = 'engagements'
   ) THEN
-    ALTER TABLE Engagements ADD CONSTRAINT engagements_engagement_type_check 
+    ALTER TABLE Engagements ADD CONSTRAINT engagements_engagement_type_check
     CHECK (engagement_type IN ('view', 'click', 'add_to_list', 'share'));
   END IF;
-  
+
   IF NOT EXISTS (
-    SELECT 1 FROM information_schema.table_constraints 
-    WHERE constraint_name = 'fk_engagement_user' 
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name = 'fk_engagement_user'
     AND table_name = 'engagements'
   ) THEN
-    ALTER TABLE Engagements ADD CONSTRAINT fk_engagement_user 
+    ALTER TABLE Engagements ADD CONSTRAINT fk_engagement_user
     FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE SET NULL;
   END IF;
 END
@@ -498,6 +554,9 @@ CREATE INDEX IF NOT EXISTS idx_cities_name ON Cities(name);
 -- Neighborhoods indexes
 CREATE INDEX IF NOT EXISTS idx_neighborhoods_city_id ON Neighborhoods(city_id);
 CREATE INDEX IF NOT EXISTS idx_neighborhoods_name ON Neighborhoods(name);
+-- Add index for zipcode_ranges if column exists
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='neighborhoods' AND column_name='zipcode_ranges') THEN CREATE INDEX IF NOT EXISTS idx_neighborhoods_zipcodes ON Neighborhoods USING GIN (zipcode_ranges); END IF; END $$;
+
 
 -- Hashtags indexes
 CREATE INDEX IF NOT EXISTS idx_hashtags_name ON Hashtags(name);
@@ -554,6 +613,9 @@ CREATE INDEX IF NOT EXISTS idx_submissions_user_id ON Submissions(user_id);
 CREATE INDEX IF NOT EXISTS idx_submissions_place_id ON Submissions(place_id);
 CREATE INDEX IF NOT EXISTS idx_submissions_name ON Submissions(name);
 CREATE INDEX IF NOT EXISTS idx_submissions_type ON Submissions(type);
+-- Add index for restaurant_id if column exists
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='submissions' AND column_name='restaurant_id') THEN CREATE INDEX IF NOT EXISTS idx_submissions_restaurant_id ON Submissions(restaurant_id); END IF; END $$;
+
 
 -- Engagements indexes
 CREATE INDEX IF NOT EXISTS idx_engagements_item ON Engagements(item_type, item_id, engagement_timestamp DESC);
@@ -576,23 +638,23 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'set_timestamp_cities') THEN
     CREATE TRIGGER set_timestamp_cities BEFORE UPDATE ON Cities FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
   END IF;
-  
+
   IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'set_timestamp_neighborhoods') THEN
     CREATE TRIGGER set_timestamp_neighborhoods BEFORE UPDATE ON Neighborhoods FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
   END IF;
-  
+
   IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'set_timestamp_hashtags') THEN
     CREATE TRIGGER set_timestamp_hashtags BEFORE UPDATE ON Hashtags FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
   END IF;
-  
+
   IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'set_timestamp_restaurants') THEN
     CREATE TRIGGER set_timestamp_restaurants BEFORE UPDATE ON Restaurants FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
   END IF;
-  
+
   IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'set_timestamp_dishes') THEN
     CREATE TRIGGER set_timestamp_dishes BEFORE UPDATE ON Dishes FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
   END IF;
-  
+
   IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'set_timestamp_lists') THEN
     CREATE TRIGGER set_timestamp_lists BEFORE UPDATE ON Lists FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
   END IF;
@@ -603,11 +665,11 @@ $$;
 DO $$
 BEGIN
   UPDATE Users
-  SET 
+  SET
     password_hash = '$2a$10$6UMoKj8hWO7cmuYyqfDsz.QrKzZty33wOAX/oMEQAQQE9Jd1z5vIK', -- Bcrypt hash for 'temporary123'
-    account_type = 'superuser'
-  WHERE 
-    password_hash IS NULL OR account_type IS NULL;
+    account_type = COALESCE(account_type, 'user') -- Ensure account_type isn't null
+  WHERE
+    password_hash IS NULL;
 END
 $$;
 
@@ -617,7 +679,7 @@ DECLARE
   users_missing_pw BOOLEAN;
 BEGIN
   SELECT EXISTS (SELECT 1 FROM Users WHERE password_hash IS NULL) INTO users_missing_pw;
-  
+
   IF users_missing_pw THEN
     RAISE NOTICE 'WARNING: Some users still have NULL password_hash values! Fix these before setting NOT NULL constraint.';
   END IF;

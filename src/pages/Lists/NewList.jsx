@@ -3,7 +3,8 @@ import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom';
 import useUserListStore from '@/stores/useUserListStore';
 import useFormHandler from '@/hooks/useFormHandler';
-import useUIStateStore from '@/stores/useUIStateStore';
+// FIX: Changed from default import to named import
+import { useUIStateStore } from '@/stores/useUIStateStore';
 import Button from '@/components/UI/Button';
 import { Loader2, Info, X, HelpCircle } from 'lucide-react';
 
@@ -14,6 +15,7 @@ const NewList = () => {
     const storeError = useUserListStore(state => state.error);
     const clearStoreError = useUserListStore(state => state.clearError);
 
+    // FIX: Use named import selector
     const cuisines = useUIStateStore(state => state.cuisines || []);
     const fetchCuisines = useUIStateStore(state => state.fetchCuisines);
     const isLoadingCuisines = useUIStateStore(state => state.isLoadingCuisines);
@@ -44,7 +46,7 @@ const NewList = () => {
     // Error Clearing Effect
     useEffect(() => { clearStoreError?.(); setSubmitError(null); return () => { clearStoreError?.(); setSubmitError(null); }; }, [clearStoreError, setSubmitError]);
 
-    // --- Hashtag Logic ---
+    // --- Hashtag Logic --- (No changes needed in this logic block)
     const filteredHashtags = useMemo(() => {
         const inputLower = hashtagInput.toLowerCase().trim();
         if (!inputLower || !Array.isArray(cuisines)) return [];
@@ -65,8 +67,10 @@ const NewList = () => {
     const handleSelectHashtagSuggestion = useCallback((tag) => { if (tag && !selectedHashtags.includes(tag)) { setSelectedHashtags((prev) => [...prev, tag]); } setHashtagInput(''); setShowHashtagSuggestions(false); }, [selectedHashtags]);
     useEffect(() => { const handleClickOutside = (event) => { if (showHashtagSuggestions && hashtagInputRef.current && !hashtagInputRef.current.contains(event.target)) { setShowHashtagSuggestions(false); } }; document.addEventListener('mousedown', handleClickOutside); return () => document.removeEventListener('mousedown', handleClickOutside); }, [showHashtagSuggestions]);
     const handleHashtagInputChange = useCallback((e) => { setHashtagInput(e.target.value); if (e.target.value.trim()) setShowHashtagSuggestions(true); else setShowHashtagSuggestions(false); setSubmitError(null); }, [setSubmitError]);
+    // --- End Hashtag Logic ---
 
-    // --- Form Submission ---
+
+    // --- Form Submission --- (No changes needed in this logic block)
     const performSubmit = async (currentFormData) => {
         if (!currentFormData.name?.trim()) throw new Error('List name cannot be empty.');
         // ** VALIDATION: Ensure a valid list type is selected **
@@ -92,10 +96,12 @@ const NewList = () => {
              throw error; // Re-throw for handleSubmit
         }
     };
+    // --- End Form Submission ---
 
     const handleFormSubmit = (e) => { e.preventDefault(); handleSubmit(performSubmit); };
     const displayError = submitError || storeError;
 
+    // --- JSX --- (No changes needed in JSX structure)
     return (
         <div className="max-w-2xl mx-auto py-8 px-4">
             <Button onClick={() => navigate('/lists')} variant="tertiary" size="sm" className="mb-6 text-sm text-gray-600 hover:text-gray-900">
@@ -118,7 +124,6 @@ const NewList = () => {
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">List Type*</label>
                     <div className="flex flex-col sm:flex-row gap-3 mt-1">
-                        {/* ** REMOVED 'mixed' option ** */}
                         {(['restaurant', 'dish']).map(type => (
                              <label key={type} className={`flex items-center p-2 border rounded-md cursor-pointer transition-colors text-xs flex-1 justify-center ${isProcessing ? 'opacity-60 cursor-not-allowed bg-gray-50' : ''} ${formData.list_type === type ? 'bg-[#D1B399]/10 border-[#D1B399]/50 ring-1 ring-[#D1B399]' : 'border-gray-300 hover:border-gray-400 bg-white'}`}>
                                 <input type="radio" name="list_type" value={type} checked={formData.list_type === type} onChange={handleChange} disabled={isProcessing} className="h-3.5 w-3.5 text-[#A78B71] border-gray-300 focus:ring-[#A78B71] mr-1.5" required />
@@ -127,7 +132,6 @@ const NewList = () => {
                              </label>
                         ))}
                     </div>
-                    {/* Show error if no type selected (form level validation handles submit) */}
                     {!formData.list_type && <p className="text-xs text-red-500 mt-1">Please select a list type.</p>}
                 </div>
                 {/* Hashtags */}
