@@ -7,7 +7,7 @@ import { adminService } from '@/services/adminService.js';
 import AdminTable from './AdminTable.jsx';
 import AdminAnalyticsSummary from './AdminAnalyticsSummary.jsx';
 import AdminEngagementAnalytics from './AdminEngagementAnalytics.jsx';
-import SubmissionsTab from './SubmissionsTab.jsx'; // *** CORRECTED IMPORT ***
+import SubmissionsTab from './SubmissionsTab.jsx';
 import LoadingSpinner from '@/components/UI/LoadingSpinner.jsx';
 import ErrorMessage from '@/components/UI/ErrorMessage.jsx';
 import Button from '@/components/UI/Button.jsx';
@@ -100,18 +100,24 @@ const AdminPanel = () => {
     // Define query parameters based on current state
     const queryKeyParams = useMemo(() => {
         const params = {
-            tab: activeTab,
+            tab: activeTab, // Include tab in the key object
             page,
             limit,
             sort: currentSort,
             search: debouncedSearchTerm,
             ...(activeTab === 'submissions' && submissionStatusFilter && { status: submissionStatusFilter }),
-            ...(activeTab === 'lists' && listTypeFilter !== 'all' && { list_type: listTypeFilter }), // Use list_type
-            ...(activeTab === 'hashtags' && hashtagCategoryFilter !== 'all' && { hashtag_category: hashtagCategoryFilter }), // Use hashtag_category
+            ...(activeTab === 'lists' && listTypeFilter !== 'all' && { list_type: listTypeFilter }),
+            ...(activeTab === 'hashtags' && hashtagCategoryFilter !== 'all' && { hashtag_category: hashtagCategoryFilter }),
             ...((activeTab === 'neighborhoods' || activeTab === 'restaurants') && neighborhoodCityFilter && { cityId: Number(neighborhoodCityFilter) }),
         };
+        // Clean up optional parameters for a stable key
         if (!params.search) delete params.search;
         if (!params.sort) delete params.sort;
+        if (activeTab !== 'submissions') delete params.status;
+        if (activeTab !== 'lists' || listTypeFilter === 'all') delete params.list_type;
+        if (activeTab !== 'hashtags' || hashtagCategoryFilter === 'all') delete params.hashtag_category;
+        if (!['neighborhoods', 'restaurants'].includes(activeTab) || !neighborhoodCityFilter) delete params.cityId;
+
         return params;
     }, [
         activeTab,
@@ -134,8 +140,13 @@ const AdminPanel = () => {
         refetch,
         isFetching,
     } = useQuery({
+        // *** USE queryKeyParams OBJECT IN THE KEY ***
         queryKey: ['adminData', queryKeyParams],
-        queryFn: () => activeTab !== 'analytics' ? adminService.getAdminData(activeTab, queryKeyParams) : Promise.resolve(null),
+        queryFn: () => {
+            // *** ADDED CONSOLE LOG ***
+            console.log(`[AdminPanel] Fetching adminData for key:`, ['adminData', queryKeyParams]);
+            return activeTab !== 'analytics' ? adminService.getAdminData(activeTab, queryKeyParams) : Promise.resolve(null);
+        },
         enabled: !!activeTab && activeTab !== 'analytics',
         placeholderData: { success: true, data: [], pagination: { total: 0, page: 1, limit, totalPages: 0 } },
         keepPreviousData: true,
@@ -152,8 +163,14 @@ const AdminPanel = () => {
 
     // --- Handlers ---
     const handleSortChange = useCallback((type, column, direction) => { setSortState((prev) => ({ ...prev, [type]: `${column}_${direction}` })); }, []);
-    // Corrected: Invalidate specific query key
-    const handleDataMutation = useCallback(() => { queryClient.invalidateQueries({ queryKey: ['adminData', queryKeyParams] }); /*... invalidate other lookups ...*/ }, [queryClient, queryKeyParams]);
+    // Corrected: Invalidate specific query key based on current params
+    const handleDataMutation = useCallback(() => {
+        console.log("[AdminPanel] handleDataMutation triggered. Invalidating query with key:", ['adminData', queryKeyParams]);
+        queryClient.invalidateQueries({ queryKey: ['adminData', queryKeyParams] });
+        // Optionally invalidate broader keys if needed for other updates
+        // queryClient.invalidateQueries({ queryKey: ['adminData'] });
+    }, [queryClient, queryKeyParams]); // Depend on the current queryKeyParams
+
     const handleListTypeFilterChange = useCallback((e) => { setListTypeFilter(e.target.value); }, []);
     const handleHashtagCategoryFilterChange = useCallback((e) => { setHashtagCategoryFilter(e.target.value); }, []);
     const handleSubmissionStatusFilterChange = useCallback((e) => { setSubmissionStatusFilter(e.target.value); }, []);
@@ -186,7 +203,7 @@ const AdminPanel = () => {
             );
         }
 
-        // *** Corrected: Render SubmissionsTab directly ***
+        // Submissions Tab Rendering (passing props to SubmissionsTab)
         if (tab === 'submissions') {
              return (
                 <>
@@ -220,12 +237,12 @@ const AdminPanel = () => {
                               sort={currentSort}
                               onSortChange={handleSortChange}
                               onDataMutated={handleDataMutation}
-                              cities={cities} // Pass cities (though unused by submissions)
+                              cities={cities}
                               citiesLoading={isLoadingCities}
                               citiesError={citiesError?.message || null}
                          />
                      )}
-                     {/* Pagination (same as other tabs) */}
+                     {/* Pagination */}
                      {!isLoading && !isError && pagination && pagination.totalPages > 1 && (
                          <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
                              <div>
@@ -302,9 +319,8 @@ const AdminPanel = () => {
                             sort={currentSort}
                             onSortChange={handleSortChange}
                             onDataMutated={handleDataMutation}
-                            isLoading={isFetching} // Pass isFetching for inline loading indicators
+                            isLoading={isFetching}
                             cities={cities}
-                            // citiesLoading={isLoadingCities} // Pass city loading state
                             citiesError={citiesError?.message || null}
                         />
                     )}
@@ -338,7 +354,7 @@ const AdminPanel = () => {
         handleSortChange, handleDataMutation, handleSubmissionStatusFilterChange,
         handleListTypeFilterChange, handleHashtagCategoryFilterChange, handleSearchChange,
         handleLimitChange, handleCityFilterChange, handlePageChange, refetch,
-        // Include any other dependencies used inside renderTabContent
+        queryKeyParams // *** ADDED queryKeyParams to dependency array ***
     ]
 );
 

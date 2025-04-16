@@ -1,10 +1,9 @@
 /* src/stores/useSubmissionStore.js */
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import { submissionService } from '@/services/submissionService'; // Use JS service
+import { submissionService } from '@/services/submissionService';
 import { queryClient } from '@/queryClient';
 
-// Create the store without TS types
 const useSubmissionStore = create()(
     devtools(
         (set, get) => ({
@@ -13,47 +12,44 @@ const useSubmissionStore = create()(
             isApproving: null,
             isRejecting: null,
             error: null,
+            lastSubmissionTimestamp: null,
 
             // Actions
             clearError: () => set({ error: null }),
 
             addPendingSubmission: async (submissionData) => {
-                 set({ isLoading: true, error: null });
-                 try {
-                     const newSubmission = await submissionService.addSubmission(submissionData);
-                     if (!newSubmission || !newSubmission.id) {
-                          throw new Error("Invalid response from submission API");
-                     }
-                     set({ isLoading: false });
+                set({ isLoading: true, error: null });
+                try {
+                    const newSubmission = await submissionService.addSubmission(submissionData);
+                    if (!newSubmission || !newSubmission.id) {
+                        throw new Error("Invalid response from submission API");
+                    }
 
-                     // *** USE REFETCH INSTEAD OF INVALIDATE ***
-                     // Explicitly refetch the query for pending submissions in the admin panel.
-                     console.log("[SubmissionStore] Refetching Admin Pending Submissions query...");
-                     await queryClient.refetchQueries({
-                         queryKey: ['adminData', { tab: 'submissions', status: 'pending' }],
-                         // type: 'active', // Only refetch if the query is active (component mounted) - default
-                         exact: false // Use partial matching for the key
-                     });
-                     // Also invalidate (or refetch) the user's own submission list
-                     await queryClient.invalidateQueries({ queryKey: ['mySubmissions'] }); // Invalidate is fine here
+                    // Invalidate both the user's submissions and the broader admin data query
+                    console.log("[SubmissionStore] Invalidating mySubmissions and adminData queries...");
+                    await queryClient.invalidateQueries({ queryKey: ['mySubmissions'] });
+                    // *** MODIFIED: Broaden invalidation key ***
+                    await queryClient.invalidateQueries({ queryKey: ['adminData'] });
 
-                     return newSubmission;
-                 } catch (error) {
-                     console.error('[SubmissionStore] Error adding submission:', error);
-                      const message = error?.message || 'Failed to add submission';
-                     set({ isLoading: false, error: message });
-                     throw new Error(message);
-                 }
-             },
+                    // Update timestamp if still needed elsewhere, or remove if not used for this refresh
+                    set({ isLoading: false, lastSubmissionTimestamp: Date.now() });
+
+                    return newSubmission;
+                } catch (error) {
+                    console.error('[SubmissionStore] Error adding submission:', error);
+                    const message = error?.message || 'Failed to add submission';
+                    set({ isLoading: false, error: message });
+                    throw new Error(message);
+                }
+            },
 
             approveSubmission: async (submissionId) => {
                 set({ isApproving: Number(submissionId), error: null });
                 try {
                     await submissionService.approveSubmission(submissionId);
-                    // *** USE REFETCH FOR ADMIN DATA ***
-                    console.log("[SubmissionStore] Refetching adminData queries after approval...");
-                    await queryClient.refetchQueries({ queryKey: ['adminData', { tab: 'submissions' }], exact: false }); // Refetch pending, approved, rejected
-                    await queryClient.invalidateQueries({ queryKey: ['mySubmissions'] }); // Invalidate user's list
+                    console.log("[SubmissionStore] Invalidating adminData and mySubmissions after approval...");
+                    await queryClient.invalidateQueries({ queryKey: ['adminData'] }); // Broad invalidation
+                    await queryClient.invalidateQueries({ queryKey: ['mySubmissions'] });
 
                     // Optionally invalidate other caches
                     queryClient.invalidateQueries({ queryKey: ['trendingData'] });
@@ -64,7 +60,7 @@ const useSubmissionStore = create()(
                     return true;
                 } catch (error) {
                     console.error(`[SubmissionStore] Error approving submission ${submissionId}:`, error);
-                     const message = error?.message || 'Failed to approve submission';
+                    const message = error?.message || 'Failed to approve submission';
                     set({ isApproving: null, error: message });
                     throw new Error(message);
                 }
@@ -74,17 +70,16 @@ const useSubmissionStore = create()(
                 set({ isRejecting: Number(submissionId), error: null });
                 try {
                     await submissionService.rejectSubmission(submissionId);
-                    // *** USE REFETCH FOR ADMIN DATA ***
-                    console.log("[SubmissionStore] Refetching adminData queries after rejection...");
-                    await queryClient.refetchQueries({ queryKey: ['adminData', { tab: 'submissions' }], exact: false }); // Refetch pending, approved, rejected
-                    await queryClient.invalidateQueries({ queryKey: ['mySubmissions'] }); // Invalidate user's list
+                    console.log("[SubmissionStore] Invalidating adminData and mySubmissions after rejection...");
+                    await queryClient.invalidateQueries({ queryKey: ['adminData'] }); // Broad invalidation
+                    await queryClient.invalidateQueries({ queryKey: ['mySubmissions'] });
 
                     set({ isRejecting: null });
                     return true;
                 } catch (error) {
                     console.error(`[SubmissionStore] Error rejecting submission ${submissionId}:`, error);
-                     const message = error?.message || 'Failed to reject submission';
-                     set({ isRejecting: null, error: message });
+                    const message = error?.message || 'Failed to reject submission';
+                    set({ isRejecting: null, error: message });
                     throw new Error(message);
                 }
             },
