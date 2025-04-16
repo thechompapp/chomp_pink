@@ -167,6 +167,22 @@ export const updateSubmissionStatus = async (id, status, reviewerId) => {
     const client = await db.getClient();
     let originalSubmissionData = null;
 
+    // *** ADDED: NYC County to City Mapping ***
+    const nycCountyMap = {
+        "Kings County": "New York",
+        "New York County": "New York",
+        "Queens County": "New York",
+        "Bronx County": "New York",
+        "Richmond County": "New York",
+        // Add mappings for common borough names if Places API returns those
+        "Brooklyn": "New York",
+        "Manhattan": "New York",
+        "Queens": "New York",
+        "Bronx": "New York",
+        "Staten Island": "New York"
+    };
+    // *** END ADDED ***
+
     try {
         await client.query('BEGIN');
 
@@ -188,26 +204,29 @@ export const updateSubmissionStatus = async (id, status, reviewerId) => {
                 let cityId = null;
                 let neighborhoodId = null;
 
-                // *** IMPLEMENTED City ID Lookup ***
-                if (originalSubmissionData.city) {
-                    const cityName = originalSubmissionData.city.trim();
-                    console.log(`[Submission Approval] Looking up City ID for name: "${cityName}"`);
+                // *** MODIFIED: Apply mapping before lookup ***
+                const originalCityName = originalSubmissionData.city?.trim();
+                const cityNameToLookup = nycCountyMap[originalCityName] || originalCityName; // Map or use original
+
+                if (cityNameToLookup) {
+                    console.log(`[Submission Approval] Looking up City ID for name: "${cityNameToLookup}" (Original: "${originalCityName}")`);
                     const cityLookupQuery = 'SELECT id FROM cities WHERE name = $1';
-                    const cityLookupResult = await client.query(cityLookupQuery, [cityName]);
+                    const cityLookupResult = await client.query(cityLookupQuery, [cityNameToLookup]); // Use mapped name
                     if (cityLookupResult.rows.length > 0) {
                         cityId = cityLookupResult.rows[0].id;
                         console.log(`[Submission Approval] Found City ID: ${cityId}`);
                     } else {
                         // City not found - throw error to prevent approval
-                        console.error(`[Submission Approval] City named "${cityName}" not found in database.`);
-                        throw new Error(`Cannot approve submission: City "${cityName}" does not exist. Please create it first.`);
+                        console.error(`[Submission Approval] City named "${cityNameToLookup}" not found in database.`);
+                        throw new Error(`Cannot approve submission: City "${cityNameToLookup}" does not exist. Please create it first.`);
                     }
                 } else {
                     // City name was null/empty in submission - this shouldn't happen if validation is correct
                     throw new Error(`Cannot approve submission: City name is missing from the submission data.`);
                 }
+                // *** END MODIFIED ***
 
-                // *** IMPLEMENTED Neighborhood ID Lookup (requires cityId) ***
+                // *** Neighborhood Lookup (remains the same, uses found cityId) ***
                 if (originalSubmissionData.neighborhood && cityId) {
                     const neighborhoodName = originalSubmissionData.neighborhood.trim();
                      console.log(`[Submission Approval] Looking up Neighborhood ID for name: "${neighborhoodName}" in City ID: ${cityId}`);
@@ -217,7 +236,6 @@ export const updateSubmissionStatus = async (id, status, reviewerId) => {
                         neighborhoodId = neighborhoodLookupResult.rows[0].id;
                          console.log(`[Submission Approval] Found Neighborhood ID: ${neighborhoodId}`);
                     } else {
-                         // Neighborhood not found - Log warning but proceed (neighborhood_id is nullable in restaurants)
                          console.warn(`[Submission Approval] Neighborhood named "${neighborhoodName}" not found in City ID ${cityId}. Proceeding with NULL neighborhood_id.`);
                          neighborhoodId = null; // Explicitly set to null
                     }
@@ -229,7 +247,7 @@ export const updateSubmissionStatus = async (id, status, reviewerId) => {
                 const restaurantInsertQuery = `
                     INSERT INTO restaurants (name, address, google_place_id, city_id, neighborhood_id, city_name, neighborhood_name, created_at, updated_at)
                     VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
-                    ON CONFLICT (name, city_id) -- Correct constraint target
+                    ON CONFLICT (name, city_id) -- Constraint uses city_id
                     DO NOTHING
                     RETURNING id`;
 
@@ -237,10 +255,11 @@ export const updateSubmissionStatus = async (id, status, reviewerId) => {
                     originalSubmissionData.name,
                     originalSubmissionData.location, // address
                     originalSubmissionData.place_id,
-                    cityId, // Use the looked-up city_id (guaranteed non-null here or error was thrown)
-                    neighborhoodId, // Use the looked-up neighborhood_id (can be null)
-                    originalSubmissionData.city, // Keep original name for display columns
-                    originalSubmissionData.neighborhood // Keep original name for display columns
+                    cityId, // Use the looked-up city_id
+                    neighborhoodId, // Use the looked-up neighborhood_id
+                    // Use the mapped name for city_name if different, else original
+                    cityNameToLookup || originalCityName,
+                    originalSubmissionData.neighborhood // Keep original neighborhood name for display
                 ];
 
                 const createdRestaurant = await client.query(restaurantInsertQuery, restaurantInsertValues);
@@ -250,24 +269,22 @@ export const updateSubmissionStatus = async (id, status, reviewerId) => {
                     console.log(`[Submission Approval] Inserted new restaurant with ID: ${newItemId}`);
                     // TODO: Handle submission tags by adding them to RestaurantHashtags
                 } else {
-                    // Conflict occurred, restaurant likely exists. Fetch ID.
                     console.warn(`[Submission Approval] Restaurant submission ${id} (${originalSubmissionData.name}, City ID: ${cityId}) conflicted. Assuming exists.`);
                     const existingRestaurant = await client.query(
                         'SELECT id FROM restaurants WHERE name = $1 AND city_id = $2',
-                        [originalSubmissionData.name, cityId]
+                        [originalSubmissionData.name, cityId] // Lookup using city_id
                     );
                     if (existingRestaurant.rows.length > 0) {
                         newItemId = existingRestaurant.rows[0].id; // Use existing ID
                         console.log(`[Submission Approval] Using existing restaurant ID: ${newItemId}`);
                     } else {
                         console.error(`[Submission Approval] ON CONFLICT occurred but could not find existing restaurant for ${originalSubmissionData.name}, City ID: ${cityId}`);
-                        // This case is unlikely if the constraint exists and conflict occurred
                         throw new Error(`Database inconsistency: Restaurant conflict occurred but could not retrieve existing record.`);
                     }
                 }
 
             } else if (originalSubmissionData.type === 'dish') {
-                // Dish logic remains the same (ON CONFLICT was already correct)
+                // Dish logic remains the same
                 if (!originalSubmissionData.restaurant_id) {
                     throw new Error(`Cannot approve dish submission: Associated Restaurant ID is missing.`);
                 }
@@ -309,7 +326,6 @@ export const updateSubmissionStatus = async (id, status, reviewerId) => {
         const updateResult = await client.query(updateQuery, [status, reviewerId, id]);
 
         if (updateResult.rowCount === 0) {
-            // Avoid race condition: if status wasn't 'pending', maybe someone else processed it.
             console.warn(`[Submission Approval] Submission ${id} status update failed (rowCount 0). It might have been processed concurrently.`);
             throw new Error('Failed to update submission status. It might have been modified or deleted concurrently.');
         }
@@ -322,13 +338,10 @@ export const updateSubmissionStatus = async (id, status, reviewerId) => {
         return formatSubmission(updatedSubmissionData, userHandle); // Return updated data
 
     } catch (error) {
-        // Ensure rollback happens on any error
         console.error(`[SubmissionModel updateSubmissionStatus] Rolling back transaction for submission ${id} due to error:`, error.message);
         await client.query('ROLLBACK');
-        // Re-throw the original error for the route handler
         throw error;
     } finally {
-        // Always release the client
         client.release();
     }
 };
