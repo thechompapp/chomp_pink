@@ -3,14 +3,12 @@ import db from '../db/index.js';
 
 // Formatter: Ensure NO HTML encoding happens here.
 export const formatRestaurantForResponse = (restaurant) => {
+    // ... (formatter remains the same) ...
     if (!restaurant) return null;
     try {
-        // Ensure tags is always an array
         const tagsArray = Array.isArray(restaurant.tags)
             ? restaurant.tags.filter((tag) => typeof tag === 'string' && tag.length > 0)
             : [];
-
-        // Direct assignment for potentially problematic string fields
         const name = restaurant.name || "Unknown Restaurant";
         const address = restaurant.address || null;
         const google_place_id = restaurant.google_place_id || null;
@@ -22,26 +20,24 @@ export const formatRestaurantForResponse = (restaurant) => {
         const photo_url = restaurant.photo_url || null;
 
         return {
-            // Base properties, ensuring correct types
-            id: parseInt(String(restaurant.id), 10), // Ensure number
-            name: name, // Use direct assignment
-            city_id: restaurant.city_id ? parseInt(String(restaurant.city_id), 10) : null, // Ensure number or null
-            city_name: city_name, // Use direct assignment
-            neighborhood_id: restaurant.neighborhood_id ? parseInt(String(restaurant.neighborhood_id), 10) : null, // Ensure number or null
-            neighborhood_name: neighborhood_name, // Use direct assignment
-            address: address, // Use direct assignment
-            google_place_id: google_place_id, // Use direct assignment
-            latitude: restaurant.latitude != null ? parseFloat(String(restaurant.latitude)) : null, // Ensure number or null
-            longitude: restaurant.longitude != null ? parseFloat(String(restaurant.longitude)) : null, // Ensure number or null
-            adds: restaurant.adds != null ? parseInt(String(restaurant.adds), 10) : 0, // Ensure number, default 0
-            created_at: restaurant.created_at, // Pass through dates/timestamps
+            id: parseInt(String(restaurant.id), 10),
+            name: name,
+            city_id: restaurant.city_id ? parseInt(String(restaurant.city_id), 10) : null,
+            city_name: city_name,
+            neighborhood_id: restaurant.neighborhood_id ? parseInt(String(restaurant.neighborhood_id), 10) : null,
+            neighborhood_name: neighborhood_name,
+            address: address,
+            google_place_id: google_place_id,
+            latitude: restaurant.latitude != null ? parseFloat(String(restaurant.latitude)) : null,
+            longitude: restaurant.longitude != null ? parseFloat(String(restaurant.longitude)) : null,
+            adds: restaurant.adds != null ? parseInt(String(restaurant.adds), 10) : 0,
+            created_at: restaurant.created_at,
             updated_at: restaurant.updated_at,
-            // Formatted/derived properties
             tags: tagsArray,
-            phone_number: phone_number, // Use direct assignment
-            website: website, // Use direct assignment
-            instagram_handle: instagram_handle, // Use direct assignment
-            photo_url: photo_url, // Use direct assignment
+            phone_number: phone_number,
+            website: website,
+            instagram_handle: instagram_handle,
+            photo_url: photo_url,
         };
     } catch (e) {
         console.error(`[RestaurantModel Format Error] Failed to format restaurant row:`, restaurant, e);
@@ -51,6 +47,7 @@ export const formatRestaurantForResponse = (restaurant) => {
 
 // Dish Formatter for Detail View: Also ensure no encoding
 const formatDishForRestaurantDetail = (dish) => {
+    // ... (formatter remains the same) ...
     if (!dish) return null;
     try {
         const tagsArray = Array.isArray(dish.tags)
@@ -60,7 +57,6 @@ const formatDishForRestaurantDetail = (dish) => {
             ? dish.created_at.toISOString()
             : typeof dish.created_at === 'string' ? dish.created_at : undefined;
 
-        // Direct assignment for name
         const name = dish.name || 'Unnamed Dish';
         const restaurant_name = dish.restaurant_name || undefined;
         const city_name = dish.city_name || undefined;
@@ -68,13 +64,12 @@ const formatDishForRestaurantDetail = (dish) => {
 
         return {
             id: parseInt(String(dish.id), 10),
-            name: name, // Use direct assignment
+            name: name,
             adds: dish.adds != null ? parseInt(String(dish.adds), 10) : 0,
-            restaurant_id: dish.restaurant_id ? parseInt(String(dish.restaurant_id), 10) : null, // Handle potential null if join changes
+            restaurant_id: dish.restaurant_id ? parseInt(String(dish.restaurant_id), 10) : null,
             tags: tagsArray,
             created_at: createdAtString,
             restaurant_name: restaurant_name,
-            // Aliases included for compatibility if needed by frontend cards
             city: city_name || null,
             neighborhood: neighborhood_name || null,
             city_name: city_name,
@@ -89,10 +84,9 @@ const formatDishForRestaurantDetail = (dish) => {
 // --- Model Functions ---
 
 export const findRestaurantByIdWithDetails = async (id) => {
+    // ... (implementation remains the same) ...
     const numericId = typeof id === 'string' ? parseInt(id, 10) : id;
     if (isNaN(numericId) || numericId <= 0) { return null; }
-
-    // Use lowercase 'restaurants', 'restauranthashtags', 'hashtags', 'dishes', 'dishhashtags'
     const restaurantQuery = `
       SELECT r.*,
              COALESCE(array_agg(DISTINCT h.name) FILTER (WHERE h.name IS NOT NULL), '{}'::text[]) as tags
@@ -129,7 +123,7 @@ export const findRestaurantByIdWithDetails = async (id) => {
             .map(formatDishForRestaurantDetail) // Use dish formatter
             .filter((dish) => dish !== null); // Filter out nulls
 
-        const restaurantDetail = { // Removed explicit type for JS
+        const restaurantDetail = {
             ...restaurant,
             dishes: dishes,
         };
@@ -141,9 +135,9 @@ export const findRestaurantByIdWithDetails = async (id) => {
 };
 
 export const findRestaurantById = async (id) => {
+    // ... (implementation remains the same) ...
     const numericId = typeof id === 'string' ? parseInt(id, 10) : id;
     if (isNaN(numericId) || numericId <= 0) { return null; }
-    // Use lowercase 'restaurants', 'restauranthashtags', 'hashtags'
     const query = `
         SELECT r.*,
                COALESCE(array_agg(DISTINCT h.name) FILTER (WHERE h.name IS NOT NULL), '{}'::text[]) as tags
@@ -163,8 +157,46 @@ export const findRestaurantById = async (id) => {
 };
 
 export const createRestaurant = async (restaurantData) => {
-    const { name, city_id /* ... other fields from validation ... */ } = restaurantData;
+    // *** ADDED LOGGING ***
+    console.log('[RestaurantModel createRestaurant] Received Data:', JSON.stringify(restaurantData, null, 2));
+    // *********************
+
+    // Destructure and validate required fields first
+    const { name, city_id } = restaurantData;
     if (!name) throw new Error("Restaurant name is required for creation.");
+    // Allow city_id to be null for restaurants (if schema allows), but check if provided
+    if (city_id !== null && (isNaN(Number(city_id)) || Number(city_id) <= 0)) {
+        throw new Error("If city_id is provided, it must be a positive integer.");
+    }
+
+    // *** ADDED LOGGING: Log extracted/defaulted values ***
+    const neighborhood_id = restaurantData.neighborhood_id ?? null;
+    const city_name = restaurantData.city_name ?? null;
+    const neighborhood_name = restaurantData.neighborhood_name ?? null;
+    const address = restaurantData.address ?? null;
+    const google_place_id = restaurantData.google_place_id ?? null;
+    const latitude = restaurantData.latitude ?? null;
+    const longitude = restaurantData.longitude ?? null;
+    const phone_number = restaurantData.phone_number ?? null;
+    const website = restaurantData.website ?? null;
+    const instagram_handle = restaurantData.instagram_handle ?? null;
+    const photo_url = restaurantData.photo_url ?? null;
+
+    console.log('[RestaurantModel createRestaurant] Values Prepared for Insert:');
+    console.log(`  name: ${name}`);
+    console.log(`  city_id: ${city_id ?? 'NULL'}`); // Use null if not provided
+    console.log(`  neighborhood_id: ${neighborhood_id ?? 'NULL'}`);
+    console.log(`  city_name: ${city_name ?? 'NULL'}`);
+    console.log(`  neighborhood_name: ${neighborhood_name ?? 'NULL'}`);
+    console.log(`  address: ${address ?? 'NULL'}`);
+    console.log(`  google_place_id: ${google_place_id ?? 'NULL'}`);
+    console.log(`  latitude: ${latitude ?? 'NULL'}`);
+    console.log(`  longitude: ${longitude ?? 'NULL'}`);
+    console.log(`  phone_number: ${phone_number ?? 'NULL'}`);
+    console.log(`  website: ${website ?? 'NULL'}`);
+    console.log(`  instagram_handle: ${instagram_handle ?? 'NULL'}`);
+    console.log(`  photo_url: ${photo_url ?? 'NULL'}`);
+    // ****************************************************
 
     // Use lowercase 'restaurants'
     const query = `
@@ -173,16 +205,17 @@ export const createRestaurant = async (restaurantData) => {
         ON CONFLICT (name, city_id) DO NOTHING
         RETURNING *;
      `;
-     // Ensure all params match placeholders
+     // Ensure all params match placeholders and use processed values
     const params = [
-        name, city_id ?? null, restaurantData.neighborhood_id ?? null, restaurantData.city_name ?? null, restaurantData.neighborhood_name ?? null,
-        restaurantData.address ?? null, restaurantData.google_place_id ?? null, restaurantData.latitude ?? null, restaurantData.longitude ?? null,
-        restaurantData.phone_number ?? null, restaurantData.website ?? null, restaurantData.instagram_handle ?? null, restaurantData.photo_url ?? null
+        name, city_id ?? null, neighborhood_id, city_name, neighborhood_name,
+        address, google_place_id, latitude, longitude,
+        phone_number, website, instagram_handle, photo_url
     ];
     try {
         const result = await db.query(query, params);
         if (result.rows.length === 0) {
             // Handle conflict or fetch existing
+            console.warn(`[RestaurantModel createRestaurant] ON CONFLICT triggered for name "${name}", city_id ${city_id}. Fetching existing.`);
             const existingQuery = `
                 SELECT r.*, COALESCE(array_agg(DISTINCT h.name) FILTER (WHERE h.name IS NOT NULL), '{}'::text[]) as tags
                 FROM restaurants r
@@ -206,12 +239,12 @@ export const createRestaurant = async (restaurantData) => {
 };
 
 export const updateRestaurant = async (id, restaurantData) => {
+    // ... (implementation remains the same) ...
     const numericId = typeof id === 'string' ? parseInt(id, 10) : id;
     if (isNaN(numericId) || numericId <= 0) {
         console.warn(`[RestaurantModel Update] Invalid ID: ${id}`);
         return null;
     }
-    // console.log(`[RestaurantModel] Updating restaurant ID: ${numericId}`, restaurantData); // Keep log
 
     const fieldsToSet = [];
     const values = [];
@@ -221,7 +254,6 @@ export const updateRestaurant = async (id, restaurantData) => {
         if (value !== undefined) {
             fieldsToSet.push(`"${dbField}" = $${paramIndex++}`); // Keep column names quoted
             let finalValue = value;
-            // Type handling (ensure numbers/nulls are correct)
             if (dbField === 'city_id' || dbField === 'neighborhood_id') {
                  finalValue = (value === '' || value === null) ? null : Number(value);
                  if (finalValue !== null && isNaN(finalValue)) throw new Error(`Invalid numeric value for ${dbField}.`);
@@ -235,7 +267,6 @@ export const updateRestaurant = async (id, restaurantData) => {
         }
     };
 
-    // Add all potentially updatable fields
     addField('name', restaurantData.name);
     addField('city_id', restaurantData.city_id);
     addField('neighborhood_id', restaurantData.neighborhood_id);
@@ -252,17 +283,14 @@ export const updateRestaurant = async (id, restaurantData) => {
 
     if (fieldsToSet.length === 0) {
         console.warn(`[RestaurantModel Update] No changed fields provided for update on restaurant ${numericId}.`);
-        return findRestaurantById(numericId); // Fetch and return formatted current data
+        return findRestaurantById(numericId);
     }
 
     fieldsToSet.push(`"updated_at" = NOW()`);
     const setClause = fieldsToSet.join(', ');
-
-    // Use lowercase, unquoted table name 'restaurants'
     const query = `UPDATE restaurants SET ${setClause} WHERE id = $${paramIndex} RETURNING id;`;
     values.push(numericId);
 
-    // Keep logging before query execution
     console.log(`[RestaurantModel Update] Executing SQL for ID ${numericId}:`);
     console.log("   QUERY:", query);
     console.log("   PARAMS:", values);
@@ -271,31 +299,30 @@ export const updateRestaurant = async (id, restaurantData) => {
         const result = await db.query(query, values);
         if (result.rowCount === 0) {
             console.warn(`[RestaurantModel Update] Restaurant with ID ${numericId} not found or no rows updated.`);
-            const exists = await findRestaurantById(numericId); // Check if exists
-            return exists ?? null; // Return formatted data if exists, else null
+            const exists = await findRestaurantById(numericId);
+            return exists ?? null;
         }
         console.log(`[RestaurantModel Update] Successfully updated ID ${numericId}. Refetching...`);
-        return findRestaurantById(result.rows[0].id); // Refetch formatted full data on success
+        return findRestaurantById(result.rows[0].id);
     } catch (error) {
         console.error(`[RestaurantModel updateRestaurant] Error updating restaurant ${numericId}:`, error);
-        // Specific error handling (keep as is)
         if (error?.code === '23505') { throw new Error(`Update failed: Value conflicts with an existing record.`); }
         if (error?.code === '23503') { throw new Error('Update failed: Invalid City or Neighborhood ID provided.'); }
-        throw error; // Re-throw other errors
+        throw error;
     }
 };
 
 export const deleteRestaurant = async (id) => {
+    // ... (implementation remains the same) ...
      const numericId = typeof id === 'string' ? parseInt(id, 10) : id;
      if (isNaN(numericId) || numericId <= 0) { return false; }
-     // Use lowercase 'restaurants'
     const query = 'DELETE FROM restaurants WHERE id = $1 RETURNING id';
     try {
         const result = await db.query(query, [numericId]);
         return (result.rowCount ?? 0) > 0;
     } catch (error) {
         console.error(`[RestaurantModel deleteRestaurant] Error deleting restaurant ${numericId}:`, error);
-        if (error?.code === '23503') { // FK violation
+        if (error?.code === '23503') {
             throw new Error(`Cannot delete restaurant: It is referenced by other items (e.g., dishes).`);
         }
         throw error;

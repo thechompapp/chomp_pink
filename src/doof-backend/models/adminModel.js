@@ -12,6 +12,9 @@ import * as NeighborhoodModel from './neighborhoodModel.js';
 import * as SubmissionModel from './submissionModel.js';
 import * as CityModel from './cityModel.js'; // Import CityModel
 
+// *** ADDED: Import zipcode lookup function ***
+import { findNeighborhoodByZipcode } from './neighborhoodModel.js';
+
 // *** VERIFY THIS ARRAY ***
 const ALLOWED_TYPES = ['submissions', 'restaurants', 'dishes', 'lists', 'hashtags', 'users', 'neighborhoods', 'cities'];
 const typeToTable = {
@@ -37,8 +40,9 @@ async function addTagsToItem(client, itemType, itemId, tags) {
     for (const tagName of tags) {
         const tagId = foundTagsMap.get(tagName);
         if (tagId) {
+            // Corrected template literal syntax
             const insertQuery = `
-                INSERT INTO <span class="math-inline">\{junctionTable\} \(</span>{itemIdColumn}, hashtag_id)
+                INSERT INTO ${junctionTable} (${itemIdColumn}, hashtag_id)
                 VALUES ($1, $2)
                 ON CONFLICT DO NOTHING;
             `;
@@ -52,6 +56,7 @@ async function addTagsToItem(client, itemType, itemId, tags) {
 
 
 export const createResource = async (resourceType, createData, userId, userHandle) => {
+    // ... (createResource implementation remains the same) ...
     console.log(`[AdminModel createResource] Type: ${resourceType}, Data:`, createData);
 
     // *** VERIFY 'cities' CASE IN SWITCH ***
@@ -118,7 +123,8 @@ export const createResource = async (resourceType, createData, userId, userHandl
 };
 
 export const updateResource = async (resourceType, id, updateData, userId) => {
-    console.log(`[AdminModel updateResource] Type: ${resourceType}, ID: ${id}, Data:`, updateData);
+    // ... (updateResource implementation remains the same) ...
+     console.log(`[AdminModel updateResource] Type: ${resourceType}, ID: ${id}, Data:`, updateData);
 
     if (Object.keys(updateData).length === 0) {
         console.warn(`[AdminModel updateResource] No data provided for update.`);
@@ -168,6 +174,7 @@ export const updateResource = async (resourceType, id, updateData, userId) => {
 
 // *** VERIFY 'cities' IS IN allowedTables ***
 export const deleteResourceById = async (tableName, id) => {
+    // ... (deleteResourceById implementation remains the same) ...
     const allowedTables = ['restaurants', 'dishes', 'lists', 'submissions', 'users', 'hashtags', 'neighborhoods', 'cities'];
     if (!allowedTables.includes(tableName)) {
         throw new Error(`Invalid table name: ${tableName}. Allowed tables: ${allowedTables.join(', ')}`);
@@ -186,11 +193,10 @@ export const deleteResourceById = async (tableName, id) => {
 export const getSubmissions = SubmissionModel.findSubmissionsByStatus;
 export const updateSubmissionStatus = SubmissionModel.updateSubmissionStatus;
 
-// --- Bulk Add Function --- (Keep as before)
+// --- Bulk Add Function ---
 export const bulkAddItems = async (items) => {
-   // ... (bulk add implementation) ...
     const client = await db.getClient();
-    const results = { processedCount: 0, addedCount: 0, skippedCount: 0, errorCount: 0, details: [] }; // Added errorCount
+    const results = { processedCount: 0, addedCount: 0, skippedCount: 0, errorCount: 0, details: [] };
 
     try {
         await client.query('BEGIN');
@@ -202,19 +208,82 @@ export const bulkAddItems = async (items) => {
             let status = 'skipped';
             let itemCityId = item.city_id;
             let itemNeighborhoodId = item.neighborhood_id;
+            let finalNeighborhoodName = item.neighborhood; // Start with provided name
 
             try {
-                // --- Location Lookups (Restaurant/Neighborhood ONLY) ---
+                // --- Location Lookups (Restaurant ONLY) ---
                 if (item.type === 'restaurant') {
+                    // 1. City Lookup (by name if ID not provided)
                     if (!itemCityId && item.city) {
                         const cityRes = await client.query('SELECT id FROM cities WHERE name ILIKE $1 LIMIT 1', [item.city]);
-                        if (cityRes.rowCount > 0) itemCityId = cityRes.rows[0].id;
-                        else console.warn(`[BulkAdd] City '${item.city}' not found.`);
+                        if (cityRes.rowCount > 0) {
+                            itemCityId = cityRes.rows[0].id;
+                            console.log(`[BulkAdd] Looked up City ID ${itemCityId} for "${item.city}"`);
+                        } else {
+                             console.warn(`[BulkAdd] City '${item.city}' not found.`);
+                             // Decide how to handle: skip item or proceed without city?
+                             // Throwing an error is safer to ensure data integrity if city is required
+                             throw new Error(`City '${item.city}' not found. Cannot add restaurant '${item.name}'.`);
+                        }
+                    } else if (itemCityId) {
+                        // Verify provided city_id exists
+                         const cityCheckRes = await client.query('SELECT id FROM cities WHERE id = $1', [itemCityId]);
+                         if (cityCheckRes.rowCount === 0) {
+                             throw new Error(`Provided City ID ${itemCityId} does not exist. Cannot add restaurant '${item.name}'.`);
+                         }
+                    } else if (!itemCityId && !item.city) {
+                         // City is mandatory for restaurants (due to unique constraint usually)
+                         throw new Error(`City name or ID is required for restaurant '${item.name}'.`);
                     }
-                    if (itemCityId && !itemNeighborhoodId && item.neighborhood) {
+
+                    // 2. Neighborhood Lookup (Prioritize Zipcode if possible)
+                    const address = item.address || item.location; // Use address or location field
+                    const zipcodeMatch = typeof address === 'string' ? address.match(/\b(\d{5})\b/) : null;
+                    const zipcode = zipcodeMatch ? zipcodeMatch[1] : null;
+                    let foundNeighborhoodByZip = null;
+
+                    if (zipcode && itemCityId) {
+                         console.log(`[BulkAdd] Zipcode ${zipcode} found for "${item.name}". Looking up neighborhood...`);
+                         try {
+                            foundNeighborhoodByZip = await findNeighborhoodByZipcode(zipcode); // Use the imported function
+                            if (foundNeighborhoodByZip) {
+                                if (Number(foundNeighborhoodByZip.city_id) === Number(itemCityId)) {
+                                    console.log(`[BulkAdd] Found Neighborhood via zipcode ${zipcode}: ID ${foundNeighborhoodByZip.id}, Name: ${foundNeighborhoodByZip.name}`);
+                                    itemNeighborhoodId = foundNeighborhoodByZip.id;
+                                    finalNeighborhoodName = foundNeighborhoodByZip.name; // Override name from input
+                                } else {
+                                    console.warn(`[BulkAdd] Zipcode ${zipcode} lookup returned neighborhood ${foundNeighborhoodByZip.name} but city ID ${foundNeighborhoodByZip.city_id} mismatch (expected ${itemCityId}). Ignoring.`);
+                                    foundNeighborhoodByZip = null; // Discard mismatch
+                                }
+                            } else {
+                                console.log(`[BulkAdd] No neighborhood found for zipcode ${zipcode}.`);
+                            }
+                         } catch (zipError) {
+                             console.error(`[BulkAdd] Zipcode lookup error for ${zipcode}:`, zipError);
+                             // Continue, fallback to name lookup
+                         }
+                    }
+
+                    // 3. Fallback: Neighborhood Lookup (by name, only if not found by zip and name provided)
+                    if (!foundNeighborhoodByZip && !itemNeighborhoodId && item.neighborhood && itemCityId) {
                         const nbRes = await client.query('SELECT id FROM neighborhoods WHERE name ILIKE $1 AND city_id = $2 LIMIT 1', [item.neighborhood, itemCityId]);
-                        if (nbRes.rowCount > 0) itemNeighborhoodId = nbRes.rows[0].id;
-                         else console.warn(`[BulkAdd] Neighborhood '${item.neighborhood}' not found in City ID ${itemCityId}.`);
+                        if (nbRes.rowCount > 0) {
+                            itemNeighborhoodId = nbRes.rows[0].id;
+                            finalNeighborhoodName = item.neighborhood; // Keep original name if found this way
+                            console.log(`[BulkAdd] (Fallback) Found Neighborhood ID ${itemNeighborhoodId} by name "${item.neighborhood}"`);
+                        } else {
+                             console.warn(`[BulkAdd] (Fallback) Neighborhood '${item.neighborhood}' not found in City ID ${itemCityId}. Setting neighborhood to NULL.`);
+                             itemNeighborhoodId = null;
+                             finalNeighborhoodName = null;
+                        }
+                    } else if (!foundNeighborhoodByZip) {
+                        // If no zip lookup and no name provided, or ID already set, ensure name matches ID or is null
+                        if (itemNeighborhoodId) {
+                            const nbCheck = await client.query('SELECT name FROM neighborhoods WHERE id = $1', [itemNeighborhoodId]);
+                            finalNeighborhoodName = nbCheck.rows[0]?.name || null;
+                        } else {
+                            finalNeighborhoodName = null; // Ensure null if ID is null
+                        }
                     }
                 }
                 // --- End Location Lookups ---
@@ -222,23 +291,48 @@ export const bulkAddItems = async (items) => {
                 // --- Resource Creation ---
                 const createPayload = {
                     ...item, // Spread original item data
-                    city_id: itemCityId, // Use potentially looked-up ID
-                    neighborhood_id: itemNeighborhoodId, // Use potentially looked-up ID
+                    city_id: itemCityId, // Use potentially looked-up/verified ID
+                    neighborhood_id: itemNeighborhoodId, // Use potentially looked-up/verified ID
+                    city_name: item.city, // Pass original city name for restaurants table column
+                    neighborhood_name: finalNeighborhoodName, // Pass final determined name for restaurants table column
+                    // Ensure address/location are passed correctly
+                    address: item.address || item.location,
                 };
-                // Remove potentially conflicting fields before calling createResource
-                delete createPayload.city;
-                delete createPayload.neighborhood;
-                // If type is 'dish', remove restaurant location fields
-                 if (item.type === 'dish') {
-                     delete createPayload.location;
-                     delete createPayload.place_id;
-                     delete createPayload.latitude;
-                     delete createPayload.longitude;
-                 }
 
-                // Call the appropriate create function via createResource (which uses models)
-                // This handles the actual INSERT logic and conflict checking
-                addedItem = await createResource(item.type, createPayload); // Pass looked-up IDs
+                // Clean up fields not directly used by createResource or specific models
+                delete createPayload.city; // Already handled by city_id/city_name
+                delete createPayload.neighborhood; // Already handled by neighborhood_id/neighborhood_name
+                delete createPayload.location; // Use 'address' field
+
+                // If type is 'dish', ensure only relevant fields are passed
+                if (item.type === 'dish') {
+                    // Verify restaurant_id exists for dishes
+                    if (!item.restaurant_id && item.restaurant_name) {
+                        // Attempt to lookup restaurant ID by name (assuming unique name per city or handle appropriately)
+                        console.warn(`[BulkAdd] Dish "${item.name}" missing restaurant_id. Attempting lookup by name "${item.restaurant_name}". This might be ambiguous.`);
+                        // Add lookup logic here if necessary, otherwise throw error if ID is mandatory
+                        throw new Error(`Restaurant ID is required for dish "${item.name}" in bulk add.`);
+                    } else if (!item.restaurant_id && !item.restaurant_name) {
+                         throw new Error(`Restaurant ID or Name is required for dish "${item.name}" in bulk add.`);
+                    }
+                    createPayload.restaurant_id = Number(item.restaurant_id); // Ensure number
+                    // Remove restaurant-specific fields not needed for dish creation
+                    delete createPayload.address;
+                    delete createPayload.google_place_id;
+                    delete createPayload.latitude;
+                    delete createPayload.longitude;
+                    delete createPayload.phone_number;
+                    delete createPayload.website;
+                    delete createPayload.instagram_handle;
+                    delete createPayload.photo_url;
+                    delete createPayload.city_id;
+                    delete createPayload.city_name;
+                    delete createPayload.neighborhood_id;
+                    delete createPayload.neighborhood_name;
+                }
+
+                // Call createResource which handles DB insertion and conflict checking
+                addedItem = await createResource(item.type, createPayload);
 
                 if (addedItem) {
                     status = 'added';
@@ -248,7 +342,7 @@ export const bulkAddItems = async (items) => {
                         await addTagsToItem(client, item.type, addedItem.id, item.tags);
                     }
                 } else {
-                    status = 'skipped'; // Assume skipped if createResource returns null (e.g., conflict)
+                    status = 'skipped';
                     reason = `${item.type.charAt(0).toUpperCase() + item.type.slice(1)} likely already exists.`;
                     results.skippedCount++;
                 }
