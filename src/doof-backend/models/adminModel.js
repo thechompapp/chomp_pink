@@ -12,35 +12,36 @@ import * as NeighborhoodModel from './neighborhoodModel.js';
 import * as SubmissionModel from './submissionModel.js';
 import * as CityModel from './cityModel.js'; // Import CityModel
 
-// *** ADDED: Import zipcode lookup function ***
+// Import zipcode lookup function
 import { findNeighborhoodByZipcode } from './neighborhoodModel.js';
 
-// *** VERIFY THIS ARRAY ***
 const ALLOWED_TYPES = ['submissions', 'restaurants', 'dishes', 'lists', 'hashtags', 'users', 'neighborhoods', 'cities'];
 const typeToTable = {
     submissions: 'submissions', restaurants: 'restaurants', dishes: 'dishes',
     lists: 'lists', hashtags: 'hashtags', users: 'users', neighborhoods: 'neighborhoods',
-    cities: 'cities' // *** VERIFY THIS MAPPING ***
+    cities: 'cities'
 };
 
-// Helper function to add tags (no TS needed)
+// Helper function to add tags
 async function addTagsToItem(client, itemType, itemId, tags) {
    // ... (function body remains the same) ...
     if (!tags || tags.length === 0) return;
+    const singularItemType = itemType.endsWith('s') && itemType !== 'dishes' ? itemType.slice(0, -1) : itemType; // Handle plural from generic routes
 
     const tagPlaceholders = tags.map((_, i) => `$${i + 1}`).join(',');
     const findTagsQuery = `SELECT id, name FROM hashtags WHERE name = ANY($1::text[])`;
     const foundTagsResult = await client.query(findTagsQuery, [tags]);
     const foundTagsMap = new Map(foundTagsResult.rows.map(row => [row.name, row.id]));
 
-    const junctionTable = itemType === 'restaurant' ? 'restauranthashtags' : 'dishhashtags';
-    const itemIdColumn = itemType === 'restaurant' ? 'restaurant_id' : 'dish_id';
+    // Use singular type to determine junction table/column
+    const junctionTable = singularItemType === 'restaurant' ? 'restauranthashtags' : 'dishhashtags';
+    const itemIdColumn = singularItemType === 'restaurant' ? 'restaurant_id' : 'dish_id';
+
 
     const inserts = [];
     for (const tagName of tags) {
         const tagId = foundTagsMap.get(tagName);
         if (tagId) {
-            // Corrected template literal syntax
             const insertQuery = `
                 INSERT INTO ${junctionTable} (${itemIdColumn}, hashtag_id)
                 VALUES ($1, $2)
@@ -56,21 +57,36 @@ async function addTagsToItem(client, itemType, itemId, tags) {
 
 
 export const createResource = async (resourceType, createData, userId, userHandle) => {
-    // ... (createResource implementation remains the same) ...
-    console.log(`[AdminModel createResource] Type: ${resourceType}, Data:`, createData);
+    // Previous marker log - can be removed now if desired
+    // console.log(`\n\n*** ENTERING createResource - VERSION CHECK (Log added ${new Date().toISOString()}) ***\n\n`);
+    console.log(`[AdminModel createResource] Type received: ${resourceType}, Data:`, createData);
 
-    // *** VERIFY 'cities' CASE IN SWITCH ***
+    // Explicit check logs - can be removed now if desired
+    // const targetCase = 'restaurants';
+    // console.log(`[AdminModel createResource] Explicit Check: Comparing resourceType with targetCase...`);
+    // console.log(`   > resourceType        (JSON): ${JSON.stringify(resourceType)}`);
+    // console.log(`   > targetCase ('restaurants') (JSON): ${JSON.stringify(targetCase)}`);
+    // console.log(`   > Strict Equality (===): ${resourceType === targetCase}`);
+    // console.log(`   > resourceType.length: ${resourceType?.length}`);
+    // console.log(`   > targetCase.length:   ${targetCase.length}`);
+
+    // *** FIXED SWITCH TO HANDLE SINGULAR and PLURAL ***
     switch (resourceType) {
-        case 'restaurants':
-            // Assume createRestaurant handles partial data validation
+        case 'restaurant': // Handle singular from bulk add
+        case 'restaurants': // Handle plural from generic routes
+            console.log(`[AdminModel createResource] Routing to RestaurantModel.`);
             return RestaurantModel.createRestaurant(createData);
-        case 'dishes':
+        case 'dish': // Handle singular from bulk add
+        case 'dishes': // Handle plural from generic routes
+            console.log(`[AdminModel createResource] Routing to DishModel.`);
             if (!createData.name || typeof createData.restaurant_id !== 'number') {
                  throw new Error("Dish name and valid restaurant_id are required.");
             }
-            // Assume createDish validates internally or expects specific fields
+            // Ensure only necessary data is passed for dish creation
             return DishModel.createDish({ name: createData.name, restaurant_id: createData.restaurant_id });
+        case 'list': // Assuming 'lists' is always plural from generic routes if supported
         case 'lists':
+            console.log(`[AdminModel createResource] Routing to ListModel.`);
             if (!createData.name || !userId || !userHandle) {
                 throw new Error("List name, userId, and userHandle are required to create a list.");
             }
@@ -86,13 +102,15 @@ export const createResource = async (resourceType, createData, userId, userHandl
                  city_name: createData.city_name
              };
             return ListModel.createList(listPayload, userId, userHandle);
+        case 'hashtag':
         case 'hashtags':
+             console.log(`[AdminModel createResource] Routing to Hashtag logic (currently stubbed).`);
              if (!createData.name) throw new Error("Hashtag name is required.");
-             // Assuming HashtagModel.createHashtag exists if needed
-             // return HashtagModel.createHashtag(createData);
-             console.warn(`[AdminModel] Direct hashtag creation via generic route not implemented. Use specific HashtagModel function if available.`);
-             return null;
+             console.warn(`[AdminModel] Direct hashtag creation via generic route not implemented.`);
+             return null; // Or call HashtagModel.createHashtag(createData); if implemented
+        case 'user':
         case 'users':
+            console.log(`[AdminModel createResource] Routing to UserModel.`);
             if (!createData.username || !createData.email || !createData.password) {
                 throw new Error("Username, email, and password are required for user creation.");
             }
@@ -103,7 +121,9 @@ export const createResource = async (resourceType, createData, userId, userHandl
                  passwordHash,
                  createData.account_type // Pass account type if provided
              );
+        case 'neighborhood':
         case 'neighborhoods':
+            console.log(`[AdminModel createResource] Routing to NeighborhoodModel.`);
             if (!createData.name || typeof createData.city_id !== 'number') {
                 throw new Error("Neighborhood name and valid city_id are required.");
             }
@@ -113,17 +133,22 @@ export const createResource = async (resourceType, createData, userId, userHandl
                 zipcode_ranges: createData.zipcode_ranges
             };
              return NeighborhoodModel.createNeighborhood(neighborhoodPayload);
-        case 'cities': // *** ENSURE THIS CASE EXISTS ***
+        case 'city':
+        case 'cities':
+            console.log(`[AdminModel createResource] Routing to CityModel.`);
             if (!createData.name) throw new Error("City name is required.");
-            return CityModel.createCity(createData); // Delegate to CityModel
+            return CityModel.createCity(createData);
         default:
-            console.error(`[AdminModel createResource] Unsupported resource type: ${resourceType}`);
+            // This should now only be hit for truly unsupported types
+            console.error(`[AdminModel createResource] Fallthrough to DEFAULT case. Unsupported resource type: ${resourceType}`);
             throw new Error(`Creation not supported for resource type: ${resourceType}`);
     }
 };
 
+// ... (rest of the file remains the same - updateResource, deleteResourceById, bulkAddItems, etc.) ...
+
 export const updateResource = async (resourceType, id, updateData, userId) => {
-    // ... (updateResource implementation remains the same) ...
+    // ... (implementation remains the same) ...
      console.log(`[AdminModel updateResource] Type: ${resourceType}, ID: ${id}, Data:`, updateData);
 
     if (Object.keys(updateData).length === 0) {
@@ -135,7 +160,7 @@ export const updateResource = async (resourceType, id, updateData, userId) => {
         throw new Error(`Invalid ID provided for update: ${id}`);
     }
 
-    // *** VERIFY 'cities' CASE IN SWITCH ***
+    // Update switch might only need plural, as type comes from URL param typically
     switch (resourceType) {
         case 'restaurants':
             return RestaurantModel.updateRestaurant(numericId, updateData);
@@ -164,7 +189,7 @@ export const updateResource = async (resourceType, id, updateData, userId) => {
                  neighborhoodUpdatePayload.zipcode_ranges = neighborhoodUpdatePayload.zipcode_ranges;
             }
              return NeighborhoodModel.updateNeighborhood(numericId, neighborhoodUpdatePayload);
-        case 'cities': // *** ENSURE THIS CASE EXISTS ***
+        case 'cities':
             return CityModel.updateCity(numericId, updateData); // Delegate to CityModel
         default:
             console.error(`[AdminModel updateResource] Unsupported resource type: ${resourceType}`);
@@ -172,9 +197,8 @@ export const updateResource = async (resourceType, id, updateData, userId) => {
     }
 };
 
-// *** VERIFY 'cities' IS IN allowedTables ***
 export const deleteResourceById = async (tableName, id) => {
-    // ... (deleteResourceById implementation remains the same) ...
+    // ... (implementation remains the same) ...
     const allowedTables = ['restaurants', 'dishes', 'lists', 'submissions', 'users', 'hashtags', 'neighborhoods', 'cities'];
     if (!allowedTables.includes(tableName)) {
         throw new Error(`Invalid table name: ${tableName}. Allowed tables: ${allowedTables.join(', ')}`);
@@ -189,7 +213,7 @@ export const deleteResourceById = async (tableName, id) => {
     return (result.rowCount ?? 0) > 0;
 };
 
-// --- Submission Admin Functions --- (Keep as before - rely on specific submission model)
+// --- Submission Admin Functions ---
 export const getSubmissions = SubmissionModel.findSubmissionsByStatus;
 export const updateSubmissionStatus = SubmissionModel.updateSubmissionStatus;
 
@@ -213,171 +237,119 @@ export const bulkAddItems = async (items) => {
             try {
                 // --- Location Lookups (Restaurant ONLY) ---
                 if (item.type === 'restaurant') {
-                    // 1. City Lookup (by name if ID not provided)
-                    if (!itemCityId && item.city) {
-                        const cityRes = await client.query('SELECT id FROM cities WHERE name ILIKE $1 LIMIT 1', [item.city]);
-                        if (cityRes.rowCount > 0) {
-                            itemCityId = cityRes.rows[0].id;
-                            console.log(`[BulkAdd] Looked up City ID ${itemCityId} for "${item.city}"`);
-                        } else {
-                             console.warn(`[BulkAdd] City '${item.city}' not found.`);
-                             // Decide how to handle: skip item or proceed without city?
-                             // Throwing an error is safer to ensure data integrity if city is required
-                             throw new Error(`City '${item.city}' not found. Cannot add restaurant '${item.name}'.`);
-                        }
-                    } else if (itemCityId) {
-                        // Verify provided city_id exists
-                         const cityCheckRes = await client.query('SELECT id FROM cities WHERE id = $1', [itemCityId]);
-                         if (cityCheckRes.rowCount === 0) {
-                             throw new Error(`Provided City ID ${itemCityId} does not exist. Cannot add restaurant '${item.name}'.`);
-                         }
-                    } else if (!itemCityId && !item.city) {
-                         // City is mandatory for restaurants (due to unique constraint usually)
-                         throw new Error(`City name or ID is required for restaurant '${item.name}'.`);
+                    if (!itemCityId || isNaN(Number(itemCityId)) || Number(itemCityId) <= 0) {
+                         throw new Error(`Invalid or missing city_id for restaurant '${item.name}'.`);
                     }
-
-                    // 2. Neighborhood Lookup (Prioritize Zipcode if possible)
-                    const address = item.address || item.location; // Use address or location field
-                    const zipcodeMatch = typeof address === 'string' ? address.match(/\b(\d{5})\b/) : null;
-                    const zipcode = zipcodeMatch ? zipcodeMatch[1] : null;
-                    let foundNeighborhoodByZip = null;
-
-                    if (zipcode && itemCityId) {
-                         console.log(`[BulkAdd] Zipcode ${zipcode} found for "${item.name}". Looking up neighborhood...`);
-                         try {
-                            foundNeighborhoodByZip = await findNeighborhoodByZipcode(zipcode); // Use the imported function
-                            if (foundNeighborhoodByZip) {
-                                if (Number(foundNeighborhoodByZip.city_id) === Number(itemCityId)) {
-                                    console.log(`[BulkAdd] Found Neighborhood via zipcode ${zipcode}: ID ${foundNeighborhoodByZip.id}, Name: ${foundNeighborhoodByZip.name}`);
-                                    itemNeighborhoodId = foundNeighborhoodByZip.id;
-                                    finalNeighborhoodName = foundNeighborhoodByZip.name; // Override name from input
-                                } else {
-                                    console.warn(`[BulkAdd] Zipcode ${zipcode} lookup returned neighborhood ${foundNeighborhoodByZip.name} but city ID ${foundNeighborhoodByZip.city_id} mismatch (expected ${itemCityId}). Ignoring.`);
-                                    foundNeighborhoodByZip = null; // Discard mismatch
-                                }
-                            } else {
-                                console.log(`[BulkAdd] No neighborhood found for zipcode ${zipcode}.`);
-                            }
-                         } catch (zipError) {
-                             console.error(`[BulkAdd] Zipcode lookup error for ${zipcode}:`, zipError);
-                             // Continue, fallback to name lookup
-                         }
+                    const cityCheckRes = await client.query('SELECT id FROM cities WHERE id = $1', [itemCityId]);
+                    if (cityCheckRes.rowCount === 0) {
+                         throw new Error(`Provided City ID ${itemCityId} does not exist. Cannot add restaurant '${item.name}'.`);
                     }
-
-                    // 3. Fallback: Neighborhood Lookup (by name, only if not found by zip and name provided)
-                    if (!foundNeighborhoodByZip && !itemNeighborhoodId && item.neighborhood && itemCityId) {
-                        const nbRes = await client.query('SELECT id FROM neighborhoods WHERE name ILIKE $1 AND city_id = $2 LIMIT 1', [item.neighborhood, itemCityId]);
-                        if (nbRes.rowCount > 0) {
-                            itemNeighborhoodId = nbRes.rows[0].id;
-                            finalNeighborhoodName = item.neighborhood; // Keep original name if found this way
-                            console.log(`[BulkAdd] (Fallback) Found Neighborhood ID ${itemNeighborhoodId} by name "${item.neighborhood}"`);
-                        } else {
-                             console.warn(`[BulkAdd] (Fallback) Neighborhood '${item.neighborhood}' not found in City ID ${itemCityId}. Setting neighborhood to NULL.`);
-                             itemNeighborhoodId = null;
-                             finalNeighborhoodName = null;
-                        }
-                    } else if (!foundNeighborhoodByZip) {
-                        // If no zip lookup and no name provided, or ID already set, ensure name matches ID or is null
-                        if (itemNeighborhoodId) {
-                            const nbCheck = await client.query('SELECT name FROM neighborhoods WHERE id = $1', [itemNeighborhoodId]);
-                            finalNeighborhoodName = nbCheck.rows[0]?.name || null;
-                        } else {
-                            finalNeighborhoodName = null; // Ensure null if ID is null
-                        }
+                    if (item.neighborhood_id && !isNaN(Number(item.neighborhood_id)) && Number(item.neighborhood_id) > 0) {
+                         itemNeighborhoodId = Number(item.neighborhood_id);
+                         const nbCheck = await client.query('SELECT name FROM neighborhoods WHERE id = $1 AND city_id = $2', [itemNeighborhoodId, itemCityId]);
+                         if (nbCheck.rowCount === 0) {
+                              console.warn(`[BulkAdd] Provided Neighborhood ID ${itemNeighborhoodId} not found or doesn't belong to City ID ${itemCityId}. Setting to NULL.`);
+                              itemNeighborhoodId = null;
+                              finalNeighborhoodName = null;
+                         } else {
+                              finalNeighborhoodName = nbCheck.rows[0].name;
+                         }
+                    } else {
+                         itemNeighborhoodId = null;
+                         finalNeighborhoodName = null;
                     }
                 }
                 // --- End Location Lookups ---
 
-                // --- Resource Creation ---
-                const createPayload = {
-                    ...item, // Spread original item data
-                    city_id: itemCityId, // Use potentially looked-up/verified ID
-                    neighborhood_id: itemNeighborhoodId, // Use potentially looked-up/verified ID
-                    city_name: item.city, // Pass original city name for restaurants table column
-                    neighborhood_name: finalNeighborhoodName, // Pass final determined name for restaurants table column
-                    // Ensure address/location are passed correctly
-                    address: item.address || item.location,
-                };
-
-                // Clean up fields not directly used by createResource or specific models
-                delete createPayload.city; // Already handled by city_id/city_name
-                delete createPayload.neighborhood; // Already handled by neighborhood_id/neighborhood_name
-                delete createPayload.location; // Use 'address' field
-
-                // If type is 'dish', ensure only relevant fields are passed
-                if (item.type === 'dish') {
-                    // Verify restaurant_id exists for dishes
-                    if (!item.restaurant_id && item.restaurant_name) {
-                        // Attempt to lookup restaurant ID by name (assuming unique name per city or handle appropriately)
-                        console.warn(`[BulkAdd] Dish "${item.name}" missing restaurant_id. Attempting lookup by name "${item.restaurant_name}". This might be ambiguous.`);
-                        // Add lookup logic here if necessary, otherwise throw error if ID is mandatory
-                        throw new Error(`Restaurant ID is required for dish "${item.name}" in bulk add.`);
-                    } else if (!item.restaurant_id && !item.restaurant_name) {
-                         throw new Error(`Restaurant ID or Name is required for dish "${item.name}" in bulk add.`);
+                // --- Resource Creation Payload Preparation ---
+                const createPayload = { ...item };
+                if (item.type === 'restaurant') {
+                    createPayload.city_id = itemCityId;
+                    createPayload.neighborhood_id = itemNeighborhoodId;
+                    createPayload.city_name = item.city_name; // Pass original name if needed by model
+                    createPayload.neighborhood_name = finalNeighborhoodName;
+                    // Clean up fields not directly used by createRestaurant
+                    delete createPayload.city;
+                    delete createPayload.neighborhood;
+                    delete createPayload.location;
+                    delete createPayload.restaurant_id;
+                    delete createPayload.restaurant_name;
+                } else if (item.type === 'dish') {
+                    if (!item.restaurant_id || isNaN(Number(item.restaurant_id)) || Number(item.restaurant_id) <= 0) {
+                         throw new Error(`Invalid or missing restaurant_id for dish '${item.name}'.`);
                     }
-                    createPayload.restaurant_id = Number(item.restaurant_id); // Ensure number
-                    // Remove restaurant-specific fields not needed for dish creation
-                    delete createPayload.address;
-                    delete createPayload.google_place_id;
-                    delete createPayload.latitude;
-                    delete createPayload.longitude;
-                    delete createPayload.phone_number;
-                    delete createPayload.website;
-                    delete createPayload.instagram_handle;
-                    delete createPayload.photo_url;
-                    delete createPayload.city_id;
-                    delete createPayload.city_name;
-                    delete createPayload.neighborhood_id;
-                    delete createPayload.neighborhood_name;
+                    createPayload.restaurant_id = Number(item.restaurant_id);
+                     const fieldsToRemove = ['address', 'google_place_id', 'latitude', 'longitude', 'phone_number', 'website', 'instagram_handle', 'photo_url', 'city_id', 'city_name', 'neighborhood_id', 'neighborhood_name', 'zipcode', 'city', 'neighborhood', 'location', 'place_id'];
+                     fieldsToRemove.forEach(f => delete createPayload[f]);
                 }
-
-                // Call createResource which handles DB insertion and conflict checking
+                // Note: We pass item.type (singular) directly to createResource now
                 addedItem = await createResource(item.type, createPayload);
 
                 if (addedItem) {
                     status = 'added';
                     results.addedCount++;
-                    // Add tags if provided and item was added successfully
                     if (Array.isArray(item.tags) && item.tags.length > 0 && (item.type === 'restaurant' || item.type === 'dish')) {
-                        await addTagsToItem(client, item.type, addedItem.id, item.tags);
+                        // Use singular type for addTagsToItem logic if needed
+                         await addTagsToItem(client, item.type, addedItem.id, item.tags);
                     }
                 } else {
                     status = 'skipped';
                     reason = `${item.type.charAt(0).toUpperCase() + item.type.slice(1)} likely already exists.`;
                     results.skippedCount++;
                 }
-                 // --- End Resource Creation ---
 
             } catch (itemError) {
+                // Enhanced Logging
+                 console.error(`[Bulk Add Item Error] Failed processing item: ${JSON.stringify(item)}`);
+                 console.error(`  > Error Message: ${itemError.message}`);
+                 console.error(`  > Error Code: ${itemError.code}`);
+                 console.error(`  > Error Constraint: ${itemError.constraint}`);
+                 console.error(`  > Error Detail: ${itemError.detail}`);
+                 console.error(`  > Error Stack: ${itemError.stack}`);
+
                  let message = 'Unknown error during item processing.';
                  if (itemError instanceof Error) {
                      message = itemError.message;
                  }
-                 console.warn(`[Bulk Add Item Error] Item: ${JSON.stringify(item)}, Error: ${message}`);
                  status = 'error';
-                 reason = message.substring(0, 200); // Truncate long messages
-                 results.errorCount++; // Increment error count
-                 results.skippedCount++; // Also count errors as skipped from adding
+                 reason = message.substring(0, 200);
+                 results.errorCount++;
+                 results.skippedCount++;
             }
 
-            // Record detail for this item
             results.details.push({
                 input: { name: item.name, type: item.type },
                 status,
-                reason: reason || undefined, // Only include reason if there is one
+                reason: reason || undefined,
                 id: addedItem?.id || undefined,
                 type: addedItem ? item.type : undefined,
             });
-        } // End loop through items
+        } // End loop
 
         await client.query('COMMIT');
-        results.message = `Processed ${results.processedCount} items. Added: ${results.addedCount}, Skipped/Existed: ${results.skippedCount}, Errors: ${results.errorCount}.`; // Updated message
+        results.message = `Processed ${results.processedCount} items. Added: ${results.addedCount}, Skipped/Existed: ${results.skippedCount}, Errors: ${results.errorCount}.`;
         return results;
     } catch (err) { // Transaction level error
         await client.query('ROLLBACK').catch(rbErr => console.error("Rollback Error:", rbErr));
         console.error('[AdminModel bulkAddItems] Transaction error:', err);
-        throw new Error('Bulk add operation failed during transaction.');
+        throw new Error(`Bulk add operation failed during transaction. Error: ${err.message || 'Unknown DB error'}`);
     } finally {
         client.release();
+    }
+};
+
+// Get Lookup Table
+export const getLookupTable = async (tableName) => {
+    const allowedLookupTables = ['cities', 'neighborhoods', 'hashtags'];
+    if (!allowedLookupTables.includes(tableName)) {
+        throw new Error(`Lookup not allowed for table: ${tableName}`);
+    }
+    const query = `SELECT id, name FROM ${tableName} ORDER BY name ASC`;
+    try {
+        const result = await db.query(query);
+        return result.rows;
+    } catch (error) {
+        console.error(`[AdminModel getLookupTable] Error fetching lookup for ${tableName}:`, error);
+        throw error;
     }
 };
