@@ -2,5 +2,5 @@
 # Script to start the backend server
 
 echo "Starting Doof backend server..."
-cd src/doof-backend
+cd /doof-backend
 node server.js

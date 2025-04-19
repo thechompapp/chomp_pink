@@ -1,7 +1,9 @@
-/* src/doof-backend/routes/restaurants.js */
+/* /doof-backend/routes/restaurants.js */
+// Patch: Corrected function call from findRestaurantByIdWithDetails to findRestaurantById
+
 import express from 'express';
 import { param, body, validationResult } from 'express-validator';
-import * as RestaurantModel from '../models/restaurantModel.js';
+import * as RestaurantModel from '../models/restaurantModel.js'; // Path relative to this file, still correct after move
 import authMiddleware from '../middleware/auth.js';
 import requireSuperuser from '../middleware/requireSuperuser.js';
 import optionalAuthMiddleware from '../middleware/optionalAuth.js'; // Import if needed for GET
@@ -43,7 +45,8 @@ const validateRestaurantBody = [
 router.get('/:id', validateIdParam, handleValidationErrors, async (req, res, next) => {
     const id = req.params.id;
     try {
-        const restaurantData = await RestaurantModel.findRestaurantByIdWithDetails(id);
+        // *** FIXED: Changed function call to the existing findRestaurantById ***
+        const restaurantData = await RestaurantModel.findRestaurantById(id); //
         if (!restaurantData) {
             res.status(404).json({ success: false, error: 'Restaurant not found' }); // Add success flag
             return;

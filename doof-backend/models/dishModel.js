@@ -1,4 +1,6 @@
-/* src/doof-backend/models/dishModel.js */
+/* main/doof-backend/models/dishModel.js */
+/* ADDED: checkDishExistence function */
+/* Other functions remain unchanged */
 import db from '../db/index.js';
 
 // Formatter (Keep as before)
@@ -36,16 +38,21 @@ export const findDishById = async (id) => {
     const numericId = typeof id === 'string' ? parseInt(id, 10) : id;
     if (isNaN(numericId) || numericId <= 0) { return null; }
      const query = `
-        SELECT d.*, r.name as restaurant_name, r.city_name, r.neighborhood_name,
+        SELECT d.*, r.name as restaurant_name, c.name as city_name, n.name as neighborhood_name,
                COALESCE(array_agg(DISTINCT h.name) FILTER (WHERE h.name IS NOT NULL), '{}'::text[]) as tags
         FROM dishes d
         LEFT JOIN restaurants r ON d.restaurant_id = r.id
+        LEFT JOIN cities c ON r.city_id = c.id
+        LEFT JOIN neighborhoods n ON r.neighborhood_id = n.id
         LEFT JOIN dishhashtags dh ON d.id = dh.dish_id
         LEFT JOIN hashtags h ON dh.hashtag_id = h.id
         WHERE d.id = $1
-        GROUP BY d.id, r.name, r.city_name, r.neighborhood_name;
+        GROUP BY d.id, r.name, c.name, n.name;
      `;
-     try { const result = await db.query(query, [numericId]); return formatDishForResponse(result.rows[0]); }
+     try {
+        const result = await db.query(query, [numericId]);
+        return formatDishForResponse(result.rows[0]); // Assuming formatDishForResponse handles the columns correctly
+    }
      catch (error) { console.error(`[DishModel FindByID] Error fetching dish ${numericId}:`, error); throw error; }
 };
 
@@ -54,19 +61,24 @@ export const findDishById = async (id) => {
 export const findDishesByName = async (name, limit = 20, offset = 0) => {
     const searchPattern = `%${name}%`;
     const query = `
-         SELECT d.*, r.name as restaurant_name, r.city_name, r.neighborhood_name,
+         SELECT d.*, r.name as restaurant_name, c.name as city_name, n.name as neighborhood_name,
                 COALESCE(array_agg(DISTINCT h.name) FILTER (WHERE h.name IS NOT NULL), '{}'::text[]) as tags
          FROM dishes d
          JOIN restaurants r ON d.restaurant_id = r.id
+         LEFT JOIN cities c ON r.city_id = c.id
+         LEFT JOIN neighborhoods n ON r.neighborhood_id = n.id
          LEFT JOIN dishhashtags dh ON d.id = dh.dish_id
          LEFT JOIN hashtags h ON dh.hashtag_id = h.id
          WHERE d.name ILIKE $1
-         GROUP BY d.id, r.name, r.city_name, r.neighborhood_name
+         GROUP BY d.id, r.name, c.name, n.name
          ORDER BY d.adds DESC NULLS LAST, d.name ASC
          LIMIT $2 OFFSET $3;
      `;
      const params = [searchPattern, limit, offset];
-     try { const result = await db.query(query, params); return (result.rows || []).map(formatDishForResponse).filter((d) => d !== null); }
+     try {
+         const result = await db.query(query, params);
+         return (result.rows || []).map(formatDishForResponse).filter((d) => d !== null);
+    }
      catch (error) { console.error(`[DishModel FindByName] Error searching dishes for "${name}":`, error); throw error; }
 };
 
@@ -79,11 +91,26 @@ export const createDish = async (dishData) => {
          ON CONFLICT (name, restaurant_id) DO NOTHING
          RETURNING id;
       `;
-      try { const result = await db.query(query, [dishData.name, dishData.restaurant_id]); if (result.rows.length === 0) { console.warn(`[DishModel Create] Dish "${dishData.name}" likely already exists for restaurant ${dishData.restaurant_id}.`); return null; } return findDishById(parseInt(String(result.rows[0].id), 10)); }
-      catch (error) { console.error(`[DishModel Create] Error creating dish "${dishData.name}":`, error); throw error; }
+      try {
+          const result = await db.query(query, [dishData.name, dishData.restaurant_id]);
+          if (result.rows.length === 0) {
+               console.warn(`[DishModel Create] Dish "${dishData.name}" likely already exists for restaurant ${dishData.restaurant_id}.`);
+               return null; // Indicate conflict/no creation
+            }
+            // Refetch the newly created dish to return the full object
+            return findDishById(parseInt(String(result.rows[0].id), 10));
+        }
+      catch (error) {
+          console.error(`[DishModel Create] Error creating dish "${dishData.name}":`, error);
+          // Handle specific errors like FK violation if needed
+          if (error.code === '23503') { // Foreign key violation (restaurant_id doesn't exist)
+               throw new Error(`Create failed: Restaurant ID ${dishData.restaurant_id} not found.`);
+          }
+          throw error; // Re-throw other errors
+        }
 };
 
-// --- Update Dish ---
+// Update Dish (Keep as before)
 export const updateDish = async (id, dishData) => {
     const numericId = typeof id === 'string' ? parseInt(id, 10) : id;
     if (isNaN(numericId) || numericId <= 0) {
@@ -182,4 +209,33 @@ export const deleteDish = async (id) => {
      const query = 'DELETE FROM dishes WHERE id = $1 RETURNING id';
      try { const result = await db.query(query, [numericId]); return (result.rowCount ?? 0) > 0; }
      catch (error) { console.error(`[DishModel Delete] Error deleting dish ${numericId}:`, error); throw error; }
+};
+
+/**
+ * Checks if a dish with a specific name already exists for a given restaurant.
+ * @param {string} name - The name of the dish.
+ * @param {number} restaurantId - The ID of the restaurant.
+ * @returns {Promise<boolean>} - True if the dish exists for the restaurant, false otherwise.
+ */
+export const checkDishExistence = async (name, restaurantId) => {
+    if (!name || !restaurantId || isNaN(Number(restaurantId)) || Number(restaurantId) <= 0) {
+        console.warn(`[DishModel checkDishExistence] Invalid input: Name and valid restaurantId required.`, { name, restaurantId });
+        return false; // Or throw an error? Returning false might be safer for verification flow.
+    }
+
+    const query = `
+        SELECT 1
+        FROM dishes
+        WHERE name = $1 AND restaurant_id = $2
+        LIMIT 1;
+    `;
+    try {
+        const result = await db.query(query, [name, Number(restaurantId)]);
+        return (result.rowCount ?? 0) > 0;
+    } catch (error) {
+        console.error(`[DishModel checkDishExistence] Error checking dish "${name}" for restaurant ${restaurantId}:`, error);
+        // Decide how to handle DB errors during a check. Throwing might halt bulk add.
+        // Returning false might lead to a failed insert later. Let's throw.
+        throw error;
+    }
 };

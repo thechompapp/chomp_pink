@@ -1,5 +1,6 @@
-/* src/services/dishService.js */
-/* REMOVED: All TypeScript syntax */
+/* main/src/services/dishService.js */
+/* ADDED: verifyDishExists function */
+/* Other functions remain unchanged */
 import apiClient, { ApiError } from '@/services/apiClient'; // Use .js extension and import ApiError
 
 // REMOVED: import type { DishDetail } from '@/types'; // Removed type import
@@ -64,6 +65,44 @@ const getDishDetails = async (dishId) => { // REMOVED: Type hints & Promise retu
     }
 };
 
+/**
+ * Checks if a dish with a specific name exists for a given restaurant ID.
+ * @param {string} name - The name of the dish.
+ * @param {number|string} restaurantId - The ID of the restaurant.
+ * @returns {Promise<boolean>} - True if the dish exists, false otherwise or on error.
+ */
+const verifyDishExists = async (name, restaurantId) => {
+    const numericRestId = Number(restaurantId);
+    if (!name || !restaurantId || isNaN(numericRestId) || numericRestId <= 0) {
+        console.warn('[DishService verifyDishExists] Invalid input:', { name, restaurantId });
+        return false; // Cannot verify with invalid input
+    }
+
+    const queryParams = new URLSearchParams({
+        name: name,
+        restaurant_id: String(numericRestId),
+    });
+    const endpoint = `/api/dishes/verify?${queryParams.toString()}`;
+    const context = `DishService Verify Existence`;
+
+    try {
+        const response = await apiClient(endpoint, context);
+
+        // Check for success and the expected data structure
+        if (response.success && response.data && typeof response.data.exists === 'boolean') {
+            return response.data.exists;
+        } else {
+            console.error(`[${context}] Failed or invalid response:`, response);
+            return false; // Assume not found or error occurred if response is invalid
+        }
+    } catch (error) {
+        console.error(`[${context}] API call error:`, error);
+        return false; // Assume not found on API error
+    }
+};
+
+
 export const dishService = {
     getDishDetails,
+    verifyDishExists, // Export the new function
 };

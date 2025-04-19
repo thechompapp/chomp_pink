@@ -1,4 +1,6 @@
-/* src/doof-backend/routes/dishes.js */
+/* main/doof-backend/routes/dishes.js */
+/* ADDED: /verify route */
+/* Other routes remain unchanged */
 import express from 'express';
 import { param, query as queryValidator, body, validationResult } from 'express-validator';
 import * as DishModel from '../models/dishModel.js';
@@ -45,6 +47,20 @@ const validateGetDishesQuery = [
         .toInt(),
 ];
 
+// --- ADDED: Validation for /verify route ---
+const validateVerifyQuery = [
+    queryValidator('name')
+        .trim()
+        .notEmpty().withMessage('Dish name query parameter is required')
+        .isLength({ max: 255 })
+        .escape(),
+    queryValidator('restaurant_id')
+        .notEmpty().withMessage('Restaurant ID query parameter is required')
+        .isInt({ gt: 0 }).withMessage('Valid Restaurant ID query parameter is required')
+        .toInt(),
+];
+// --- END ADDED ---
+
 const validateDishBody = [
     body('name')
         .trim()
@@ -75,6 +91,32 @@ router.get('/', validateGetDishesQuery, handleValidationErrors, async (req, res,
     }
 });
 
+// --- ADDED: Dish Verification Route ---
+// GET /api/dishes/verify?name=...&restaurant_id=... (Check if dish exists for restaurant)
+// Requires auth as it's likely used internally by admin tools like Bulk Add
+router.get(
+    '/verify',
+    authMiddleware, // Protect this endpoint
+    validateVerifyQuery,
+    handleValidationErrors,
+    async (req, res, next) => {
+        // Destructure validated query parameters
+        const { name, restaurant_id } = req.query;
+
+        try {
+            const exists = await DishModel.checkDishExistence(name, restaurant_id);
+            res.json({ success: true, data: { exists: exists } });
+        } catch (err) {
+            console.error(`[Dishes GET /verify] Error checking dish existence for name "${name}" and restaurant ${restaurant_id}:`, err);
+            // Don't expose detailed DB errors, send a generic server error
+            res.status(500).json({ success: false, error: 'Failed to verify dish existence.' });
+            // Or use next(err) if a global handler sends JSON errors
+            // next(err);
+        }
+    }
+);
+// --- END ADDED ---
+
 // GET /api/dishes/:id (Get Dish Details) - Public ok?
 router.get('/:id', validateIdParam, handleValidationErrors, async (req, res, next) => {
     const dishId = req.params.id;
@@ -95,27 +137,35 @@ router.get('/:id', validateIdParam, handleValidationErrors, async (req, res, nex
 router.post('/', authMiddleware, requireSuperuser, validateDishBody, handleValidationErrors, async (req, res, next) => {
     const { name, restaurant_id } = req.body;
     try {
+        // Restaurant existence check (optional optimization, createDish model also handles FK)
         const restaurantExists = await RestaurantModel.findRestaurantById(restaurant_id);
         if (!restaurantExists) {
-            // console.warn(`[Dishes POST /] Restaurant ID ${restaurant_id} not found.`); // Optional
             res.status(400).json({ success: false, error: `Restaurant with ID ${restaurant_id} not found.` });
             return;
         }
+
         const newDish = await DishModel.createDish({ name, restaurant_id });
+
         if (!newDish) {
-             // console.warn(`[Dishes POST /] Dish "${name}" likely already exists for restaurant ${restaurant_id}.`); // Optional
-             // No need to re-check existence here, model already handled CONFLICT
+             // createDish returns null on conflict
              res.status(409).json({ success: false, error: 'Dish with this name already exists for this restaurant.' });
              return;
         }
         res.status(201).json({ success: true, data: newDish }); // Wrap response
+
     } catch (err) {
         console.error('[Dishes POST /] Error creating dish:', err);
-       if (err.code === '23505') { // Unique constraint
-          res.status(409).json({ success: false, error: "Dish with this name already exists for this restaurant." });
-          return;
-       }
-        next(err);
+        // Handle potential errors from createDish (e.g., FK violation if check above was skipped)
+        if (err.message?.includes('Restaurant ID') && err.message?.includes('not found')) {
+            res.status(400).json({ success: false, error: err.message });
+            return;
+        }
+        // Handle unique constraint errors if createDish didn't return null somehow (shouldn't happen with current model)
+        if (err.code === '23505') {
+            res.status(409).json({ success: false, error: "Dish with this name already exists for this restaurant." });
+            return;
+        }
+        next(err); // Pass other errors to global handler
     }
 });
 
@@ -133,34 +183,38 @@ router.put('/:id', authMiddleware, requireSuperuser, validateIdParam,
         return res.status(400).json({ success: false, error: "No update fields provided." });
     }
     try {
+        // Optional: Check if new restaurant_id exists if provided
         if (updateData.restaurant_id) {
             const restaurantExists = await RestaurantModel.findRestaurantById(updateData.restaurant_id);
             if (!restaurantExists) {
-                // console.warn(`[Dishes PUT /:id] Cannot update dish ${dishId}: New restaurant ID ${updateData.restaurant_id} not found.`); // Optional
                 res.status(400).json({ success: false, error: `Restaurant with ID ${updateData.restaurant_id} not found.` });
                 return;
             }
         }
+
         const updatedDish = await DishModel.updateDish(dishId, updateData);
+
         if (!updatedDish) {
+            // Check if the dish itself exists
             const dishExists = await DishModel.findDishById(dishId);
             if (!dishExists) {
                 res.status(404).json({ success: false, error: 'Dish not found.' });
             } else {
-                // console.warn(`[Dishes PUT /:id] Update for dish ${dishId} returned null.`); // Optional
-                res.status(200).json({ success: true, data: dishExists, message: 'No changes detected or update failed.' });
+                // Update might have returned null due to no changes or other model logic
+                res.status(200).json({ success: true, data: dishExists, message: 'Update successful, but no changes were applied or detected by the model.' });
             }
             return;
         }
         res.json({ success: true, data: updatedDish }); // Wrap response
+
     } catch (err) {
         console.error(`[Dishes PUT /:id] Error updating dish ${dishId}:`, err);
-       if (err.code === '23505') { // Unique constraint
+       if (err.code === '23505' || err.message?.includes('conflicts')) { // Unique constraint
           res.status(409).json({ success: false, error: "Update failed: Dish with this name already exists for the target restaurant." });
           return;
        }
-       if (err.code === '23503') { // Foreign key constraint
-             res.status(400).json({ success: false, error: "Update failed: Invalid Restaurant ID." });
+       if (err.code === '23503' || err.message?.includes('Invalid Restaurant ID')) { // Foreign key constraint
+             res.status(400).json({ success: false, error: "Update failed: Invalid Restaurant ID provided." });
              return;
          }
         next(err);
