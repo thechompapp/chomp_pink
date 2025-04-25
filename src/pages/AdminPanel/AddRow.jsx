@@ -4,7 +4,8 @@ import Button from '@/components/UI/Button.jsx';
 import { Save, XCircle as CancelIcon } from 'lucide-react';
 import apiClient from '@/services/apiClient.js'; // Use .js
 import EditableCell from './EditableCell.jsx'; // Use .jsx
-import { filterService } from '@/services/filterService.js'; // Use .js
+// Corrected import: Use default import syntax for filterService
+import filterService from '@/services/filterService.js'; // Use .js
 import { usePlacesApi } from '@/context/PlacesApiContext'; // Use .jsx
 
 // --- REMOVED: TypeScript interfaces ---
@@ -56,6 +57,7 @@ const AddRow = ({ // Removed : React.FC<AddRowProps>
 
     if (zipcode) {
       try {
+        // Use the correctly imported filterService
         const neighborhood = await filterService.findNeighborhoodByZipcode(zipcode);
         if (neighborhood && neighborhood.id) {
           updates.city_id = String(neighborhood.city_id);
@@ -66,6 +68,7 @@ const AddRow = ({ // Removed : React.FC<AddRowProps>
           updates.lookupFailed = true;
         }
       } catch (error) {
+        console.error('[AddRow handlePlaceSelection] Error looking up neighborhood by zipcode:', error); // Added error logging
         updates.lookupFailed = true;
       }
     } else {
@@ -77,7 +80,7 @@ const AddRow = ({ // Removed : React.FC<AddRowProps>
       setNewRowData(key, value);
     });
 
-  }, [type, cities, setNewRowData]); // Removed filterService dependency
+  }, [type, cities, setNewRowData, filterService]); // Added filterService to dependency array
 
   // Enable manual entry mode
   const enableManualEntry = useCallback(() => {

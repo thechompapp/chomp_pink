@@ -1,13 +1,17 @@
 /* src/components/ProtectedRoute.jsx */
 /* REMOVED: All TypeScript syntax */
+/* Patched: Added logic to check for requireSuperuser prop */
+
 import React from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import useAuthStore from '@/stores/useAuthStore';
-import LoadingSpinner from '@/components/UI/LoadingSpinner'; // Assuming JS/JSX
+import useAuthStore from '@/stores/useAuthStore.js'; // Use alias if configured
+import LoadingSpinner from '@/components/UI/LoadingSpinner.jsx'; // Assuming JS/JSX
 
-const ProtectedRoute = () => {
+// Accept children and requireSuperuser props
+const ProtectedRoute = ({ children, requireSuperuser = false }) => {
   // Select state primitives directly
   const isAuthenticated = useAuthStore(state => state.isAuthenticated);
+  const user = useAuthStore(state => state.user); // Get user object
   const isLoading = useAuthStore(state => state.isLoading);
   const location = useLocation();
 
@@ -26,8 +30,18 @@ const ProtectedRoute = () => {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Render the child routes if authenticated
-  return <Outlet />;
+  // NEW: Check for superuser requirement if specified
+  if (requireSuperuser && user?.account_type !== 'superuser') {
+    console.warn('[ProtectedRoute] Access denied. Superuser required.');
+    // Redirect non-superusers trying to access superuser routes (e.g., back home)
+    // Alternatively, render an "Access Denied" component
+    return <Navigate to="/" state={{ from: location }} replace />;
+  }
+
+  // Render the child component passed via props OR the Outlet if no children are passed
+  // This allows wrapping specific components directly: <ProtectedRoute><MyComponent /></ProtectedRoute>
+  // Or using it for route layouts: <Route element={<ProtectedRoute />}><Route path="dashboard" element={<Dashboard />} /></Route>
+  return children ? <>{children}</> : <Outlet />;
 };
 
 export default ProtectedRoute;

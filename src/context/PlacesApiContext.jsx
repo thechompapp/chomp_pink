@@ -1,11 +1,9 @@
 /* src/context/PlacesApiContext.jsx */
-/* REMOVED: TypeScript syntax (interfaces, types) */
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import apiClient from '@/services/apiClient';
+import useAuthStore from '@/stores/useAuthStore.js';
 
-// REMOVED: interface PlacesApiContextType { ... }
-
-const PlacesApiContext = createContext(null); // REMOVED: <PlacesApiContextType | null>
+const PlacesApiContext = createContext(null);
 
 export const usePlacesApi = () => {
   const context = useContext(PlacesApiContext);
@@ -15,23 +13,27 @@ export const usePlacesApi = () => {
   return context;
 };
 
-// REMOVED: interface PlacesApiProviderProps { ... }
-
-export const PlacesApiProvider/*REMOVED: : React.FC<PlacesApiProviderProps>*/ = ({ children }) => {
-  const [isAvailable, setIsAvailable] = useState(false); // REMOVED: <boolean>
-  const [isLoading, setIsLoading] = useState(true); // REMOVED: <boolean>
-  const [error, setError] = useState(null); // REMOVED: <string | null>
-  const [checkCount, setCheckCount] = useState(0); // REMOVED: <number>
+export const PlacesApiProvider = ({ children }) => {
+  const [isAvailable, setIsAvailable] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [checkCount, setCheckCount] = useState(0);
 
   useEffect(() => {
     const checkApiAvailability = async () => {
+      const isAuthenticated = useAuthStore.getState().isAuthenticated;
+      if (!isAuthenticated) {
+        setIsAvailable(false);
+        setError('Authentication required for Places API');
+        setIsLoading(false);
+        return;
+      }
+
       setIsLoading(true);
       setError(null);
 
       try {
-        const response = await apiClient('/api/places/proxy/autocomplete?input=New York', 'Places API Status Check');
-
-        // Use standard JS checks
+        const response = await apiClient('/api/places/proxy/autocomplete?input=New%20York');
         if (response.success && Array.isArray(response.data)) {
           setIsAvailable(true);
           setError(null);
@@ -41,9 +43,9 @@ export const PlacesApiProvider/*REMOVED: : React.FC<PlacesApiProviderProps>*/ = 
           setIsAvailable(false);
           setError(errorMessage);
         }
-      } catch (err/*REMOVED: : any*/) {
+      } catch (err) {
         const errorMessage = err.message || 'Failed to connect to Places API';
-        console.warn('[PlacesApiContext] Places API appears to be unavailable:', err);
+        console.warn('[PlacesApiContext] Places API unavailable:', err);
         setIsAvailable(false);
         setError(errorMessage);
       } finally {

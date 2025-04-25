@@ -1,7 +1,7 @@
 /* src/pages/Trending/index.jsx */
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import useAuthStore from '@/stores/useAuthStore';
+import useAuthStore from '@/stores/useAuthStore'; // <-- Corrected default import
 import RestaurantCard from '@/components/UI/RestaurantCard';
 import DishCard from '@/components/UI/DishCard';
 import ListCard from '@/pages/Lists/ListCard';
@@ -118,17 +118,24 @@ const Trending = () => {
   const handleQuickAdd = useCallback((item, type) => {
         if (!isAuthenticated) {
             console.log("User not authenticated, cannot quick add.");
+            // Optionally trigger login prompt or UI state change
+            // useUIStateStore.getState().showError("Please log in to add items.");
             return;
         }
         openQuickAdd({
             id: item.id,
             name: item.name,
+             // Ensure correct mapping based on incoming data structure
+             // These might differ slightly between restaurant, dish, list cards
             restaurantId: type === 'dish' ? item.restaurant_id : undefined,
             restaurantName: type === 'dish' ? (item.restaurant_name || item.restaurant) : undefined,
-            tags: item.tags || [],
+            tags: item.tags || item.hashtags || [], // Handle different tag properties
             type: type,
-            city: item.city_name || item.city,
+            city: item.city_name || item.city, // Handle different location properties
             neighborhood: item.neighborhood_name || item.neighborhood,
+            photo_url: item.photo_url, // Include photo if available
+             // Add any other relevant details for the QuickAdd context
+             description: item.description,
         });
     }, [openQuickAdd, isAuthenticated]);
 
@@ -140,65 +147,77 @@ const Trending = () => {
   ], [restaurantsQuery, dishesQuery, listsQuery]);
 
   const initialError = useMemo(() => {
+      // Return the first encountered error among the initial queries
       return restaurantsQuery.error || dishesQuery.error || listsQuery.error;
   }, [restaurantsQuery.error, dishesQuery.error, listsQuery.error]);
 
-  const isInitialLoading = restaurantsQuery.isLoading || dishesQuery.isLoading || listsQuery.isLoading;
+  // Determine initial loading state based on all queries
+  const isInitialLoading = useMemo(() => {
+      return restaurantsQuery.isLoading || dishesQuery.isLoading || listsQuery.isLoading;
+  }, [restaurantsQuery.isLoading, dishesQuery.isLoading, listsQuery.isLoading]);
 
   const gridClasses = "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3";
 
   const LoadingComponent = useMemo(() => {
+    // Determine which skeleton to show based on the active tab
     const SkeletonComponent =
         activeTab === 'restaurants' ? RestaurantCardSkeleton :
         activeTab === 'dishes' ? DishCardSkeleton :
-        ListCardSkeleton;
+        ListCardSkeleton; // Assumes ListCardSkeleton exists and is imported
     return (
         <div className={gridClasses}>
-            {[...Array(10)].map((_, index) => (
+            {[...Array(10)].map((_, index) => ( // Show 10 skeletons
                 <SkeletonComponent key={`${activeTab}-skel-${index}`} />
             ))}
         </div>
     );
-  }, [activeTab, gridClasses]);
+  }, [activeTab, gridClasses]); // Recompute only when activeTab changes
 
   // --- Render Logic ---
 
-  if (isInitialLoading) {
-      return (
-          <div className="flex justify-center items-center h-[calc(100vh-300px)]">
-               <LoadingSpinner message="Loading trending data..." />
-          </div>
-      );
-  }
+   // Show a central loading spinner only during the initial combined load
+   if (isInitialLoading) {
+       return (
+           <div className="flex justify-center items-center h-[calc(100vh-300px)]">
+                <LoadingSpinner message="Loading trending data..." />
+           </div>
+       );
+   }
 
-  if (initialError && !isInitialLoading) {
-      return (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-6">Trending</h1>
-               <ErrorMessage
-                  message={initialError.message || 'Failed to load some trending data.'}
-                  onRetry={() => {
-                      restaurantsQuery.refetch();
-                      dishesQuery.refetch();
-                      listsQuery.refetch();
-                  }}
-                  isLoadingRetry={restaurantsQuery.isFetching || dishesQuery.isFetching || listsQuery.isFetching}
-                  containerClassName="mt-6"
-              />
-          </div>
-      );
-  }
+   // Show a general error message if any of the initial queries failed
+   if (initialError && !isInitialLoading) { // Check !isInitialLoading to avoid showing error during load
+       return (
+           <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
+               <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-6">Trending</h1>
+                <ErrorMessage
+                   message={initialError.message || 'Failed to load some trending data.'}
+                   onRetry={() => { // Retry all initial queries
+                       restaurantsQuery.refetch();
+                       dishesQuery.refetch();
+                       listsQuery.refetch();
+                   }}
+                   // Disable retry button if any query is currently fetching
+                   isLoadingRetry={restaurantsQuery.isFetching || dishesQuery.isFetching || listsQuery.isFetching}
+                   containerClassName="mt-6"
+               />
+           </div>
+       );
+   }
 
+
+  // Main content render once initial load/error states are passed
   return (
     <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Trending</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100">Trending</h1>
+         {/* Maybe add a global refresh button here? */}
       </div>
 
       {/* Aggregate Trend Chart Section */}
-       <div className="mb-6">
+       <div className="mb-6 bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+           <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-3 text-center">Popularity Trends</h2>
            <TrendChart itemType={chartViewType} />
-           <div className="flex justify-center gap-2 mt-2">
+           <div className="flex justify-center gap-2 mt-3">
                 {CHART_VIEW_OPTIONS.map(option => (
                     <Button
                         key={option.id}
@@ -207,7 +226,7 @@ const Trending = () => {
                         onClick={() => setChartViewType(option.id)}
                         className="!px-2.5 !py-1 flex items-center gap-1 capitalize"
                         aria-pressed={chartViewType === option.id}
-                        disabled={
+                        disabled={ // Disable if the corresponding query is fetching
                             (option.id === 'restaurant' && restaurantsQuery.isFetching) ||
                             (option.id === 'dish' && dishesQuery.isFetching) ||
                             (option.id === 'list' && listsQuery.isFetching)
@@ -221,28 +240,42 @@ const Trending = () => {
        </div>
 
       {/* Tabs and Sort Controls */}
-       <div className="flex flex-col sm:flex-row justify-between border-b border-gray-200">
+       <div className="flex flex-col sm:flex-row justify-between border-b border-gray-200 dark:border-gray-700">
+         {/* Tabs */}
          <div className="flex overflow-x-auto pb-1 no-scrollbar">
             {tabs.map((tab) => {
-                const displayCount = tab.query.isLoading || !tab.query.data ? '...' : tab.query.data.length;
+                // Display count or loading indicator
+                const displayCount = tab.query.isFetching ? '...' : (Array.isArray(tab.query.data) ? tab.query.data.length : '0');
                 return (
                  <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     className={`flex items-center gap-1.5 py-2 px-4 text-sm font-medium rounded-t-md focus:outline-none focus:ring-1 focus:ring-[#D1B399] focus:z-10 transition-colors whitespace-nowrap ${
-                        activeTab === tab.id ? 'text-[#A78B71] border-b-2 border-[#A78B71]' : 'text-gray-500 hover:text-gray-700 border-b-2 border-transparent'
+                        activeTab === tab.id
+                            ? 'text-[#A78B71] dark:text-[#D1B399] border-b-2 border-[#A78B71]'
+                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 border-b-2 border-transparent'
                     }`}
                     aria-selected={activeTab === tab.id}
+                    disabled={tab.query.isFetching} // Disable tab while its data is loading
                  >
                      {tab.Icon && <tab.Icon size={16} />} {tab.label} ({displayCount})
                  </button>
                 );
             })}
          </div>
-         <div className="flex items-center pb-1 pt-2 sm:pt-0 gap-2 flex-wrap">
-             <span className="mr-1 text-sm text-gray-600">Sort:</span>
+         {/* Sort Controls */}
+         <div className="flex items-center pb-1 pt-2 sm:pt-0 gap-2 flex-wrap justify-start sm:justify-end">
+             <span className="mr-1 text-sm text-gray-600 dark:text-gray-400">Sort:</span>
              {SORT_OPTIONS.map(({ id, label, Icon }) => (
-                 <Button key={id} variant={sortMethod === id ? 'primary' : 'tertiary'} size="sm" onClick={() => setSortMethod(id)} className="!px-2.5 !py-1 flex items-center gap-1" aria-pressed={sortMethod === id}>
+                 <Button
+                      key={id}
+                      variant={sortMethod === id ? 'primary' : 'tertiary'} // Use primary/tertiary for active/inactive
+                      size="sm"
+                      onClick={() => setSortMethod(id)}
+                      className="!px-2.5 !py-1 flex items-center gap-1"
+                      aria-pressed={sortMethod === id}
+                      disabled={activeQueryResult.isFetching} // Disable sort when loading
+                 >
                      {Icon && <Icon size={14} />} {label}
                  </Button>
              ))}
@@ -250,25 +283,38 @@ const Trending = () => {
       </div>
 
       {/* Content Area */}
-      <div className="mt-4 min-h-[300px]">
+      <div className="mt-4 min-h-[300px]"> {/* Ensure minimum height */}
         <QueryResultDisplay
-            queryResult={activeQueryResult}
-            loadingMessage={null}
+            queryResult={activeQueryResult} // Pass the whole query result for the active tab
+            loadingMessage={null} // Handled by LoadingComponent
             errorMessagePrefix={`Failed to load trending ${activeTab}`}
             noDataMessage={`No trending ${activeTab} found.`}
-            LoadingComponent={LoadingComponent}
+            LoadingComponent={LoadingComponent} // Use the memoized skeleton grid
         >
-            {(data) => {
-                const sortedItems = sortData(data);
+            {(data) => { // data here is guaranteed to be non-null and not an error state by QueryResultDisplay
+                const sortedItems = sortData(data); // Sort the data received from the active query
                 return (
                    <div className={gridClasses}>
                        {sortedItems.map((item) => {
-                           if (!item || item.id == null) return null;
+                           // Basic check for item validity
+                           if (!item || item.id == null) {
+                                console.warn("[TrendingPage] Skipping render for invalid item:", item);
+                                return null;
+                           }
                            const key = `${activeTab}-${item.id}`;
-                           if (activeTab === "restaurants") return <RestaurantCard key={key} {...item} onQuickAdd={(e) => { e.stopPropagation(); e.preventDefault(); handleQuickAdd(item, 'restaurant'); }} />;
-                           if (activeTab === "dishes") return <DishCard key={key} {...item} restaurant={item.restaurant || item.restaurant_name} onQuickAdd={(e) => { e.stopPropagation(); e.preventDefault(); handleQuickAdd(item, 'dish'); }} />;
-                           if (activeTab === "lists") return <ListCard key={key} {...item} type={item.type || item.list_type} />;
-                           return null;
+                           // Render the appropriate card based on the active tab
+                           if (activeTab === "restaurants") {
+                               return <RestaurantCard key={key} {...item} onQuickAdd={(e) => { e.stopPropagation(); e.preventDefault(); handleQuickAdd(item, 'restaurant'); }} />;
+                           }
+                           if (activeTab === "dishes") {
+                               // Ensure restaurant name is passed correctly
+                               return <DishCard key={key} {...item} restaurant={item.restaurant || item.restaurant_name} onQuickAdd={(e) => { e.stopPropagation(); e.preventDefault(); handleQuickAdd(item, 'dish'); }} />;
+                           }
+                           if (activeTab === "lists") {
+                               // Ensure list type is passed correctly
+                               return <ListCard key={key} {...item} type={item.type || item.list_type} />; // Pass type explicitly if needed by ListCard
+                           }
+                           return null; // Should not happen if activeTab matches one of the cases
                        })}
                    </div>
                 );

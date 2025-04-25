@@ -1,75 +1,128 @@
 /* src/services/restaurantService.js */
-/* REMOVED: All TypeScript syntax */
-import apiClient from '@/services/apiClient';
-// REMOVED: import type { RestaurantDetail, Dish } from '@/types'; // Removed this line
+import apiClient, { ApiError } from '@/services/apiClient.js'; // Use global alias
 
-const getRestaurantDetails = async (restaurantId) => { // REMOVED: Type hints & Promise return type
-    if (!restaurantId) throw new Error('Restaurant ID required.');
+// Helper function (if any)
+const formatRestaurant = (restaurant) => {
+  // Ensure basic structure exists
+  if (!restaurant || typeof restaurant.id !== 'number') {
+    console.warn('[formatRestaurant] Received invalid restaurant data:', restaurant);
+    return null; // Return null for invalid data
+  }
+  return {
+    id: restaurant.id,
+    name: restaurant.name || 'Unnamed Restaurant', // Provide default name
+    city_id: restaurant.city_id ? Number(restaurant.city_id) : null,
+    neighborhood_id: restaurant.neighborhood_id ? Number(restaurant.neighborhood_id) : null,
+    latitude: restaurant.latitude != null ? Number(restaurant.latitude) : null,
+    longitude: restaurant.longitude != null ? Number(restaurant.longitude) : null,
+    adds: Number(restaurant.adds ?? 0),
+    tags: Array.isArray(restaurant.tags) ? restaurant.tags.filter(t => typeof t === 'string') : [],
+    // Add other fields as needed, ensuring type safety
+    address: restaurant.address || null,
+    phone_number: restaurant.phone_number || null,
+    website: restaurant.website || null,
+    google_maps_url: restaurant.google_maps_url || null,
+    google_place_id: restaurant.google_place_id || null,
+  };
+};
 
-    const endpoint = `/api/restaurants/${encodeURIComponent(String(restaurantId))}`; // Use String()
-    const context = `RestaurantService Details ${restaurantId}`;
+// --- Service Functions ---
 
-    try {
-        // Assume apiClient returns { success: boolean, data: any, error: string|null, status: number|null }
-        const response = await apiClient/*REMOVED: <any>*/(endpoint, context);
-        const restaurantData = response.data;
+// Get all restaurants with optional filtering/pagination
+export const getRestaurants = async (params = {}) => {
+  // Example: Build query string from params
+  const queryParams = new URLSearchParams();
+  if (params.cityId) queryParams.append('cityId', String(params.cityId));
+  if (params.neighborhoodId) queryParams.append('neighborhoodId', String(params.neighborhoodId));
+  if (params.search) queryParams.append('search', params.search);
+  // Add other potential params like page, limit, sortBy etc.
 
-        // Basic JS check for valid response data
-        if (!response.success || !restaurantData || typeof restaurantData.id === 'undefined') {
-            const notFoundError = new Error(`Restaurant not found or invalid data received.`);
-            notFoundError.status = response.status === 404 ? 404 : 500; // Use status from response or default
-            throw notFoundError;
-        }
+  const queryString = queryParams.toString();
+  const endpoint = `/api/restaurants${queryString ? `?${queryString}` : ''}`;
+  const context = `RestaurantService Get All`;
 
-        // Basic JS map and filter for dishes
-        const formattedDishes/*REMOVED: : Dish[]*/ = (Array.isArray(restaurantData.dishes) ? restaurantData.dishes : [])
-            .filter((d) => d != null && typeof d.id !== 'undefined') // Basic validity check
-            .map((d) => ({
-                ...d,
-                tags: Array.isArray(d.tags) ? d.tags : [], // Ensure tags is array
-                id: Number(d.id), // Ensure ID is number
-                adds: Number(d.adds || 0) // Ensure adds is number
-            }));
-
-        // Construct final response data
-        const formattedData/*REMOVED: : RestaurantDetail*/ = {
-            ...restaurantData,
-            id: Number(restaurantData.id), // Ensure ID is number
-            adds: Number(restaurantData.adds || 0), // Ensure adds is number
-            tags: Array.isArray(restaurantData.tags) ? restaurantData.tags : [], // Ensure tags is array
-            dishes: formattedDishes,
-            // Ensure other potentially null fields are handled if necessary
-            rating: restaurantData.rating ?? null,
-            primary_category: restaurantData.primary_category ?? null,
-            phone: restaurantData.phone ?? null,
-            website: restaurantData.website ?? null,
-            hours: restaurantData.hours ?? null,
-            instagram_handle: restaurantData.instagram_handle ?? null,
-            transit_info: restaurantData.transit_info ?? null,
-            the_take_review: restaurantData.the_take_review ?? null,
-            the_take_reviewer_handle: restaurantData.the_take_reviewer_handle ?? null,
-            the_take_reviewer_verified: restaurantData.the_take_reviewer_verified ?? false,
-            featured_on_lists: Array.isArray(restaurantData.featured_on_lists) ? restaurantData.featured_on_lists : [],
-            similar_places: Array.isArray(restaurantData.similar_places) ? restaurantData.similar_places : [],
-        };
-        return formattedData;
-
-    } catch (error/*REMOVED: : unknown*/) {
-        // Keep existing error handling
-        if (error instanceof Error && error.status === 404) {
-            const notFoundError = new Error(`Restaurant not found.`);
-            notFoundError.status = 404;
-            throw notFoundError;
-        }
-        console.error(`[RestaurantService] Error fetching details for ${restaurantId}:`, error);
-        if (error instanceof Error) {
-            throw error;
-        } else {
-            throw new Error(`An unexpected error occurred fetching restaurant ${restaurantId}`);
-        }
+  try {
+    const response = await apiClient(endpoint, context);
+    if (!response.success || !Array.isArray(response.data)) {
+      throw new ApiError(response.error || 'Failed to fetch restaurants.', response.status || 500, response);
     }
+    // Filter out null results from formatting potentially invalid data
+    return response.data.map(formatRestaurant).filter(Boolean);
+  } catch (error) {
+    console.error(`[${context}] Error fetching restaurants:`, error);
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(error.message || 'Failed to fetch restaurants', 500, error);
+  }
 };
 
-export const restaurantService = {
-    getRestaurantDetails,
+// Get a single restaurant by its ID
+export const getRestaurantById = async (restaurantId) => {
+  if (!restaurantId) {
+    throw new ApiError('Restaurant ID is required', 400);
+  }
+  const endpoint = `/api/restaurants/${encodeURIComponent(String(restaurantId))}`;
+  const context = `RestaurantService Get Details`;
+  try {
+    const response = await apiClient(endpoint, context);
+    if (!response.success || !response.data) {
+      // Use the status from the response if available, otherwise default to 404
+      throw new ApiError(response.error || `Restaurant not found with ID: ${restaurantId}`, response.status ?? 404, response);
+    }
+    const formatted = formatRestaurant(response.data);
+    // Check if formatting failed
+    if (!formatted) {
+      throw new ApiError(`Invalid restaurant data received for ID: ${restaurantId}`, 500);
+    }
+    return formatted;
+  } catch (error) {
+    console.error(`[${context}] Error for restaurant ${restaurantId}:`, error);
+    // Re-throw ApiError instances directly
+    if (error instanceof ApiError) throw error;
+    // Wrap other errors
+    throw new ApiError(error.message || 'Failed to fetch restaurant details', error.status || 500, error);
+  }
 };
+
+// Creates a new restaurant via the API.
+export const createRestaurant = async (restaurantData) => {
+  // Basic validation
+  if (!restaurantData || !restaurantData.name || !restaurantData.city_id) {
+    throw new ApiError('Missing required fields (name, city_id) for creating restaurant.', 400);
+  }
+  const endpoint = `/api/restaurants`;
+  const context = `RestaurantService Create`;
+  try {
+    // Ensure data is stringified for the request body
+    const response = await apiClient(endpoint, context, {
+      method: 'POST',
+      body: JSON.stringify(restaurantData),
+      // Ensure headers indicate JSON content type
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    // Check for success and presence of data in the response
+    if (!response.success || !response.data) {
+      throw new ApiError(response.error || 'Failed to create restaurant.', response.status || 500, response);
+    }
+    // Return the created restaurant data, potentially formatted
+    return formatRestaurant(response.data); // Format the response data
+  } catch (error) {
+    console.error(`[${context}] Error creating restaurant:`, error);
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(error.message || 'Failed to create restaurant', 500, error);
+  }
+};
+
+// --- Service Object Export ---
+// This object bundles all exported functions for convenient import.
+export const restaurantService = {
+  getRestaurants,
+  getRestaurantById,
+  createRestaurant,
+  // Add other exported functions here if created (e.g., updateRestaurant, deleteRestaurant)
+};
+
+// --- Default Export ---
+// Makes the entire service object available as the default import.
+export default restaurantService;

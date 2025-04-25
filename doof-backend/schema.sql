@@ -26,6 +26,34 @@ SET row_security = off;
 ALTER SCHEMA public OWNER TO naf;
 
 --
+-- Name: pg_trgm; Type: EXTENSION; Schema: -; Owner: -
+--
+
+CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;
+
+
+--
+-- Name: EXTENSION pg_trgm; Type: COMMENT; Schema: -; Owner: 
+--
+
+COMMENT ON EXTENSION pg_trgm IS 'text similarity measurement and index searching based on trigrams';
+
+
+--
+-- Name: postgis; Type: EXTENSION; Schema: -; Owner: -
+--
+
+CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA public;
+
+
+--
+-- Name: EXTENSION postgis; Type: COMMENT; Schema: -; Owner: 
+--
+
+COMMENT ON EXTENSION postgis IS 'PostGIS geometry and geography spatial types and functions';
+
+
+--
 -- Name: trigger_set_timestamp(); Type: FUNCTION; Schema: public; Owner: doof_user
 --
 
@@ -40,6 +68,32 @@ $$;
 
 
 ALTER FUNCTION public.trigger_set_timestamp() OWNER TO doof_user;
+
+--
+-- Name: validate_listitem_item_id(); Type: FUNCTION; Schema: public; Owner: doof_user
+--
+
+CREATE FUNCTION public.validate_listitem_item_id() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF NEW.item_type = 'restaurant' THEN
+    IF NOT EXISTS (SELECT 1 FROM restaurants WHERE id = NEW.item_id) THEN
+      RAISE EXCEPTION 'Invalid restaurant ID % for item_type ''restaurant''.', NEW.item_id;
+    END IF;
+  ELSIF NEW.item_type = 'dish' THEN
+    IF NOT EXISTS (SELECT 1 FROM dishes WHERE id = NEW.item_id) THEN
+      RAISE EXCEPTION 'Invalid dish ID % for item_type ''dish''.', NEW.item_id;
+    END IF;
+  ELSE
+    RAISE EXCEPTION 'Invalid item_type %. Must be ''restaurant'' or ''dish''.', NEW.item_type;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION public.validate_listitem_item_id() OWNER TO doof_user;
 
 SET default_tablespace = '';
 
@@ -77,6 +131,40 @@ ALTER SEQUENCE public.cities_id_seq OWNER TO doof_user;
 --
 
 ALTER SEQUENCE public.cities_id_seq OWNED BY public.cities.id;
+
+
+--
+-- Name: cuisines; Type: TABLE; Schema: public; Owner: doof_user
+--
+
+CREATE TABLE public.cuisines (
+    id integer NOT NULL,
+    name character varying(100) NOT NULL
+);
+
+
+ALTER TABLE public.cuisines OWNER TO doof_user;
+
+--
+-- Name: cuisines_id_seq; Type: SEQUENCE; Schema: public; Owner: doof_user
+--
+
+CREATE SEQUENCE public.cuisines_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.cuisines_id_seq OWNER TO doof_user;
+
+--
+-- Name: cuisines_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: doof_user
+--
+
+ALTER SEQUENCE public.cuisines_id_seq OWNED BY public.cuisines.id;
 
 
 --
@@ -246,44 +334,6 @@ ALTER SEQUENCE public.hashtags_id_seq OWNED BY public.hashtags.id;
 
 
 --
--- Name: list_items; Type: TABLE; Schema: public; Owner: doof_user
---
-
-CREATE TABLE public.list_items (
-    id integer NOT NULL,
-    list_id integer,
-    restaurant_id integer,
-    dish_id integer,
-    added_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT list_items_check CHECK (((restaurant_id IS NOT NULL) OR (dish_id IS NOT NULL)))
-);
-
-
-ALTER TABLE public.list_items OWNER TO doof_user;
-
---
--- Name: list_items_id_seq; Type: SEQUENCE; Schema: public; Owner: doof_user
---
-
-CREATE SEQUENCE public.list_items_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER SEQUENCE public.list_items_id_seq OWNER TO doof_user;
-
---
--- Name: list_items_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: doof_user
---
-
-ALTER SEQUENCE public.list_items_id_seq OWNED BY public.list_items.id;
-
-
---
 -- Name: listfollows; Type: TABLE; Schema: public; Owner: doof_user
 --
 
@@ -390,7 +440,8 @@ CREATE TABLE public.neighborhoods (
     name character varying(100) NOT NULL,
     city_id integer NOT NULL,
     borough character varying(100),
-    zipcode_ranges text[] DEFAULT '{}'::text[]
+    zipcode_ranges text[] DEFAULT '{}'::text[],
+    geom public.geometry(MultiPolygon,4326)
 );
 
 
@@ -456,6 +507,44 @@ ALTER SEQUENCE public.refresh_tokens_id_seq OWNED BY public.refresh_tokens.id;
 
 
 --
+-- Name: restaurant_chains; Type: TABLE; Schema: public; Owner: doof_user
+--
+
+CREATE TABLE public.restaurant_chains (
+    id integer NOT NULL,
+    name character varying(255) NOT NULL,
+    website character varying(2048),
+    description text,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+ALTER TABLE public.restaurant_chains OWNER TO doof_user;
+
+--
+-- Name: restaurant_chains_id_seq; Type: SEQUENCE; Schema: public; Owner: doof_user
+--
+
+CREATE SEQUENCE public.restaurant_chains_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.restaurant_chains_id_seq OWNER TO doof_user;
+
+--
+-- Name: restaurant_chains_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: doof_user
+--
+
+ALTER SEQUENCE public.restaurant_chains_id_seq OWNED BY public.restaurant_chains.id;
+
+
+--
 -- Name: restauranthashtags; Type: TABLE; Schema: public; Owner: doof_user
 --
 
@@ -488,7 +577,8 @@ CREATE TABLE public.restaurants (
     longitude numeric(9,6),
     adds integer DEFAULT 0 NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    chain_id integer
 );
 
 
@@ -571,6 +661,8 @@ CREATE TABLE public.submissions (
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     reviewed_at timestamp with time zone,
     reviewed_by integer,
+    restaurant_id integer,
+    restaurant_name character varying(255),
     CONSTRAINT submissions_status_check CHECK (((status)::text = ANY ((ARRAY['pending'::character varying, 'approved'::character varying, 'rejected'::character varying])::text[]))),
     CONSTRAINT submissions_type_check CHECK (((type)::text = ANY ((ARRAY['restaurant'::character varying, 'dish'::character varying])::text[])))
 );
@@ -647,6 +739,13 @@ ALTER TABLE ONLY public.cities ALTER COLUMN id SET DEFAULT nextval('public.citie
 
 
 --
+-- Name: cuisines id; Type: DEFAULT; Schema: public; Owner: doof_user
+--
+
+ALTER TABLE ONLY public.cuisines ALTER COLUMN id SET DEFAULT nextval('public.cuisines_id_seq'::regclass);
+
+
+--
 -- Name: dishes id; Type: DEFAULT; Schema: public; Owner: doof_user
 --
 
@@ -675,13 +774,6 @@ ALTER TABLE ONLY public.hashtags ALTER COLUMN id SET DEFAULT nextval('public.has
 
 
 --
--- Name: list_items id; Type: DEFAULT; Schema: public; Owner: doof_user
---
-
-ALTER TABLE ONLY public.list_items ALTER COLUMN id SET DEFAULT nextval('public.list_items_id_seq'::regclass);
-
-
---
 -- Name: listitems id; Type: DEFAULT; Schema: public; Owner: doof_user
 --
 
@@ -707,6 +799,13 @@ ALTER TABLE ONLY public.neighborhoods ALTER COLUMN id SET DEFAULT nextval('publi
 --
 
 ALTER TABLE ONLY public.refresh_tokens ALTER COLUMN id SET DEFAULT nextval('public.refresh_tokens_id_seq'::regclass);
+
+
+--
+-- Name: restaurant_chains id; Type: DEFAULT; Schema: public; Owner: doof_user
+--
+
+ALTER TABLE ONLY public.restaurant_chains ALTER COLUMN id SET DEFAULT nextval('public.restaurant_chains_id_seq'::regclass);
 
 
 --
@@ -751,6 +850,22 @@ ALTER TABLE ONLY public.cities
 
 ALTER TABLE ONLY public.cities
     ADD CONSTRAINT cities_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: cuisines cuisines_name_key; Type: CONSTRAINT; Schema: public; Owner: doof_user
+--
+
+ALTER TABLE ONLY public.cuisines
+    ADD CONSTRAINT cuisines_name_key UNIQUE (name);
+
+
+--
+-- Name: cuisines cuisines_pkey; Type: CONSTRAINT; Schema: public; Owner: doof_user
+--
+
+ALTER TABLE ONLY public.cuisines
+    ADD CONSTRAINT cuisines_pkey PRIMARY KEY (id);
 
 
 --
@@ -818,14 +933,6 @@ ALTER TABLE ONLY public.hashtags
 
 
 --
--- Name: list_items list_items_pkey; Type: CONSTRAINT; Schema: public; Owner: doof_user
---
-
-ALTER TABLE ONLY public.list_items
-    ADD CONSTRAINT list_items_pkey PRIMARY KEY (id);
-
-
---
 -- Name: listfollows listfollows_pkey; Type: CONSTRAINT; Schema: public; Owner: doof_user
 --
 
@@ -879,6 +986,22 @@ ALTER TABLE ONLY public.neighborhoods
 
 ALTER TABLE ONLY public.refresh_tokens
     ADD CONSTRAINT refresh_tokens_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: restaurant_chains restaurant_chains_name_key; Type: CONSTRAINT; Schema: public; Owner: doof_user
+--
+
+ALTER TABLE ONLY public.restaurant_chains
+    ADD CONSTRAINT restaurant_chains_name_key UNIQUE (name);
+
+
+--
+-- Name: restaurant_chains restaurant_chains_pkey; Type: CONSTRAINT; Schema: public; Owner: doof_user
+--
+
+ALTER TABLE ONLY public.restaurant_chains
+    ADD CONSTRAINT restaurant_chains_pkey PRIMARY KEY (id);
 
 
 --
@@ -961,6 +1084,13 @@ CREATE INDEX idx_cities_name ON public.cities USING btree (name);
 
 
 --
+-- Name: idx_cuisines_name; Type: INDEX; Schema: public; Owner: doof_user
+--
+
+CREATE INDEX idx_cuisines_name ON public.cuisines USING btree (name);
+
+
+--
 -- Name: idx_dishes_adds; Type: INDEX; Schema: public; Owner: doof_user
 --
 
@@ -986,6 +1116,13 @@ CREATE INDEX idx_dishes_id ON public.dishes USING btree (id);
 --
 
 CREATE INDEX idx_dishes_name ON public.dishes USING btree (name);
+
+
+--
+-- Name: idx_dishes_name_trgm; Type: INDEX; Schema: public; Owner: doof_user
+--
+
+CREATE INDEX idx_dishes_name_trgm ON public.dishes USING gin (name public.gin_trgm_ops);
 
 
 --
@@ -1178,6 +1315,20 @@ CREATE INDEX idx_refresh_tokens_user_id ON public.refresh_tokens USING btree (us
 
 
 --
+-- Name: idx_restaurant_chains_name; Type: INDEX; Schema: public; Owner: doof_user
+--
+
+CREATE INDEX idx_restaurant_chains_name ON public.restaurant_chains USING btree (name);
+
+
+--
+-- Name: idx_restaurant_chains_name_trgm; Type: INDEX; Schema: public; Owner: doof_user
+--
+
+CREATE INDEX idx_restaurant_chains_name_trgm ON public.restaurant_chains USING gin (name public.gin_trgm_ops);
+
+
+--
 -- Name: idx_restauranthashtags_restaurant_id; Type: INDEX; Schema: public; Owner: doof_user
 --
 
@@ -1189,6 +1340,13 @@ CREATE INDEX idx_restauranthashtags_restaurant_id ON public.restauranthashtags U
 --
 
 CREATE INDEX idx_restaurants_adds ON public.restaurants USING btree (adds DESC);
+
+
+--
+-- Name: idx_restaurants_chain_id; Type: INDEX; Schema: public; Owner: doof_user
+--
+
+CREATE INDEX idx_restaurants_chain_id ON public.restaurants USING btree (chain_id);
 
 
 --
@@ -1224,6 +1382,13 @@ CREATE INDEX idx_restaurants_id ON public.restaurants USING btree (id);
 --
 
 CREATE INDEX idx_restaurants_name ON public.restaurants USING btree (name);
+
+
+--
+-- Name: idx_restaurants_name_trgm; Type: INDEX; Schema: public; Owner: doof_user
+--
+
+CREATE INDEX idx_restaurants_name_trgm ON public.restaurants USING gin (name public.gin_trgm_ops);
 
 
 --
@@ -1332,10 +1497,24 @@ CREATE TRIGGER set_timestamp_lists BEFORE UPDATE ON public.lists FOR EACH ROW EX
 
 
 --
+-- Name: restaurant_chains set_timestamp_restaurant_chains; Type: TRIGGER; Schema: public; Owner: doof_user
+--
+
+CREATE TRIGGER set_timestamp_restaurant_chains BEFORE UPDATE ON public.restaurant_chains FOR EACH ROW EXECUTE FUNCTION public.trigger_set_timestamp();
+
+
+--
 -- Name: restaurants set_timestamp_restaurants; Type: TRIGGER; Schema: public; Owner: doof_user
 --
 
 CREATE TRIGGER set_timestamp_restaurants BEFORE UPDATE ON public.restaurants FOR EACH ROW EXECUTE FUNCTION public.trigger_set_timestamp();
+
+
+--
+-- Name: listitems trigger_validate_listitem_item_id; Type: TRIGGER; Schema: public; Owner: doof_user
+--
+
+CREATE TRIGGER trigger_validate_listitem_item_id BEFORE INSERT OR UPDATE ON public.listitems FOR EACH ROW EXECUTE FUNCTION public.validate_listitem_item_id();
 
 
 --
@@ -1467,6 +1646,14 @@ ALTER TABLE ONLY public.restauranthashtags
 
 
 --
+-- Name: restaurants fk_restaurant_chain; Type: FK CONSTRAINT; Schema: public; Owner: doof_user
+--
+
+ALTER TABLE ONLY public.restaurants
+    ADD CONSTRAINT fk_restaurant_chain FOREIGN KEY (chain_id) REFERENCES public.restaurant_chains(id) ON DELETE SET NULL;
+
+
+--
 -- Name: restaurants fk_restaurant_city; Type: FK CONSTRAINT; Schema: public; Owner: doof_user
 --
 
@@ -1496,6 +1683,14 @@ ALTER TABLE ONLY public.restauranthashtags
 
 ALTER TABLE ONLY public.restauranthashtags
     ADD CONSTRAINT fk_resthashtag_restaurant FOREIGN KEY (restaurant_id) REFERENCES public.restaurants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: submissions fk_submission_restaurant; Type: FK CONSTRAINT; Schema: public; Owner: doof_user
+--
+
+ALTER TABLE ONLY public.submissions
+    ADD CONSTRAINT fk_submission_restaurant FOREIGN KEY (restaurant_id) REFERENCES public.restaurants(id) ON DELETE SET NULL;
 
 
 --

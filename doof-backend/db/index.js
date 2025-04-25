@@ -1,132 +1,67 @@
-/* src/doof-backend/db/index.js */
-// Corrected import: Import the default export, then destructure Pool
+// Filename: /root/doof-backend/db/index.js
+/* Updated: Ensure ESM export syntax and config import */
 import pg from 'pg';
 const { Pool } = pg;
 import dotenv from 'dotenv';
+import config from '../config/config.js'; // Import centralized config
 
-dotenv.config();
+dotenv.config(); // Ensure .env is loaded
 
-const poolConfig = { // No TS type needed here
-    user: process.env.DB_USER || 'doof_user',
-    host: process.env.DB_HOST || 'localhost',
-    database: process.env.DB_DATABASE || 'doof_db',
-    password: process.env.DB_PASSWORD,
-    port: parseInt(process.env.DB_PORT || '5432', 10),
-    connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT || '5000', 10),
-    idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT || '10000', 10),
-    statement_timeout: parseInt(process.env.DB_STATEMENT_TIMEOUT || '10000', 10),
-    max: parseInt(process.env.DB_POOL_MAX || '20', 10),
+// Use config values directly
+const poolConfig = {
+    user: process.env.DB_USER || config.DB_USER, // Use config as fallback
+    host: process.env.DB_HOST || config.DB_HOST,
+    database: process.env.DB_DATABASE || config.DB_DATABASE,
+    password: process.env.DB_PASSWORD || config.DB_PASSWORD, // Use config
+    port: parseInt(process.env.DB_PORT || String(config.DB_PORT), 10), // Ensure string conversion for parseInt
+    // Add other pool config options from previous versions if needed
+    connectionTimeoutMillis: 5000,
+    idleTimeoutMillis: 10000,
+    max: 20,
 };
 
+// Password check remains important
 if (!poolConfig.password && process.env.NODE_ENV !== 'test') {
-    console.error(
-        '\x1b[31m%s\x1b[0m',
-        'FATAL ERROR: Database password (DB_PASSWORD) is not set.'
-    );
-    // Optionally exit process if password is truly required
-    // process.exit(1);
+    console.error('\x1b[31m%s\x1b[0m', 'FATAL ERROR: Database password (DB_PASSWORD) is not set.');
+    // process.exit(1); // Consider exiting if critical
 }
 
-// Use the destructured Pool constructor
 const pool = new Pool(poolConfig);
 
-pool.connect((err, client, done) => {
-    if (err) {
-        console.error(
-            '\x1b[31m%s\x1b[0m',
-            'Error acquiring database client on startup:',
-            err.stack
-        );
-        if (done) done();
-    } else if (!client) {
-        console.error(
-            '\x1b[31m%s\x1b[0m',
-            'Failed to acquire database client on startup (client is undefined).'
-        );
-        if (done) done();
-    } else {
-        console.log(
-            '\x1b[32m%s\x1b[0m',
-            'Successfully connected to the database pool (startup check).'
-        );
-        client.query('SELECT NOW()', (queryErr, result) => {
-            done(); // Release client
-            if (queryErr) {
-                console.error(
-                    '\x1b[31m%s\x1b[0m',
-                    'Error during startup query test:',
-                    queryErr.stack
-                );
-            } else if (result?.rows?.[0]?.now) {
-                console.log(
-                    '\x1b[32m%s\x1b[0m',
-                    `Database startup query test successful. DB Time: ${result.rows[0].now}`
-                );
-            } else {
-                console.warn(
-                    '\x1b[33m%s\x1b[0m',
-                    'Database startup query test ran but returned no result.'
-                );
-            }
-        });
-    }
+// Simplified connection check and logging
+pool.on('connect', (client) => {
+  console.log('[DB Pool] Client connected.');
+  // Optional: Set properties on connected clients if needed
+  // client.query('SET search_path TO my_schema');
 });
 
 pool.on('error', (err, client) => {
-    console.error('\x1b[31m%s\x1b[0m', 'Unexpected error on idle database client', err);
-    // Optional: Attempt to remove the client from the pool or log more details
+    console.error('\x1b[31m%s\x1b[0m', '[DB Pool] Unexpected error on idle client', err);
+    process.exit(-1); // Exit if pool encounters critical error
 });
 
-// Removed pool.on('connect') and pool.on('remove') as they were empty
-
+// Export the query function and pool instance
 const db = {
-    query: (text, params) => {
-        const start = Date.now();
-        // Optional: Add logging for all queries
-        // console.log('[DB Query]', { text, params: params?.map(p => typeof p === 'string' && p.length > 50 ? p.substring(0, 50) + '...' : p) });
-        return pool.query(text, params)
-          .catch(err => {
-            // Log DB errors centrally
-            console.error('[DB Query Error]', { text, params, error: err.message, code: err.code, detail: err.detail });
-            throw err; // Re-throw the error after logging
-          })
-          .finally(() => {
-            // Optional: Log slow queries
-            // const duration = Date.now() - start;
-            // if (duration > 500) { // Log queries longer than 500ms
-            //     console.warn('[DB Slow Query]', { duration, text, params });
-            // }
-          });
-    },
-
-    getClient: async () => {
-        const client = await pool.connect();
-        const originalQuery = client.query;
-        const originalRelease = client.release;
-
-        let released = false;
-        // Monkey-patch release to prevent double release
-        client.release = (err) => {
-            if (released) {
-                console.warn('[DB Client] Attempted to release client multiple times.');
-                return;
-            }
-            released = true;
-            // Restore original methods
-            client.query = originalQuery;
-            client.release = originalRelease;
-            // Call original release
-            if (typeof err === 'boolean') {
-                originalRelease(err);
-            } else if (err instanceof Error) {
-                originalRelease(err);
-            } else {
-                originalRelease();
-            }
-        };
-        return client;
-    },
-    pool, // Export the pool instance itself if needed elsewhere
+    query: (text, params) => pool.query(text, params),
+    getClient: () => pool.connect(), // Use pool.connect() for transactions
+    pool: pool, // Export the pool instance if needed directly
 };
 
-export default db;
+// Test connection on startup (optional but recommended)
+(async () => {
+  let client = null; // Declare client outside try
+  try {
+    client = await db.getClient();
+    const result = await client.query('SELECT NOW()');
+    console.log('\x1b[32m%s\x1b[0m', `[DB] Successfully connected. DB Time: ${result.rows[0].now}`);
+  } catch (err) {
+    console.error('\x1b[31m%s\x1b[0m', '[DB] Database Connection Failed on Startup!', err);
+  } finally {
+    if (client) {
+      client.release(); // Ensure client is always released
+    }
+  }
+})();
+
+
+export default db; // Use export default

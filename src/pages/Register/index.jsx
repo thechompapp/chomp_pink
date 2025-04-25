@@ -1,125 +1,195 @@
-/* src/pages/Register/index.jsx */
-/* REMOVED: All TypeScript syntax */
-import React, { useEffect } from 'react';
+// src/pages/Register/index.jsx
+/* REFACTORED: Added client-side email validation and password match check */
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import useAuthStore from '@/stores/useAuthStore';
-import useFormHandler from '@/hooks/useFormHandler';
-import Button from '@/components/UI/Button'; // Corrected path
-import { Loader2 } from 'lucide-react';
+import useAuthStore from '@/stores/useAuthStore.js';
+import Button from '@/components/UI/Button.jsx';
+import Input from '@/components/UI/Input.jsx';
+import ErrorMessage from '@/components/UI/ErrorMessage.jsx';
+
+// Basic email regex (consistent with Login)
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const Register = () => {
-  const navigate = useNavigate();
+    const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [clientError, setClientError] = useState(''); // State for client-side validation errors
+    const navigate = useNavigate();
+    const { register, isAuthenticated, error: authError, clearError, isProcessing } = useAuthStore(state => ({
+        register: state.register,
+        isAuthenticated: state.isAuthenticated,
+        error: state.error,
+        clearError: state.clearError,
+        isProcessing: state.isProcessing
+    }));
 
-  const registerAction = useAuthStore((state) => state.register);
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const clearAuthError = useAuthStore((state) => state.clearError);
+    // Clear errors on mount/unmount
+    useEffect(() => {
+        clearError();
+        return () => clearError();
+    }, [clearError]);
 
-  const {
-    formData,
-    handleChange,
-    handleSubmit,
-    isSubmitting,
-    submitError,
-    setSubmitError,
-  } = useFormHandler({
-    username: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-  });
+     // Clear client error when user types
+     useEffect(() => {
+         if (clientError) setClientError('');
+     }, [username, email, password, confirmPassword, clientError]);
 
-  useEffect(() => {
-    clearAuthError();
-    setSubmitError(null);
-  }, [clearAuthError, setSubmitError]);
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/', { replace: true });
-    }
-  }, [isAuthenticated, navigate]);
+    const validateForm = () => {
+        if (!username || !email || !password || !confirmPassword) {
+            setClientError('All fields are required.');
+            return false;
+        }
+        if (!EMAIL_REGEX.test(email)) {
+            setClientError('Please enter a valid email address.');
+            return false;
+        }
+         // Basic password length check (mirror backend if possible)
+         if (password.length < 8) {
+             setClientError('Password must be at least 8 characters long.');
+             return false;
+         }
+        if (password !== confirmPassword) {
+            setClientError('Passwords do not match.');
+            return false;
+        }
+        setClientError(''); // Clear errors if valid
+        return true;
+    };
 
-  const performRegistration = async (currentFormData) => { // REMOVED: Type hint
-    if (currentFormData.password !== currentFormData.confirmPassword) {
-      setSubmitError("Passwords do not match."); // Set error locally
-      throw new Error("Passwords do not match."); // Throw to stop handleSubmit
-    }
-    if (currentFormData.password.length < 6) {
-      setSubmitError("Password must be at least 6 characters long.");
-      throw new Error("Password must be at least 6 characters long.");
-    }
 
-    // Call the register action from the store
-    const success = await registerAction(
-      currentFormData.username,
-      currentFormData.email,
-      currentFormData.password
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        clearError(); // Clear previous server errors
+        setClientError(''); // Clear previous client errors
+
+        // Perform client-side validation first
+        if (!validateForm()) {
+            return;
+        }
+
+        const success = await register(username, email, password);
+        if (success) {
+             console.log('[Register] Registration successful, navigating to home.');
+            navigate('/'); // Navigate to home or dashboard after successful registration
+        }
+        // If registration fails, authError will be set and displayed
+    };
+
+    // Redirect if already authenticated
+    useEffect(() => {
+        if (isAuthenticated) {
+             console.log('[Register] Already authenticated, navigating to home.');
+            navigate('/');
+        }
+    }, [isAuthenticated, navigate]);
+
+
+    return (
+        <div className="flex items-center justify-center min-h-screen bg-background px-4">
+            <div className="w-full max-w-md p-8 space-y-6 bg-card shadow-lg rounded-lg border border-border">
+                <h2 className="text-2xl font-bold text-center text-foreground">Register for Doof</h2>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label htmlFor="username" className="block text-sm font-medium text-muted-foreground mb-1">
+                            Username
+                        </label>
+                        <Input
+                            type="text"
+                            id="username"
+                            name="username"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                            placeholder="Choose a username"
+                            required
+                            className="w-full"
+                            aria-describedby="username-error"
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="email" className="block text-sm font-medium text-muted-foreground mb-1">
+                            Email
+                        </label>
+                        <Input
+                            type="email"
+                            id="email"
+                            name="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="you@example.com"
+                            required
+                            className="w-full"
+                            aria-describedby="email-error"
+                        />
+                    </div>
+                    <div>
+                        <label
+                            htmlFor="password"
+                            className="block text-sm font-medium text-muted-foreground mb-1"
+                        >
+                            Password
+                        </label>
+                        <Input
+                            type="password"
+                            id="password"
+                            name="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="•••••••• (min. 8 characters)"
+                            required
+                            className="w-full"
+                            aria-describedby="password-error"
+                        />
+                    </div>
+                    <div>
+                        <label
+                            htmlFor="confirmPassword"
+                            className="block text-sm font-medium text-muted-foreground mb-1"
+                        >
+                            Confirm Password
+                        </label>
+                        <Input
+                            type="password"
+                            id="confirmPassword"
+                            name="confirmPassword"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            placeholder="••••••••"
+                            required
+                            className="w-full"
+                            aria-describedby="confirmPassword-error"
+                        />
+                    </div>
+                     {/* Display Client-side or Server-side Error */}
+                     {(clientError || authError) && (
+                        <ErrorMessage
+                            message={clientError || authError}
+                            id="auth-error"
+                            role="alert"
+                         />
+                     )}
+                    <div>
+                        <Button
+                            type="submit"
+                            className="w-full"
+                            disabled={isProcessing}
+                            isLoading={isProcessing}
+                        >
+                            Register
+                        </Button>
+                    </div>
+                </form>
+                <p className="text-sm text-center text-muted-foreground">
+                    Already have an account?{' '}
+                    <Link to="/login" className="font-medium text-primary hover:underline">
+                        Login here
+                    </Link>
+                </p>
+            </div>
+        </div>
     );
-
-    if (!success) {
-      // Throw error based on store state for handleSubmit to catch
-      throw new Error(useAuthStore.getState().error || 'Registration failed.');
-    }
-    // Success is handled by the useEffect redirecting based on isAuthenticated
-  };
-
-  const handleFormSubmit = (e) => {
-    e.preventDefault();
-    handleSubmit(performRegistration); // Pass the async function
-  };
-
-  return (
-    <div className="flex items-center justify-center min-h-[calc(100vh-150px)] bg-gray-50 py-12">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md border border-gray-100">
-        <h2 className="text-2xl font-bold text-center text-gray-900">Create your DOOF Account</h2>
-        <form className="space-y-4" onSubmit={handleFormSubmit}>
-          {/* Username Input */}
-          <div>
-            <label htmlFor="username" className="block text-sm font-medium text-gray-700"> Username </label>
-            <input id="username" name="username" type="text" autoComplete="username" required
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#D1B399] focus:border-[#D1B399] sm:text-sm"
-              value={formData.username} onChange={handleChange} disabled={isSubmitting}
-            />
-          </div>
-          {/* Email Input */}
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700"> Email address </label>
-            <input id="email" name="email" type="email" autoComplete="email" required
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#D1B399] focus:border-[#D1B399] sm:text-sm"
-              value={formData.email} onChange={handleChange} disabled={isSubmitting}
-            />
-          </div>
-          {/* Password Input */}
-          <div>
-            <label htmlFor="password"className="block text-sm font-medium text-gray-700"> Password (min. 6 characters) </label>
-            <input id="password" name="password" type="password" autoComplete="new-password" required
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#D1B399] focus:border-[#D1B399] sm:text-sm"
-              value={formData.password} onChange={handleChange} disabled={isSubmitting}
-            />
-          </div>
-          {/* Confirm Password Input */}
-           <div>
-              <label htmlFor="confirmPassword"className="block text-sm font-medium text-gray-700"> Confirm Password </label>
-              <input id="confirmPassword" name="confirmPassword" type="password" autoComplete="new-password" required
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#D1B399] focus:border-[#D1B399] sm:text-sm"
-                  value={formData.confirmPassword} onChange={handleChange} disabled={isSubmitting}
-              />
-          </div>
-          {/* Display Error from hook */}
-          {submitError && (
-              <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2 text-center"> {submitError} </p>
-          )}
-          {/* Submit Button */}
-          <div>
-              <Button type="submit" variant="primary" className="w-full flex justify-center py-2 px-4" disabled={isSubmitting} >
-                  {isSubmitting ? <Loader2 className="animate-spin h-5 w-5" /> : 'Create Account'}
-              </Button>
-          </div>
-        </form>
-        <p className="text-sm text-center text-gray-600"> Already have an account?{' '} <Link to="/login" className="font-medium text-[#A78B71] hover:text-[#D1B399]"> Log in </Link> </p>
-      </div>
-    </div>
-  );
 };
 
 export default Register;

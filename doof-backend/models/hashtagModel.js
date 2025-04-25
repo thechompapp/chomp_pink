@@ -1,66 +1,102 @@
-/* src/doof-backend/models/hashtagModel.js */
-import db from '../db/index.js';
+// Filename: /root/doof-backend/models/hashtagModel.js
+/* REFACTORED: Convert to ES Modules (import/export) */
+import db from '../db/index.js'; // Use import, add .js
+import format from 'pg-format'; // Use import
 
-export const formatHashtag = (row) => {
-    if (!row || row.id == null) return null;
-    return {
-        id: Number(row.id),
-        name: row.name,
-        category: row.category ?? null,
-        created_at: row.created_at,
-        updated_at: row.updated_at,
-    };
+// Function to extract hashtags from text (remains the same)
+export const extractHashtags = (text) => {
+    if (!text || typeof text !== 'string') return [];
+    const regex = /#([a-zA-Z0-9_]+)/g;
+    const matches = text.match(regex);
+    return matches ? matches.map(tag => tag.substring(1).toLowerCase()) : []; // Return lowercase tags without '#'
 };
 
-export const findHashtagById = async (id) => {
-     if (isNaN(id) || id <= 0) return null;
-     const result = await db.query('SELECT * FROM hashtags WHERE id = $1', [id]);
-     return formatHashtag(result.rows[0]);
+// Function to find existing tags or create new ones
+export const findOrCreateHashtags = async (tagNames, client = db) => { // Use client or default pool
+    if (!tagNames || tagNames.length === 0) {
+        return [];
+    }
+
+    // Ensure unique, lowercase tags
+    const uniqueTags = [...new Set(tagNames.map(tag => tag.toLowerCase().trim()).filter(Boolean))];
+    if (uniqueTags.length === 0) return [];
+
+    try {
+        // Find existing tags
+        const findQuery = format('SELECT id, name FROM hashtags WHERE name IN (%L)', uniqueTags);
+        const existingResult = await client.query(findQuery);
+        const existingTagsMap = new Map(existingResult.rows.map(tag => [tag.name, tag.id]));
+
+        const tagIds = [...existingTagsMap.values()];
+        const tagsToCreate = uniqueTags.filter(tag => !existingTagsMap.has(tag));
+
+        // Create new tags if any
+        if (tagsToCreate.length > 0) {
+            const createValues = tagsToCreate.map(tag => [tag]); // Array of arrays for pg-format
+            // Assuming 'category' is nullable or handled elsewhere
+            const createQuery = format('INSERT INTO hashtags (name) VALUES %L RETURNING id, name', createValues);
+            const createResult = await client.query(createQuery);
+            createResult.rows.forEach(newTag => tagIds.push(newTag.id));
+        }
+
+        return tagIds; // Return array of IDs (existing + newly created)
+    } catch (error) {
+        console.error('Error in findOrCreateHashtags:', error);
+        // Decide on error handling: throw, or return partial results?
+        // Throwing might be better within a transaction context.
+        throw new Error(`Failed to find or create hashtags: ${error.message}`);
+    }
 };
 
-export const updateHashtag = async (id, hashtagData) => {
-     if (isNaN(id) || id <= 0) return null;
-     const fields = [];
-     const values = [];
-     let paramIndex = 1;
+// Function to associate tags with a restaurant
+export const linkTagsToRestaurant = async (restaurantId, tagIds, client = db) => {
+    if (!restaurantId || !tagIds || tagIds.length === 0) {
+        return;
+    }
+    const values = tagIds.map(tagId => [restaurantId, tagId]);
+    const query = format(
+        'INSERT INTO RestaurantHashtags (restaurant_id, hashtag_id) VALUES %L ON CONFLICT (restaurant_id, hashtag_id) DO NOTHING',
+        values
+    );
+    try {
+        await client.query(query);
+    } catch (error) {
+        console.error(`Error linking tags to restaurant ${restaurantId}:`, error);
+        throw new Error(`Failed to link tags to restaurant: ${error.message}`);
+    }
+};
 
-     if (hashtagData.name !== undefined) {
-         fields.push(`name = $${paramIndex++}`);
-         values.push(hashtagData.name);
+// Function to associate tags with a dish
+export const linkTagsToDish = async (dishId, tagIds, client = db) => {
+     if (!dishId || !tagIds || tagIds.length === 0) {
+         return;
      }
-     if (hashtagData.category !== undefined) {
-          fields.push(`category = $${paramIndex++}`);
-          values.push(hashtagData.category ?? null);
-     }
-
-     if (fields.length === 0) return findHashtagById(id);
-
-     fields.push(`updated_at = NOW()`);
-     const query = `UPDATE hashtags SET ${fields.join(', ')} WHERE id = $${paramIndex} RETURNING *;`;
-     values.push(id);
-
+     const values = tagIds.map(tagId => [dishId, tagId]);
+     const query = format(
+         'INSERT INTO DishHashtags (dish_id, hashtag_id) VALUES %L ON CONFLICT (dish_id, hashtag_id) DO NOTHING',
+         values
+     );
      try {
-         const result = await db.query(query, values);
-         if (result.rowCount === 0) return null;
-         return formatHashtag(result.rows[0]);
+         await client.query(query);
      } catch (error) {
-          if (error.code === '23505') {
-              throw new Error("Update failed: Hashtag name likely already exists.");
-          }
-         throw error;
+         console.error(`Error linking tags to dish ${dishId}:`, error);
+         throw new Error(`Failed to link tags to dish: ${error.message}`);
      }
 };
 
-export const deleteHashtag = async (id) => {
-      if (isNaN(id) || id <= 0) return false;
-      const query = 'DELETE FROM hashtags WHERE id = $1 RETURNING id';
-      try {
-          const result = await db.query(query, [id]);
-          return (result.rowCount ?? 0) > 0;
-      } catch (error) {
-           if (error.code === '23503') {
-               throw new Error("Cannot delete hashtag: It is referenced by other items.");
-           }
-           throw error;
-      }
+// Function to get all distinct categories
+export const getAllCategories = async () => {
+    const query = 'SELECT DISTINCT category FROM hashtags WHERE category IS NOT NULL ORDER BY category';
+    try {
+        const result = await db.query(query);
+        return result.rows.map(row => row.category);
+    } catch (error) {
+        console.error('Error fetching hashtag categories:', error);
+        throw error;
+    }
 };
+
+// You can add other hashtag related model functions here
+
+// Note: No default export needed if importing named functions
+// export default { ... } // Not needed if using named exports

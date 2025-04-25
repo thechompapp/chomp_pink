@@ -1,33 +1,66 @@
+// src/components/UI/Button.jsx
 import React from 'react';
 import { Loader2 } from 'lucide-react';
+import { cva } from 'class-variance-authority';
+import { cn } from '@/lib/utils'; // Make sure this utility exists
 
-const Button = ({ variant = 'primary', size = 'md', className = '', children, isLoading = false, disabled = false, ...props }) => {
-  const baseStyles = 'rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-[#b89e89] transition-colors';
+// Define button variants using cva and theme colors
+const buttonVariants = cva(
+  // Base styles
+  "inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background", // Added ring-offset-background
+  {
+    variants: {
+      variant: {
+        // Primary: Use primary background and foreground from theme
+        primary: "bg-primary text-primary-foreground hover:bg-primary/90",
+        // Outline: Use border color, transparent bg, primary text on hover
+        outline: "border border-border bg-transparent text-foreground hover:bg-accent hover:text-accent-foreground",
+        // Secondary: Use secondary background/foreground
+        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        // Ghost: Transparent with hover effect
+        ghost: "hover:bg-accent hover:text-accent-foreground",
+        // Accent Pink: Use accent-pink variable
+        accent: "bg-[hsl(var(--accent-pink))] text-[hsl(var(--accent-pink-foreground))] hover:bg-[hsl(var(--accent-pink))]/90",
+        // Destructive: Use destructive colors
+        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+      },
+      size: {
+        sm: "h-9 px-3",
+        md: "h-10 px-4 py-2",
+        lg: "h-11 px-8", // Removed rounded-md here, base has it
+        icon: "h-10 w-10",
+      },
+    },
+    defaultVariants: {
+      variant: "primary",
+      size: "md",
+    },
+  }
+);
 
-  const variantStyles = {
-    primary: 'bg-[#D1B399] text-white hover:bg-[#b89e89]',
-    tertiary: 'bg-transparent text-gray-600 hover:text-[#D1B399] border border-gray-300 hover:border-[#D1B399]',
-  };
-
-  const sizeStyles = {
-    sm: 'px-3 py-1 text-sm',
-    md: 'px-4 py-2 text-base',
-  };
-
-  const disabledStyles = disabled || isLoading ? 'opacity-50 cursor-not-allowed' : '';
-
-  const combinedStyles = `${baseStyles} ${variantStyles[variant]} ${sizeStyles[size]} ${disabledStyles} ${className}`.trim();
-
-  // Filter out custom props that shouldn't be passed to the DOM
-  const buttonProps = { ...props };
-  delete buttonProps.isLoading;
+// Button component using cva and cn
+const Button = React.forwardRef(({ className, variant, size, isLoading = false, disabled = false, children, icon: Icon, ...props }, ref) => {
+  const combinedClassName = cn(buttonVariants({ variant, size, className }));
 
   return (
-    <button className={combinedStyles} disabled={disabled || isLoading} {...buttonProps}>
-      {isLoading && <Loader2 className="animate-spin h-4 w-4 mr-2 inline" />}
-      {children}
+    <button
+      className={combinedClassName}
+      ref={ref}
+      disabled={disabled || isLoading}
+      {...props}
+    >
+      {isLoading ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        <>
+          {Icon && <Icon className="mr-2 h-4 w-4 flex-shrink-0" />} {/* Added flex-shrink-0 */}
+          {children}
+        </>
+      )}
     </button>
   );
-};
+});
+Button.displayName = "Button";
 
 export default Button;
+export { buttonVariants }; // Export variants if needed elsewhere

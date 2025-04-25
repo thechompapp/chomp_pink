@@ -1,106 +1,165 @@
-/* src/pages/Search/index.jsx */
-/* REMOVED: All TypeScript syntax */
-import React from 'react';
-import useSearch from '@/hooks/useSearch';
-import useUIStateStore from '@/stores/useUIStateStore';
-// SearchBar is likely in Navbar now, removed import
-import DishCard from '@/components/UI/DishCard';
+// src/pages/Search/index.jsx
+/* FIXED: Changed useUIStateStore import to named import */
+/* FIXED: Changed useSearch import to default import */
+import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
+import SearchBar from '@/components/UI/SearchBar';
+import { useUIStateStore } from '@/stores/useUIStateStore'; // Correct named import
+import useSearch from '@/hooks/useSearch'; // Correct default import
 import RestaurantCard from '@/components/UI/RestaurantCard';
-import ListCard from '@/pages/Lists/ListCard'; // Use correct path
-import LoadingSpinner from '@/components/UI/LoadingSpinner';
+import DishCard from '@/components/UI/DishCard';
+import ListCard from '@/pages/Lists/ListCard'; // Assuming ListCard exists
+import RestaurantCardSkeleton from '@/components/UI/RestaurantCardSkeleton';
+import DishCardSkeleton from '@/components/UI/DishCardSkeleton';
+import ListCardSkeleton from '@/pages/Lists/ListCardSkeleton'; // Assuming ListCardSkeleton exists
 import ErrorMessage from '@/components/UI/ErrorMessage';
-import QueryResultDisplay from '@/components/QueryResultDisplay';
+import LoadingSpinner from '@/components/UI/LoadingSpinner';
+import { cn } from '@/lib/utils'; // Assuming cn utility exists
+
+const skeletonMap = {
+    restaurants: RestaurantCardSkeleton,
+    dishes: DishCardSkeleton,
+    lists: ListCardSkeleton,
+    // Add users if you have a UserCard/Skeleton
+};
+
+const componentMap = {
+    restaurants: RestaurantCard,
+    dishes: DishCard,
+    lists: ListCard,
+    // Add users if you have a UserCard
+};
 
 const SearchResultsPage = () => {
-    const searchQuery = useUIStateStore(state => state.searchQuery);
-    const queryResult = useSearch(searchQuery); // Use the hook
+    const location = useLocation();
+    const queryParams = new URLSearchParams(location.search);
+    const initialQuery = queryParams.get('q') || '';
+    const initialType = queryParams.get('type') || 'all';
+
+    const [searchQuery, setSearchQuery] = useState(initialQuery);
+    const [searchType, setSearchType] = useState(initialType);
+    const [searchTriggered, setSearchTriggered] = useState(!!initialQuery); // Trigger search immediately if query exists
+
+    const { data, isLoading, isError, error, refetch } = useSearch(searchQuery, {
+        type: searchType,
+        enabled: searchTriggered && searchQuery.length > 0, // Only run query if triggered and query exists
+        staleTime: 5 * 60 * 1000, // 5 minutes stale time
+        // Add other react-query options as needed
+    });
+
+    useEffect(() => {
+        // Update local state if URL query params change
+        const urlQuery = queryParams.get('q') || '';
+        const urlType = queryParams.get('type') || 'all';
+        setSearchQuery(urlQuery);
+        setSearchType(urlType);
+        setSearchTriggered(!!urlQuery); // Trigger if query in URL
+    }, [location.search]); // Re-run when URL search string changes
+
+
+    const handleSearch = (query, type = 'all') => {
+        console.log(`[SearchPage] handleSearch called with query: "${query}", type: "${type}"`);
+        setSearchQuery(query);
+        setSearchType(type);
+        setSearchTriggered(true);
+
+        // Update URL - consider using useNavigate from react-router-dom
+        const newSearchParams = new URLSearchParams();
+        if (query) newSearchParams.set('q', query);
+        if (type && type !== 'all') newSearchParams.set('type', type);
+        // Example using window.history (useNavigate is preferred in React Router v6+)
+        window.history.pushState({}, '', `${location.pathname}?${newSearchParams.toString()}`);
+    };
+
+     // Determine if there are any results across all types
+     const hasResults = data && (
+        (data.restaurants && data.restaurants.length > 0) ||
+        (data.dishes && data.dishes.length > 0) ||
+        (data.lists && data.lists.length > 0) ||
+        (data.users && data.users.length > 0)
+    );
+
+    const renderSection = (title, items, sectionKey) => {
+        if (!items || items.length === 0) return null; // Don't render empty sections
+
+        const CardComponent = componentMap[sectionKey];
+        if (!CardComponent) return null; // No card component for this type
+
+        return (
+            <div className="mb-8">
+                <h2 className="text-xl font-semibold text-foreground mb-3">{title} ({items.length})</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {items.map(item => (
+                        <CardComponent key={`${sectionKey}-${item.id}`} {...item} />
+                    ))}
+                </div>
+            </div>
+        );
+    };
+
+    const renderSkeletons = (sectionKey) => {
+        const SkeletonComponent = skeletonMap[sectionKey];
+        if (!SkeletonComponent) return null;
+        return (
+            <div className="mb-8">
+                 <div className="h-6 bg-muted rounded w-1/4 mb-3 animate-pulse"></div> {/* Skeleton for title */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {Array.from({ length: 4 }).map((_, index) => ( // Show 4 skeletons
+                        <SkeletonComponent key={`skel-${sectionKey}-${index}`} />
+                    ))}
+                </div>
+            </div>
+        );
+    }
 
     return (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-6">
-                Search Results {searchQuery ? `for "${searchQuery}"` : ''}
-            </h1>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+            {/* Keep SearchBar at the top */}
+            <SearchBar onSearch={handleSearch} initialQuery={searchQuery} />
 
-            <QueryResultDisplay
-                queryResult={queryResult}
-                loadingMessage="Searching..."
-                errorMessagePrefix="Search failed"
-                isDataEmpty={(data) => !data || (data.dishes.length === 0 && data.restaurants.length === 0 && data.lists.length === 0)}
-                noDataMessage={searchQuery ? `No results found for "${searchQuery}".` : "Enter a search term to find restaurants, dishes, or lists."}
-            >
-                {(results) => ( // results = { dishes: [], restaurants: [], lists: [] }
-                    <div className="space-y-8">
-                        {/* Dishes Section */}
-                        {results.dishes?.length > 0 && (
-                            <div>
-                                <h2 className="text-xl font-semibold text-gray-700 mb-4">Dishes ({results.dishes.length})</h2>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                                    {results.dishes.map(dish => (
-                                        dish && dish.id != null ? (
-                                            <DishCard
-                                                key={`dish-${dish.id}`}
-                                                id={dish.id}
-                                                name={dish.name}
-                                                restaurant={dish.restaurant_name || dish.restaurant} // Handle potential alias
-                                                tags={dish.tags || []}
-                                                adds={dish.adds}
-                                            />
-                                        ) : null
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                        {/* Restaurants Section */}
-                        {results.restaurants?.length > 0 && (
-                            <div>
-                                <h2 className="text-xl font-semibold text-gray-700 mb-4">Restaurants ({results.restaurants.length})</h2>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                                    {results.restaurants.map(restaurant => (
-                                        restaurant && restaurant.id != null ? (
-                                            <RestaurantCard
-                                                key={`restaurant-${restaurant.id}`}
-                                                id={restaurant.id}
-                                                name={restaurant.name}
-                                                city={restaurant.city_name || restaurant.city} // Handle potential alias
-                                                neighborhood={restaurant.neighborhood_name || restaurant.neighborhood} // Handle alias
-                                                tags={restaurant.tags || []}
-                                                adds={restaurant.adds}
-                                            />
-                                        ) : null
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                        {/* Lists Section */}
-                        {results.lists?.length > 0 && (
-                            <div>
-                                <h2 className="text-xl font-semibold text-gray-700 mb-4">Lists ({results.lists.length})</h2>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                                    {results.lists.map(list => (
-                                        list && list.id != null ? (
-                                            <ListCard
-                                                key={`list-${list.id}`}
-                                                id={list.id}
-                                                name={list.name}
-                                                description={list.description}
-                                                saved_count={list.saved_count ?? 0}
-                                                item_count={list.item_count ?? 0}
-                                                is_following={list.is_following ?? false}
-                                                created_by_user={list.created_by_user ?? false}
-                                                creator_handle={list.creator_handle}
-                                                is_public={list.is_public ?? true}
-                                                type={list.type || list.list_type} // Handle alias
-                                                tags={list.tags || []}
-                                                user_id={list.user_id}
-                                            />
-                                        ) : null
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
-            </QueryResultDisplay>
+            {/* Loading State */}
+            {isLoading && searchTriggered && (
+                <div className='space-y-8 mt-6'>
+                    {searchType === 'all' || searchType === 'restaurants' ? renderSkeletons('restaurants') : null}
+                    {searchType === 'all' || searchType === 'dishes' ? renderSkeletons('dishes') : null}
+                    {searchType === 'all' || searchType === 'lists' ? renderSkeletons('lists') : null}
+                    {/* Add user skeletons if applicable */}
+                </div>
+            )}
+
+            {/* Error State */}
+            {isError && searchTriggered && (
+                <ErrorMessage
+                    message={error?.message || 'Failed to perform search.'}
+                    onRetry={refetch}
+                />
+            )}
+
+            {/* Results State */}
+            {!isLoading && !isError && searchTriggered && (
+                <div className="mt-6">
+                    {hasResults ? (
+                        <>
+                            {renderSection('Restaurants', data.restaurants, 'restaurants')}
+                            {renderSection('Dishes', data.dishes, 'dishes')}
+                            {renderSection('Lists', data.lists, 'lists')}
+                            {/* Render users section if applicable */}
+                            {/* {renderSection('Users', data.users, 'users')} */}
+                        </>
+                    ) : (
+                        <p className="text-center text-muted-foreground py-10 border border-dashed border-border rounded-lg bg-secondary">
+                            No results found for "{searchQuery}"{searchType !== 'all' ? ` in ${searchType}s` : ''}.
+                        </p>
+                    )}
+                </div>
+            )}
+
+             {/* Initial State (before first search is triggered) */}
+             {!searchTriggered && (
+                 <p className="text-center text-muted-foreground py-10">
+                     Enter a search term above to find restaurants, dishes, lists, or users.
+                 </p>
+             )}
         </div>
     );
 };

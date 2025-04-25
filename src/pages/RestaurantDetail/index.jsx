@@ -1,335 +1,345 @@
-/* src/pages/RestaurantDetail/index.jsx */
-/* REMOVED: All TypeScript syntax */
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
+// src/pages/RestaurantDetail/index.jsx
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import * as RadixTabs from '@radix-ui/react-tabs';
 import {
-    ArrowLeft, MapPin, Star, Phone, Globe, Clock, Train, ExternalLink, PlusCircle, Info, MessageSquare, CheckCircle, Instagram
+    MapPin, Utensils, Star, Eye, PlusCircle, Phone, Globe, Clock, Train, ExternalLink, Users, Info // Added more icons
 } from 'lucide-react';
-import { restaurantService } from '@/services/restaurantService';
-import { engagementService } from '@/services/engagementService';
-import useAuthStore from '@/stores/useAuthStore';
-import Button from '@/components/UI/Button';
-import { useQuickAdd } from '@/context/QuickAddContext';
-import ErrorMessage from '@/components/UI/ErrorMessage';
-import QueryResultDisplay from '@/components/QueryResultDisplay';
-import DishCard from '@/components/UI/DishCard';
-import ListCard from '@/pages/Lists/ListCard'; // Check path if ListCard moved
-import RestaurantCard from '@/components/UI/RestaurantCard'; // Use UI component
 
-// Fetcher function
-const fetchRestaurantDetails = async (restaurantId) => {
-    if (!restaurantId) {
-        const error = new Error('Restaurant ID is required.');
-        error.status = 400;
-        throw error;
-    }
-    try {
-        const response = await restaurantService.getRestaurantDetails(restaurantId);
-        if (!response || typeof response !== 'object' || typeof response.id === 'undefined') {
-             const error = new Error('Restaurant not found or invalid data.');
-             error.status = 404;
-            throw error;
-        }
-        // Add basic default values for potentially missing new fields
-        return {
-            ...response,
-            rating: response.rating ?? null,
-            primary_category: response.primary_category ?? (response.tags?.[0] || null),
-            phone: response.phone ?? null,
-            website: response.website ?? null,
-            hours: response.hours ?? null,
-            instagram_handle: response.instagram_handle ?? null,
-            transit_info: response.transit_info ?? null,
-            the_take_review: response.the_take_review ?? null,
-            the_take_reviewer_handle: response.the_take_reviewer_handle ?? null,
-            the_take_reviewer_verified: response.the_take_reviewer_verified ?? false,
-            featured_on_lists: response.featured_on_lists ?? [],
-            similar_places: response.similar_places ?? [],
-            dishes: response.dishes ?? [],
-        };
-    } catch (error) {
-        console.error(`[fetchRestaurantDetails] Error fetching restaurant ${restaurantId}:`, error);
-        const fetchError = new Error( error.message || 'Failed to load restaurant details');
-        fetchError.status = error.status || 500;
-        throw fetchError;
-    }
+// Services
+import { getRestaurantById } from '@/services/restaurantService';
+import { getDishesByRestaurantId } from '@/services/dishService'; // Keep if using Dishes section
+// Hooks
+import useAuthStore from '@/stores/useAuthStore';
+// import { useQuickAdd } from '@/context/QuickAddContext'; // Keep if Quick Add button is needed
+import useApiErrorHandler from '@/hooks/useApiErrorHandler';
+// Components
+import LoadingSpinner from '@/components/UI/LoadingSpinner';
+import ErrorMessage from '@/components/UI/ErrorMessage';
+import Button from '@/components/UI/Button'; // Use updated Button
+import AddToListModal from '@/components/AddToListModal';
+import DishCard from '@/components/UI/DishCard'; // Keep if using Dishes section
+// Utilities
+import { logEngagement } from '@/utils/logEngagement';
+
+// --- Helper Components ---
+
+// Updated DetailItem for minimalistic style (Used in Getting There)
+const DetailItem = ({ icon: Icon, text, href, isLink = false, className = "" }) => {
+    const content = (
+        // Adjusted spacing and alignment
+        <div className={`flex items-start space-x-3 text-sm text-gray-700 ${className}`}>
+            <Icon className="w-4 h-4 text-gray-500 flex-shrink-0 mt-[3px]" /> {/* Adjusted vertical alignment */}
+            <span className={`flex-1 ${isLink ? "hover:text-black hover:underline" : ""}`}>
+                {text}
+                {isLink && <ExternalLink className="w-3 h-3 text-gray-400 inline-block ml-1 mb-0.5" />}
+            </span>
+        </div>
+    );
+    // Render as link only if href is provided and valid
+    return isLink && href && href !== '#' ? <a href={href} target="_blank" rel="noopener noreferrer">{content}</a> : content;
 };
 
-const RestaurantDetail = () => {
-    const { id } = useParams();
-    const navigate = useNavigate();
-    const location = useLocation();
-    const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-    const { openQuickAdd } = useQuickAdd();
-    const [activeTab, setActiveTab] = useState('getting-there');
+// Updated TagPill for minimalistic style (Used in Header)
+const TagPill = ({ tag }) => (
+    <span className="inline-block border border-gray-300 text-gray-600 px-3 py-1 rounded-full text-xs font-medium mr-2 mb-2 capitalize"> {/* Capitalize tags */}
+        {tag}
+    </span>
+);
 
-    const queryResult = useQuery({
-        queryKey: ['restaurantDetails', id],
-        queryFn: () => fetchRestaurantDetails(id),
-        enabled: !!id,
+// Placeholder Card Component (Used for Lists/Similar)
+const PlaceholderCard = ({ title, children }) => (
+     // Simple card style matching the main sections
+     <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-6">
+        <h2 className="text-lg font-semibold text-black mb-4">{title}</h2>
+        <div className="text-sm text-gray-500 space-y-3"> {/* Added space-y */}
+            {children || "Content coming soon..."}
+        </div>
+    </div>
+);
+
+
+// --- Main Component ---
+
+function RestaurantDetailPage() {
+    const { restaurantId } = useParams();
+    const { handleApiError } = useApiErrorHandler();
+    const userId = useAuthStore((state) => state.user?.id);
+    // const { openQuickAdd } = useQuickAdd(); // Commented out Quick Add button for now
+    const [isAddToListModalOpen, setIsAddToListModalOpen] = useState(false);
+
+    // --- Data Fetching ---
+    const {
+        data: restaurantData,
+        isLoading: isLoadingRestaurant,
+        error: restaurantError,
+        isError: isRestaurantError,
+    } = useQuery({
+        queryKey: ['restaurant', restaurantId],
+        queryFn: () => getRestaurantById(restaurantId),
+        enabled: !!restaurantId,
         staleTime: 5 * 60 * 1000,
-        retry: (failureCount, error) => (error?.status !== 404 && failureCount < 1),
-        refetchOnWindowFocus: true,
+        cacheTime: 10 * 60 * 1000,
+        retry: 1,
+        onError: (err) => handleApiError(err, 'Failed to load restaurant details')
     });
 
-    useEffect(() => {
-        window.scrollTo(0, 0);
-    }, [id]);
+    // Keep dishes query if Dishes section is included
+    const {
+        data: dishesData,
+        isLoading: isLoadingDishes,
+        error: dishesError,
+        isError: isDishesError,
+    } = useQuery({
+        queryKey: ['dishes', restaurantId],
+        queryFn: () => getDishesByRestaurantId(restaurantId),
+        enabled: !!restaurantData?.id,
+        staleTime: 5 * 60 * 1000,
+        cacheTime: 10 * 60 * 1000,
+        retry: 1,
+        onError: (err) => handleApiError(err, 'Failed to load dishes')
+    });
 
+    // --- TODO: Add TanStack Queries for Featured Lists & Similar Places ---
+
+    // --- Engagement Logging ---
     useEffect(() => {
-        const numericId = id ? parseInt(id, 10) : NaN;
-        if (!isNaN(numericId) && numericId > 0 && queryResult.isSuccess && !queryResult.isLoading) {
-            engagementService.logEngagement({
-                item_id: numericId, item_type: 'restaurant', engagement_type: 'view',
-            }).catch((err) => { console.error('[RestaurantDetail] Failed to log view engagement:', err); });
+        const restaurantActualId = restaurantData?.id;
+        if (restaurantActualId && userId) {
+            logEngagement(userId, restaurantActualId, 'restaurant', 'view');
         }
-    }, [id, queryResult.isLoading, queryResult.isSuccess]);
+    }, [restaurantData?.id, userId]);
 
-    const handleAddToList = useCallback((restaurant) => {
-         if (!isAuthenticated) {
-             navigate('/login', { state: { from: location } });
-             return;
-         }
-         if (!restaurant || typeof restaurant.id === 'undefined') return;
-         openQuickAdd({
-             type: 'restaurant',
-             id: restaurant.id,
-             name: restaurant.name,
-             tags: restaurant.tags || [],
-             city: restaurant.city_name,
-             neighborhood: restaurant.neighborhood_name,
-         });
-     }, [isAuthenticated, openQuickAdd, navigate, location]);
-
-     const handleDishQuickAdd = useCallback((dish, restaurantName) => {
-         if (!isAuthenticated) {
-             navigate('/login', { state: { from: location } });
-             return;
-         }
-         if (!dish || typeof dish.id === 'undefined') return;
-         openQuickAdd({
-             type: 'dish',
-             id: dish.id,
-             name: dish.name,
-             restaurantId: dish.restaurant_id,
-             restaurantName: restaurantName,
-             tags: dish.tags || [],
-         });
-     }, [isAuthenticated, openQuickAdd, navigate, location]);
-
-    const formatWebsiteUrl = (url) => {
-      if (!url) return null;
-      if (!url.startsWith('http://') && !url.startsWith('https://')) {
-        return `https://${url}`;
-      }
-      return url;
+    // --- Event Handlers ---
+    const handleVisit = () => {
+        if (restaurantData?.website && restaurantData.website !== '#') {
+            window.open(restaurantData.website, '_blank', 'noopener,noreferrer');
+        } else {
+            console.log("No website URL available");
+            // Maybe show a notification to the user
+        }
     };
 
-    const formatInstagramUrl = (handle) => {
-      if (!handle) return null;
-      const cleanedHandle = handle.startsWith('@') ? handle.substring(1) : handle;
-      return `https://www.instagram.com/${cleanedHandle}`;
+    const handleOpenAddToListModal = () => {
+        if (userId && restaurantData) {
+            setIsAddToListModalOpen(true);
+        } else if (!userId) {
+            handleApiError({ message: "You must be logged in to save items to lists." });
+        }
     };
 
-    const getGoogleMapsLink = (placeId) => {
-        if (!placeId) return '#';
-        return `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=$${placeId}`;
-    };
+    const handleCloseAddToListModal = useCallback(() => setIsAddToListModalOpen(false), []);
 
+    const modalItem = useMemo(() => {
+        if (!restaurantData) return null;
+        return { id: restaurantData.id, name: restaurantData.name, type: 'restaurant' };
+    }, [restaurantData]);
+
+    // --- Render Logic ---
+    if (isLoadingRestaurant) {
+        return (
+            <div className="bg-gray-50 min-h-screen flex items-center justify-center">
+                <LoadingSpinner message="Loading restaurant..." />
+            </div>
+        );
+    }
+
+    if (isRestaurantError || !restaurantData) {
+        return (
+            <div className="bg-gray-50 min-h-screen px-4 py-8">
+                 <div className="max-w-4xl mx-auto">
+                    <ErrorMessage message={restaurantError?.message || "Could not load restaurant data."} />
+                    <Link to="/" className="text-pink-600 hover:underline mt-4 inline-block">Go Home</Link>
+                </div>
+            </div>
+        );
+    }
+
+    // Destructure needed data, providing defaults/placeholders
+    const {
+        name = "Restaurant Name",
+        address = "123 Main St",
+        city_name = "NYC",
+        neighborhood_name = "SoHo",
+        latitude,
+        longitude,
+        average_rating = 0,
+        // Extract or simulate cuisine type from tags or specific field
+        cuisine_type = restaurantData?.tags?.[0] || "Cuisine Type", // Example
+        tags = [],
+        phone_number = "(555) 123-4567", // Placeholder
+        website = "#", // Placeholder (use # if none)
+        hours = "Mon-Fri 11 AM - 9 PM, Sat-Sun 12 PM - 10 PM", // Placeholder
+        instagram_handle, // Optional data
+        // Add other fields needed for the new sections later
+    } = restaurantData || {}; // Add default empty object
+
+    const displayRating = average_rating > 0 ? Number(average_rating).toFixed(1) : null;
 
     return (
-        <div className="p-3 md:p-5 max-w-4xl mx-auto text-gray-900">
-             <button onClick={() => navigate(-1)} className="flex items-center text-gray-600 hover:text-gray-900 mb-4 group text-sm">
-                 <ArrowLeft size={16} className="mr-1 transition-colors group-hover:text-[#A78B71]" />
-                 <span className="transition-colors group-hover:text-[#A78B71]">Back</span>
-             </button>
+        // Light gray page background
+        <div className="bg-gray-100 min-h-screen py-10">
+            {/* Centered content container */}
+            <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
 
-            <QueryResultDisplay
-                queryResult={queryResult}
-                loadingMessage="Loading restaurant details..."
-                errorMessagePrefix="Error Loading Restaurant"
-                isDataEmpty={(data) => !data || typeof data.id === 'undefined'}
-                noDataMessage={queryResult.error?.status === 404 ? 'Restaurant not found.' : 'Restaurant details could not be loaded.'}
-                ErrorChildren={
-                    <Button onClick={() => navigate('/')} variant="secondary" size="sm" className="mt-2">
-                        Back to Home
-                    </Button>
-                }
-            >
-                {(restaurant) => (
-                    <div className="space-y-6">
-                        {/* Header Section */}
-                        <div className="bg-white rounded-lg shadow-sm p-4 sm:p-5 border border-gray-100">
-                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                                {/* Left: Info */}
-                                <div className="flex-grow">
-                                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 break-words mb-1">
-                                        {restaurant.name}
-                                    </h1>
-                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-600 mb-2">
-                                        {restaurant.rating != null && <span className="flex items-center"><Star size={14} className="mr-1 text-yellow-500 fill-current" />{restaurant.rating}</span>}
-                                        {restaurant.primary_category && <span>{restaurant.primary_category}</span>}
-                                        {(restaurant.neighborhood_name || restaurant.city_name) && <span className="flex items-center"><MapPin size={14} className="mr-1 text-gray-400" />{`${restaurant.neighborhood_name ? restaurant.neighborhood_name + ', ' : ''}${restaurant.city_name || ''}`}</span>}
-                                    </div>
-                                    {Array.isArray(restaurant.tags) && restaurant.tags.length > 0 && (
-                                        <div className="flex gap-1.5 flex-wrap">
-                                            {restaurant.tags.map((tag) => (<span key={tag} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">#{tag}</span>))}
-                                        </div>
-                                    )}
+                {/* --- Header Section Card --- */}
+                <div className="bg-white shadow-md rounded-lg border border-gray-200 p-6 mb-8">
+                    <div className="flex flex-col sm:flex-row justify-between sm:items-start">
+                        {/* Left Side: Info */}
+                        <div className='mb-4 sm:mb-0'>
+                            {/* Restaurant Name */}
+                            <h1 className="text-2xl md:text-3xl font-semibold text-black mb-1">{name}</h1>
+                             {/* Rating / Cuisine / Location Row */}
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-600 mb-3">
+                                {displayRating && (
+                                    <span className="flex items-center">
+                                        <Star className="w-4 h-4 text-yellow-400 mr-1" /> {displayRating} stars
+                                    </span>
+                                )}
+                                {cuisine_type && <span>{cuisine_type}</span>}
+                                {neighborhood_name && city_name && <span>{`${neighborhood_name}, ${city_name}`}</span>}
+                            </div>
+                            {/* Tags */}
+                            {tags.length > 0 && (
+                                <div className="flex flex-wrap">
+                                    {tags.map(tag => <TagPill key={tag} tag={tag} />)}
                                 </div>
-                                {/* Right: Actions */}
-                                <div className="flex-shrink-0 flex items-center gap-2 w-full sm:w-auto">
-                                    {restaurant.website && formatWebsiteUrl(restaurant.website) && (
-                                        <a href={formatWebsiteUrl(restaurant.website)} target="_blank" rel="noopener noreferrer" className="flex-1 sm:flex-none">
-                                            {/* CSS reverted: Removed !bg-[#FF69B4] etc. */}
-                                            <Button as="span" variant="primary" size="sm" className="w-full"><ExternalLink size={14} className="mr-1" /> Visit</Button>
-                                        </a>
-                                    )}
-                                     {/* CSS reverted: Removed !border-[#FF69B4] etc. */}
-                                    <Button variant="secondary" size="sm" onClick={() => handleAddToList(restaurant)} className="flex-1 sm:flex-none"><PlusCircle size={14} className="mr-1" /> Add to List</Button>
+                            )}
+                        </div>
+                        {/* Right Side: Buttons */}
+                        <div className="flex flex-shrink-0 space-x-2 mt-2 sm:mt-0 self-start sm:self-auto"> {/* Align buttons */}
+                             <Button variant="accent" size="sm" onClick={handleVisit} disabled={!website || website === '#'}>
+                                Visit
+                            </Button>
+                            {userId && (
+                                <Button variant="outline" size="sm" onClick={handleOpenAddToListModal} icon={PlusCircle}>
+                                    Add to List
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* --- Main Content Grid --- */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    {/* Left Column (Wider) */}
+                    <div className="md:col-span-2 space-y-8">
+
+                        {/* --- Getting There Section --- */}
+                        <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-6">
+                            <h2 className="text-lg font-semibold text-black mb-4">Getting There</h2>
+                            <div className="space-y-3">
+                                <DetailItem icon={Phone} text={phone_number || 'Phone number not available'} />
+                                {/* Use website field directly */}
+                                <DetailItem icon={Globe} text={website === '#' ? 'Website not available' : website} href={website} isLink={!!website && website !== '#'} />
+                                <DetailItem icon={Clock} text={`Hours: ${hours}`} />
+                                {instagram_handle && (
+                                     <DetailItem icon={Users} text={`@${instagram_handle}`} href={`https://instagram.com/${instagram_handle}`} isLink={true} />
+                                )}
+                                <div className="pt-4 mt-4 border-t border-gray-200">
+                                     <h3 className="text-base font-medium text-black mb-2">Location & Transit</h3>
+                                     <DetailItem icon={MapPin} text={`${address}, ${neighborhood_name}, ${city_name}`} />
+                                     {/* Transit Placeholder */}
+                                     <DetailItem icon={Train} text="Nearby Transit: Example Line (A, C, E), Another Line (1)" className="mt-2 text-xs text-gray-500" />
                                 </div>
                             </div>
                         </div>
 
-                        {/* "The Take" Section */}
-                         {restaurant.the_take_review && restaurant.the_take_reviewer_handle && (
-                             <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-900 shadow-sm">
-                                 <div className="flex items-center mb-1.5">
-                                      <span className="font-semibold mr-1.5">The Take by @{restaurant.the_take_reviewer_handle}</span>
-                                      {restaurant.the_take_reviewer_verified === true && <CheckCircle size={14} className="text-blue-500" title="Verified Reviewer" />}
-                                  </div>
-                                 <p className="italic">"{restaurant.the_take_review}"</p>
-                             </div>
-                         )}
-
-                        {/* Tabs Section */}
-                        <RadixTabs.Root value={activeTab} onValueChange={setActiveTab} className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
-                            <RadixTabs.List className="flex border-b border-gray-200 bg-gray-50">
-                                <RadixTabs.Trigger value="getting-there" className={`flex-1 py-2 px-4 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-inset focus:ring-[#D1B399] transition-colors ${activeTab === 'getting-there' ? 'text-[#A78B71] border-b-2 border-[#A78B71] bg-white' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'}`}>Getting There</RadixTabs.Trigger>
-                                <RadixTabs.Trigger value="what-to-order" className={`flex-1 py-2 px-4 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-inset focus:ring-[#D1B399] transition-colors ${activeTab === 'what-to-order' ? 'text-[#A78B71] border-b-2 border-[#A78B71] bg-white' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'}`}>What to Order</RadixTabs.Trigger>
-                            </RadixTabs.List>
-
-                            {/* Getting There Content */}
-                            <RadixTabs.Content value="getting-there" className="p-4 sm:p-5 text-sm focus:outline-none">
-                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                     {/* Left Column: Contact/Location */}
-                                     <div className="space-y-4">
-                                          <div>
-                                              <h3 className="font-semibold text-gray-800 mb-2">Contact</h3>
-                                              <div className="space-y-1 text-gray-700">
-                                                  {restaurant.phone && <p className="flex items-center gap-2"><Phone size={14} className="text-gray-400"/> {restaurant.phone}</p>}
-                                                  {restaurant.website && formatWebsiteUrl(restaurant.website) && <p className="flex items-center gap-2"><Globe size={14} className="text-gray-400"/> <a href={formatWebsiteUrl(restaurant.website)} target="_blank" rel="noopener noreferrer" className="text-[#A78B71] hover:underline break-all">{restaurant.website}</a></p>}
-                                                  {restaurant.hours && <p className="flex items-center gap-2"><Clock size={14} className="text-gray-400"/> {restaurant.hours}</p>}
-                                                  {restaurant.instagram_handle && formatInstagramUrl(restaurant.instagram_handle) && <p className="flex items-center gap-2"><Instagram size={14} className="text-gray-400"/> <a href={formatInstagramUrl(restaurant.instagram_handle)} target="_blank" rel="noopener noreferrer" className="text-[#A78B71] hover:underline">@{restaurant.instagram_handle}</a></p>}
-                                              </div>
-                                          </div>
-                                          <div>
-                                              <h3 className="font-semibold text-gray-800 mb-2">Location & Getting There</h3>
-                                               <div className="space-y-1 text-gray-700">
-                                                  {restaurant.address && <p className="flex items-center gap-2"><MapPin size={14} className="text-gray-400"/> {restaurant.address}</p>}
-                                                  {restaurant.transit_info && <p className="flex items-center gap-2"><Train size={14} className="text-gray-400"/> {restaurant.transit_info}</p>}
-                                               </div>
-                                          </div>
-                                     </div>
-                                     {/* Right Column: Map Placeholder */}
-                                     <div>
-                                         <div className="aspect-video bg-gray-200 rounded flex items-center justify-center text-gray-500">
-                                             <MapPin size={24} className="mr-2"/> Map Placeholder
-                                              {restaurant.google_place_id && (
-                                                  <a href={getGoogleMapsLink(restaurant.google_place_id)} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline ml-2">(View on Google Maps)</a>
-                                              )}
-                                         </div>
-                                     </div>
-                                 </div>
-                             </RadixTabs.Content>
-
-
-                            {/* What to Order Content */}
-                             <RadixTabs.Content value="what-to-order" className="p-4 sm:p-5 focus:outline-none">
-                                 <h3 className="font-semibold text-gray-800 mb-3">Dishes at {restaurant.name}</h3>
-                                 {Array.isArray(restaurant.dishes) && restaurant.dishes.length > 0 ? (
-                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                         {restaurant.dishes.map((dish) => (
-                                             dish && dish.id != null ? ( // Check dish validity
-                                                 <DishCard
-                                                     key={`dish-${dish.id}`}
-                                                     id={dish.id}
-                                                     name={dish.name}
-                                                     restaurant={restaurant.name}
-                                                     tags={dish.tags || []}
-                                                     adds={dish.adds || 0}
-                                                     onQuickAdd={(e) => {
-                                                         e.stopPropagation();
-                                                         e.preventDefault();
-                                                         handleDishQuickAdd(dish, restaurant.name);
-                                                     }}
-                                                 />
-                                             ) : null
-                                         ))}
-                                     </div>
-                                 ) : (
-                                     <div className="text-center py-6 text-gray-500 text-sm border border-dashed border-gray-200 rounded-md bg-gray-50">
-                                         No specific dishes listed yet.
-                                     </div>
-                                 )}
-                             </RadixTabs.Content>
-
-                        </RadixTabs.Root>
-
-                        {/* "Featured on Lists" Section */}
-                         {Array.isArray(restaurant.featured_on_lists) && restaurant.featured_on_lists.length > 0 && (
-                             <div>
-                                <h2 className="text-xl font-semibold text-gray-800 mb-3">Featured on Lists</h2>
-                                <div className="space-y-3">
-                                     {restaurant.featured_on_lists.map((list) => (
-                                         list && list.id != null ? (
-                                             <div key={`featured-${list.id}`} className="bg-white border border-gray-200 p-3 rounded-md flex justify-between items-center text-sm">
-                                                  <div>
-                                                       <Link to={`/lists/${list.id}`} className="font-medium hover:text-[#A78B71]">{list.name}</Link>
-                                                       <p className="text-xs text-gray-500">by @{list.creator_handle || '...'} • {list.saved_count || 0} followers</p>
-                                                  </div>
-                                                  {isAuthenticated && (
-                                                       <Button size="xs" variant="tertiary" title={`Add ${restaurant.name} to your list`} onClick={() => handleAddToList(restaurant)} className="!p-1.5"><PlusCircle size={16}/></Button>
-                                                   )}
-                                              </div>
-                                          ) : null
-                                        ))}
+                        {/* --- Featured on Lists Section (Placeholder) --- */}
+                        <PlaceholderCard title="Featured on Lists">
+                            {/* Replace with actual list data mapping */}
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-center">
+                                    <div>
+                                        <p className="font-medium text-black hover:underline cursor-pointer">Best Italian in NYC</p>
+                                        <p className="text-xs text-gray-500">by @username • 1.2k followers</p>
+                                    </div>
+                                    <Button variant="outline" size="sm" className="px-2 py-1 h-auto"><PlusCircle className="w-4 h-4" /></Button>
                                 </div>
-                             </div>
-                         )}
-
-                         {/* "Similar Places" Section */}
-                         {Array.isArray(restaurant.similar_places) && restaurant.similar_places.length > 0 && (
-                             <div>
-                                <h2 className="text-xl font-semibold text-gray-800 mb-3">Similar Places Nearby</h2>
-                                <div className="flex space-x-4 overflow-x-auto pb-2 -mx-4 sm:-mx-5 px-4 sm:px-5 no-scrollbar">
-                                    {restaurant.similar_places.map((place) => (
-                                        place && place.id != null ? (
-                                             <div key={`similar-${place.id}`} className="min-w-[240px] sm:min-w-[280px] flex-shrink-0">
-                                                  <RestaurantCard
-                                                      id={place.id}
-                                                      name={place.name || 'Unknown Restaurant'}
-                                                      city={place.city_name}
-                                                      neighborhood={place.neighborhood_name}
-                                                      adds={place.adds}
-                                                      tags={place.tags}
-                                                      onQuickAdd={(e) => { e.stopPropagation(); e.preventDefault(); handleAddToList(place); }}
-                                                  />
-                                                  {place.distance && <p className="text-center text-xs text-gray-500 mt-1">{place.distance}</p>}
-                                             </div>
-                                         ) : null
-                                    ))}
+                                 <div className="flex justify-between items-center">
+                                    <div>
+                                        <p className="font-medium text-black hover:underline cursor-pointer">SoHo Date Night Gems</p>
+                                        <p className="text-xs text-gray-500">by @anotheruser • 870 followers</p>
+                                    </div>
+                                     <Button variant="outline" size="sm" className="px-2 py-1 h-auto"><PlusCircle className="w-4 h-4" /></Button>
                                 </div>
-                             </div>
-                         )}
+                                {/* Add link to view more lists if applicable */}
+                            </div>
+                        </PlaceholderCard>
+
+                         {/* --- Similar Places Section (Placeholder) --- */}
+                         <PlaceholderCard title="Similar Places">
+                             {/* Replace with actual similar places data mapping */}
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center">
+                                    <p className="font-medium text-black hover:underline cursor-pointer">Similar Restaurant 1</p>
+                                    <p className="text-xs text-gray-500">0.5 miles away</p>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <p className="font-medium text-black hover:underline cursor-pointer">Another Great Place</p>
+                                    <p className="text-xs text-gray-500">1.1 miles away</p>
+                                </div>
+                                 <div className="flex justify-between items-center">
+                                    <p className="font-medium text-black hover:underline cursor-pointer">Third Recommendation</p>
+                                    <p className="text-xs text-gray-500">1.8 miles away</p>
+                                </div>
+                                 {/* Add link to view more similar places if applicable */}
+                            </div>
+                         </PlaceholderCard>
 
                     </div>
-                )}
-            </QueryResultDisplay>
+
+                    {/* Right Column (Narrower) */}
+                    <div className="md:col-span-1 space-y-8">
+                        {/* --- Map Section --- */}
+                        {latitude && longitude && (
+                            <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-4">
+                                <h2 className="text-base font-semibold text-black mb-3">Location Map</h2> {/* Slightly smaller title */}
+                                <div className="aspect-square bg-gray-200 rounded-md flex items-center justify-center overflow-hidden">
+                                    <p className="text-gray-500 text-xs italic">Map Component Placeholder</p>
+                                    {/* <ActualMapComponent lat={latitude} lng={longitude} /> */}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* --- Dishes Section (Optional - Kept for now) --- */}
+                        {(!isLoadingDishes && dishesData && dishesData.length > 0) && ( // Only show card if dishes exist
+                            <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-6">
+                                <h2 className="text-lg font-semibold text-black mb-4">Popular Dishes</h2>
+                                {isLoadingDishes ? (
+                                    <LoadingSpinner size="sm" />
+                                ) : isDishesError ? (
+                                    <ErrorMessage message="Could not load dishes."/>
+                                ) : dishesData && dishesData.length > 0 ? (
+                                    <div className="space-y-2">
+                                        {dishesData.slice(0, 5).map((dish) => (
+                                            <Link key={dish.id} to={`/dish/${dish.id}`} className="text-sm text-gray-700 hover:text-black hover:underline block truncate">
+                                                {dish.name}
+                                            </Link>
+                                        ))}
+                                        {/* Optional: Link to view all dishes */}
+                                        {/* {dishesData.length > 5 && <Link to="#" className="text-sm text-pink-600 hover:underline block mt-2">View all...</Link>} */}
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-gray-500">No popular dishes listed yet.</p>
+                                )}
+                            </div>
+                        )}
+                        {/* --- End Dishes --- */}
+                    </div>
+                </div>
+            </div>
+
+            {/* Modal */}
+            {modalItem && (
+                 <AddToListModal
+                    isOpen={isAddToListModalOpen}
+                    onClose={handleCloseAddToListModal}
+                    item={modalItem}
+                />
+             )}
         </div>
     );
-};
+}
 
-export default RestaurantDetail;
+export default RestaurantDetailPage;

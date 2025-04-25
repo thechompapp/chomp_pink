@@ -1,143 +1,153 @@
 // src/pages/Login/index.jsx
-import React, { useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import useAuthStore from '@/stores/useAuthStore';
-import useFormHandler from '@/hooks/useFormHandler';
-import Button from '@/components/UI/Button';
-import { Loader2 } from 'lucide-react';
+/* REFACTORED: Added basic client-side email validation */
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import useAuthStore from '@/stores/useAuthStore.js'; // Use alias
+import Button from '@/components/UI/Button.jsx'; // Use alias
+import Input from '@/components/UI/Input.jsx'; // Use alias
+import ErrorMessage from '@/components/UI/ErrorMessage.jsx'; // Use alias
+
+// Basic email regex (adjust if needed for stricter validation)
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const Login = () => {
-  const navigate = useNavigate();
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [clientError, setClientError] = useState(''); // State for client-side validation errors
+    const navigate = useNavigate();
+    const location = useLocation();
+    const { login, isAuthenticated, error: authError, clearError, isProcessing } = useAuthStore(state => ({
+        login: state.login,
+        isAuthenticated: state.isAuthenticated,
+        error: state.error,
+        clearError: state.clearError,
+        isProcessing: state.isProcessing
+    }));
 
-  // Select state and actions from the store
-  const loginAction = useAuthStore((state) => state.login);
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const clearAuthError = useAuthStore((state) => state.clearError);
-  // We might need isLoading for initial check, but ProtectedRoute handles it
-  // const isLoadingAuth = useAuthStore((state) => state.isLoading);
+    const from = location.state?.from?.pathname || "/"; // Redirect path after login
 
-  // Initialize the form handler hook
-  const {
-    formData,
-    handleChange,
-    handleSubmit,
-    isSubmitting,
-    submitError,
-    setSubmitError, // Use setSubmitError to clear form-specific errors
-  } = useFormHandler({
-    email: '',
-    password: '',
-  });
+    // Clear errors when component mounts or unmounts
+    useEffect(() => {
+        clearError(); // Clear server errors on mount
+        return () => clearError(); // Clear on unmount
+    }, [clearError]);
 
-  // Clear any lingering auth errors from the store when the component mounts
-  // And clear any form handler errors
-  useEffect(() => {
-    clearAuthError();
-    setSubmitError(null);
-  }, [clearAuthError, setSubmitError]); // Dependencies are stable
+    // Clear client error when user types
+    useEffect(() => {
+        if (clientError) setClientError('');
+    }, [email, password, clientError]);
 
-  // Redirect if user is already authenticated
-  useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/', { replace: true });
-    }
-    // Dependency only on isAuthenticated and navigate
-  }, [isAuthenticated, navigate]);
 
-  // Define the actual login logic to be passed to the hook's handleSubmit
-  const performLogin = async (currentFormData) => {
-    try {
-       const success = await loginAction(currentFormData.email, currentFormData.password);
-       // Navigation on success is handled by the useEffect above reacting to isAuthenticated change
-       if (!success) {
-           // If loginAction resolves false or throws, an error occurred.
-           // We rely on the error being set in the authStore and caught by handleSubmit.
-           // Re-throw an error based on the store's state.
-           throw new Error(useAuthStore.getState().error || 'Login failed.');
-       }
-       // No explicit navigation here, handled by useEffect
-    } catch (error) {
-        // Re-throw the error to be caught by handleSubmit
-        throw error;
-    }
-  };
+    const validateForm = () => {
+        if (!email || !password) {
+            setClientError('Email and password are required.');
+            return false;
+        }
+        if (!EMAIL_REGEX.test(email)) {
+            setClientError('Please enter a valid email address.');
+            return false;
+        }
+        setClientError(''); // Clear any previous client error
+        return true;
+    };
 
-  // Wrapper function for the form's onSubmit event
-  const handleFormSubmit = (e) => {
-    e.preventDefault();
-    handleSubmit(performLogin); // Pass the async function directly
-  };
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        clearError(); // Clear previous server errors
+        setClientError(''); // Clear previous client errors
 
-  return (
-    <div className="flex items-center justify-center min-h-[calc(100vh-150px)] bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md border border-gray-100">
-        <h2 className="text-2xl font-bold text-center text-gray-900">Log in to DOOF</h2>
-        <form className="space-y-4" onSubmit={handleFormSubmit}>
-          {/* Email Input */}
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-              Email address
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              required
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#D1B399] focus:border-[#D1B399] sm:text-sm disabled:opacity-50 disabled:bg-gray-100"
-              value={formData.email}
-              onChange={handleChange}
-              disabled={isSubmitting}
-            />
-          </div>
+        // Perform client-side validation first
+        if (!validateForm()) {
+            return;
+        }
 
-          {/* Password Input */}
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-              Password
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              required
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#D1B399] focus:border-[#D1B399] sm:text-sm disabled:opacity-50 disabled:bg-gray-100"
-              value={formData.password}
-              onChange={handleChange}
-              disabled={isSubmitting}
-            />
-          </div>
+        const success = await login(email, password);
+        if (success) {
+            console.log('[Login] Login successful, navigating to:', from);
+            // Navigate to the intended page or home
+             // Use replace to avoid login page in history stack
+            navigate(from, { replace: true });
+        }
+         // If login fails, the authError from useAuthStore will be set and displayed
+    };
 
-          {/* Display Login Error using submitError from hook */}
-          {submitError && (
-             <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2 text-center">
-               {submitError}
-             </p>
-          )}
+    // Redirect if already authenticated
+    useEffect(() => {
+        if (isAuthenticated) {
+            console.log('[Login] Already authenticated, navigating to:', from);
+            navigate(from, { replace: true });
+        }
+    }, [isAuthenticated, navigate, from]);
 
-          {/* Submit Button */}
-          <div>
-            <Button
-              type="submit"
-              variant="primary"
-              className="w-full flex justify-center py-2 px-4 disabled:opacity-70"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? <Loader2 className="animate-spin h-5 w-5" /> : 'Log in'}
-            </Button>
-          </div>
-        </form>
-        {/* Link to Register page */}
-        <p className="text-sm text-center text-gray-600">
-          Don't have an account?{' '}
-          <Link to="/register" className="font-medium text-[#A78B71] hover:text-[#D1B399]">
-            Sign up
-          </Link>
-        </p>
-      </div>
-    </div>
-  );
+
+    return (
+        <div className="flex items-center justify-center min-h-screen bg-background px-4">
+            <div className="w-full max-w-md p-8 space-y-6 bg-card shadow-lg rounded-lg border border-border">
+                <h2 className="text-2xl font-bold text-center text-foreground">Login to Doof</h2>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label htmlFor="email" className="block text-sm font-medium text-muted-foreground mb-1">
+                            Email
+                        </label>
+                        <Input
+                            type="email"
+                            id="email"
+                            name="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="you@example.com"
+                            required
+                            className="w-full"
+                            aria-describedby="email-error"
+                        />
+                    </div>
+                    <div>
+                        <label
+                            htmlFor="password"
+                            className="block text-sm font-medium text-muted-foreground mb-1"
+                        >
+                            Password
+                        </label>
+                        <Input
+                            type="password"
+                            id="password"
+                            name="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="••••••••"
+                            required
+                            className="w-full"
+                            aria-describedby="password-error"
+                        />
+                    </div>
+                    {/* Display Client-side or Server-side Error */}
+                    {(clientError || authError) && (
+                        <ErrorMessage
+                            message={clientError || authError}
+                            id="auth-error"
+                            role="alert"
+                         />
+                     )}
+                    <div>
+                        <Button
+                            type="submit"
+                            className="w-full"
+                            disabled={isProcessing}
+                            isLoading={isProcessing}
+                        >
+                            Login
+                        </Button>
+                    </div>
+                </form>
+                <p className="text-sm text-center text-muted-foreground">
+                    Don't have an account?{' '}
+                    <Link to="/register" className="font-medium text-primary hover:underline">
+                        Register here
+                    </Link>
+                </p>
+            </div>
+        </div>
+    );
 };
 
 export default Login;

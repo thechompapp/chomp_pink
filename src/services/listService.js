@@ -1,339 +1,225 @@
 /* src/services/listService.js */
-/* REMOVED: All TypeScript syntax */
-import apiClient, { ApiError } from '@/services/apiClient'; // Import ApiError if used
-// REMOVED: import type { List, ListItem, ListDetails, ... } from '@/types/List';
+/* REFACTORED: Let apiClient handle and propagate standardized errors */
+import apiClient from '@/services/apiClient.js';
+// REMOVED: ApiError import, as we rely on apiClient's rejection format
 
-// REMOVED: Helper type guards (isValidList, isValidListItem, etc.)
-
-// Refined formatList without TS types/guards
-const formatList = (list) => { // REMOVED: : List | null
-    if (!list || typeof list.id !== 'number' || typeof list.name !== 'string') {
-        return null;
-    }
-    const itemCount = Array.isArray(list.items) ? list.items.length : Number(list.item_count ?? 0);
-    const savedCount = Number(list.saved_count ?? 0);
-    const listType = list.list_type || list.type || 'mixed';
-
-    // Basic validation for listType in JS
-    if (listType !== 'restaurant' && listType !== 'dish' && listType !== 'mixed') {
-        console.warn(`[formatList] Invalid list_type '${listType}' found for list ID ${list.id}.`);
-        // Handle invalid type - returning null or a default might be appropriate
-        // return null; // Or default: listType = 'mixed';
-    }
-
-    const formatted = { // REMOVED: : List
-        id: Number(list.id),
-        name: list.name,
-        description: list.description ?? null,
-        type: listType,
-        list_type: listType,
-        saved_count: !isNaN(savedCount) ? savedCount : 0,
-        item_count: !isNaN(itemCount) ? itemCount : 0,
-        city: list.city_name || list.city || null,
-        tags: Array.isArray(list.tags) ? list.tags.filter(t => typeof t === 'string' && !!t) : [], // Filter for truthy strings
-        is_public: typeof list.is_public === 'boolean' ? list.is_public : true,
-        is_following: !!list.is_following,
-        created_by_user: !!list.created_by_user,
-        user_id: list.user_id ? Number(list.user_id) : null,
-        creator_handle: list.creator_handle ?? null,
-        created_at: list.created_at,
-        updated_at: list.updated_at,
-        city_name: list.city_name ?? list.city ?? null, // Use null consistently
-    };
-
-    // Perform basic JS check if needed (optional)
-    // if (typeof formatted.id !== 'number' || typeof formatted.name !== 'string') return null;
-
-    return formatted;
-};
-
-// Refined formatListItem without TS types/guards
-const formatListItem = (item) => { // REMOVED: : ListItem | null
-    // Check essential properties required by your application logic
-    if (!item || typeof item.list_item_id !== 'number' || typeof item.id !== 'number' || typeof item.item_type !== 'string') {
-        return null;
-    }
-    // Basic validation for item_type
-    if (item.item_type !== 'restaurant' && item.item_type !== 'dish') {
-         console.warn('[formatListItem] Invalid item_type found:', item.item_type);
-         return null;
-    }
-
-    const formatted/*REMOVED: : ListItem*/ = {
-        list_item_id: Number(item.list_item_id),
-        id: Number(item.id),
-        item_id: Number(item.id), // Keep original if needed
-        item_type: item.item_type, // REMOVED: as ListItem['item_type']
-        name: item.name || `Item ${item.id}`,
-        restaurant_name: item.restaurant_name ?? null,
-        added_at: item.added_at,
-        city: item.city ?? null,
-        neighborhood: item.neighborhood ?? null,
-        tags: Array.isArray(item.tags) ? item.tags.filter(t => typeof t === 'string' && !!t) : [],
-    };
-
-    return formatted;
-};
+// --- Formatters remain the same ---
+const formatList = (list) => { /* ... content from previous version ... */ if (!list || typeof list.id !== 'number' || typeof list.name !== 'string') { return null; } const itemCount = Array.isArray(list.items) ? list.items.length : Number(list.item_count ?? 0); const savedCount = Number(list.saved_count ?? 0); const listType = list.list_type || list.type || 'mixed'; if (listType !== 'restaurant' && listType !== 'dish' && listType !== 'mixed') { console.warn(`[formatList] Invalid list_type '${listType}' found for list ID ${list.id}. Defaulting to mixed.`); listType = 'mixed'; } const formatted = { id: Number(list.id), name: list.name, description: list.description ?? null, type: listType, list_type: listType, saved_count: !isNaN(savedCount) ? savedCount : 0, item_count: !isNaN(itemCount) ? itemCount : 0, city: list.city_name || list.city || null, tags: Array.isArray(list.tags) ? list.tags.filter(t => typeof t === 'string' && !!t) : [], is_public: typeof list.is_public === 'boolean' ? list.is_public : true, is_following: !!list.is_following, created_by_user: !!list.created_by_user, user_id: list.user_id ? Number(list.user_id) : null, creator_handle: list.creator_handle ?? null, created_at: list.created_at, updated_at: list.updated_at, city_name: list.city_name ?? list.city ?? null, }; if (typeof formatted.id !== 'number' || typeof formatted.name !== 'string') return null; return formatted; };
+const formatListItem = (item) => { /* ... content from previous version ... */ if (!item || typeof item.list_item_id !== 'number' || (item.item_id == null && item.id == null) || typeof item.item_type !== 'string') { console.warn('[formatListItem] Invalid input:', item); return null; } const itemId = item.item_id ?? item.id; if (itemId == null) return null; if (item.item_type !== 'restaurant' && item.item_type !== 'dish') { console.warn('[formatListItem] Invalid item_type found:', item.item_type); return null; } const formatted = { list_item_id: Number(item.list_item_id), id: Number(itemId), item_id: Number(itemId), item_type: item.item_type, name: item.name || `Item ${itemId}`, notes: item.notes || null, restaurant_name: item.restaurant_name ?? null, added_at: item.added_at, city: item.city ?? null, neighborhood: item.neighborhood ?? null, tags: Array.isArray(item.tags) ? item.tags.filter(t => typeof t === 'string' && !!t) : [], restaurant_id: item.item_type === 'restaurant' ? Number(itemId) : (item.restaurant_id ? Number(item.restaurant_id) : null), dish_id: item.item_type === 'dish' ? Number(itemId) : null, }; return formatted; };
+// --- End Formatters ---
 
 // --- Service Functions ---
 
-const getLists = async (params = {}) => { // REMOVED: : ListParams, : Promise<List[]>
-    const queryParams = {}; // REMOVED: : Record<string, string>
-    if (params.createdByUser !== undefined) queryParams.createdByUser = String(params.createdByUser);
-    if (params.followedByUser !== undefined) queryParams.followedByUser = String(params.followedByUser);
+const listService = {
+    // Example: getUserLists (used by MyLists.jsx with React Query)
+    // React Query handles errors, so just return the promise from apiClient
+    getUserLists: async (params = {}) => {
+        const { view = 'created', page = 1, limit = 12 } = params;
+        // Construct query parameters
+        const queryParams = new URLSearchParams({
+            view: view,
+            page: String(page),
+            limit: String(limit),
+        }).toString();
+        const endpoint = `/api/lists?${queryParams}`;
+        const context = `ListService GetUserLists (view: ${view}, page: ${page})`;
 
-    const queryString = new URLSearchParams(queryParams).toString();
-    const endpoint = `/api/lists${queryString ? `?${queryString}` : ''}`;
-    const context = queryString ? `ListService Get (${queryString})` : 'ListService Get All';
+        // Make the call and return the result directly (apiClient handles success/error structure)
+        // The { success: true, data: [], pagination: {}, ... } structure comes from the backend
+        // The error structure { message, status, errorDetails } comes from apiClient interceptor on failure
+        return apiClient(endpoint, context);
+    },
 
-    try {
-        // Assume apiClient returns { success: boolean, data: any[], error: string|null, status: number|null }
-        const response = await apiClient/*REMOVED: <any[]>*/(endpoint, context);
-
-        if (!response.success || !Array.isArray(response.data)) {
-            throw new ApiError(response.error || `Invalid data format received: Expected an array.`, response.status ?? 500, response);
+    getListDetails: async (listId) => {
+        if (!listId) {
+            // Throw simple error for invalid input before API call
+            throw new Error('List ID is required');
         }
+        const endpoint = `/api/lists/${encodeURIComponent(String(listId))}`;
+        const context = `ListService Details ${listId}`;
 
-        const formattedLists = response.data
-            .map(formatList)
-            .filter(list => list !== null); // Filter out nulls from formatting errors
+        // Let apiClient handle the call and potential errors
+        const response = await apiClient(endpoint, context);
 
-        return formattedLists;
-    } catch (error) {
-        console.error(`[${context}] Error:`, error);
-        throw error; // Re-throw ApiError or other errors
-    }
-};
+        // Assuming backend sends { success: true, data: { list details + items }, ... }
+        // or apiClient rejects with { message, status, ... }
+        if (response.success && response.data) {
+            // Format the data before returning it to the component
+            const formattedList = formatList(response.data); // Assuming raw data structure matches formatter
+            if (!formattedList) {
+                console.error(`[${context}] Failed to format base list data:`, response.data);
+                throw new Error('Failed to process list details'); // Throw if formatting fails
+            }
+            const rawItems = response.data.items; // Adjust based on actual backend response structure
+            formattedList.items = Array.isArray(rawItems)
+                ? rawItems.map(formatListItem).filter(item => item !== null)
+                : [];
 
-const getListDetails = async (listId) => { // REMOVED: Type hints & Promise return type
-    if (!listId) {
-        throw new ApiError('List ID is required', 400);
-    }
-
-    const endpoint = `/api/lists/${encodeURIComponent(String(listId))}`;
-    const context = `ListService Details ${listId}`;
-
-    try {
-        const response = await apiClient/*REMOVED: <any>*/(endpoint, context);
-
-        if (!response.success || !response.data || typeof response.data.id !== 'number') {
-             const status = response.status === 404 ? 404 : response.status ?? 500;
-             throw new ApiError(response.error || `List details not found or invalid for ID: ${listId}`, status, response);
+            // Return the structured, formatted data expected by the component
+            // Encapsulate within a 'data' property to mimic original structure if needed by component
+            return { data: formattedList };
+        } else {
+            // This case should ideally not be reached if apiClient rejects properly
+            // If it does, throw a generic error
+            throw new Error(response.error || 'Failed to fetch list details');
         }
+        // Removed try/catch - let React Query handle API call errors
+    },
 
-        const formattedList = formatList(response.data);
-        if (!formattedList) {
-            console.error(`[${context}] Failed to format base list data:`, response.data);
-            throw new ApiError(`Failed to process list details for ID: ${listId}`, 500);
+    createList: async (listData) => {
+        if (!listData || !listData.name || String(listData.name).trim() === '') {
+            throw new Error('List name is required for creation');
         }
-
-        const rawItems = response.data.items;
-        const formattedItems = Array.isArray(rawItems)
-            ? rawItems.map(formatListItem).filter(item => item !== null) // Filter nulls
-            : [];
-
-        const listDetails/*REMOVED: : ListDetails*/ = {
-            ...formattedList,
-            items: formattedItems,
-            item_count: formattedItems.length, // Use length of formatted items
-            is_following: typeof response.data.is_following === 'boolean' ? response.data.is_following : formattedList.is_following,
-            created_by_user: typeof response.data.created_by_user === 'boolean' ? response.data.created_by_user : formattedList.created_by_user,
+        const payload = {
+            name: listData.name.trim(),
+            description: listData.description?.trim() || null,
+            is_public: listData.is_public ?? true,
+            tags: Array.isArray(listData.tags) ? listData.tags.map(String).filter(Boolean) : [],
+            list_type: listData.list_type || 'mixed',
+            city_name: listData.city_name?.trim() || null,
         };
 
-        return listDetails;
-
-    } catch (error) {
-        console.error(`[${context}] Error:`, error);
-         if (error instanceof ApiError) throw error;
-         throw new ApiError(error instanceof Error ? error.message : 'Failed to fetch list details', 500);
-    }
-};
-
-const createList = async (listData) => { // REMOVED: Type hints & Promise return type
-    if (!listData || !listData.name || String(listData.name).trim() === '') {
-        throw new ApiError('List name is required for creation', 400);
-    }
-    const payload/*REMOVED: : CreateListData*/ = {
-        name: listData.name.trim(),
-        description: listData.description?.trim() || null,
-        is_public: listData.is_public ?? true,
-        tags: Array.isArray(listData.tags) ? listData.tags.map(String).filter(Boolean) : [],
-        list_type: listData.list_type || 'mixed', // Backend should validate/handle this
-        city_name: listData.city_name?.trim() || null,
-    };
-
-    try {
-        const response = await apiClient/*REMOVED: <any>*/('/api/lists', 'ListService Create', {
+        const response = await apiClient('/api/lists', 'ListService Create', {
             method: 'POST',
             body: JSON.stringify(payload),
         });
 
-        if (!response.success || !response.data) {
-             throw new ApiError(response.error || 'Received invalid data after creating list', response.status ?? 500, response);
+        // Assuming backend sends { success: true, data: { created list }, ... }
+        if (response.success && response.data) {
+             const formatted = formatList(response.data);
+             if (!formatted) {
+                  console.error('[ListService Create] Failed to format response data:', response.data);
+                 throw new Error('Failed to process created list data');
+             }
+             // Ensure component expects the list directly, not nested under 'data' unless necessary
+             return formatted; // Return formatted list
+        } else {
+             throw new Error(response.error || 'Received invalid data after creating list');
         }
+        // Removed try/catch
+    },
 
-        const formatted = formatList(response.data);
-        if (!formatted) {
-             console.error('[ListService Create] Failed to format response data:', response.data);
-            throw new ApiError('Failed to process created list data', 500);
+    addItemToList: async (listId, itemData) => {
+        if (!listId || !itemData || typeof itemData.item_id !== 'number' || !itemData.item_type) {
+            throw new Error('List ID, numerical Item ID, and Item Type are required');
         }
-        return { ...formatted, item_count: 0 }; // Add item_count
+        const endpoint = `/api/lists/${encodeURIComponent(String(listId))}/items`;
+        const payload = {
+            item_id: itemData.item_id,
+            item_type: itemData.item_type,
+            notes: itemData.notes || null // Include notes
+        };
 
-    } catch (error) {
-        console.error(`[ListService Create] Error:`, error);
-        if (error instanceof ApiError) throw error;
-        throw new ApiError(error instanceof Error ? error.message : 'Failed to create list', 500);
-    }
-};
-
-const addItemToList = async (listId, itemData) => { // REMOVED: Type hints & Promise return type
-    if (!listId || !itemData || typeof itemData.item_id !== 'number' || !itemData.item_type) {
-        throw new ApiError('List ID, numerical Item ID, and Item Type are required', 400);
-    }
-    const endpoint = `/api/lists/${encodeURIComponent(String(listId))}/items`;
-    const payload = { item_id: itemData.item_id, item_type: itemData.item_type };
-
-    try {
-        // Assume backend returns { success: boolean, data: AddItemResult, error: string|null }
-        const response = await apiClient/*REMOVED: <AddItemResult>*/(endpoint, 'ListService Add Item', {
+        // Let apiClient handle call and errors
+        const response = await apiClient(endpoint, 'ListService Add Item', {
             method: 'POST',
             body: JSON.stringify(payload),
         });
 
-        // Basic validation of the response data structure in JS
-        const responseData = response?.data;
-        const isValid = responseData != null && typeof responseData === 'object' &&
-                       (typeof responseData.message === 'string' || responseData.message === undefined) && // message optional
-                       responseData.item != null && typeof responseData.item.id === 'number';
-
-        if (!response.success || !isValid) {
-             const errorMsg = response.error || responseData?.message || 'Invalid response format after adding item';
-             throw new ApiError(errorMsg, response.status ?? 500, response);
+        // Assuming backend returns { success: true, data: { message: '...', item: { added item } }, ... }
+        if (response.success && response.data?.item) {
+             const formattedItem = formatListItem(response.data.item);
+             if (!formattedItem) {
+                  console.error('[ListService Add Item] Failed to format added item data:', response.data.item);
+                  throw new Error('Failed to process added item data');
+             }
+             // Return object with message and formatted item
+             return { message: response.data.message || 'Item added', item: formattedItem };
+        } else {
+             throw new Error(response.error || 'Failed to add item to list');
         }
-        return responseData; // Return the validated AddItemResult data
+        // Removed try/catch
+    },
 
-    } catch (error) {
-        console.error(`[ListService Add Item] Error adding item to list ${listId}:`, error);
-        if (error instanceof ApiError) throw error;
-         if (error?.status === 409) { // Check status if available
-             throw new ApiError("Item already exists in this list.", 409);
-         }
-        throw new ApiError(error instanceof Error ? error.message : 'Failed to add item to list', 500);
-    }
-};
+    removeListItem: async (listId, listItemId) => {
+        if (!listId || !listItemId) {
+            throw new Error('List ID and List Item ID are required');
+        }
+        const endpoint = `/api/lists/${encodeURIComponent(String(listId))}/items/${encodeURIComponent(String(listItemId))}`;
 
-const removeItemFromList = async (listId, listItemId) => { // REMOVED: Type hints & Promise return type
-    if (!listId || !listItemId) {
-        throw new ApiError('List ID and List Item ID are required', 400);
-    }
-    const endpoint = `/api/lists/${encodeURIComponent(String(listId))}/items/${encodeURIComponent(String(listItemId))}`;
-
-    try {
-        const response = await apiClient/*REMOVED: <null>*/(endpoint, 'ListService Remove Item', {
+        // Let apiClient handle call and errors
+        // Expects 204 No Content on success from backend, apiClient should handle this (e.g., resolve with { success: true })
+        const response = await apiClient(endpoint, 'ListService Remove Item', {
             method: 'DELETE',
         });
 
-        if (!response.success) {
-            throw new ApiError(response.error || `Failed to remove item ${listItemId}`, response.status ?? 500, response);
+        // Check if apiClient indicates success (even with no body)
+        if (response.success) {
+            return { success: true }; // Return simple success object
+        } else {
+            throw new Error(response.error || `Failed to remove item ${listItemId}`);
         }
-        return { success: true }; // Return object expected by store
+        // Removed try/catch
+    },
 
-    } catch (error) {
-        console.error(`[ListService Remove Item] Error removing item ${listItemId} from list ${listId}:`, error);
-        if (error instanceof ApiError) throw error;
-        throw new ApiError(error instanceof Error ? error.message : 'Failed to remove item', 500);
-    }
-};
+    toggleFollow: async (listId) => {
+        if (!listId) throw new Error('List ID is required');
+        const endpoint = `/api/lists/${encodeURIComponent(String(listId))}/follow`;
 
-const toggleFollow = async (listId) => { // REMOVED: Type hints & Promise return type
-    if (!listId) throw new ApiError('List ID is required', 400);
-    const endpoint = `/api/lists/${encodeURIComponent(String(listId))}/follow`;
-
-    try {
-        const response = await apiClient/*REMOVED: <FollowToggleResponse>*/(endpoint, 'ListService Toggle Follow', {
+        // Let apiClient handle call and errors
+        const response = await apiClient(endpoint, 'ListService Toggle Follow', {
             method: 'POST',
-             headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache', 'Expires': '0' },
         });
 
-        // Basic validation for the expected response structure in JS
-         const responseData = response?.data;
-         const isValid = responseData != null && typeof responseData === 'object' &&
-                        typeof responseData.id === 'number' &&
-                        typeof responseData.is_following === 'boolean' &&
-                        typeof responseData.saved_count === 'number';
-
-        if (!response.success || !isValid) {
-             throw new ApiError(response.error || 'Invalid response format after toggling follow', response.status ?? 500, response);
+        // Assuming backend sends { success: true, data: { is_following, saved_count, ... } }
+        if (response.success && response.data) {
+             // Return the data part containing follow status, count etc.
+            return response.data;
+        } else {
+             throw new Error(response.error || 'Failed to toggle follow status');
         }
-        return responseData; // Return validated data
+        // Removed try/catch
+    },
 
-    } catch (error) {
-        console.error(`[ListService Toggle Follow] Error toggling follow for list ${listId}:`, error);
-        if (error instanceof ApiError) throw error;
-        throw new ApiError(error instanceof Error ? error.message : 'Failed to toggle follow status', 500);
-    }
-};
+    updateList: async (listId, listData) => {
+        if (!listId) throw new Error('List ID required for update.');
+        if (Object.keys(listData).length === 0) throw new Error('No update data provided.');
 
-const updateVisibility = async (listId, visibilityData) => { // REMOVED: Type hints & Promise return type
-    if (!listId || typeof visibilityData?.is_public !== 'boolean') {
-        throw new ApiError("List ID and a boolean 'is_public' flag are required", 400);
-    }
-    const endpoint = `/api/lists/${encodeURIComponent(String(listId))}/visibility`;
-    const payload = { is_public: visibilityData.is_public };
+        const endpoint = `/api/lists/${encodeURIComponent(String(listId))}`;
+        const payload = { ...listData }; // Prepare payload
+        // Ensure tags are handled correctly if needed
+        if (payload.tags && typeof payload.tags === 'string') {
+            payload.tags = payload.tags.split(',').map(s => s.trim()).filter(Boolean);
+        }
+        if (payload.hasOwnProperty('is_public')) {
+            payload.is_public = !!payload.is_public;
+        }
 
-    try {
-        const response = await apiClient/*REMOVED: <any>*/(endpoint, 'ListService Update Visibility', {
+        const response = await apiClient(endpoint, `ListService Update ${listId}`, {
             method: 'PUT',
             body: JSON.stringify(payload),
         });
 
-        if (!response.success || !response.data) {
-             throw new ApiError(response.error || 'Received invalid data after updating visibility', response.status ?? 500, response);
+        if (response.success && response.data) {
+            const formatted = formatList(response.data);
+            if (!formatted) {
+                 console.error('[ListService Update] Failed to format response data:', response.data);
+                throw new Error('Failed to process updated list data');
+            }
+            return formatted; // Return formatted list
+        } else {
+            throw new Error(response.error || 'Failed to update list');
         }
+    },
 
-        const formatted = formatList(response.data);
-        if (!formatted) {
-            console.error('[ListService Update Visibility] Failed to format response data:', response.data);
-            throw new ApiError('Failed to process updated list visibility data', 500);
-        }
-        return formatted;
+    deleteList: async (listId) => {
+        if (!listId) throw new Error('List ID is required');
+        const endpoint = `/api/lists/${encodeURIComponent(String(listId))}`;
 
-    } catch (error) {
-        console.error(`[ListService Update Visibility] Error updating visibility for list ${listId}:`, error);
-        if (error instanceof ApiError) throw error;
-        throw new ApiError(error instanceof Error ? error.message : 'Failed to update list visibility', 500);
-    }
-};
-
-const deleteList = async (listId) => { // REMOVED: Type hints & Promise return type
-    if (!listId) throw new ApiError('List ID is required', 400);
-    const endpoint = `/api/lists/${encodeURIComponent(String(listId))}`;
-
-    try {
-        const response = await apiClient/*REMOVED: <null>*/(endpoint, 'ListService Delete List', {
+        // Let apiClient handle call and potential errors (e.g., 404, 403)
+        // Expects 204 No Content on success from backend
+        const response = await apiClient(endpoint, 'ListService Delete List', {
             method: 'DELETE',
         });
 
-        if (!response.success) {
-            throw new ApiError(response.error || `Failed to delete list ${listId}`, response.status ?? 500, response);
+         if (response.success) {
+            return { success: true }; // Indicate success
+        } else {
+            throw new Error(response.error || `Failed to delete list ${listId}`);
         }
-        return { success: true }; // Return object expected by store
-
-    } catch (error) {
-        console.error(`[ListService Delete List] Error deleting list ${listId}:`, error);
-        if (error instanceof ApiError) throw error;
-        throw new ApiError(error instanceof Error ? error.message : 'Failed to delete list', 500);
-    }
+        // Removed try/catch
+    },
 };
 
-
-export const listService = {
-    getLists,
-    getListDetails,
-    createList,
-    addItemToList,
-    removeItemFromList,
-    toggleFollow,
-    updateVisibility,
-    deleteList,
-};
+// Export as a service object
+export default listService;

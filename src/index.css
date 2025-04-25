@@ -1,28 +1,100 @@
-/* src/index.css */
+/* Filename: root/src/index.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+@layer base {
+  /* Define Dark Theme as Default */
+  :root {
+    /* Copied from original .dark definition */
+    --background: 240 10% 3.9%;       /* Dark background */
+    --foreground: 0 0% 98%;           /* Light text */
+
+    --card: 240 5% 10%;              /* Darker card background */
+    --card-foreground: 0 0% 98%;      /* Light text on cards */
+
+    /* Primary: Using light/white for primary in dark theme */
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 10% 3.9%; /* Dark text on primary */
+
+    /* Secondary: Dark gray */
+    --secondary: 240 4% 16%;
+    --secondary-foreground: 0 0% 98%;   /* Light text on secondary */
+
+    /* Accent: Same as secondary for muted dark theme */
+    --accent: 240 4% 16%;
+    --accent-foreground: 0 0% 98%;
+
+    /* Muted: Same as secondary/accent */
+    --muted: 240 4% 16%;
+    --muted-foreground: 240 4% 60%;    /* Lighter gray text */
+
+    /* Border color */
+    --border: 240 4% 16%;
+    /* Input background */
+    --input: 240 4% 16%;
+
+    /* Destructive: Adjust red for dark background if needed, using original dark value */
+    --destructive: 0 63% 31%; /* Darker red */
+    --destructive-foreground: 0 0% 98%;
+
+    /* Accent Pink (Kept from original file) */
+    --accent-pink: 336 74% 44%; /* Darker pink */
+    --accent-pink-foreground: 0 0% 100%; /* White text on pink */
+
+    /* Border radius variable (Kept from original file) */
+    --radius: 0.5rem;
+  }
+
+  /* Original Light Theme Definition (Now commented out) */
+  /*
+  :root {
+    --background: 0 0% 98%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --primary: 240 10% 3.9%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 5% 96%;
+    --secondary-foreground: 240 10% 3.9%;
+    --accent: 240 5% 90%;
+    --accent-foreground: 240 10% 3.9%;
+    --muted: 240 5% 90%;
+    --muted-foreground: 240 4% 45%;
+    --border: 240 5% 88%;
+    --input: 0 0% 100%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --accent-pink: 336 84% 54%;
+    --accent-pink-foreground: 0 0% 100%;
+    --radius: 0.5rem;
+  }
+  */
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+     @apply font-semibold tracking-tight text-foreground; /* Use foreground for headings */
+  }
 }
 
-body {
-  background-color: #f8f9fa; /* Slightly lighter gray for better contrast */
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; /* More comprehensive font stack */
-  -webkit-font-smoothing: antialiased; /* Smoother fonts on WebKit */
-  -moz-osx-font-smoothing: grayscale; /* Smoother fonts on Firefox */
+/* Scrollbar styling (optional, uses theme variables) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
-
-/* Custom scrollbar utility */
-.no-scrollbar::-webkit-scrollbar {
-  display: none; /* Hide scrollbar for Chrome, Safari, and Opera */
+::-webkit-scrollbar-track {
+  background: hsl(var(--background)); /* Uses dark background */
+  border-radius: 4px;
 }
-.no-scrollbar {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted)); /* Uses dark muted */
+  border-radius: 4px;
+  border: 2px solid hsl(var(--background)); /* Border matches dark background */
 }
-
-/* Add any other global base styles here */
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--secondary)); /* Use dark secondary on hover */
+}
