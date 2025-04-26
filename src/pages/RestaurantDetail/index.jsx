@@ -1,4 +1,4 @@
-// src/pages/RestaurantDetail/index.jsx
+/* src/pages/RestaurantDetail/index.jsx */
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -7,8 +7,8 @@ import {
 } from 'lucide-react';
 
 // Services
-import { getRestaurantById } from '@/services/restaurantService';
-import { getDishesByRestaurantId } from '@/services/dishService'; // Keep if using Dishes section
+import { restaurantService } from '@/services/restaurantService'; // Changed to named import
+import { dishService } from '@/services/dishService'; // Changed to named import
 // Hooks
 import useAuthStore from '@/stores/useAuthStore';
 // import { useQuickAdd } from '@/context/QuickAddContext'; // Keep if Quick Add button is needed
@@ -58,7 +58,6 @@ const PlaceholderCard = ({ title, children }) => (
     </div>
 );
 
-
 // --- Main Component ---
 
 function RestaurantDetailPage() {
@@ -76,7 +75,7 @@ function RestaurantDetailPage() {
         isError: isRestaurantError,
     } = useQuery({
         queryKey: ['restaurant', restaurantId],
-        queryFn: () => getRestaurantById(restaurantId),
+        queryFn: () => restaurantService.getRestaurantById(restaurantId), // Updated to restaurantService.getRestaurantById
         enabled: !!restaurantId,
         staleTime: 5 * 60 * 1000,
         cacheTime: 10 * 60 * 1000,
@@ -92,7 +91,7 @@ function RestaurantDetailPage() {
         isError: isDishesError,
     } = useQuery({
         queryKey: ['dishes', restaurantId],
-        queryFn: () => getDishesByRestaurantId(restaurantId),
+        queryFn: () => dishService.getDishesByRestaurantId(restaurantId), // Updated to dishService.getDishesByRestaurantId
         enabled: !!restaurantData?.id,
         staleTime: 5 * 60 * 1000,
         cacheTime: 10 * 60 * 1000,

@@ -1,82 +1,37 @@
 /* src/services/filterService.js */
-import apiClient from '@/services/apiClient.js';
+import apiClient from './apiClient';
+import * as logger from '@/utils/logger'; // Correct logger import
 
-const formatCity = (city) => {
-  if (!city || typeof city.id !== 'number' || !city.name) return null;
-  return { id: city.id, name: city.name };
-};
-
-const formatNeighborhood = (neighborhood) => {
-  if (!neighborhood || typeof neighborhood.id !== 'number' || !neighborhood.name) return null;
-  return { id: neighborhood.id, name: neighborhood.name, city_id: neighborhood.city_id ? Number(neighborhood.city_id) : null };
-};
-
-const formatCuisine = (cuisine) => {
-  if (typeof cuisine === 'string') return { id: cuisine, name: cuisine };
-  if (cuisine && typeof cuisine.id !== 'undefined' && cuisine.name) {
-    return { id: cuisine.id, name: cuisine.name };
-  }
-  return null;
-};
-
-export const getCities = async () => {
-  const endpoint = '/api/filters/cities';
+const getCities = async () => {
   try {
-    const response = await apiClient(endpoint);
-    if (!response.success || !Array.isArray(response.data)) {
-      throw new Error(response.error || 'Failed to fetch cities.');
-    }
-    return response.data.map(formatCity).filter(Boolean);
-  } catch (error) {
-    console.error(`[FilterService Get Cities] Error:`, error);
-    throw new Error(error.message || 'Failed to fetch cities');
-  }
-};
+    // Assuming endpoint '/filters/cities' is correct now with apiClient fix
+    const response = await apiClient('/filters/cities', 'FilterService Get Cities');
+    logger.logDebug('[FilterService Get Cities] Response:', response);
 
-export const getNeighborhoods = async (cityIdParam = null) => {
-  let endpoint = '/api/filters/neighborhoods';
-  let cityIdForQuery = null;
-
-  if (cityIdParam !== null && cityIdParam !== undefined) {
-    if (typeof cityIdParam === 'object' && cityIdParam.id != null) {
-      cityIdForQuery = String(cityIdParam.id);
-      console.warn('[filterService getNeighborhoods] Received cityId as object, extracting ID:', cityIdForQuery);
-    } else if (typeof cityIdParam === 'number' || (typeof cityIdParam === 'string' && cityIdParam.trim() !== '' && !isNaN(parseInt(cityIdParam)))) {
-      cityIdForQuery = String(cityIdParam);
+    // Expecting response.data = { success: true, data: [{id, name, has_boroughs}, ...] }
+    if (response.success && response.data?.success && Array.isArray(response.data?.data)) {
+      // Ensure boolean conversion for has_boroughs
+      return response.data.data.map(city => ({
+          ...city,
+          has_boroughs: !!city.has_boroughs
+      }));
     } else {
-      console.error('[filterService getNeighborhoods] Received invalid cityIdParam type or value:', cityIdParam);
-      cityIdForQuery = null;
+      throw new Error('Unexpected response structure for cities');
     }
-  }
-
-  if (cityIdForQuery) {
-    endpoint += `?cityId=${encodeURIComponent(cityIdForQuery)}`;
-  }
-  try {
-    const response = await apiClient(endpoint);
-    if (!response.success || !Array.isArray(response.data)) {
-      throw new Error(response.error || 'Failed to fetch neighborhoods.');
-    }
-    return response.data.map(formatNeighborhood).filter(Boolean);
   } catch (error) {
-    console.error(`[FilterService Get Neighborhoods (City ID: ${cityIdForQuery || 'All'})] Error:`, error);
-    throw new Error(error.message || 'Failed to fetch neighborhoods');
+    logger.logError('[FilterService Get Cities] Error:', error);
+    throw new Error(error.message || 'Failed to fetch cities.');
   }
 };
 
-export const getCuisines = async () => {
-  const endpoint = '/api/filters/cuisines';
-  try {
-    const response = await apiClient(endpoint);
-    if (!response.success || !Array.isArray(response.data)) {
-      throw new Error(response.error || 'Failed to fetch cuisines.');
-    }
-    return response.data.map(formatCuisine).filter(Boolean);
-  } catch (error) {
-    console.error(`[FilterService Get Cuisines] Error:`, error);
-    throw new Error(error.message || 'Failed to fetch cuisines');
-  }
-};
+// Keep getCuisines if used elsewhere, otherwise remove
+// const getCuisines = async () => { /* ... */ };
 
-export const filterService = { getCities, getNeighborhoods, getCuisines };
+// Removed getNeighborhoods as neighborhoodService should handle this now
+
+// Export only the used functions
+const filterService = {
+  getCities,
+  // getCuisines, // Uncomment if needed
+};
 export default filterService;

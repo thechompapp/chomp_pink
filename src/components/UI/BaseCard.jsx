@@ -1,75 +1,65 @@
-/* src/components/UI/BaseCard.jsx */
+// src/components/UI/BaseCard.jsx
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Plus } from 'lucide-react';
+import { cn } from '@/lib/utils'; // Assuming you use this for class merging
 
+// Base card component with optional linking and quick add
 const BaseCard = ({
-  linkTo,
-  onQuickAdd,
-  quickAddLabel,
-  children, // Children are now the direct content (e.g., flex-grow div, flex-shrink-0 div)
-  className = '',
-  isHighlighted = false,
-  isDisabled = false,
-  showQuickAdd = true,
+  children,
+  className,
+  linkTo, // Make linkTo optional
   onClick,
-  ...rest
+  onQuickAdd,
+  quickAddLabel = 'Quick Add',
+  showHoverEffect = true, // Default to true, consume this prop
+  ...props // Collect remaining props
 }) => {
-  // BaseCard is now the flex container with fixed height and padding
-  const cardClasses = `
-    relative group block overflow-hidden rounded-lg border
-    ${isHighlighted ? 'border-[#A78B71] ring-1 ring-[#A78B71]' : 'border-gray-200 hover:border-gray-300'}
-    bg-white transition-all duration-200
-    ${isDisabled ? 'opacity-60 cursor-not-allowed' : 'hover:shadow-md'}
-    w-full h-56 // Fixed height
-    flex flex-col // Make the card itself the column flex container
-    p-3 // Apply padding directly here
-    ${className}
-  `;
-
-  const handleQuickAddClick = (e) => {
-    e.stopPropagation();
-    e.preventDefault();
-    if (onQuickAdd) onQuickAdd(e);
-  };
-
-  // Quick Add button remains positioned absolutely within the card
-  const QuickAddButton = () => (
-    showQuickAdd && onQuickAdd && !isDisabled && (
-      <button
-        onClick={handleQuickAddClick}
-        aria-label={quickAddLabel || 'Quick Add'}
-        className="absolute top-2 right-2 z-10 p-1 bg-[#A78B71]/70 text-white rounded-full opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity duration-150 hover:bg-[#A78B71]"
-        tabIndex={-1}
-      >
-        <Plus size={14} />
-      </button>
-    )
+  const cardContent = (
+    <div
+      className={cn(
+        "bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-3 flex flex-col h-full overflow-hidden relative", // Ensure relative positioning for potential absolute children
+        showHoverEffect && "transition-shadow duration-200 ease-in-out group-hover:shadow-md", // Apply hover effect conditionally
+        className // Allow overriding classes
+      )}
+      // Do NOT spread ...props here if the root element might change (Link vs div)
+      // Or, filter out non-DOM props before spreading if always rendering a div/a
+    >
+      {children}
+      {/* Render QuickAdd button absolutely positioned if handler is provided */}
+      {onQuickAdd && (
+        <button
+          onClick={(e) => {
+            e.preventDefault(); // Prevent link navigation if card is linked
+            e.stopPropagation(); // Prevent card onClick if defined
+            onQuickAdd();
+          }}
+          aria-label={quickAddLabel}
+          title={quickAddLabel} // Tooltip for accessibility
+          className="absolute top-1 right-1 p-1 text-gray-400 hover:text-primary dark:hover:text-primary-dark opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-in-out bg-white dark:bg-gray-800 rounded-full focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary/50"
+        >
+          {/* Replace with appropriate Quick Add icon */}
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+        </button>
+      )}
+    </div>
   );
 
-  // Render as Link or Div
-  if (!isDisabled && linkTo) {
+  // Conditionally wrap with Link only if linkTo is provided
+  if (linkTo) {
     return (
-      <Link
-        to={linkTo}
-        onClick={onClick}
-        className={`${cardClasses} focus:outline-none focus:ring-2 focus:ring-[#D1B399] focus:ring-offset-1`}
-        {...rest}
-      >
-        {children} {/* Render content directly */}
-        <QuickAddButton />
+      <Link to={linkTo} onClick={onClick} {...props} className="block group"> {/* Add group class here for hover effects */}
+        {cardContent}
       </Link>
     );
   }
 
+  // Render as a simple div if not linkable
   return (
-    <div
-      onClick={isDisabled ? undefined : onClick}
-      className={`${cardClasses} ${!isDisabled && onClick ? 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#D1B399] focus:ring-offset-1' : ''}`}
-      {...rest}
-    >
-      {children} {/* Render content directly */}
-      <QuickAddButton />
+    <div onClick={onClick} {...props} className="group"> {/* Add group class here */}
+      {cardContent}
     </div>
   );
 };

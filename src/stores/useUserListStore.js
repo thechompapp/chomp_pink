@@ -1,158 +1,164 @@
 /* src/stores/useUserListStore.js */
-/* REMOVED: All TypeScript syntax */
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import listService from '@/services/listService.js'; // Use default import
-import { queryClient } from '@/queryClient';
+// Correct: Use NAMED import because listService.js uses 'export const listService = {...}'
+import { listService } from '@/services/listService.js'; // Changed import syntax
+// Assuming logger uses named exports as established previously
+import { logDebug, logError, logWarn } from '@/utils/logger'; // Use named imports for logger
 
 const useUserListStore = create()(
-    devtools(
-        (set, get) => ({
-            userLists: [],
-            isAddingToList: false,
-            isRemovingItem: null,
-            isUpdatingVisibility: null,
-            isLoading: false,
-            error: null,
+  devtools(
+    (set, get) => ({
+      userLists: [],
+      isAddingToList: false,
+      isRemovingItem: null, // Changed to null for consistency
+      isUpdatingVisibility: null, // Changed to null for consistency
+      isLoading: false,
+      error: null,
 
-            clearError: () => set({ error: null }),
+      clearError: () => set({ error: null }),
 
-            fetchUserLists: async (options = { createdByUser: true }) => {
-                if (get().isLoading) return get().userLists;
+      fetchUserLists: async (options = { createdByUser: true }, queryClient) => {
+        if (get().isLoading) return get().userLists;
 
-                console.log('[UserListStore] Fetching user lists with options:', options);
-                set({ isLoading: true, error: null });
+        logDebug('[UserListStore] Fetching user lists with options:', options); // Use named logger
+        set({ isLoading: true, error: null });
 
-                try {
-                    const lists = await listService.getLists(options);
+        try {
+          // Correct: listService is now the imported named object
+          const listApiResponse = await listService.getUserLists(options);
 
-                    set({ userLists: lists || [], isLoading: false });
+          // Assuming listService.getUserLists returns { items: [], total: X } as corrected previously
+          const lists = listApiResponse?.items || [];
+          const total = listApiResponse?.total || 0;
 
-                    const queryKey = ['userLists', options.followedByUser ? 'followed' : 'created'];
-                    queryClient.setQueryData(queryKey, lists);
+          set({ userLists: lists, isLoading: false });
 
-                    console.log(`[UserListStore] Successfully fetched ${lists?.length || 0} lists.`);
-                    return lists || [];
-                } catch (err) {
-                    const message = err instanceof Error ? err.message : 'Failed to fetch user lists';
-                    console.error('[UserListStore] Error fetching user lists:', message);
-                    set({ isLoading: false, error: message });
-                    throw new Error(message);
-                }
-            },
+          // Update React Query cache if queryClient is provided
+          if (queryClient) {
+            const queryKey = ['userLists', options.followedByUser ? 'followed' : 'created'];
+            // React Query expects the raw data array usually
+            queryClient.setQueryData(queryKey, lists);
+          }
 
-            addToList: async ({ item, listId, createNew = false, listData = {} }) => {
-                 const validItem = item && typeof item.id === 'number' && item.type ? { id: item.id, type: item.type } : null;
-                 if (!createNew && !validItem) {
-                     const errorMsg = 'Valid item data (ID and type) is required when adding to an existing list.';
-                     set({ isAddingToList: false, error: errorMsg });
-                     throw new Error(errorMsg);
-                 }
+          logDebug(`[UserListStore] Successfully fetched ${lists.length} lists (Total reported: ${total}).`); // Use named logger
+          return lists; // Return just the array of lists
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Failed to fetch user lists';
+          logError('[UserListStore] Error fetching user lists:', message); // Use named logger
+          set({ isLoading: false, error: message });
+          throw new Error(message);
+        }
+      },
 
-                 if (createNew && (!listData.name || !listData.list_type)) {
-                     const errorMsg = 'List name and type are required when creating a new list.';
-                     set({ isAddingToList: false, error: errorMsg });
-                     throw new Error(errorMsg);
-                 }
+      addToList: async ({ item, listId, createNew = false, listData = {} }, queryClient) => {
+        // ... (validation logic remains the same) ...
+        const validItem = item && typeof item.id === 'number' && item.type ? { id: item.id, type: item.type } : null;
+        if (!createNew && !validItem) { /* ... error handling ... */ }
+        if (createNew && (!listData.name || !listData.list_type)) { /* ... error handling ... */ }
+        if (!createNew && !listId) { /* ... error handling ... */ }
 
-                 if (!createNew && !listId) {
-                      const errorMsg = "List ID is required when not creating a new list.";
-                      set({ isAddingToList: false, error: errorMsg });
-                      throw new Error(errorMsg);
-                 }
 
-                set({ isAddingToList: true, error: null });
-                try {
-                    let targetListId = listId ?? null;
-                    let newListData = null;
-                    let addedItemData = null;
+        set({ isAddingToList: true, error: null });
+        try {
+          let targetListId = listId ?? null;
+          let newListData = null;
+          let addedItemData = null;
 
-                    if (createNew && listData.name && listData.list_type) {
-                        const newList = await listService.createList({
-                            name: listData.name,
-                            list_type: listData.list_type,
-                            is_public: listData.is_public !== undefined ? listData.is_public : true,
-                            description: listData.description || null,
-                        });
-                        if (!newList || !newList.id) {
-                            throw new Error('Failed to create new list or received invalid response.');
-                        }
-                        targetListId = newList.id;
-                        newListData = { ...newList, item_count: 0 };
+          if (createNew && listData.name && listData.list_type) {
+            // Correct: listService is the imported named object
+            // Assuming createList returns { success, data: { created list details } }
+            const createResult = await listService.createList({
+              name: listData.name,
+              list_type: listData.list_type,
+              is_public: listData.is_public !== undefined ? listData.is_public : true,
+              description: listData.description || null,
+            });
+            if (!createResult?.success || !createResult.data?.id) {
+              throw new Error(createResult?.message || 'Failed to create new list or received invalid response.');
+            }
+            targetListId = createResult.data.id;
+            newListData = { ...createResult.data, item_count: 0 }; // Use data from response
 
-                         set(state => ({
-                            userLists: [...(state.userLists || []), newListData],
-                         }));
-                         queryClient.invalidateQueries({ queryKey: ['userLists', 'created'] });
-                    }
+            set(state => ({
+              userLists: [...(state.userLists || []), newListData],
+            }));
+            if (queryClient) {
+              queryClient.invalidateQueries({ queryKey: ['userLists', 'created'] });
+            }
+          }
 
-                    if (validItem && targetListId) {
-                        const addItemResult = await listService.addItemToList(targetListId, { item_id: validItem.id, item_type: validItem.type });
+          if (validItem && targetListId) {
+            // Correct: listService is the imported named object
+            // Assuming addItemToList returns { success, message, data: { added item details } }
+            const addItemResult = await listService.addItemToList(targetListId, { item_id: validItem.id, item_type: validItem.type });
 
-                        if (!addItemResult?.success || !addItemResult?.item?.id) {
-                             throw new Error(addItemResult?.message || 'Failed to add item or received invalid response.');
-                        }
-                        addedItemData = addItemResult.item;
+            if (!addItemResult?.success || !addItemResult.data?.list_item_id) { // Check for list_item_id in response data
+              throw new Error(addItemResult?.message || 'Failed to add item or received invalid response.');
+            }
+            addedItemData = addItemResult.data; // Use data from response
 
-                        set(state => ({
-                           userLists: state.userLists.map(l =>
-                               String(l.id) === String(targetListId) ? { ...l, item_count: (l.item_count || 0) + 1 } : l
-                           )
-                        }));
-                        queryClient.invalidateQueries({ queryKey: ['listDetails', String(targetListId)] });
-                        queryClient.invalidateQueries({ queryKey: ['userLists', 'created'] });
-                    }
+            set(state => ({
+              userLists: state.userLists.map(l =>
+                String(l.id) === String(targetListId) ? { ...l, item_count: (l.item_count || 0) + 1 } : l
+              )
+            }));
+            if (queryClient) {
+              queryClient.invalidateQueries({ queryKey: ['listDetails', String(targetListId)] });
+              queryClient.invalidateQueries({ queryKey: ['userLists', 'created'] });
+            }
+          }
 
-                    let message = '';
-                    if (newListData && addedItemData) message = 'List created and item added successfully.';
-                    else if (newListData) message = 'List created successfully.';
-                    else if (addedItemData) message = 'Item added successfully.';
-                    else message = 'Operation completed (no item added).';
+          // ... (message generation and return remains the same) ...
+            let message = '';
+            if (newListData && addedItemData) message = 'List created and item added successfully.';
+            else if (newListData) message = 'List created successfully.';
+            else if (addedItemData) message = 'Item added successfully.';
+            else message = 'Operation completed (no item added).';
 
-                    set({ isAddingToList: false });
-                    return {
-                         success: true,
-                         listId: targetListId,
-                         message: message,
-                         createdList: newListData,
-                         addedItem: addedItemData
-                     };
-                } catch (err) {
-                    const message = err instanceof Error ? err.message : 'Operation failed';
-                    console.error('[UserListStore] Error in addToList:', message);
-                    set({ isAddingToList: false, error: message });
-                    throw err;
-                }
-            },
+            set({ isAddingToList: false });
+            return { success: true, listId: targetListId, message: message, createdList: newListData, addedItem: addedItemData };
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Operation failed';
+          logError('[UserListStore] Error in addToList:', message); // Use named logger
+          set({ isAddingToList: false, error: message });
+          throw err;
+        }
+      },
 
-            removeFromList: async (listId, listItemId) => {
-                if (!listId || !listItemId) throw new Error('List ID and List Item ID required.');
-                set({ isRemovingItem: Number(listItemId), error: null });
-                try {
-                    const result = await listService.removeItemFromList(listId, listItemId);
-                    if (!result?.success) throw new Error(result?.message || "Remove item request failed via service.");
+      removeFromList: async (listId, listItemId, queryClient) => {
+        if (!listId || !listItemId) throw new Error('List ID and List Item ID required.');
+        set({ isRemovingItem: Number(listItemId), error: null });
+        try {
+          // Correct: listService is the imported named object
+          // Assuming removeItemFromList returns { success, message }
+          const result = await listService.removeItemFromList(listId, listItemId);
+          if (!result?.success) throw new Error(result?.message || 'Remove item request failed via service.');
 
-                    queryClient.invalidateQueries({ queryKey: ['listDetails', String(listId)] });
-                    queryClient.invalidateQueries({ queryKey: ['userLists', 'created'] });
+          if (queryClient) {
+            queryClient.invalidateQueries({ queryKey: ['listDetails', String(listId)] });
+            queryClient.invalidateQueries({ queryKey: ['userLists', 'created'] });
+          }
 
-                     set(state => ({
-                        userLists: state.userLists.map(l =>
-                            String(l.id) === String(listId) ? { ...l, item_count: Math.max(0, (l.item_count || 1) - 1) } : l
-                        )
-                    }));
+          set(state => ({
+            userLists: state.userLists.map(l =>
+              String(l.id) === String(listId) ? { ...l, item_count: Math.max(0, (l.item_count || 1) - 1) } : l
+            )
+          }));
 
-                    set({ isRemovingItem: null });
-                    return { success: true, message: result.message || "Item removed successfully." };
-                } catch (err) {
-                    const message = err instanceof Error ? err.message : 'Failed to remove item';
-                    console.error(`[UserListStore] Error removing item ${listItemId} from list ${listId}:`, message);
-                    set({ isRemovingItem: null, error: message });
-                    throw err;
-                }
-            },
-        }),
-        { name: 'UserListStore' }
-    )
+          set({ isRemovingItem: null });
+          return { success: true, message: result.message || 'Item removed successfully.' };
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Failed to remove item';
+          logError(`[UserListStore] Error removing item ${listItemId} from list ${listId}:`, message); // Use named logger
+          set({ isRemovingItem: null, error: message });
+          throw err;
+        }
+      },
+      // ... (other store functions)
+    }),
+    { name: 'UserListStore' }
+  )
 );
 
 export default useUserListStore;

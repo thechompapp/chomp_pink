@@ -5,7 +5,7 @@
  */
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useAuthStore } from '@/stores/useAuthStore';
+import useAuthStore from '@/stores/useAuthStore'; // Changed to default import
 import submissionService from '@/services/submissionService';
 import ErrorMessage from '@/components/UI/ErrorMessage';
 import Button from '@/components/UI/Button';
@@ -40,7 +40,6 @@ const SubmissionCard = ({ submission }) => {
     );
 };
 
-
 const MySubmissionsPage = () => {
     const { user, isAuthenticated } = useAuthStore(state => ({
         user: state.user,
@@ -55,7 +54,7 @@ const MySubmissionsPage = () => {
     // --- React Query Data Fetching ---
     const { data: queryResult, isLoading, isError, error, isFetching, isPlaceholderData } = useQuery({
         queryKey: ['userSubmissions', userId, { status: statusFilter, page, limit }],
-        queryFn: () => submissionService.getUserSubmissions({ status: statusFilter, page, limit }),
+        queryFn: () => submissionService.getUserSubmissions(userId, { status: statusFilter, page, limit }), // Updated to pass userId
         placeholderData: (previousData) => previousData,
         enabled: !!isAuthenticated && !!userId,
         // Optional: Set staleTime/cacheTime
@@ -79,7 +78,6 @@ const MySubmissionsPage = () => {
              window.scrollTo(0, 0);
         }
     };
-
 
     if (!isAuthenticated) {
         return (
@@ -110,7 +108,6 @@ const MySubmissionsPage = () => {
               </PageContainer>
          );
      }
-
 
     return (
         <PageContainer title="My Submissions">
@@ -166,7 +163,6 @@ const MySubmissionsPage = () => {
                          {/* Optional: Link to add submission */}
                      </div>
                  )}
-
 
                  {/* Pagination Controls */}
                  {pagination && totalPages > 1 && (

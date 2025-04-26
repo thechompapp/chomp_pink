@@ -1,8 +1,8 @@
 // Filename: root/src/hooks/useBulkAddProcessor.js
 import { useState, useCallback, useEffect } from 'react';
-import adminService from '@/services/adminService'; // Assuming jsconfig paths are set up
+import { adminService } from '@/services/adminService'; // Updated to named import
 import { useQueryClient } from '@tanstack/react-query';
-import Papa from 'papaparse'; // Assuming PapaParse is installed for CSV parsing
+import Papa from 'papaparse'; // Confirmed correct import
 
 // --- START: Helper to identify required fields ---
 const getRequiredFields = (itemType) => {
@@ -58,12 +58,12 @@ function useBulkAddProcessor(itemType) {
             setIsPrecomputing(true);
             try {
                 const [neighborhoodData] = await Promise.all([
-                    adminService.getData('neighborhoods'),
-                    // Add adminService.getData('restaurants') here if adding dishes
+                    adminService.getAdminNeighborhoods(), // Updated to existing method
+                    // Add adminService.getAdminRestaurants() here if adding dishes
                 ]);
 
                 const neighborhoodMap = new Map(
-                    neighborhoodData.data.map(n => [n.name.toLowerCase(), n]) // Store full object or just ID if preferred
+                    neighborhoodData.map(n => [n.name.toLowerCase(), n]) // Store full object or just ID if preferred
                 );
                 setLookupData(prev => ({ ...prev, neighborhoods: neighborhoodMap }));
 
@@ -88,7 +88,6 @@ function useBulkAddProcessor(itemType) {
 	}, [itemType, resetState]); // Added resetState dependency
 
 	// --- END: Modified Pre-computation ---
-
 
 	const validateItem = useCallback((item, index, allItems, itemType, currentLookupData) => {
 		const itemErrors = [];
@@ -235,7 +234,6 @@ function useBulkAddProcessor(itemType) {
             }
 			// --- END: Efficient Lookup Integration ---
 
-
 			const processedItems = [];
 			const foundErrors = [];
 			const foundDuplicates = [];
@@ -270,7 +268,6 @@ function useBulkAddProcessor(itemType) {
 					// Example: Convert restaurant name to restaurant_id for dishes
 					// const restaurantName = trimmedItem.restaurant_name?.toLowerCase();
 					// const restaurant = currentLookupData.restaurants.get(restaurantName);
-
 
 					processedItems.push({
 						...trimmedItem,
@@ -321,13 +318,11 @@ function useBulkAddProcessor(itemType) {
 		});
 	}, [processInputData, resetState]);
 
-
 	const submitBulkAdd = useCallback(async (itemsToSubmit) => {
 		setSubmitStatus({ state: 'submitting', message: 'Submitting items...' });
 		try {
-			let response;
 			// Filter out items marked specifically not to be submitted if review stage allows it
-			const finalItems = itemsToSubmit // .filter(item => item.status !== 'skipped' && item.status !== 'duplicate'); // Example filtering
+			const finalItems = itemsToSubmit; // .filter(item => item.status !== 'skipped' && item.status !== 'duplicate'); // Example filtering
 
 			if (finalItems.length === 0) {
 				setSubmitStatus({ state: 'error', message: 'No valid items to submit.' });
@@ -336,13 +331,8 @@ function useBulkAddProcessor(itemType) {
 
 			console.log(`Submitting ${finalItems.length} items of type ${itemType}`, finalItems); // Debug log
 
-			if (itemType === 'restaurants') {
-				response = await adminService.bulkAddRestaurants(finalItems);
-			} else if (itemType === 'dishes') {
-				response = await adminService.bulkAddDishes(finalItems);
-			} else {
-				throw new Error(`Unsupported item type for bulk submission: ${itemType}`);
-			}
+			// Use bulkAddItems with itemType
+			const response = await adminService.bulkAddItems({ type: itemType, items: finalItems });
 
 			console.log("Bulk add response:", response.data); // Debug log
 			setSubmitStatus({ state: 'success', message: `Successfully added ${response.data?.length || 0} items.` });

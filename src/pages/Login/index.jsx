@@ -1,153 +1,127 @@
-// src/pages/Login/index.jsx
-/* REFACTORED: Added basic client-side email validation */
+/* src/pages/Login/index.jsx */
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import useAuthStore from '@/stores/useAuthStore.js'; // Use alias
-import Button from '@/components/UI/Button.jsx'; // Use alias
-import Input from '@/components/UI/Input.jsx'; // Use alias
-import ErrorMessage from '@/components/UI/ErrorMessage.jsx'; // Use alias
-
-// Basic email regex (adjust if needed for stricter validation)
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+import { useNavigate, Link, useLocation } from 'react-router-dom'; // Import useLocation
+import useAuthStore from '@/stores/useAuthStore';
+import { useQueryClient } from '@tanstack/react-query';
+import Button from '@/components/UI/Button';
+import Input from '@/components/UI/Input';
+import ErrorMessage from '@/components/UI/ErrorMessage';
+import * as logger from '@/utils/logger'; // Assuming logger might be useful
 
 const Login = () => {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [clientError, setClientError] = useState(''); // State for client-side validation errors
-    const navigate = useNavigate();
-    const location = useLocation();
-    const { login, isAuthenticated, error: authError, clearError, isProcessing } = useAuthStore(state => ({
-        login: state.login,
-        isAuthenticated: state.isAuthenticated,
-        error: state.error,
-        clearError: state.clearError,
-        isProcessing: state.isProcessing
-    }));
+  const navigate = useNavigate();
+  const location = useLocation(); // Get location object
+  const queryClient = useQueryClient();
+  const { login, checkAuthStatus, isAuthenticated, isLoading, error } = useAuthStore();
 
-    const from = location.state?.from?.pathname || "/"; // Redirect path after login
+  const [formData, setFormData] = useState({ email: 'admin@example.com', password: 'newpass123' });
+  const [localError, setLocalError] = useState(null);
 
-    // Clear errors when component mounts or unmounts
-    useEffect(() => {
-        clearError(); // Clear server errors on mount
-        return () => clearError(); // Clear on unmount
-    }, [clearError]);
+  // Determine where to redirect after login
+  // If user was sent here from a protected route, redirect back there. Otherwise, go to home '/'.
+  const from = location.state?.from?.pathname || '/';
 
-    // Clear client error when user types
-    useEffect(() => {
-        if (clientError) setClientError('');
-    }, [email, password, clientError]);
+  useEffect(() => {
+    // Redirect if already authenticated or after successful login
+    if (isAuthenticated) {
+      logger.logDebug(`[Login] Authenticated. Navigating to: ${from}`);
+      queryClient.invalidateQueries(['userLists']); // Invalidate queries that depend on auth state
+      queryClient.invalidateQueries(['results']); // Invalidate homepage results if needed
+      // REMOVED: navigate('/lists');
+      navigate(from, { replace: true }); // Navigate to previous location or home
+    }
+  }, [isAuthenticated, navigate, queryClient, from]); // Add 'from' to dependencies
 
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    setLocalError(null); // Clear local error on change
+  };
 
-    const validateForm = () => {
-        if (!email || !password) {
-            setClientError('Email and password are required.');
-            return false;
-        }
-        if (!EMAIL_REGEX.test(email)) {
-            setClientError('Please enter a valid email address.');
-            return false;
-        }
-        setClientError(''); // Clear any previous client error
-        return true;
-    };
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLocalError(null); // Clear previous errors
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        clearError(); // Clear previous server errors
-        setClientError(''); // Clear previous client errors
+    // Basic frontend validation (optional, backend should always validate)
+    if (formData.password.length < 8 || formData.password.length > 100) {
+      setLocalError('Password must be between 8 and 100 characters.');
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setLocalError('Please enter a valid email address.');
+      return;
+    }
 
-        // Perform client-side validation first
-        if (!validateForm()) {
-            return;
-        }
+    try {
+      // Attempt login via auth store
+      await login(formData.email, formData.password);
+      // Note: The useEffect hook above will handle the redirect once isAuthenticated becomes true
+    } catch (err) {
+       logger.logError('[Login] Submit Error:', err);
+       // Use the error message from the auth store or a generic message
+       setLocalError(useAuthStore.getState().error || err.message || 'Login failed. Please check your credentials.');
+    }
+  };
 
-        const success = await login(email, password);
-        if (success) {
-            console.log('[Login] Login successful, navigating to:', from);
-            // Navigate to the intended page or home
-             // Use replace to avoid login page in history stack
-            navigate(from, { replace: true });
-        }
-         // If login fails, the authError from useAuthStore will be set and displayed
-    };
-
-    // Redirect if already authenticated
-    useEffect(() => {
-        if (isAuthenticated) {
-            console.log('[Login] Already authenticated, navigating to:', from);
-            navigate(from, { replace: true });
-        }
-    }, [isAuthenticated, navigate, from]);
-
-
-    return (
-        <div className="flex items-center justify-center min-h-screen bg-background px-4">
-            <div className="w-full max-w-md p-8 space-y-6 bg-card shadow-lg rounded-lg border border-border">
-                <h2 className="text-2xl font-bold text-center text-foreground">Login to Doof</h2>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label htmlFor="email" className="block text-sm font-medium text-muted-foreground mb-1">
-                            Email
-                        </label>
-                        <Input
-                            type="email"
-                            id="email"
-                            name="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="you@example.com"
-                            required
-                            className="w-full"
-                            aria-describedby="email-error"
-                        />
-                    </div>
-                    <div>
-                        <label
-                            htmlFor="password"
-                            className="block text-sm font-medium text-muted-foreground mb-1"
-                        >
-                            Password
-                        </label>
-                        <Input
-                            type="password"
-                            id="password"
-                            name="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="••••••••"
-                            required
-                            className="w-full"
-                            aria-describedby="password-error"
-                        />
-                    </div>
-                    {/* Display Client-side or Server-side Error */}
-                    {(clientError || authError) && (
-                        <ErrorMessage
-                            message={clientError || authError}
-                            id="auth-error"
-                            role="alert"
-                         />
-                     )}
-                    <div>
-                        <Button
-                            type="submit"
-                            className="w-full"
-                            disabled={isProcessing}
-                            isLoading={isProcessing}
-                        >
-                            Login
-                        </Button>
-                    </div>
-                </form>
-                <p className="text-sm text-center text-muted-foreground">
-                    Don't have an account?{' '}
-                    <Link to="/register" className="font-medium text-primary hover:underline">
-                        Register here
-                    </Link>
-                </p>
-            </div>
+  return (
+    <div className="container mx-auto px-4 py-8 max-w-md">
+      <h2 className="text-2xl font-bold mb-6 text-center text-black">Login to DOOF</h2>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Display local error OR the global error from auth store */}
+        {(localError || (!isLoading && error)) && (
+          <ErrorMessage message={localError || error} />
+        )}
+        <div>
+          <label htmlFor="email" className="block text-sm font-medium text-black">
+            Email
+          </label>
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            value={formData.email}
+            onChange={handleChange}
+            required
+            autoComplete="email"
+            className="mt-1 block w-full text-black placeholder-gray-500 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500" // Added styles
+            disabled={isLoading}
+          />
         </div>
-    );
+        <div>
+          <label htmlFor="password" className="block text-sm font-medium text-black">
+            Password
+          </label>
+          <Input
+            id="password"
+            name="password"
+            type="password"
+            value={formData.password}
+            onChange={handleChange}
+            required
+            autoComplete="current-password"
+             className="mt-1 block w-full text-black placeholder-gray-500 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500" // Added styles
+            disabled={isLoading}
+          />
+        </div>
+        <Button
+          type="submit"
+          variant="primary"
+          className="w-full"
+          disabled={isLoading}
+          isLoading={isLoading}
+        >
+          Login
+        </Button>
+      </form>
+      <p className="mt-4 text-center text-sm text-black">
+        Don't have an account?{' '}
+        <Link to="/register" className="text-[#A78B71] hover:underline">
+          Sign up
+        </Link>
+      </p>
+    </div>
+  );
 };
 
 export default Login;

@@ -1,25 +1,35 @@
-// Filename: /root/doof-backend/routes/lists.js
-/* REFACTORED: Convert to ES Modules */
-/* FIXED: Use namespace import for controller */
-/* FIXED: Changed validatePaginationQuery to validatePagination */
-/* FIXED: Removed validatePagination() call, used array directly */
+/* doof-backend/routes/lists.js */
 import express from 'express';
-import * as listController from '../controllers/listController.js'; // Use namespace import
-import { requireAuth } from '../middleware/auth.js';
-import optionalAuthMiddleware from '../middleware/optionalAuth.js';
 import {
-    validateList, validateAddItemToList, validateIdParam, validateRemoveListItem, handleValidationErrors, validatePagination
-} from '../middleware/validators.js';
+  validateGetUserLists,
+  validateGetListPreviewItems,
+  validateAddItemToList,
+  getUserLists,
+  getListPreviewItems,
+  getListItems,
+  getListDetails,
+  createList,
+  updateList,
+  deleteList,
+  addItemToList,
+  removeItemFromList,
+  toggleFollowList,
+} from '../controllers/listController.js';
+import { requireAuth, verifyListOwnership } from '../middleware/auth.js';
+import optionalAuthMiddleware from '../middleware/optionalAuth.js'; // Fix: Use default import
+import { handleValidationErrors } from '../middleware/validators.js';
 
 const router = express.Router();
 
-router.get('/', requireAuth, validatePagination, handleValidationErrors, listController.getUserLists);
-router.post('/', requireAuth, validateList, handleValidationErrors, listController.createList);
-router.get('/:id', validateIdParam('id'), handleValidationErrors, optionalAuthMiddleware, listController.getListDetails);
-router.put('/:id', requireAuth, validateIdParam('id'), validateList, handleValidationErrors, listController.updateList);
-router.delete('/:id', requireAuth, validateIdParam('id'), handleValidationErrors, listController.deleteList);
-router.post('/:id/items', requireAuth, validateAddItemToList, handleValidationErrors, listController.addItemToList);
-router.delete('/:id/items/:listItemId', requireAuth, validateRemoveListItem, handleValidationErrors, listController.removeItemFromList);
-router.post('/:id/follow', requireAuth, validateIdParam('id'), handleValidationErrors, listController.toggleFollowList);
+router.get('/', optionalAuthMiddleware, validateGetUserLists, handleValidationErrors, getUserLists);
+router.get('/previewbyid/:id', optionalAuthMiddleware, validateGetListPreviewItems, handleValidationErrors, getListPreviewItems);
+router.get('/:id', optionalAuthMiddleware, getListDetails);
+router.post('/', requireAuth, createList);
+router.put('/:id', requireAuth, updateList);
+router.delete('/:id', requireAuth, deleteList);
+router.post('/:id/items', requireAuth, verifyListOwnership, validateAddItemToList, handleValidationErrors, addItemToList);
+router.delete('/:id/items/:itemId', requireAuth, removeItemFromList);
+router.post('/:id/follow', requireAuth, toggleFollowList);
+router.get('/:id/items', optionalAuthMiddleware, validateGetListPreviewItems, handleValidationErrors, getListItems);
 
 export default router;
