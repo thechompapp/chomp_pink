@@ -1,38 +1,21 @@
-// Filename: /root/doof-backend/routes/auth.js
-/* REFACTORED: Convert to ES Modules */
-/* FIXED: Use namespace import for controller */
+// doof-backend/routes/auth.js
 import express from 'express';
-// *** Use namespace import for controller methods ***
-import * as authController from '../controllers/authController.js';
-import { validateRegistration, validateLogin, handleValidationErrors, validateIdParam } from '../middleware/validators.js';
-import { requireAuth } from '../middleware/auth.js';
-import requireSuperuser from '../middleware/requireSuperuser.js';
+import {
+    login,
+    register,
+    logout,
+    refreshTokenController, // Using the consistently named export
+    getAuthStatus
+} from '../controllers/authController.js'; // All are named exports
+import { requireAuth, optionalAuth } from '../middleware/auth.js';
+import { validateRegistration, validateLogin } from '../middleware/validators.js';
 
 const router = express.Router();
 
-// POST /api/auth/register
-router.post('/register', validateRegistration, handleValidationErrors, authController.register); // Access via namespace
+router.post('/register', validateRegistration, register);
+router.post('/login', validateLogin, login);
+router.post('/logout', requireAuth, logout);
+router.post('/refresh-token', refreshTokenController);
+router.get('/status', optionalAuth, getAuthStatus);
 
-// POST /api/auth/login
-router.post('/login', validateLogin, handleValidationErrors, authController.login); // Access via namespace
-
-// GET /api/auth/status
-router.get('/status', requireAuth, authController.getStatus); // Access via namespace
-
-// POST /api/auth/refresh
-router.post('/refresh', authController.refreshToken); // Access via namespace
-
-// POST /api/auth/logout
-router.post('/logout', authController.logout); // Access via namespace
-
-// PUT /api/auth/update-account-type/:userId
-router.put(
-    '/update-account-type/:userId',
-    requireAuth,
-    requireSuperuser,
-    validateIdParam('userId'),
-    handleValidationErrors,
-    authController.updateAccountType // Access via namespace
-);
-
-export default router;
+export default router; // Default export for the router

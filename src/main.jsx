@@ -5,12 +5,81 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import App from './App.jsx'; // Keep relative for App root
 import './index.css'; // Keep relative for global CSS
 import { queryClient } from '@/queryClient'; // Use alias for consistency
+import { logError } from '@/utils/logger';
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    {/* Provide the imported client to your App */}
-    <QueryClientProvider client={queryClient}>
-      <App />
-    </QueryClientProvider>
-  </React.StrictMode>
+// Global error handler for uncaught JavaScript errors
+window.addEventListener('error', (event) => {
+  logError('[Global Error]', event.error);
+  console.error('Uncaught error:', event.error);
+});
+
+// Fallback component in case of errors
+const ErrorFallback = ({ error }) => (
+  <div style={{ 
+    padding: '20px', 
+    margin: '20px', 
+    border: '1px solid red',
+    borderRadius: '5px',
+    backgroundColor: '#ffebee'
+  }}>
+    <h1>Something went wrong</h1>
+    <p>The application encountered an error:</p>
+    <pre style={{ 
+      backgroundColor: '#f5f5f5',
+      padding: '10px',
+      borderRadius: '4px',
+      overflow: 'auto'
+    }}>
+      {error?.toString() || 'Unknown error'}
+    </pre>
+  </div>
 );
+
+// Root component with error boundary
+const Root = () => {
+  const [error, setError] = React.useState(null);
+
+  React.useEffect(() => {
+    console.log('Application mounting...');
+    return () => console.log('Application unmounting...');
+  }, []);
+
+  if (error) {
+    return <ErrorFallback error={error} />;
+  }
+
+  try {
+    return (
+      <React.StrictMode>
+        <QueryClientProvider client={queryClient}>
+          <App />
+        </QueryClientProvider>
+      </React.StrictMode>
+    );
+  } catch (err) {
+    console.error('Error rendering application:', err);
+    setError(err);
+    return <ErrorFallback error={err} />;
+  }
+};
+
+try {
+  const rootElement = document.getElementById('root');
+  if (!rootElement) {
+    throw new Error('Root element not found! Make sure there is a div with id="root" in your HTML.');
+  }
+  
+  console.log('Starting application render...');
+  ReactDOM.createRoot(rootElement).render(<Root />);
+} catch (err) {
+  console.error('Critical error during application initialization:', err);
+  document.body.innerHTML = `
+    <div style="padding: 20px; margin: 20px; border: 1px solid red; border-radius: 5px; background-color: #ffebee;">
+      <h1>Critical Error</h1>
+      <p>The application failed to initialize:</p>
+      <pre style="background-color: #f5f5f5; padding: 10px; border-radius: 4px; overflow: auto;">
+        ${err?.toString() || 'Unknown error'}
+      </pre>
+    </div>
+  `;
+}

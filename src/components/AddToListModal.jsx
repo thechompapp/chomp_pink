@@ -1,6 +1,6 @@
 // src/components/AddToListModal.jsx
-import React, { useState, useEffect } from 'react';
-import { useQueryClient, useMutation } from '@tanstack/react-query';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query';
 import PropTypes from 'prop-types';
 
 // Hooks & Stores
@@ -18,6 +18,8 @@ import Select from '@/components/UI/Select';
 import Input from '@/components/UI/Input';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
 import ErrorMessage from '@/components/UI/ErrorMessage';
+import { logError, logInfo, logDebug } from '@/utils/logger.js';
+import { AlertCircle, CheckCircle2 } from 'lucide-react';
 
 function AddToListModal({ isOpen, onClose, item }) {
   const queryClient = useQueryClient();
@@ -34,63 +36,104 @@ function AddToListModal({ isOpen, onClose, item }) {
   const mode = 'select';
   const [localError, setLocalError] = useState('');
 
-  // Effect to fetch lists, triggers ONLY on 'isOpen', checks conditions inside.
+  // Memoized fetch condition to prevent unnecessary recalculations
+  const shouldFetchLists = useMemo(() => {
+    const currentLists = userLists || [];
+    return isOpen && userId && (!currentLists.length || currentLists.length === 0);
+  }, [isOpen, userId, userLists]);
+  
+  // Effect to fetch lists when needed
   useEffect(() => {
-    if (isOpen) {
-      const currentLoading = useUserListStore.getState().isLoading;
-      const currentError = useUserListStore.getState().error;
-      const currentLists = useUserListStore.getState().userLists;
+    if (shouldFetchLists && !isLoadingLists) {
+      logDebug('[AddToListModal] Fetching user lists');
+      fetchUserLists({}, queryClient);
+    }
+  }, [shouldFetchLists, fetchUserLists, queryClient, isLoadingLists]);
 
-      const shouldFetch = !currentLists?.length && !currentLoading && !currentError;
-
-      if (shouldFetch && userId) {
-        console.log("[AddToListModal] Conditions met inside effect, fetching lists...");
-        fetchUserLists({}, queryClient); // Pass queryClient
-      } else {
-        console.log(`[AddToListModal] Skipping fetch. ShouldFetch: ${shouldFetch}, UserID: ${userId}`);
-      }
-    } else {
+  // Reset state when modal closes
+  useEffect(() => {
+    if (!isOpen) {
       setSelectedListId('');
       setLocalError('');
     }
-  }, [isOpen, fetchUserLists, userId, queryClient]);
+  }, [isOpen]);
 
+  // Check if item is already in the selected list
+  const { data: listDetails, isLoading: isCheckingList } = useQuery({
+    queryKey: ['listDetails', selectedListId],
+    queryFn: () => listService.getListDetails(selectedListId),
+    enabled: !!selectedListId && isOpen, // Only run when we have a selectedListId and modal is open
+    staleTime: 30 * 1000, // 30 seconds
+    select: (response) => response?.data || { items: [] },
+  });
+
+  // Derived state to check for duplicates
+  const isDuplicate = useMemo(() => {
+    if (!listDetails?.items || !item) return false;
+    return listDetails.items.some(listItem => 
+      listItem.id === item.id && listItem.item_type === item.type
+    );
+  }, [listDetails, item]);
+
+  // Mutation for adding item to list with improved feedback
   const addItemMutation = useMutation({
-    mutationFn: ({ listId, itemId, itemType }) => listService.addItemToList(listId, { item_id: itemId, item_type: itemType }),
+    mutationFn: ({ listId, itemId, itemType }) => 
+      listService.addItemToList(listId, { item_id: itemId, item_type: itemType }),
     onSuccess: (data, variables) => {
-      console.log('Item added successfully to list:', variables.listId);
+      logInfo('Item added successfully to list:', variables.listId);
+      
+      // Invalidate queries related to the updated list
       queryClient.invalidateQueries({ queryKey: ['userLists'] });
       queryClient.invalidateQueries({ queryKey: ['listDetails', variables.listId] });
-      onClose();
+      
+      // Show success message briefly before closing
+      setSuccessMessage('Item added to list successfully!');
+      setTimeout(() => {
+        onClose();
+      }, 1200);
     },
     onError: (error) => {
       handleApiError(error, 'Failed to add item to list');
       setLocalError(error.message || 'Could not add item to the selected list.');
+      logError('[AddToListModal] Error adding item to list:', error);
     },
   });
 
-  const handleSubmit = (e) => {
+  // Add state for success message
+  const [successMessage, setSuccessMessage] = useState('');
+
+  // Optimized submit handler with duplicate checking
+  const handleSubmit = useCallback((e) => {
     e.preventDefault();
     setLocalError('');
+    setSuccessMessage('');
 
+    // Validate item data
     if (!item || typeof item.id !== 'number' || !item.type) {
       setLocalError("Invalid item data provided.");
-      console.error("Invalid item prop:", item);
+      logError("[AddToListModal] Invalid item prop:", item);
       return;
     }
 
-    if (mode === 'select') {
-      if (!selectedListId) {
-        setLocalError("Please select a list.");
-        return;
-      }
-      addItemMutation.mutate({
-        listId: selectedListId,
-        itemId: item.id,
-        itemType: item.type,
-      });
+    // Validate list selection
+    if (!selectedListId) {
+      setLocalError("Please select a list.");
+      return;
     }
-  };
+    
+    // Check for duplicate items
+    if (isDuplicate) {
+      setLocalError("This item is already in the selected list.");
+      return;
+    }
+
+    // All validations passed, proceed with adding item to list
+    addItemMutation.mutate({
+      listId: selectedListId,
+      itemId: item.id,
+      itemType: item.type,
+    });
+  }, [selectedListId, item, isDuplicate, addItemMutation]);
 
   const availableLists = userLists?.filter(list => list.list_type === 'custom' || list.owner_id === userId) || [];
   const isMutating = addItemMutation.isPending;
@@ -148,13 +191,32 @@ function AddToListModal({ isOpen, onClose, item }) {
           </>
         )}
 
-        {/* Mutation Error Display (local or mutation error) */}
-        {(localError || addItemMutation.isError) && !isMutating && (
-          <ErrorMessage
-            message={localError || addItemMutation.error?.message || 'An unexpected error occurred.'}
-            className="mb-4"
-          />
-        )}
+        {/* Status Messages Area */}
+        <div className="mt-4">
+          {/* Error message */}
+          {localError && (
+            <div className="p-2 border border-red-200 rounded bg-red-50 text-red-700 flex items-center">
+              <AlertCircle size={14} className="mr-2 flex-shrink-0" />
+              <span className="text-sm">{localError}</span>
+            </div>
+          )}
+          
+          {/* Success message */}
+          {successMessage && (
+            <div className="p-2 border border-green-200 rounded bg-green-50 text-green-700 flex items-center">
+              <CheckCircle2 size={14} className="mr-2 flex-shrink-0" />
+              <span className="text-sm">{successMessage}</span>
+            </div>
+          )}
+          
+          {/* Duplicate warning */}
+          {isDuplicate && !localError && (
+            <div className="p-2 border border-amber-200 rounded bg-amber-50 text-amber-700 flex items-center">
+              <AlertCircle size={14} className="mr-2 flex-shrink-0" />
+              <span className="text-sm">This item is already in the selected list.</span>
+            </div>
+          )}
+        </div>
 
         {/* Action Buttons */}
         <div className="flex justify-end space-x-3 mt-5">

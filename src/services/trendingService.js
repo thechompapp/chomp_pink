@@ -1,5 +1,7 @@
 /* src/services/trendingService.js */
-import apiClient from '@/services/apiClient';
+import apiClient from '@/services/apiClient.js';
+import { handleApiResponse } from '@/utils/serviceHelpers.js';
+import { logError, logDebug, logWarn } from '@/utils/logger.js';
 
 const formatList = (list) => {
     if (!list || list.id == null || typeof list.name !== 'string') {
@@ -31,44 +33,66 @@ const formatList = (list) => {
 };
 
 const getTrendingRestaurants = async () => {
-    const response = await apiClient('/api/trending/restaurants');
-    if (!response.success || !Array.isArray(response.data)) {
-        console.error("Failed to fetch trending restaurants:", response.error);
-        throw new Error(response.error || 'Invalid trending restaurants data');
-    }
-    return response.data
-        .filter((item) => !!item && item.id != null)
-        .map(r => ({ ...r, id: Number(r.id) }));
+    logDebug('[TrendingService] Fetching trending restaurants');
+    
+    return handleApiResponse(
+        () => apiClient.get('/trending/restaurants'),
+        'TrendingService GetRestaurants'
+    ).then(data => {
+        // Process and standardize restaurant data
+        return Array.isArray(data) 
+            ? data.filter((item) => !!item && item.id != null)
+                .map(r => ({ ...r, id: Number(r.id) }))
+            : [];
+    }).catch(error => {
+        logError('[TrendingService] Failed to fetch trending restaurants:', error);
+        throw error;
+    });
 };
 
 const getTrendingDishes = async () => {
-    const response = await apiClient('/api/trending/dishes');
-    if (!response.success || !Array.isArray(response.data)) {
-        console.error("Failed to fetch trending dishes:", response.error);
-        throw new Error(response.error || 'Invalid trending dishes data');
-    }
-    return response.data
-        .filter((item) => !!item && item.id != null)
-        .map(d => ({
-            ...d,
-            id: Number(d.id),
-            restaurant: d.restaurant_name || d.restaurant || 'Unknown Restaurant',
-            tags: Array.isArray(d.tags) ? d.tags.filter(t => typeof t === 'string' && !!t) : [],
-        }));
+    logDebug('[TrendingService] Fetching trending dishes');
+    
+    return handleApiResponse(
+        () => apiClient.get('/trending/dishes'),
+        'TrendingService GetDishes'
+    ).then(data => {
+        // Process and standardize dish data
+        return Array.isArray(data) 
+            ? data.filter((item) => !!item && item.id != null)
+                .map(d => ({
+                    ...d,
+                    id: Number(d.id),
+                    restaurant: d.restaurant_name || d.restaurant || 'Unknown Restaurant',
+                    tags: Array.isArray(d.tags) ? d.tags.filter(t => typeof t === 'string' && !!t) : [],
+                }))
+            : [];
+    }).catch(error => {
+        logError('[TrendingService] Failed to fetch trending dishes:', error);
+        throw error;
+    });
 };
 
 const getTrendingLists = async () => {
-    const response = await apiClient('/api/trending/lists');
-    if (!response.success || !Array.isArray(response.data)) {
-        console.error("Failed to fetch trending lists:", response.error);
-        throw new Error(response.error || 'Invalid trending lists data');
-    }
-    return response.data
-        .map(formatList)
-        .filter(list => list !== null);
+    logDebug('[TrendingService] Fetching trending lists');
+    
+    return handleApiResponse(
+        () => apiClient.get('/trending/lists'),
+        'TrendingService GetLists'
+    ).then(data => {
+        // Process and standardize list data
+        return Array.isArray(data) 
+            ? data.map(formatList).filter(list => list !== null)
+            : [];
+    }).catch(error => {
+        logError('[TrendingService] Failed to fetch trending lists:', error);
+        throw error;
+    });
 };
 
 const fetchAllTrendingData = async () => {
+    logDebug('[TrendingService] Fetching all trending data');
+    
     try {
         const [restaurants, dishes, lists] = await Promise.all([
             getTrendingRestaurants(),
@@ -77,8 +101,8 @@ const fetchAllTrendingData = async () => {
         ]);
         return { restaurants, dishes, lists };
     } catch (error) {
-        console.error("Failed to fetch all trending data:", error);
-        throw new Error(error.message || 'Failed to fetch trending data');
+        logError('[TrendingService] Error fetching multiple trending datasets:', error);
+        throw error;
     }
 };
 

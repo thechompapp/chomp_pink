@@ -1,7 +1,9 @@
 /* src/services/userService.js */
-import apiClient, { ApiError } from '@/services/apiClient.js';
+import apiClient from '@/services/apiClient.js';
+import { handleApiResponse } from '@/utils/serviceHelpers.js';
+import { logError, logDebug } from '@/utils/logger.js';
 
-// --- Helper Function (if any) ---
+// --- Helper Function for data formatting ---
 const formatUser = (user) => {
   if (!user || typeof user.id !== 'number') return null;
   return {
@@ -16,61 +18,69 @@ const formatUser = (user) => {
 
 // --- Service Functions ---
 
-// Get current user's profile
+/**
+ * Get current user's profile
+ * @returns {Promise<Object>} User profile data
+ */
 export const getCurrentUser = async () => {
-  const endpoint = '/api/users/me'; // Assuming endpoint for current user
-  const context = 'UserService Get Current User';
-  try {
-    const response = await apiClient(endpoint, context);
-    if (!response.success || !response.data) {
-      throw new ApiError(response.error || 'Failed to fetch current user.', response.status || 401, response); // 401 if likely auth issue
-    }
-    return formatUser(response.data);
-  } catch (error) {
-    console.error(`[${context}] Error:`, error);
-    if (error instanceof ApiError) throw error;
-    throw new ApiError(error.message || 'Failed to fetch current user', 500, error);
-  }
+  logDebug('[UserService] Fetching current user profile');
+  
+  return handleApiResponse(
+    () => apiClient.get('/api/users/me'),
+    'UserService Get Current User'
+  ).then(data => {
+    return formatUser(data);
+  }).catch(error => {
+    logError('[UserService] Failed to fetch current user:', error);
+    throw error;
+  });
 };
 
-// Get a specific user's public profile by ID or handle
+/**
+ * Get a specific user's public profile by ID or handle
+ * @param {string|number} identifier - User ID or handle
+ * @returns {Promise<Object>} User profile data
+ */
 export const getUserProfile = async (identifier) => {
-  if (!identifier) throw new ApiError('User ID or handle is required', 400);
-  // Adjust endpoint based on whether you use ID or handle
-  const endpoint = `/api/users/profile/${encodeURIComponent(String(identifier))}`;
-  const context = `UserService Get Profile (${identifier})`;
-  try {
-    const response = await apiClient(endpoint, context);
-    if (!response.success || !response.data) {
-      throw new ApiError(response.error || 'User profile not found.', response.status || 404, response);
-    }
-    return formatUser(response.data); // Ensure only public data is formatted/returned
-  } catch (error) {
-    console.error(`[${context}] Error:`, error);
-    if (error instanceof ApiError) throw error;
-    throw new ApiError(error.message || 'Failed to fetch user profile', 500, error);
+  if (!identifier) {
+    throw new Error('User ID or handle is required');
   }
+  
+  const encodedIdentifier = encodeURIComponent(String(identifier));
+  logDebug(`[UserService] Fetching profile for user: ${identifier}`);
+  
+  return handleApiResponse(
+    () => apiClient.get(`/api/users/profile/${encodedIdentifier}`),
+    `UserService Get Profile (${identifier})`
+  ).then(data => {
+    return formatUser(data); // Ensure only public data is formatted/returned
+  }).catch(error => {
+    logError(`[UserService] Failed to fetch profile for user ${identifier}:`, error);
+    throw error;
+  });
 };
 
-// Update current user's profile
+/**
+ * Update current user's profile
+ * @param {Object} profileData - Data to update in the user profile
+ * @returns {Promise<Object>} Updated user profile data
+ */
 export const updateUserProfile = async (profileData) => {
-  const endpoint = '/api/users/me'; // Assuming endpoint for updating current user
-  const context = 'UserService Update Profile';
-  try {
-    const response = await apiClient(endpoint, context, {
-      method: 'PUT', // or PATCH
-      body: JSON.stringify(profileData),
-      headers: { 'Content-Type': 'application/json' },
-    });
-    if (!response.success || !response.data) {
-      throw new ApiError(response.error || 'Failed to update profile.', response.status || 500, response);
-    }
-    return formatUser(response.data);
-  } catch (error) {
-    console.error(`[${context}] Error:`, error);
-    if (error instanceof ApiError) throw error;
-    throw new ApiError(error.message || 'Failed to update profile', 500, error);
+  if (!profileData || typeof profileData !== 'object') {
+    throw new Error('Valid profile data is required');
   }
+  
+  logDebug('[UserService] Updating user profile');
+  
+  return handleApiResponse(
+    () => apiClient.put('/api/users/me', profileData),
+    'UserService Update Profile'
+  ).then(data => {
+    return formatUser(data);
+  }).catch(error => {
+    logError('[UserService] Failed to update user profile:', error);
+    throw error;
+  });
 };
 
 

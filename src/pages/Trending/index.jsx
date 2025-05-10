@@ -35,7 +35,17 @@ const CHART_VIEW_OPTIONS = [
 const fetchTrendingRestaurants = async () => {
     try {
         const data = await trendingService.getTrendingRestaurants();
-        return Array.isArray(data) ? data : [];
+        console.log('[TrendingPage] Restaurant data fetched:', data);
+        // Ensure we properly handle all possible return formats
+        if (Array.isArray(data)) {
+            return data;
+        } else if (data && typeof data === 'object' && Array.isArray(data.data)) {
+            // Handle case where API returns { data: [...], success: true }
+            return data.data;
+        } else {
+            console.warn('[TrendingPage] Unexpected data format from trendingService:', data);
+            return [];
+        }
     } catch (error) {
         console.error("[TrendingPage] Error fetching restaurants:", error);
         throw error; // Re-throw for React Query
@@ -44,7 +54,17 @@ const fetchTrendingRestaurants = async () => {
 const fetchTrendingDishes = async () => {
      try {
         const data = await trendingService.getTrendingDishes();
-        return Array.isArray(data) ? data : [];
+        console.log('[TrendingPage] Dish data fetched:', data);
+        // Ensure we properly handle all possible return formats
+        if (Array.isArray(data)) {
+            return data;
+        } else if (data && typeof data === 'object' && Array.isArray(data.data)) {
+            // Handle case where API returns { data: [...], success: true }
+            return data.data;
+        } else {
+            console.warn('[TrendingPage] Unexpected data format from trendingService:', data);
+            return [];
+        }
     } catch (error) {
         console.error("[TrendingPage] Error fetching dishes:", error);
         throw error; // Re-throw for React Query
@@ -53,7 +73,17 @@ const fetchTrendingDishes = async () => {
 const fetchTrendingLists = async () => {
      try {
         const data = await trendingService.getTrendingLists();
-        return Array.isArray(data) ? data : [];
+        console.log('[TrendingPage] List data fetched:', data);
+        // Ensure we properly handle all possible return formats
+        if (Array.isArray(data)) {
+            return data;
+        } else if (data && typeof data === 'object' && Array.isArray(data.data)) {
+            // Handle case where API returns { data: [...], success: true }
+            return data.data;
+        } else {
+            console.warn('[TrendingPage] Unexpected data format from trendingService:', data);
+            return [];
+        }
     } catch (error) {
         console.error("[TrendingPage] Error fetching lists:", error);
         throw error; // Re-throw for React Query
@@ -311,8 +341,8 @@ const Trending = () => {
                                return <DishCard key={key} {...item} restaurant={item.restaurant || item.restaurant_name} onQuickAdd={(e) => { e.stopPropagation(); e.preventDefault(); handleQuickAdd(item, 'dish'); }} />;
                            }
                            if (activeTab === "lists") {
-                               // Ensure list type is passed correctly
-                               return <ListCard key={key} {...item} type={item.type || item.list_type} />; // Pass type explicitly if needed by ListCard
+                               // Pass the entire item as the 'list' prop as ListCard expects
+                               return <ListCard key={key} list={item} />; // ListCard expects a 'list' prop, not spread props
                            }
                            return null; // Should not happen if activeTab matches one of the cases
                        })}

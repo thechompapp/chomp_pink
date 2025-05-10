@@ -1,8 +1,9 @@
 /* src/services/neighborhoodService.js */
-import apiClient from '@/services/apiClient';
-import * as logger from '@/utils/logger'; // Correct logger import
+import apiClient from '@/services/apiClient.js';
+import { handleApiResponse } from '@/utils/serviceHelpers.js';
+import { logError, logDebug, logWarn } from '@/utils/logger.js';
 
-// Assuming formatNeighborhood is still needed and adapts to new model if necessary
+// Format neighborhood data consistently
 const formatNeighborhood = (n) => n ? ({ id: n.id, name: n.name, city_id: n.city_id, parent_id: n.parent_id, location_level: n.location_level }) : null;
 
 const neighborhoodService = {
@@ -11,59 +12,47 @@ const neighborhoodService = {
    */
   getBoroughs: async (cityId) => {
     if (!cityId || isNaN(parseInt(cityId, 10))) {
-        logger.logWarn('[NeighborhoodService GetBoroughs] Invalid cityId:', cityId);
+        logWarn('[NeighborhoodService] Invalid cityId:', cityId);
         return []; // Return empty array for invalid input
     }
-    // Assuming backend route is now GET /neighborhoods/city/:cityId/boroughs
-    // OR GET /neighborhoods?cityId=X&level=1
-    // Adjust endpoint based on your actual backend route definition
-    const endpoint = `/neighborhoods`; // Example: Using query params
-    const queryParams = new URLSearchParams({ cityId: String(cityId), level: '1' });
+    
+    const params = { cityId: String(cityId), level: '1' };
     const context = `NeighborhoodService GetBoroughs (cityId: ${cityId})`;
-
-    try {
-      const response = await apiClient(endpoint, context, { params: queryParams });
-      logger.logDebug(`[${context}] Response:`, response);
-      // Assuming response.data.data contains the array of boroughs
-      if (response.success && response.data?.success && Array.isArray(response.data?.data)) {
-        return response.data.data.map(formatNeighborhood).filter(Boolean);
-      } else {
-        throw new Error(response.data?.message || 'Failed to fetch boroughs.');
-      }
-    } catch (error) {
-      logger.logError(`[${context}] Error:`, error);
-      throw new Error(error.message || 'Failed to fetch boroughs.');
-    }
+    
+    return handleApiResponse(
+      () => apiClient.get('/neighborhoods', { params }),
+      context
+    ).then(data => {
+      // Transform the data using our formatter
+      return Array.isArray(data) ? data.map(formatNeighborhood).filter(Boolean) : [];
+    }).catch(error => {
+      logError(`[NeighborhoodService] Error fetching boroughs for cityId ${cityId}:`, error);
+      throw error;
+    });
   },
 
   /**
    * Fetches neighborhoods (level 2 locations) for a given parent borough.
    */
-  getNeighborhoods: async (boroughId) => { // Only needs boroughId (parent_id)
+  getNeighborhoods: async (boroughId) => {
     if (!boroughId || isNaN(parseInt(boroughId, 10))) {
-        logger.logWarn('[NeighborhoodService GetNeighborhoods] Invalid boroughId:', boroughId);
+        logWarn('[NeighborhoodService] Invalid boroughId:', boroughId);
         return []; // Return empty array for invalid input
     }
-    // Assuming backend route is now GET /neighborhoods/parent/:boroughId
-    // OR GET /neighborhoods?parentId=Y&level=2
-    // Adjust endpoint based on your actual backend route definition
-    const endpoint = `/neighborhoods`; // Example: Using query params
-    const queryParams = new URLSearchParams({ parentId: String(boroughId), level: '2' });
+    
+    const params = { parentId: String(boroughId), level: '2' };
     const context = `NeighborhoodService GetNeighborhoods (boroughId: ${boroughId})`;
-
-    try {
-      const response = await apiClient(endpoint, context, { params: queryParams });
-       logger.logDebug(`[${context}] Response:`, response);
-      // Assuming response.data.data contains the array of neighborhoods
-      if (response.success && response.data?.success && Array.isArray(response.data?.data)) {
-        return response.data.data.map(formatNeighborhood).filter(Boolean);
-      } else {
-        throw new Error(response.data?.message || 'Failed to fetch neighborhoods.');
-      }
-    } catch (error) {
-      logger.logError(`[${context}] Error:`, error);
-      throw new Error(error.message || 'Failed to fetch neighborhoods.');
-    }
+    
+    return handleApiResponse(
+      () => apiClient.get('/neighborhoods', { params }),
+      context
+    ).then(data => {
+      // Transform the data using our formatter
+      return Array.isArray(data) ? data.map(formatNeighborhood).filter(Boolean) : [];
+    }).catch(error => {
+      logError(`[NeighborhoodService] Error fetching neighborhoods for boroughId ${boroughId}:`, error);
+      throw error;
+    });
   },
 };
 

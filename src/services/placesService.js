@@ -1,5 +1,7 @@
 /* src/services/placesService.js */
-import apiClient, { ApiError } from '@/services/apiClient.js';
+import apiClient from '@/services/apiClient.js';
+import { handleApiResponse, createQueryParams } from '@/utils/serviceHelpers.js';
+import { logError, logDebug, logWarn } from '@/utils/logger.js';
 
 // --- Helper Function (if any) ---
 // Format predictions from autocomplete
@@ -36,61 +38,85 @@ const formatPlaceDetails = (details) => {
 
 // --- Service Functions ---
 
-// Get autocomplete predictions
+/**
+ * Get autocomplete predictions from the Google Places API
+ * @param {string} input - The search term
+ * @param {Array<string>} types - Types of results to return
+ * @param {Object} locationBias - Optional location bias parameters
+ * @returns {Promise<Array>} Formatted prediction results
+ */
 export const getAutocompletePredictions = async (input, types = ['establishment'], locationBias = null) => {
-  if (!input) return []; // Return empty array if input is empty
+  if (!input) {
+    logWarn('[PlacesService] Empty input provided for autocomplete predictions');
+    return []; // Return empty array if input is empty
+  }
 
-  const queryParams = new URLSearchParams({ input, types: types.join('|') });
+  const params = { input, types: types.join('|') };
+  
   if (locationBias) {
-    // Add location bias parameters if needed (e.g., lat,lng,radius)
-    // queryParams.append('location', `${locationBias.lat},${locationBias.lng}`);
-    // queryParams.append('radius', String(locationBias.radius || 50000)); // Example radius
-  }
-  const endpoint = `/api/places/proxy/autocomplete?${queryParams.toString()}`;
-  const context = 'PlacesService Autocomplete';
-
-  try {
-    // Assuming your backend proxy handles the actual Google API call
-    const response = await apiClient(endpoint, context);
-    if (!response.success || !Array.isArray(response.data)) { // Check if data is array
-      // Handle cases where Google API might return ZERO_RESULTS successfully
-      if (response.status === 200 && response.data?.status === 'ZERO_RESULTS') {
-        return [];
-      }
-      throw new ApiError(response.error || 'Failed to fetch autocomplete predictions.', response.status || 500, response);
+    // Add location bias parameters if provided
+    if (locationBias.lat && locationBias.lng) {
+      params.location = `${locationBias.lat},${locationBias.lng}`;
     }
-    return response.data.map(formatPrediction).filter(Boolean);
-  } catch (error) {
-    console.error(`[${context}] Error for input "${input}":`, error);
-    if (error instanceof ApiError) throw error;
-    throw new ApiError(error.message || 'Failed to fetch predictions', 500, error);
+    if (locationBias.radius) {
+      params.radius = String(locationBias.radius);
+    }
   }
+  
+  logDebug(`[PlacesService] Fetching autocomplete predictions for: ${input}`);
+  
+  return handleApiResponse(
+    () => apiClient.get('/api/places/proxy/autocomplete', { params }),
+    'PlacesService Autocomplete'
+  ).then(data => {
+    // Handle zero results case (this is a successful case, just empty)
+    if (data?.status === 'ZERO_RESULTS') {
+      return [];
+    }
+    
+    // Process and format the predictions
+    return Array.isArray(data) 
+      ? data.map(formatPrediction).filter(Boolean)
+      : [];
+  }).catch(error => {
+    logError(`[PlacesService] Failed to fetch predictions for "${input}":`, error);
+    throw error;
+  });
 };
 
-// Get place details by placeId
+/**
+ * Get place details from the Google Places API by placeId
+ * @param {string} placeId - The Google Places API place ID
+ * @param {Array<string>} fields - List of fields to fetch
+ * @returns {Promise<Object>} Formatted place details
+ */
 export const getPlaceDetails = async (placeId, fields = ['place_id', 'name', 'formatted_address', 'geometry', 'url']) => {
-  if (!placeId) throw new ApiError('Place ID is required', 400);
+  if (!placeId) {
+    throw new Error('Place ID is required');
+  }
 
-  const queryParams = new URLSearchParams({ place_id: placeId, fields: fields.join(',') });
-  const endpoint = `/api/places/proxy/details?${queryParams.toString()}`;
+  const params = { 
+    place_id: placeId, 
+    fields: fields.join(',') 
+  };
+  
   const context = `PlacesService Details (${placeId})`;
-
-  try {
-    // Assuming your backend proxy handles the actual Google API call
-    const response = await apiClient(endpoint, context);
-    if (!response.success || !response.data) { // Check if data exists
-      throw new ApiError(response.error || 'Failed to fetch place details.', response.status || 404, response); // 404 if not found
-    }
-    const formatted = formatPlaceDetails(response.data);
+  logDebug(`[PlacesService] Fetching place details for ID: ${placeId}`);
+  
+  return handleApiResponse(
+    () => apiClient.get('/api/places/proxy/details', { params }),
+    context
+  ).then(data => {
+    const formatted = formatPlaceDetails(data);
     if (!formatted) {
-      throw new ApiError('Invalid place details data received.', 500);
+      logError(`[PlacesService] Received invalid place details data for ID: ${placeId}`);
+      throw new Error('Invalid place details data received.');
     }
     return formatted;
-  } catch (error) {
-    console.error(`[${context}] Error:`, error);
-    if (error instanceof ApiError) throw error;
-    throw new ApiError(error.message || 'Failed to fetch place details', 500, error);
-  }
+  }).catch(error => {
+    logError(`[PlacesService] Failed to fetch place details for ID ${placeId}:`, error);
+    throw error;
+  });
 };
 
 

@@ -1,127 +1,137 @@
-/* src/pages/Login/index.jsx */
+// src/pages/Login/index.jsx
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link, useLocation } from 'react-router-dom'; // Import useLocation
+import { useNavigate, Link } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
 import useAuthStore from '@/stores/useAuthStore';
-import { useQueryClient } from '@tanstack/react-query';
-import Button from '@/components/UI/Button';
 import Input from '@/components/UI/Input';
-import ErrorMessage from '@/components/UI/ErrorMessage';
-import * as logger from '@/utils/logger'; // Assuming logger might be useful
+import Button from '@/components/UI/Button';
+import BaseCard from '@/components/UI/BaseCard';
+import { Label } from '@/components/UI/Label';
+import { logDebug, logInfo, logError } from '@/utils/logger';
 
-const Login = () => {
+const LoginPage = () => {
+  // Simple state and form setup to avoid any potential issues
   const navigate = useNavigate();
-  const location = useLocation(); // Get location object
-  const queryClient = useQueryClient();
-  const { login, checkAuthStatus, isAuthenticated, isLoading, error } = useAuthStore();
-
-  const [formData, setFormData] = useState({ email: 'admin@example.com', password: 'newpass123' });
-  const [localError, setLocalError] = useState(null);
-
-  // Determine where to redirect after login
-  // If user was sent here from a protected route, redirect back there. Otherwise, go to home '/'.
-  const from = location.state?.from?.pathname || '/';
-
+  const login = useAuthStore((state) => state.login);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isLoading = useAuthStore((state) => state.isLoading);
+  
+  const { register, handleSubmit, formState: { errors } } = useForm();
+  const [submitError, setSubmitError] = useState('');
+  
+  // Simple redirect if authenticated
   useEffect(() => {
-    // Redirect if already authenticated or after successful login
     if (isAuthenticated) {
-      logger.logDebug(`[Login] Authenticated. Navigating to: ${from}`);
-      queryClient.invalidateQueries(['userLists']); // Invalidate queries that depend on auth state
-      queryClient.invalidateQueries(['results']); // Invalidate homepage results if needed
-      // REMOVED: navigate('/lists');
-      navigate(from, { replace: true }); // Navigate to previous location or home
+      navigate('/');
     }
-  }, [isAuthenticated, navigate, queryClient, from]); // Add 'from' to dependencies
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    setLocalError(null); // Clear local error on change
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLocalError(null); // Clear previous errors
-
-    // Basic frontend validation (optional, backend should always validate)
-    if (formData.password.length < 8 || formData.password.length > 100) {
-      setLocalError('Password must be between 8 and 100 characters.');
-      return;
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-      setLocalError('Please enter a valid email address.');
-      return;
-    }
-
+    
+    // Log on mount for debugging
+    logInfo('[Login Page] Component mounted');
+    
+    // Empty cleanup function that doesn't reference store
+    return () => {
+      logInfo('[Login Page] Component unmounting');
+    };
+  }, [isAuthenticated, navigate]);
+  
+  // Simplified submit handler
+  const onSubmit = async (data) => {
+    setSubmitError('');
+    
     try {
-      // Attempt login via auth store
-      await login(formData.email, formData.password);
-      // Note: The useEffect hook above will handle the redirect once isAuthenticated becomes true
-    } catch (err) {
-       logger.logError('[Login] Submit Error:', err);
-       // Use the error message from the auth store or a generic message
-       setLocalError(useAuthStore.getState().error || err.message || 'Login failed. Please check your credentials.');
+      logDebug('[Login Page] Login attempt with:', data);
+      const success = await login(data);
+      
+      if (success) {
+        logInfo('[Login Page] Login successful');
+        navigate('/');
+      } else {
+        const errorMessage = useAuthStore.getState().error || 'Login failed';
+        setSubmitError(errorMessage);
+      }
+    } catch (error) {
+      logError('[Login Page] Error during login:', error);
+      setSubmitError('An unexpected error occurred');
     }
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-md">
-      <h2 className="text-2xl font-bold mb-6 text-center text-black">Login to DOOF</h2>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Display local error OR the global error from auth store */}
-        {(localError || (!isLoading && error)) && (
-          <ErrorMessage message={localError || error} />
-        )}
-        <div>
-          <label htmlFor="email" className="block text-sm font-medium text-black">
-            Email
-          </label>
-          <Input
-            id="email"
-            name="email"
-            type="email"
-            value={formData.email}
-            onChange={handleChange}
-            required
-            autoComplete="email"
-            className="mt-1 block w-full text-black placeholder-gray-500 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500" // Added styles
-            disabled={isLoading}
-          />
+    <div className="flex items-center justify-center min-h-screen bg-background p-4">
+      <BaseCard className="w-full max-w-md overflow-hidden shadow-lg">
+        {/* Header section */}
+        <div className="p-6 text-center border-b border-border">
+          <h3 className="text-2xl font-bold tracking-tight text-primary">
+            Welcome Back
+          </h3>
+          <p className="text-sm text-muted-foreground mt-1">Sign in to continue to Chomp</p>
         </div>
-        <div>
-          <label htmlFor="password" className="block text-sm font-medium text-black">
-            Password
-          </label>
-          <Input
-            id="password"
-            name="password"
-            type="password"
-            value={formData.password}
-            onChange={handleChange}
-            required
-            autoComplete="current-password"
-             className="mt-1 block w-full text-black placeholder-gray-500 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500" // Added styles
-            disabled={isLoading}
-          />
+        
+        {/* Content section */}
+        <div className="p-6 bg-card">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                className="bg-input text-foreground border-border"
+                {...register("email", { 
+                  required: "Email is required",
+                  pattern: {
+                    value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                    message: "Invalid email address"
+                  }
+                })}
+              />
+              {errors.email && (
+                <p className="text-sm text-destructive">{errors.email.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                className="bg-input text-foreground border-border"
+                {...register("password", { required: "Password is required" })}
+              />
+              {errors.password && (
+                <p className="text-sm text-destructive">{errors.password.message}</p>
+              )}
+            </div>
+
+            {submitError && (
+              <div className="p-3 bg-destructive/10 text-destructive text-sm rounded-md">
+                {submitError}
+              </div>
+            )}
+
+            <Button
+              type="submit"
+              variant="primary"
+              className="w-full"
+              disabled={isLoading}
+            >
+              {isLoading ? 'Signing in...' : 'Sign In'}
+            </Button>
+          </form>
         </div>
-        <Button
-          type="submit"
-          variant="primary"
-          className="w-full"
-          disabled={isLoading}
-          isLoading={isLoading}
-        >
-          Login
-        </Button>
-      </form>
-      <p className="mt-4 text-center text-sm text-black">
-        Don't have an account?{' '}
-        <Link to="/register" className="text-[#A78B71] hover:underline">
-          Sign up
-        </Link>
-      </p>
+        
+        {/* Footer section */}
+        <div className="p-6 text-center bg-muted border-t border-border">
+          <p className="text-sm text-muted-foreground">
+            Don't have an account?{' '}
+            <Link to="/register" className="font-medium text-primary hover:text-primary/80">
+              Sign up
+            </Link>
+          </p>
+        </div>
+      </BaseCard>
     </div>
   );
 };
 
-export default Login;
+export default LoginPage;

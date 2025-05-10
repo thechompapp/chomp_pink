@@ -20,7 +20,19 @@ import { logDebug, logError, logInfo } from '@/utils/logger'; // Use named logge
 
 function ListDetail({ listId: propListId, embedded = false }) {
   const params = useParams();
+  // Ensure listId is properly converted to a string/number as needed
+  // This handles cases where it might be passed as either type
   const listId = propListId || params.listId;
+  
+  // Validate and normalize listId early
+  if (!listId) {
+    console.error('[ListDetail] No listId provided');
+    return (
+      <div className={embedded ? 'p-2' : 'container mx-auto p-4'}>
+        <ErrorMessage message="No list ID provided" />
+      </div>
+    );
+  }
   const { openQuickAdd } = useQuickAdd();
   const { user } = useAuthStore(state => ({ user: state.user }));
   const handleApiError = useApiErrorHandler();
@@ -29,14 +41,14 @@ function ListDetail({ listId: propListId, embedded = false }) {
   const [itemToDelete, setItemToDelete] = useState(null);
 
   const {
-    data: listDataResponse, // Rename to avoid conflict with 'list' variable later
+    data: listDataResponse, // Renamed to avoid conflict with 'list' variable later
     isLoading,
     isError,
-    error,
+    error: queryError,
     refetch,
   } = useQuery({
     queryKey: ['listDetail', listId],
-    // Correct: listService is now the imported named object
+    // Use the enhanced listService.getListDetails method
     queryFn: () => listService.getListDetails(listId),
     enabled: !!listId,
     staleTime: 1 * 60 * 1000,
@@ -50,11 +62,14 @@ function ListDetail({ listId: propListId, embedded = false }) {
      }
   });
 
-  // Extract list and items from the response data structure
-  // Assuming getListDetails returns { success: true, data: { list details + items }, message: ... }
-  const list = listDataResponse?.data?.list;
-  const items = listDataResponse?.data?.items || [];
+  // Extract list and items from the response data structure with fallbacks for all possible formats
+  // Handle our newly standardized response format as well as legacy formats
+  const responseError = listDataResponse?.error || listDataResponse?.message;
+  const list = listDataResponse?.list || (listDataResponse?.success === false ? null : listDataResponse);
+  const items = listDataResponse?.items || (Array.isArray(listDataResponse?.data) ? listDataResponse.data : []);
 
+  // Combined error from any source
+  const error = responseError || queryError;
 
   const handleItemQuickAdd = (e, item) => {
     e.stopPropagation();
@@ -100,17 +115,18 @@ function ListDetail({ listId: propListId, embedded = false }) {
     return <Container><LoadingSpinner /></Container>;
   }
 
-  // Check error state from useQuery
-  if (isError) {
-    const message = error?.message || 'Could not load list details.'; // Use error object from useQuery
-    return <Container><ErrorMessage message={message} /></Container>;
-  }
-
-  // Check if list data exists after fetch attempt
-  if (!list) {
-     // Use the error message from the fetch if available and success was false, otherwise generic message
-     const message = (listDataResponse && !listDataResponse.success) ? listDataResponse.message : "List not found or failed to load.";
-     return <Container><ErrorMessage message={message} /></Container>;
+  // Check any error state - from query, from standardized response, or missing list
+  if (isError || error || !list) {
+    const errorMessage = error?.message || 'Failed to load list details';
+    console.warn(`[ListDetail] Error rendering:`, errorMessage);
+    return (
+      <Container>
+        <ErrorMessage
+          message={errorMessage}
+          onRetry={refetch}
+        />
+      </Container>
+    );
   }
 
   // Now 'list' and 'items' are defined safely

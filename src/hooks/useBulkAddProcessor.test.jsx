@@ -3,7 +3,7 @@ import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import useBulkAddProcessor from './useBulkAddProcessor'; // Adjust path if needed
-import adminService from '@/services/adminService'; // To mock
+import { adminService } from '@/services/adminService'; // To mock
 
 // Mock the adminService completely
 vi.mock('@/services/adminService', () => ({

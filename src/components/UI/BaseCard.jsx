@@ -1,5 +1,6 @@
 // src/components/UI/BaseCard.jsx
 import React from 'react';
+import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils'; // Assuming you use this for class merging
 
@@ -12,6 +13,7 @@ const BaseCard = ({
   onQuickAdd,
   quickAddLabel = 'Quick Add',
   showHoverEffect = true, // Default to true, consume this prop
+  showQuickAdd, // Add this to the destructuring to consume it and prevent passing to DOM
   ...props // Collect remaining props
 }) => {
   const cardContent = (
@@ -26,7 +28,7 @@ const BaseCard = ({
     >
       {children}
       {/* Render QuickAdd button absolutely positioned if handler is provided */}
-      {onQuickAdd && (
+      {onQuickAdd && showQuickAdd !== false && (
         <button
           onClick={(e) => {
             e.preventDefault(); // Prevent link navigation if card is linked
@@ -62,6 +64,18 @@ const BaseCard = ({
       {cardContent}
     </div>
   );
+};
+
+// Explicitly define prop types for documentation
+BaseCard.propTypes = {
+  children: PropTypes.node,
+  className: PropTypes.string,
+  linkTo: PropTypes.string,
+  onClick: PropTypes.func,
+  onQuickAdd: PropTypes.func,
+  quickAddLabel: PropTypes.string,
+  showHoverEffect: PropTypes.bool,
+  showQuickAdd: PropTypes.bool
 };
 
 export default BaseCard;

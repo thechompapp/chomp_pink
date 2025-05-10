@@ -1,111 +1,190 @@
-// Filename: /root/doof-backend/middleware/auth.js
-/* REFACTORED: Convert to ES Modules */
-/* FIXED: Corrected import path for config.js */
-/* ADDED: verifyListOwnership middleware */
+// doof-backend/middleware/auth.js
 import jwt from 'jsonwebtoken';
 import config from '../config/config.js';
 import UserModel from '../models/userModel.js';
-import { ListModel } from '../models/listModel.js'; // Import ListModel (ensure it uses named export or adjust import)
+import db from '../db/index.js';
+import { ListModel } from '../models/listModel.js';
 
-// --- Generate Token ---
-export const generateToken = (user) => {
-    // ... (existing code) ...
-    const payload = {
+export const requireAuth = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  let token;
+
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.split(' ')[1];
+  } else if (req.cookies && req.cookies.token) {
+    token = req.cookies.token;
+  }
+
+  if (!token) {
+    return res.status(401).json({ success: false, message: 'Authentication token is missing.' });
+  }
+
+  try {
+    if (!config.jwtSecret) {
+        console.error('[requireAuth] JWT_SECRET is not configured!');
+        return res.status(500).json({ success: false, message: 'Internal server error: JWT secret not configured.' });
+    }
+    const decoded = jwt.verify(token, config.jwtSecret);
+    const user = await UserModel.findUserById(decoded.user.id);
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Invalid token: User not found.' });
+    }
+    req.user = {
         id: user.id,
         username: user.username,
         email: user.email,
         account_type: user.account_type || 'user'
     };
-     if (!config || !config.JWT_SECRET) {
-         console.error("FATAL: JWT_SECRET not found in config for token generation!");
-         throw new Error("Server configuration error: JWT secret missing.");
-     }
-    return jwt.sign({ user: payload }, config.JWT_SECRET, {
-        expiresIn: config.JWT_EXPIRATION,
-    });
+    next();
+  } catch (error) {
+    console.error('JWT Verification Error:', error.message);
+    if (error.name === 'TokenExpiredError') {
+        return res.status(401).json({ success: false, message: 'Token expired.' });
+    }
+    if (error.name === 'JsonWebTokenError') {
+        return res.status(401).json({ success: false, message: 'Invalid token.' });
+    }
+    return res.status(500).json({ success: false, message: 'Failed to authenticate token.'});
+  }
 };
 
-// --- Require Authentication Middleware ---
-export const requireAuth = async (req, res, next) => {
-    // ... (existing code) ...
-    const authHeader = req.headers.authorization;
-     if (!config || !config.JWT_SECRET) {
-         console.error("FATAL: JWT_SECRET not found in config for token verification!");
-         return res.status(500).json({ success: false, message: "Server configuration error."});
-     }
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ success: false, message: 'Unauthorized: No token provided.' });
-    }
-    const token = authHeader.split(' ')[1];
-    try {
-        const decoded = jwt.verify(token, config.JWT_SECRET);
-        if (!decoded || !decoded.user || !decoded.user.id) {
-             console.warn('[requireAuth] Invalid token payload structure:', decoded);
-             return res.status(401).json({ success: false, message: 'Unauthorized: Invalid token payload.' });
-        }
-         req.user = decoded.user; // Attach user info from token payload
-        next();
-    } catch (error) {
-        console.error('[requireAuth] Authentication error:', error.message);
-        if (error.name === 'TokenExpiredError') {
-            return res.status(401).json({ success: false, message: 'Unauthorized: Token expired.' });
-        }
-         if (error.name === 'JsonWebTokenError') {
-            return res.status(401).json({ success: false, message: 'Unauthorized: Invalid token.' });
-        }
-        next(error); // Pass other errors
-    }
+export const requireSuperuser = (req, res, next) => {
+  if (!req.user || req.user.account_type !== 'superuser') {
+    return res.status(403).json({ success: false, message: 'Access denied: Superuser privileges required.' });
+  }
+  next();
 };
 
-// --- NEW: Verify List Ownership Middleware ---
-/**
- * Middleware to verify if the authenticated user owns the list specified by ':id' param.
- * Attaches the fetched list object (raw) to req.list if ownership is verified.
- * Requires requireAuth to run first.
- */
-export const verifyListOwnership = async (req, res, next) => {
-    const listIdParam = req.params.id || req.params.listId; // Handle different param names if needed
-    const userId = req.user?.id; // Assumes requireAuth ran first
+export const requireContributor = (req, res, next) => {
+    if (!req.user || (req.user.account_type !== 'contributor' && req.user.account_type !== 'superuser')) {
+        return res.status(403).json({ success: false, message: 'Access denied: Contributor or Superuser privileges required.' });
+    }
+    next();
+};
 
+export const verifyListAccess = async (req, res, next) => {
+  const listId = parseInt(req.params.id, 10);
+  const userId = req.user ? req.user.id : null;
+
+  if (isNaN(listId)) {
+    return res.status(400).json({ success: false, message: 'Invalid List ID format.' });
+  }
+  try {
+    const list = await ListModel.findListByIdRaw(listId);
+    if (!list) {
+      return res.status(404).json({ success: false, message: 'List not found.' });
+    }
+    if (list.is_public) {
+      req.list = list;
+      return next();
+    }
     if (!userId) {
-        // Should not happen if requireAuth is used, but good defense
-        return res.status(401).json({ success: false, message: "Authentication required." });
+      return res.status(401).json({ success: false, message: 'Authentication required to access this private list.' });
     }
+    if (list.user_id !== userId) {
+      return res.status(403).json({ success: false, message: 'Access denied: You do not own this private list.' });
+    }
+    req.list = list;
+    next();
+  } catch (error) {
+    console.error(`Error in verifyListAccess middleware for list ${listId}:`, error);
+    return res.status(500).json({ success: false, message: 'Server error verifying list access.' });
+  }
+};
 
-    if (!listIdParam) {
-        console.warn('[verifyListOwnership] Missing list ID parameter in route.');
-        return res.status(400).json({ success: false, message: "Missing list ID in request path." });
-    }
+export const verifyListOwnership = async (req, res, next) => {
+  const listIdParam = req.params.id || req.params.listId || req.body.list_id || req.query.list_id;
+  const listId = parseInt(listIdParam, 10);
+  const userId = req.user ? req.user.id : null;
 
-    const listId = parseInt(listIdParam, 10);
-    if (isNaN(listId) || listId <= 0) {
-        return res.status(400).json({ success: false, message: "Invalid list ID format." });
+  if (!userId) {
+    return res.status(401).json({ success: false, message: 'Authentication required.' });
+  }
+  if (isNaN(listId)) {
+    return res.status(400).json({ success: false, message: 'Invalid or missing List ID.' });
+  }
+  try {
+    const list = await ListModel.findListByIdRaw(listId);
+    if (!list) {
+      return res.status(404).json({ success: false, message: 'List not found.' });
     }
+    if (list.user_id !== userId) {
+      return res.status(403).json({ success: false, message: 'Access denied: You do not own this list.' });
+    }
+    req.list = list;
+    next();
+  } catch (error) {
+    console.error(`Error in verifyListOwnership middleware for list ${listId}:`, error);
+    return res.status(500).json({ success: false, message: 'Server error verifying list ownership.' });
+  }
+};
+
+export const generateToken = (user) => {
+  if (!config.jwtSecret) {
+    console.error('FATAL ERROR in generateToken: JWT_SECRET is not defined!');
+    throw new Error('JWT secret is not configured.');
+  }
+  const payload = {
+    user: {
+      id: user.id,
+      email: user.email,
+      account_type: user.account_type || 'user'
+    }
+  };
+  return jwt.sign(payload, config.jwtSecret, { expiresIn: config.jwtExpiration });
+};
+
+export const generateRefreshToken = async (userId) => {
+    const { randomUUID } = await import('node:crypto');
+    const refreshToken = randomUUID();
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + parseInt(config.refreshTokenExpirationDays || '7', 10));
 
     try {
-        // Fetch the raw list data including the user_id
-        const listRaw = await ListModel.findListByIdRaw(listId);
-
-        if (!listRaw) {
-            return res.status(404).json({ success: false, message: `List not found.` }); // Use 404
-        }
-
-        // Check ownership
-        if (listRaw.user_id !== userId) {
-            return res.status(403).json({ success: false, message: 'Permission denied. You do not own this list.' });
-        }
-
-        // Attach the fetched list data to the request object for the controller to use
-        req.list = listRaw; // Attach the raw list data
-        next(); // Proceed to the next middleware/controller
-
+        // This query now works correctly if user_id has a UNIQUE constraint
+        await db.query(
+            'INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3) ON CONFLICT (user_id) DO UPDATE SET token = EXCLUDED.token, expires_at = EXCLUDED.expires_at',
+            [userId, refreshToken, expiresAt]
+        );
+        return refreshToken;
     } catch (error) {
-        console.error(`[verifyListOwnership] Error verifying ownership for list ${listId}, user ${userId}:`, error);
-        // Pass error to the global error handler or handle directly
-        res.status(500).json({ success: false, message: 'Error verifying list ownership.' });
-        // next(error); // Alternative
+        console.error("Error saving refresh token:", error);
+        throw new Error("Failed to generate refresh token.");
     }
 };
 
-// Note: requireSuperuser should be in its own file
-// Note: optionalAuth should be in its own file
+export const optionalAuth = async (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    let token;
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.split(' ')[1];
+    } else if (req.cookies && req.cookies.token) {
+        token = req.cookies.token;
+    }
+
+    if (!token) {
+        return next();
+    }
+
+    try {
+        if (!config.jwtSecret) {
+            console.warn('[optionalAuth] JWT_SECRET is not configured. Proceeding without authentication.');
+            return next();
+        }
+        const decoded = jwt.verify(token, config.jwtSecret);
+        const user = await UserModel.findUserById(decoded.user.id);
+
+        if (user) {
+            req.user = {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                account_type: user.account_type || 'user'
+            };
+        }
+    } catch (error) {
+        console.warn('[Optional Auth Middleware] Token present but invalid:', error.message);
+    }
+    next();
+};

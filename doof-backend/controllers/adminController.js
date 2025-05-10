@@ -1,281 +1,281 @@
-// Filename: /root/doof-backend/controllers/adminController.js
-/* REFACTORED: Convert to ES Modules */
-/* FIXED: Changed dishModel import to use named export createDish */
-/* FIXED: Changed restaurantModel import to use named export createRestaurant */
-import adminModel from '../models/adminModel.js'; // Use import, add .js
-// Import other models as needed, ensure they are also ESM
-import submissionModel from '../models/submissionModel.js';
-import { createRestaurant } from '../models/restaurantModel.js'; // Use named export instead of default
-import { createDish } from '../models/dishModel.js'; // Use named export
-import analyticsModel from '../models/analyticsModel.js';
+// doof-backend/controllers/adminController.js
+import * as AdminModel from '../models/adminModel.js';
+import * as RestaurantModel from '../models/restaurantModel.js';
+import * as DishModel from '../models/dishModel.js';
+import UserModel from '../models/userModel.js'; // Default import
+import * as CityModel from '../models/cityModel.js'; // Assuming named exports or adjust
+import * as NeighborhoodModel from '../models/neighborhoodModel.js'; // Assuming named exports or adjust
+import * as HashtagModel from '../models/hashtagModel.js'; // Named exports
+import { ListModel } from '../models/listModel.js'; // Named export
+import SubmissionModel from '../models/submissionModel.js'; // Default import
 
-// Assuming logger utility uses ESM or replace with console
-// import { logToDatabase } from '../utils/logger.js';
-const logToDatabase = (level, message, details) => {
-    console.log(`[${level.toUpperCase()}] ${message}`, details || '');
+import {
+  formatRestaurant,
+  formatDish,
+  formatList,
+  formatUser,
+  formatNeighborhood,
+  formatListItem
+} from '../utils/formatters.js';
+
+const identityFormatter = (item) => item;
+
+const getModelForResourceType = (resourceType) => {
+  switch (resourceType.toLowerCase()) {
+    case 'restaurants': return RestaurantModel;
+    case 'dishes': return DishModel;
+    case 'users': return UserModel; // UserModel is default export, so direct usage if methods are on it
+    case 'cities': return CityModel;
+    case 'neighborhoods': return NeighborhoodModel;
+    case 'hashtags': return HashtagModel;
+    case 'lists': return ListModel;
+    case 'submissions': return SubmissionModel; // SubmissionModel is default export
+    case 'listitems': return null; // listitems might be managed via ListModel or directly if AdminModel config is added
+    default: return null;
+  }
 };
 
-const handleControllerError = (res, error, message, statusCode = 500) => {
-    logToDatabase('error', `${message}: ${error.message || error}`, { error });
-    console.error(message, error);
-    // Check for specific error messages or codes if needed
-    let userMessage = error.message || 'Unknown server error.';
-    if (error.message?.includes('already exists')) {
-        statusCode = 409; // Conflict
-        userMessage = error.message;
-    } else if (error.message?.includes('Invalid reference') || error.code === '23503' ) {
-         statusCode = 400; // Bad request due to invalid FK
-         userMessage = error.message;
-    } else if (error.message?.includes('not found')) {
-         statusCode = 404;
-         userMessage = error.message;
-    }
-    // Send structured error response
-    res.status(statusCode).json({ success: false, message: userMessage });
+const getFormatterForResourceType = (resourceType) => {
+  switch (resourceType.toLowerCase()) {
+    case 'restaurants': return formatRestaurant;
+    case 'dishes': return formatDish;
+    case 'lists': return formatList;
+    case 'users': return formatUser;
+    case 'cities': return identityFormatter;
+    case 'neighborhoods': return formatNeighborhood;
+    case 'hashtags': return identityFormatter;
+    case 'restaurant_chains': return identityFormatter;
+    case 'submissions': return identityFormatter;
+    case 'listitems': return formatListItem;
+    default: return identityFormatter;
+  }
 };
 
-// --- Generic Resource Type Middleware (Example - adjust as needed) ---
-// Middleware to validate resource type and attach to request for generic controllers
-const setDataTypeFromParam = (req, res, next) => {
-    const { resourceType } = req.params;
-    // Add validation if needed (already done by validator middleware)
-    req.dataType = resourceType; // Attach for use in controller
-    next();
-};
-
-// --- Exported Controller Methods ---
-
-// GET all resources of a specific type
 export const getAllResources = async (req, res) => {
-    const dataType = req.params.resourceType; // Get from route param
-    try {
-        logToDatabase('info', `Admin requesting data for type: ${dataType}`);
-        const data = await adminModel.getAdminData(dataType);
-        res.json({ success: true, data: data }); // Standard success response
-    } catch (error) {
-        handleControllerError(res, error, `Error fetching admin data for ${dataType}`);
+  let { resourceType } = req.params;
+  if(req.route && req.route.path === '/submissions' && !resourceType) resourceType = 'submissions';
+
+  const { page = 1, limit = 20, sort = 'id', order = 'asc', ...filters } = req.query;
+
+  try {
+    const parsedPage = parseInt(page, 10);
+    const parsedLimit = parseInt(limit, 10);
+
+    const { data, total } = await AdminModel.findAllResources(
+        resourceType,
+        parsedPage,
+        parsedLimit,
+        sort,
+        order,
+        filters
+    );
+
+    if (!data) {
+      return res.status(404).json({ success: false, message: `${resourceType} not found or error in fetching.` });
     }
+
+    const formatter = getFormatterForResourceType(resourceType);
+    const formattedData = data.map(item => (formatter || identityFormatter)(item));
+
+    res.status(200).json({
+      success: true,
+      message: `${resourceType} fetched successfully.`,
+      data: formattedData,
+      pagination: {
+        total,
+        page: parsedPage,
+        limit: parsedLimit,
+        totalPages: Math.ceil(total / parsedLimit),
+      },
+    });
+  } catch (error) {
+    console.error(`Error fetching ${resourceType}:`, error);
+    res.status(500).json({ success: false, message: `Failed to fetch ${resourceType}. Error: ${error.message}` });
+  }
 };
 
-// GET a single resource by ID
 export const getResourceById = async (req, res) => {
-     const dataType = req.params.resourceType;
-     const { id } = req.params;
-     try {
-         logToDatabase('info', `Admin requesting data for type: ${dataType}, id: ${id}`);
-         // Assuming getAdminData handles single item fetch if needed, or use a specific method
-         // For simplicity, reusing generic method logic needs adjustment in model or here
-         // Let's assume model needs a getAdminDataById method
-         // const data = await adminModel.getAdminDataById(dataType, id);
-         const data = (await adminModel.getAdminData(dataType)).find(item => String(item.id) === String(id)); // Inefficient temporary workaround
-         if (!data) {
-             return res.status(404).json({ success: false, message: `${dataType} with ID ${id} not found.` });
-         }
-         res.json({ success: true, data: data });
-     } catch (error) {
-         handleControllerError(res, error, `Error fetching ${dataType} with ID ${id}`);
-     }
+  const { resourceType, id } = req.params;
+  try {
+    const resourceId = parseInt(id, 10);
+    if (isNaN(resourceId)) {
+      return res.status(400).json({ success: false, message: 'Invalid ID format. ID must be an integer.' });
+    }
+    const item = await AdminModel.findResourceById(resourceType, resourceId);
+    if (!item) {
+      return res.status(404).json({ success: false, message: `${resourceType} with ID ${resourceId} not found.` });
+    }
+    const formatter = getFormatterForResourceType(resourceType);
+    res.status(200).json({ success: true, message: `${resourceType} fetched successfully.`, data: (formatter || identityFormatter)(item) });
+  } catch (error) {
+    console.error(`Error fetching ${resourceType} with ID ${id}:`, error);
+    res.status(500).json({ success: false, message: `Failed to fetch ${resourceType}. Error: ${error.message}` });
+  }
 };
 
-// CREATE a new resource
 export const createResource = async (req, res) => {
-    const dataType = req.params.resourceType;
-    try {
-        logToDatabase('info', `Admin adding data for type: ${dataType}`, { data: req.body });
-        const newData = await adminModel.addAdminData(dataType, req.body);
-        res.status(201).json({ success: true, data: newData }); // Standard success response
-    } catch (error) {
-        handleControllerError(res, error, `Error adding admin data for ${dataType}`);
+  const { resourceType } = req.params;
+  const data = req.body;
+  try {
+    const newItem = await AdminModel.createResource(resourceType, data);
+    if (!newItem) {
+        return res.status(500).json({ success: false, message: `Failed to create ${resourceType}. No item returned.` });
     }
+    const formatter = getFormatterForResourceType(resourceType);
+    res.status(201).json({ success: true, message: `${resourceType} created successfully.`, data: (formatter || identityFormatter)(newItem) });
+  } catch (error) {
+    console.error(`Error creating ${resourceType}:`, error);
+    if (error.code === '23505') {
+        return res.status(409).json({ success: false, message: `${resourceType} already exists or a unique field conflicts. Details: ${error.detail || error.message}` });
+    }
+    res.status(500).json({ success: false, message: `Failed to create ${resourceType}. Error: ${error.message}` });
+  }
 };
 
-// UPDATE a resource by ID
 export const updateResource = async (req, res) => {
-    const dataType = req.params.resourceType;
-    const { id } = req.params;
-    try {
-        logToDatabase('info', `Admin updating data for type: ${dataType}, id: ${id}`, { data: req.body });
-        const updatedData = await adminModel.updateAdminData(dataType, id, req.body);
-        if (!updatedData) {
-            return res.status(404).json({ success: false, message: `${dataType.slice(0,-1)} with ID ${id} not found.` });
-        }
-        res.json({ success: true, data: updatedData }); // Standard success response
-    } catch (error) {
-        handleControllerError(res, error, `Error updating admin data for ${dataType} with ID ${id}`);
+  const { resourceType, id } = req.params;
+  const data = req.body;
+  const resourceId = parseInt(id, 10);
+  if (isNaN(resourceId)) {
+    return res.status(400).json({ success: false, message: 'Invalid ID format. ID must be an integer.' });
+  }
+  try {
+    const updatedItem = await AdminModel.updateResource(resourceType, resourceId, data);
+     if (!updatedItem) {
+      const itemExists = await AdminModel.findResourceById(resourceType, resourceId);
+      if (!itemExists) {
+          return res.status(404).json({ success: false, message: `${resourceType} with ID ${resourceId} not found.` });
+      }
+      return res.status(500).json({ success: false, message: `Failed to update ${resourceType} with ID ${resourceId}. Update operation returned no result.` });
     }
+    const formatter = getFormatterForResourceType(resourceType);
+    res.status(200).json({ success: true, message: `${resourceType} updated successfully.`, data: (formatter || identityFormatter)(updatedItem) });
+  } catch (error) {
+    console.error(`Error updating ${resourceType} with ID ${id}:`, error);
+    if (error.code === '23505') {
+        return res.status(409).json({ success: false, message: `Update for ${resourceType} with ID ${resourceId} failed due to a unique constraint. Details: ${error.detail || error.message}` });
+    }
+    res.status(500).json({ success: false, message: `Failed to update ${resourceType}. Error: ${error.message}` });
+  }
 };
 
-// DELETE a resource by ID
 export const deleteResource = async (req, res) => {
-    const dataType = req.params.resourceType;
-    const { id } = req.params;
-    try {
-        logToDatabase('info', `Admin deleting data for type: ${dataType}, id: ${id}`);
-        const success = await adminModel.deleteAdminData(dataType, id);
-        if (!success) {
-            return res.status(404).json({ success: false, message: `${dataType.slice(0,-1)} with ID ${id} not found.` });
-        }
-        res.status(200).json({ success: true, message: `${dataType.slice(0,-1)} deleted successfully.`}); // Send success message instead of 204
-    } catch (error) {
-        handleControllerError(res, error, `Error deleting admin data for ${dataType} with ID ${id}`);
+  const { resourceType, id } = req.params;
+  const resourceId = parseInt(id, 10);
+  if (isNaN(resourceId)) {
+    return res.status(400).json({ success: false, message: 'Invalid ID format. ID must be an integer.' });
+  }
+  try {
+    const success = await AdminModel.deleteResource(resourceType, resourceId);
+    if (!success) {
+      const itemExists = await AdminModel.findResourceById(resourceType, resourceId);
+      if (!itemExists) {
+          return res.status(404).json({ success: false, message: `${resourceType} with ID ${resourceId} not found.` });
+      }
+      return res.status(500).json({ success: false, message: `Failed to delete ${resourceType} with ID ${resourceId}.` });
     }
+    res.status(200).json({ success: true, message: `${resourceType} deleted successfully.` });
+  } catch (error) {
+    console.error(`Error deleting ${resourceType} with ID ${id}:`, error);
+    res.status(500).json({ success: false, message: `Failed to delete ${resourceType}. Error: ${error.message}` });
+  }
 };
 
-// Bulk Add Handler (Generic or Specific?)
-// This assumes the route determines the type and passes it, or use specific controllers
-export const bulkAdd = async (req, res) => {
-     const itemType = req.params.resourceType; // e.g., 'restaurants', 'dishes'
-     const items = req.body[itemType]; // Expecting { restaurants: [...] } or { dishes: [...] }
-
-     if (!items || !Array.isArray(items)) {
-          return res.status(400).json({ success: false, message: `Invalid request body format. Expected key '${itemType}' containing an array.`});
-     }
-
-     try {
-         logToDatabase('info', `Bulk adding ${items.length} ${itemType}.`);
-         const addedItems = await adminModel.bulkAddItems(itemType, items);
-         res.status(201).json({ success: true, data: addedItems }); // Return added items
-     } catch (error) {
-         handleControllerError(res, error, `Error bulk adding ${itemType}`);
-     }
-};
-
-// --- Submission Handlers ---
 export const approveSubmission = async (req, res) => {
-     const { id } = req.params;
-     // Data for the new restaurant/dish might be sent in the body
-     // or derived from the submission itself + potential admin edits
-     const approvedData = req.body; // Assuming body contains necessary final data
-     const approverId = req.user.id;
+  const { submissionId } = req.params;
+  const adminUserId = req.user.id;
+  try {
+    const submission = await SubmissionModel.getSubmissionById(parseInt(submissionId, 10));
+    if (!submission) {
+      return res.status(404).json({ success: false, message: 'Submission not found.' });
+    }
+    if (submission.status !== 'pending') {
+      return res.status(400).json({ success: false, message: `Submission is already ${submission.status}.` });
+    }
 
-     try {
-         logToDatabase('info', `Admin approving submission ID: ${id}`, { approverId });
-         const submission = await submissionModel.getSubmissionById(id);
-         if (!submission) {
-             return res.status(404).json({ success: false, message: 'Submission not found.' });
-         }
-         if (submission.status !== 'pending') {
-             return res.status(400).json({ success: false, message: `Submission status is already ${submission.status}.` });
-         }
+    let cityId = submission.city_id;
+    let neighborhoodId = submission.neighborhood_id;
 
-         let newItem;
-         const dataToCreate = {
-             name: approvedData.name || submission.name,
-             address: approvedData.address || submission.location, // Map fields
-             google_place_id: approvedData.google_place_id || submission.place_id,
-             city_name: approvedData.city_name || submission.city,
-             neighborhood_name: approvedData.neighborhood_name || submission.neighborhood,
-             tags: approvedData.tags || submission.tags || [],
-             restaurant_id: approvedData.restaurant_id || submission.restaurant_id,
-             description: approvedData.description, // For dishes
-             price: approvedData.price, // for dishes
-             // TODO: Add more fields as necessary, potentially requiring lookups (city_id, neighborhood_id)
-         };
+    if (submission.city && !cityId && typeof submission.city === 'string' && submission.city.trim() !== '') {
+        const cityInstance = await CityModel.findByNameOrCreate(submission.city.trim());
+        if (cityInstance && cityInstance.id) cityId = cityInstance.id;
+    }
 
-         if (submission.item_type === 'restaurant') {
-             // TODO: Potentially look up city_id, neighborhood_id based on names before creating
-             newItem = await createRestaurant(dataToCreate);
-         } else if (submission.item_type === 'dish') {
-             // Ensure restaurant_id is present and valid
-             if (!dataToCreate.restaurant_id) {
-                  throw new Error("Restaurant ID is required to approve a dish submission.");
-             }
-             newItem = await createDish(dataToCreate);
-         } else {
-             throw new Error(`Unsupported submission item type: ${submission.item_type}`);
-         }
+    if (cityId && submission.neighborhood && !neighborhoodId && typeof submission.neighborhood === 'string' && submission.neighborhood.trim() !== '') {
+        const boroughName = submission.data?.borough || submission.borough || null;
+        const neighborhoodInstance = await NeighborhoodModel.findByNameAndCityIdOrCreate(submission.neighborhood.trim(), cityId, boroughName);
+        if (neighborhoodInstance && neighborhoodInstance.id) neighborhoodId = neighborhoodInstance.id;
+    }
 
-         await submissionModel.updateSubmissionStatus(id, 'approved', approverId);
-         logToDatabase('info', `Submission ID ${id} approved successfully.`);
-         res.json({ success: true, message: 'Submission approved successfully.', data: newItem });
+    if (submission.type === 'restaurant' && !cityId) {
+        return res.status(400).json({ success: false, message: `Cannot approve restaurant submission without a valid city. City "${submission.city}" could not be resolved.` });
+    }
 
-     } catch (error) {
-         handleControllerError(res, error, `Error approving submission ID: ${id}`);
-     }
+    const itemData = {
+        name: submission.name,
+        description: submission.description,
+        tags: submission.tags,
+        ...(submission.data || {}),
+    };
+    if (submission.type === 'restaurant') {
+        itemData.address = submission.location;
+        itemData.google_place_id = submission.place_id;
+    } else if (submission.type === 'dish') {
+        itemData.restaurant_id = submission.restaurant_id;
+        itemData.restaurant_name = submission.restaurant_name;
+    }
+
+    const approvedItem = await AdminModel.approveSubmission(
+        parseInt(submissionId, 10),
+        submission.type,
+        itemData,
+        cityId,
+        neighborhoodId,
+        submission.place_id,
+        submission.user_id,
+        adminUserId
+    );
+
+    if (!approvedItem) {
+        return res.status(500).json({ success: false, message: 'Approval process completed but no item was returned or an error occurred.' });
+    }
+    const formatter = getFormatterForResourceType(submission.type);
+    res.status(200).json({ success: true, message: 'Submission approved successfully.', data: (formatter || identityFormatter)(approvedItem) });
+  } catch (error) {
+    console.error(`Error approving submission ${submissionId}:`, error);
+    res.status(500).json({ success: false, message: `Failed to approve submission. Error: ${error.message}` });
+  }
 };
 
 export const rejectSubmission = async (req, res) => {
-     const { id } = req.params;
-     const { rejectionReason } = req.body; // Optional reason from admin
-     const approverId = req.user.id;
-
-     try {
-         logToDatabase('info', `Admin rejecting submission ID: ${id}`, { approverId, rejectionReason });
-         const submission = await submissionModel.getSubmissionById(id);
-         if (!submission) {
-             return res.status(404).json({ success: false, message: 'Submission not found.' });
-         }
-         if (submission.status !== 'pending') {
-             return res.status(400).json({ success: false, message: `Submission status is already ${submission.status}.` });
-         }
-
-         await submissionModel.updateSubmissionStatus(id, 'rejected', approverId, rejectionReason);
-         logToDatabase('info', `Submission ID ${id} rejected successfully.`);
-         res.json({ success: true, message: 'Submission rejected successfully.' });
-     } catch (error) {
-         handleControllerError(res, error, `Error rejecting submission ID: ${id}`);
-     }
+  const { submissionId } = req.params;
+  const { rejection_reason } = req.body;
+  const adminUserId = req.user.id;
+  try {
+    const success = await AdminModel.rejectSubmission(parseInt(submissionId, 10), rejection_reason, adminUserId);
+    if (!success) {
+      const submission = await SubmissionModel.getSubmissionById(parseInt(submissionId, 10));
+      if (!submission) return res.status(404).json({ success: false, message: 'Submission not found.' });
+      return res.status(400).json({ success: false, message: 'Failed to reject submission, it might have been already processed or an unknown error occurred.' });
+    }
+    res.status(200).json({ success: true, message: 'Submission rejected successfully.' });
+  } catch (error) {
+    console.error(`Error rejecting submission ${submissionId}:`, error);
+    res.status(500).json({ success: false, message: `Failed to reject submission. Error: ${error.message}` });
+  }
 };
 
-// --- Lookup Handlers ---
-export const lookupNeighborhoods = async (req, res) => {
-     const { names } = req.body;
-     if (!Array.isArray(names)) {
-         return res.status(400).json({ success: false, message: 'Invalid input: "names" must be an array.' });
-     }
-     if (names.length === 0) {
-          return res.json({ success: true, data: [] }); // Return empty array if input is empty
-     }
-
-     try {
-         logToDatabase('info', `Lookup requested for ${names.length} neighborhoods.`);
-         // Use adminModel's checkExistingItems which expects items and fields
-         const itemsToCheck = names.map(name => ({ name }));
-         const existingIdentifiers = await adminModel.checkExistingItems('neighborhoods', itemsToCheck, ['name']);
-         // Convert Set<"name|"> back to just array of names
-         const existingNames = Array.from(existingIdentifiers).map(id => id.split('|')[0]);
-
-         logToDatabase('debug', `Lookup found existing neighborhoods: ${existingNames.join(', ')}`);
-         res.json({ success: true, data: existingNames }); // Return array in data field
-     } catch (error) {
-         handleControllerError(res, error, 'Error looking up neighborhoods');
-     }
+export const bulkAddResources = async (req, res) => {
+    const { resourceType } = req.params;
+    const { items } = req.body;
+    if (!items || !Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ success: false, message: 'No items provided for bulk addition.' });
+    }
+    try {
+        const results = await AdminModel.bulkAddResources(resourceType, items, req.user.id);
+        res.status(200).json({ success: true, message: `Bulk add for ${resourceType} processed.`, data: results });
+    } catch (error) {
+        console.error(`Error bulk adding ${resourceType}:`, error);
+        res.status(500).json({ success: false, message: `Failed to bulk add ${resourceType}. Error: ${error.message}` });
+    }
 };
-
-// --- Analytics Handlers ---
-export const getAnalyticsSummary = async (req, res) => {
-     try {
-         logToDatabase('info', `Admin requesting analytics summary`);
-         const summary = await analyticsModel.getSummary();
-         res.json({ success: true, data: summary });
-     } catch (error) {
-         handleControllerError(res, error, 'Error fetching analytics summary');
-     }
-};
-
-export const getEngagementAnalytics = async (req, res) => {
-     try {
-         logToDatabase('info', `Admin requesting engagement analytics`, { params: req.query });
-         const engagementData = await analyticsModel.getEngagement(req.query);
-         res.json({ success: true, data: engagementData });
-     } catch (error) {
-         handleControllerError(res, error, 'Error fetching engagement analytics');
-     }
-};
-
-// Export controller methods individually for named imports
-// Or create a default export object if preferred by routes/admin.js
-const adminController = {
-    getAllResources,
-    getResourceById,
-    createResource,
-    updateResource,
-    deleteResource,
-    bulkAdd,
-    approveSubmission,
-    rejectSubmission,
-    lookupNeighborhoods,
-    getAnalyticsSummary,
-    getEngagementAnalytics,
-};
-export default adminController; // Keep default export to match route import

@@ -1,109 +1,131 @@
 /* src/services/listService.js */
 import apiClient from './apiClient.js';
 import { logDebug, logError, logWarn } from '@/utils/logger.js';
+import { handleApiResponse, createQueryParams, validateId } from '@/utils/serviceHelpers.js';
 
 export const listService = {
   async getUserLists(params = {}) {
     console.log('[listService.getUserLists] Function called with params:', params);
-    const queryParams = new URLSearchParams();
-    if (params.view) queryParams.append('view', params.view);
-    if (params.page) queryParams.append('page', params.page);
-    if (params.limit) queryParams.append('limit', params.limit);
-    if (params.cityId) queryParams.append('cityId', params.cityId);
-    if (params.boroughId) queryParams.append('boroughId', params.boroughId);
-    if (params.neighborhoodId) queryParams.append('neighborhoodId', params.neighborhoodId);
-    if (params.query) queryParams.append('query', params.query);
-    if (Array.isArray(params.hashtags) && params.hashtags.length > 0) {
-      params.hashtags.forEach(tag => queryParams.append('hashtags', tag));
-    }
+    const queryParams = createQueryParams({
+      view: params.view,
+      page: params.page,
+      limit: params.limit,
+      cityId: params.cityId,
+      boroughId: params.boroughId,
+      neighborhoodId: params.neighborhoodId,
+      query: params.query,
+      hashtags: params.hashtags
+    });
 
     const endpoint = `/lists${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-    try {
-      logDebug(`[listService.getUserLists] Fetching lists from endpoint: ${endpoint}`);
-      console.log('[listService.getUserLists] Making API call to:', endpoint);
-      const response = await apiClient(endpoint, 'Get User Lists', { method: 'GET' });
-      console.log('[listService.getUserLists] API response:', response);
-      logDebug(`[listService.getUserLists] Response:`, response);
-      if (response.success && response.data?.success) {
-        return {
-          items: Array.isArray(response.data.data) ? response.data.data : [],
-          total: response.data.pagination?.totalItems || 0,
-        };
-      } else {
-        logWarn(`[listService.getUserLists] Invalid response: ${response.data?.message}`);
-        return { items: [], total: 0 };
-      }
-    } catch (error) {
-      logError('[listService.getUserLists] Error fetching lists:', error);
-      console.error('[listService.getUserLists] Error:', error);
-      throw error;
-    }
+    logDebug(`[listService.getUserLists] Fetching lists from endpoint: ${endpoint}`);
+    
+    return handleApiResponse(
+      () => apiClient.get(endpoint),
+      'listService.getUserLists',
+      (data) => ({
+        items: Array.isArray(data) ? data : [],
+        total: data.pagination?.totalItems || 0,
+      })
+    );
   },
 
   async getListPreviewItems(listId, limit = 3) {
-    const numericListId = parseInt(String(listId), 10);
-    if (isNaN(numericListId) || numericListId <= 0) {
-      logWarn('[listService.getListPreviewItems] Invalid listId provided:', listId);
-      return [];
-    }
-    const endpoint = `/lists/previewbyid/${numericListId}`;
     try {
+      // Validate listId using the utility function
+      const numericListId = validateId(listId, 'listId');
+      
+      // Use createQueryParams for consistent parameter handling
+      const queryParams = createQueryParams({ limit });
+      const endpoint = `/lists/previewbyid/${numericListId}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+      
       logDebug(`[listService.getListPreviewItems] Fetching preview items for list ID: ${numericListId}, Limit: ${limit}`);
-      const queryParams = new URLSearchParams();
-      queryParams.append('limit', String(limit));
-      const requestConfig = { method: 'GET', params: queryParams };
-
-      logDebug(`[listService.getListPreviewItems] PRE-CALL CHECK - Endpoint: ${endpoint}, Config: ${JSON.stringify(requestConfig)}`);
-
-      const response = await apiClient(endpoint, 'Get List Preview Items', requestConfig);
-
-      logDebug(`[listService.getListPreviewItems] Response for list ${numericListId}:`, response);
-      if (response.success && response.data?.success && Array.isArray(response.data.data)) {
-        return response.data.data;
-      } else {
-        logWarn(`[listService.getListPreviewItems] No preview items found or invalid response for list ${numericListId}. Message: ${response.data?.message}`);
-        return [];
-      }
+      
+      // Use handleApiResponse for standardized API handling
+      return handleApiResponse(
+        () => apiClient.get(endpoint),
+        'listService.getListPreviewItems',
+        (data) => Array.isArray(data) ? data : []
+      );
     } catch (error) {
-      logError(`[listService.getListPreviewItems] Error fetching preview items for list ${numericListId}:`, error);
-      logError(`[listService.getListPreviewItems] FAILED CALL CHECK - Endpoint: ${endpoint}, Config: ${JSON.stringify({ method: 'GET', params: { limit } })}`);
+      logError(`[listService.getListPreviewItems] Error fetching preview items for list ${listId}:`, error);
       throw error;
     }
   },
 
   // New method to fetch list items using the correct endpoint
-  async getListItems(listId, limit = 3) {
-    const numericListId = parseInt(String(listId), 10);
-    if (isNaN(numericListId) || numericListId <= 0) {
-      logWarn('[listService.getListItems] Invalid listId provided:', listId);
-      return [];
-    }
-    const endpoint = `/lists/${numericListId}/items`;
+  async getListItems(listId, limit = 10) {
     try {
+      // Validate listId using the utility function
+      const numericListId = validateId(listId, 'listId');
+      
+      // Use createQueryParams for consistent parameter handling
+      const queryParams = createQueryParams({ limit });
+      const endpoint = `/lists/${numericListId}/items${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+      
       logDebug(`[listService.getListItems] Fetching items for list ID: ${numericListId}, Limit: ${limit}`);
-      const queryParams = new URLSearchParams();
-      if (limit) queryParams.append('limit', String(limit));
-      const requestConfig = { method: 'GET', params: queryParams };
-
-      logDebug(`[listService.getListItems] PRE-CALL CHECK - Endpoint: ${endpoint}, Config: ${JSON.stringify(requestConfig)}`);
-
-      const response = await apiClient(endpoint, 'Get List Items', requestConfig);
-
-      logDebug(`[listService.getListItems] Response for list ${numericListId}:`, response);
-      if (response.success && response.data?.success && Array.isArray(response.data.data)) {
-        return response.data;
-      } else {
-        logWarn(`[listService.getListItems] No items found or invalid response for list ${numericListId}. Message: ${response.data?.message}`);
-        return [];
-      }
+      
+      // Use handleApiResponse for standardized API handling
+      return handleApiResponse(
+        () => apiClient.get(endpoint),
+        'listService.getListItems',
+        (data) => Array.isArray(data) ? data : []
+      );
     } catch (error) {
-      logError(`[listService.getListItems] Error fetching items for list ${numericListId}:`, error);
-      logError(`[listService.getListItems] FAILED CALL CHECK - Endpoint: ${endpoint}, Config: ${JSON.stringify({ method: 'GET', params: { limit } })}`);
+      logError(`[listService.getListItems] Error fetching items for list ${listId}:`, error);
       throw error;
     }
   },
 
-  async getListDetails(listId) { /* ... */ },
+  async getListDetails(listId) {
+    try {
+      // Validate listId using the enhanced utility function without throwing
+      const numericListId = validateId(listId, 'listId', false);
+      
+      // Handle invalid IDs with a standardized response
+      if (numericListId <= 0) {
+        logWarn(`[listService.getListDetails] Invalid list ID: ${listId}`);
+        return {
+          success: false,
+          error: { message: `Invalid list ID: ${listId}`, status: 400 },
+          list: null,
+          items: []
+        };
+      }
+      
+      logDebug(`[listService.getListDetails] Fetching details for list ID: ${numericListId}`);
+      
+      // First, fetch the list metadata
+      const listResponse = await handleApiResponse(
+        () => apiClient.get(`/lists/${numericListId}`),
+        'listService.getListDetails (metadata)'
+      );
+      
+      // Then fetch the list items
+      const itemsResponse = await handleApiResponse(
+        () => apiClient.get(`/lists/${numericListId}/items`),
+        'listService.getListDetails (items)'
+      );
+      
+      // Combine both responses into a single standardized response object
+      return {
+        success: true,
+        list: listResponse?.data || listResponse, // Support both response formats
+        items: Array.isArray(itemsResponse?.data) ? itemsResponse.data : 
+               Array.isArray(itemsResponse) ? itemsResponse : []
+      };
+    } catch (error) {
+      logError(`[listService.getListDetails] Error fetching details for list ${listId}:`, error);
+      // Return a standardized error object instead of throwing
+      // This allows the component to display a proper error UI
+      return {
+        success: false,
+        error: error,
+        list: null,
+        items: []
+      };
+    }
+  },
   async createList(listData) { /* ... */ },
   async updateList(listId, listData) { /* ... */ },
   async deleteList(listId) { /* ... */ },

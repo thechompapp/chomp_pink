@@ -1,8 +1,9 @@
 /* src/services/authService.js */
-/* REFACTORED: Let apiClient handle and propagate standardized errors */
 import apiClient from '@/services/apiClient.js';
+import { handleApiResponse } from '@/utils/serviceHelpers.js';
+import { logError, logDebug } from '@/utils/logger.js';
 
-const API_ENDPOINT = '/api/auth'; // Define base endpoint
+const API_ENDPOINT = '/auth'; // Define base endpoint to avoid double '/api' prefix
 
 export const authService = {
     /**
@@ -11,25 +12,26 @@ export const authService = {
      * @returns {Promise<object>} - Promise resolving with { success: true, token, user } or rejecting with standardized error.
      */
     login: async (credentials) => {
+        // Input validation before API call
         if (!credentials || !credentials.email || !credentials.password) {
-             throw new Error("Email and password are required."); // Input validation before API call
+             throw new Error("Email and password are required.");
         }
-        const endpoint = `${API_ENDPOINT}/login`;
-        const context = 'AuthService Login';
-        // Let apiClient handle the call and potential errors (e.g., 401, 400, 500)
-        const response = await apiClient(endpoint, context, {
-            method: 'POST',
-            body: JSON.stringify(credentials),
+        
+        logDebug('[AuthService] Attempting login for:', credentials.email);
+        
+        return handleApiResponse(
+            () => apiClient.post(`${API_ENDPOINT}/login`, credentials),
+            'AuthService Login'
+        ).then(response => {
+            if (response?.token && response?.user) {
+                return response;
+            } else {
+                throw new Error('Login failed: Invalid response from server.');
+            }
+        }).catch(error => {
+            logError('[AuthService] Login failed:', error);
+            throw error;
         });
-
-        // Assuming backend returns { success: true, token: '...', user: {...} } on success
-        if (response.success && response.token && response.user) {
-            return response; // Return the whole success response object from apiClient
-        } else {
-            // This case should not be reached if apiClient rejects properly
-            throw new Error(response.error || 'Login failed: Invalid response from server.');
-        }
-        // REMOVED try/catch
     },
 
     /**
@@ -41,21 +43,22 @@ export const authService = {
         if (!userData || !userData.username || !userData.email || !userData.password) {
             throw new Error("Username, email, and password are required for registration.");
         }
-        const endpoint = `${API_ENDPOINT}/register`;
-        const context = 'AuthService Register';
-        // Let apiClient handle the call and potential errors (e.g., 400, 409, 500)
-        const response = await apiClient(endpoint, context, {
-            method: 'POST',
-            body: JSON.stringify(userData),
+        
+        logDebug('[AuthService] Attempting registration for:', userData.email);
+        
+        return handleApiResponse(
+            () => apiClient.post(`${API_ENDPOINT}/register`, userData),
+            'AuthService Register'
+        ).then(response => {
+            if (response?.token && response?.user) {
+                return response;
+            } else {
+                throw new Error('Registration failed: Invalid response from server.');
+            }
+        }).catch(error => {
+            logError('[AuthService] Registration failed:', error);
+            throw error;
         });
-
-        // Assuming backend returns { success: true, token: '...', user: {...} } on success
-        if (response.success && response.token && response.user) {
-            return response;
-        } else {
-            throw new Error(response.error || 'Registration failed: Invalid response from server.');
-        }
-        // REMOVED try/catch
     },
 
      /**
@@ -68,18 +71,66 @@ export const authService = {
          if (!userId || !accountType) {
              throw new Error("User ID and account type are required.");
          }
-         const endpoint = `${API_ENDPOINT}/update-account-type/${userId}`;
-         const context = 'AuthService Update Account Type';
-         const response = await apiClient(endpoint, context, {
-             method: 'PUT',
-             body: JSON.stringify({ account_type: accountType }),
+         
+         logDebug(`[AuthService] Attempting to update account type for user ${userId} to ${accountType}`);
+         
+         return handleApiResponse(
+             () => apiClient.put(`${API_ENDPOINT}/update-account-type/${userId}`, { account_type: accountType }),
+             'AuthService Update Account Type'
+         ).then(response => {
+             if (response?.data) {
+                 return response;
+             } else {
+                 throw new Error('Failed to update account type: Invalid response from server.');
+             }
+         }).catch(error => {
+             logError(`[AuthService] Failed to update account type for user ${userId}:`, error);
+             throw error;
          });
-
-          if (response.success && response.data) {
-             // Assuming backend returns the updated user object in response.data
-             return response;
-          } else {
-             throw new Error(response.error || 'Failed to update account type.');
-          }
      },
+
+    /**
+     * Refresh the authentication token
+     * @returns {Promise<object>} - Promise resolving with new token data or rejecting with standardized error
+     */
+    refreshToken: async () => {
+        logDebug('[AuthService] Attempting to refresh token');
+        
+        return handleApiResponse(
+            () => apiClient.post(`${API_ENDPOINT}/refresh-token`),
+            'AuthService Refresh Token'
+        ).then(response => {
+            if (response?.token) {
+                return response;
+            } else {
+                throw new Error('Token refresh failed: Invalid response from server.');
+            }
+        }).catch(error => {
+            logError('[AuthService] Token refresh failed:', error);
+            throw error;
+        });
+    },
+
+    /**
+     * Logs out a user by clearing tokens
+     * @returns {Promise<object>} - Promise resolving with success status or rejecting with standardized error
+     */
+    logout: async () => {
+        logDebug('[AuthService] Attempting logout');
+        
+        try {
+            // Call the logout endpoint directly without using handleApiResponse
+            // This avoids token refresh attempts during logout
+            await apiClient.post(`${API_ENDPOINT}/logout`, {}, {
+                // Skip interceptors for logout requests to avoid token refresh attempts
+                _skipAuthRefresh: true
+            });
+            logDebug('[AuthService] Logout API call successful');
+            return { success: true, message: 'Logged out successfully' };
+        } catch (error) {
+            // Log but don't propagate the error since we want to clear client state regardless
+            logError('[AuthService] Logout API call failed:', error);
+            return { success: true, message: 'Logged out on client-side only' };
+        }
+    },
 };

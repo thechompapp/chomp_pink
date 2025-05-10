@@ -1,139 +1,98 @@
 /* src/services/adminService.js */
 import apiClient from './apiClient.js';
-import useApiErrorHandler from '@/hooks/useApiErrorHandler';
+import { handleApiResponse } from '@/utils/serviceHelpers.js';
+import { logError } from '@/utils/logger.js';
 
 export const adminService = {
   getAdminRestaurants: async () => {
-    const { handleError } = useApiErrorHandler();
-    try {
-      const response = await apiClient('/api/admin/restaurants', 'AdminService GetRestaurants');
-      if (response.success && response.data) {
-        return response.data;
-      }
-      throw new Error(response.error || 'Failed to fetch restaurants');
-    } catch (error) {
-      handleError(error, 'Failed to fetch restaurants.');
+    return handleApiResponse(
+      () => apiClient.get('/api/admin/restaurants'),
+      'AdminService GetRestaurants'
+    ).catch(error => {
+      logError('Failed to fetch admin restaurants:', error);
       throw error;
-    }
+    });
   },
 
   getAdminDishes: async () => {
-    const { handleError } = useApiErrorHandler();
-    try {
-      const response = await apiClient('/api/admin/dishes', 'AdminService GetDishes');
-      if (response.success && response.data) {
-        return response.data;
-      }
-      throw new Error(response.error || 'Failed to fetch dishes');
-    } catch (error) {
-      handleError(error, 'Failed to fetch dishes.');
+    return handleApiResponse(
+      () => apiClient.get('/api/admin/dishes'),
+      'AdminService GetDishes'
+    ).catch(error => {
+      logError('Failed to fetch admin dishes:', error);
       throw error;
-    }
+    });
   },
 
   getAdminUsers: async () => {
-    const { handleError } = useApiErrorHandler();
-    try {
-      const response = await apiClient('/api/admin/users', 'AdminService GetUsers');
-      if (response.success && response.data) {
-        return response.data;
-      }
-      throw new Error(response.error || 'Failed to fetch users');
-    } catch (error) {
-      handleError(error, 'Failed to fetch users.');
+    return handleApiResponse(
+      () => apiClient.get('/api/admin/users'),
+      'AdminService GetUsers'
+    ).catch(error => {
+      logError('Failed to fetch admin users:', error);
       throw error;
-    }
+    });
   },
 
   getAdminCitiesSimple: async () => {
-    const { handleError } = useApiErrorHandler();
-    try {
-      const response = await apiClient('/api/admin/cities', 'AdminService GetCitiesSimple');
-      if (response.success && response.data) {
-        return response.data;
-      }
-      throw new Error(response.error || 'Failed to fetch cities');
-    } catch (error) {
-      handleError(error, 'Failed to fetch cities.');
+    return handleApiResponse(
+      () => apiClient.get('/api/admin/cities'),
+      'AdminService GetCitiesSimple'
+    ).catch(error => {
+      logError('Failed to fetch admin cities:', error);
       throw error;
-    }
+    });
   },
 
   getAdminNeighborhoods: async () => {
-    const { handleError } = useApiErrorHandler();
-    try {
-      const response = await apiClient('/api/admin/neighborhoods', 'AdminService GetNeighborhoods');
-      if (response.success && response.data) {
-        return response.data;
-      }
-      throw new Error(response.error || 'Failed to fetch neighborhoods');
-    } catch (error) {
-      handleError(error, 'Failed to fetch neighborhoods.');
+    return handleApiResponse(
+      () => apiClient.get('/api/admin/neighborhoods'),
+      'AdminService GetNeighborhoods'
+    ).catch(error => {
+      logError('Failed to fetch admin neighborhoods:', error);
       throw error;
-    }
+    });
   },
 
   getAdminHashtags: async () => {
-    const { handleError } = useApiErrorHandler();
-    try {
-      const response = await apiClient('/api/admin/hashtags', 'AdminService GetHashtags');
-      if (response.success && response.data) {
-        return response.data;
-      }
-      throw new Error(response.error || 'Failed to fetch hashtags');
-    } catch (error) {
-      handleError(error, 'Failed to fetch hashtags.');
+    return handleApiResponse(
+      () => apiClient.get('/api/admin/hashtags'),
+      'AdminService GetHashtags'
+    ).catch(error => {
+      logError('Failed to fetch admin hashtags:', error);
       throw error;
-    }
+    });
   },
 
   getAdminData: async (resource) => {
-    const { handleError } = useApiErrorHandler();
-    try {
-      const response = await apiClient(`/api/admin/${resource}`, `AdminService Get${resource}`);
-      if (response.success && response.data) {
-        return response.data;
-      }
-      throw new Error(response.error || `Failed to fetch ${resource}`);
-    } catch (error) {
-      handleError(error, `Failed to fetch ${resource}.`);
+    return handleApiResponse(
+      () => apiClient.get(`/api/admin/${resource}`),
+      `AdminService Get${resource}`
+    ).catch(error => {
+      logError(`Failed to fetch admin ${resource}:`, error);
       throw error;
-    }
+    });
   },
 
   createResource: async (type, payload) => {
-    const { handleError } = useApiErrorHandler();
-    try {
-      const response = await apiClient(`/api/admin/${type}`, `AdminService Create${type}`, {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
-      if (response.success && response.data) {
-        return response;
-      }
-      throw new Error(response.error || `Failed to create ${type}`);
-    } catch (error) {
-      handleError(error, `Failed to create ${type}.`);
+    return handleApiResponse(
+      () => apiClient.post(`/api/admin/${type}`, payload),
+      `AdminService Create${type}`
+    ).catch(error => {
+      logError(`Failed to create ${type}:`, error);
       throw error;
-    }
+    });
   },
 
   bulkAddItems: async (items) => {
-    const { handleError } = useApiErrorHandler();
-    try {
-      const response = await apiClient('/api/admin/bulk-add', 'AdminService BulkAddItems', {
-        method: 'POST',
-        body: JSON.stringify(items),
-      });
-      if (response.success && response.data) {
-        return response;
-      }
-      throw new Error(response.error || 'Failed to bulk add items');
-    } catch (error) {
-      handleError(error, 'Failed to bulk add items.');
+    return handleApiResponse(
+      () => apiClient.post('/api/admin/bulk-add', items),
+      'AdminService BulkAddItems'
+    ).catch(error => {
+      logError('Failed to bulk add items:', error);
       throw error;
-    }
+    });
   },
 };
 
-export default adminService;
+// Only use named export for consistency

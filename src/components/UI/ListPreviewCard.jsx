@@ -27,7 +27,7 @@ function ListPreviewCard({ list }) {
     isError: isPreviewError,
   } = useQuery({
     queryKey: ['listPreviewItems', listId],
-    queryFn: () => listService.getListItems(listId, PREVIEW_LIMIT), // Updated to use getListItems
+    queryFn: () => listService.getListItems(listId, PREVIEW_LIMIT),
     enabled: !!listId && !isExpanded,
     staleTime: 5 * 60 * 1000,
     cacheTime: 10 * 60 * 1000,
@@ -35,9 +35,14 @@ function ListPreviewCard({ list }) {
       logError(`[ListPreviewCard] Error fetching items for list ${listId}:`, err);
     },
     onSuccess: (data) => {
-      logDebug(`[ListPreviewCard] Fetched ${data?.length} items for list ${listId}`);
+      logDebug(`[ListPreviewCard] Fetched ${data?.data?.length || 0} items for list ${listId}`);
     },
-    select: (data) => data?.data?.slice(0, PREVIEW_LIMIT) || [], // Slice items on frontend
+    select: (data) => {
+      // Handle both legacy and new API response formats
+      if (Array.isArray(data)) return data.slice(0, PREVIEW_LIMIT);
+      if (data?.data) return data.data.slice(0, PREVIEW_LIMIT) || [];
+      return [];
+    },
   });
 
   const toggleExpand = (e) => {
@@ -53,9 +58,52 @@ function ListPreviewCard({ list }) {
     openQuickAdd({ defaultListId: listId, defaultListName: list.name });
   };
 
+  // Fetch full list details only when expanded
+  const {
+    data: fullListData,
+    isLoading: isLoadingFullList,
+    isError: isFullListError,
+    error: fullListError
+  } = useQuery({
+    queryKey: ['listFullDetails', listId],
+    queryFn: () => listService.getListDetails(listId),
+    enabled: !!listId && isExpanded,
+    staleTime: 2 * 60 * 1000,
+    cacheTime: 5 * 60 * 1000,
+    onError: (err) => {
+      logError(`[ListPreviewCard] Error fetching full list details for ${listId}:`, err);
+    }
+  });
+
   let content;
+  
   if (isExpanded) {
-    content = <ListDetail listId={listId} embedded={true} />;
+    if (isLoadingFullList) {
+      content = <LoadingSpinner />;
+    } else if (isFullListError) {
+      content = <ErrorMessage message={`Error loading list: ${fullListError?.message || 'Could not load list details'}`} />;
+    } else if (fullListData) {
+      // Rather than embedding the ListDetail component which has many dependencies,
+      // we'll render a simplified version of the list items
+      const listItems = fullListData?.items || [];
+      content = (
+        <div className="mt-3 p-2 bg-gray-50 dark:bg-gray-800 rounded-md">
+          <h4 className="font-medium mb-2">All Items:</h4>
+          {listItems.length > 0 ? (
+            <ul className="space-y-2 text-sm">
+              {listItems.map((item, index) => (
+                <li key={item.list_item_id || `item-${index}`} className="flex justify-between items-center">
+                  <span>{item.name || `Item ${index + 1}`}</span>
+                  {item.notes && <span className="text-xs italic text-gray-500">- {item.notes}</span>}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-gray-500">No items in this list.</p>
+          )}
+        </div>
+      );
+    }
   } else if (isLoadingPreview) {
     content = <LoadingSpinner size="sm" />;
   } else if (isPreviewError) {

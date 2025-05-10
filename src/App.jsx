@@ -7,22 +7,44 @@ import { PlacesApiProvider } from '@/context/PlacesApiContext';
 import Navbar from '@/layouts/Navbar';
 import FloatingQuickAdd from '@/components/FloatingQuickAdd';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import EnhancedLoadingFallback from '@/components/UI/EnhancedLoadingFallback';
 import useAuthStore from '@/stores/useAuthStore';
+import { logError, logInfo } from '@/utils/logger';
 
-// Lazy-loaded pages
-const Home = lazy(() => import('@/pages/Home/index'));
-const Login = lazy(() => import('@/pages/Login/index'));
-const Register = lazy(() => import('@/pages/Register/index'));
-const Trending = lazy(() => import('@/pages/Trending/index'));
-const Search = lazy(() => import('@/pages/Search/index'));
-const RestaurantDetail = lazy(() => import('@/pages/RestaurantDetail/index'));
-const DishDetail = lazy(() => import('@/pages/DishDetail/index'));
-const Lists = lazy(() => import('@/pages/Lists/index'));
-const MyLists = lazy(() => import('@/pages/Lists/MyLists'));
-const NewList = lazy(() => import('@/pages/Lists/NewList'));
-const MySubmissions = lazy(() => import('@/pages/MySubmissions/index'));
-const AdminPanel = lazy(() => import('@/pages/AdminPanel/index'));
-const BulkAdd = lazy(() => import('@/pages/BulkAdd/index'));
+// Enhanced lazy loading with error handling
+const enhancedLazy = (importFn, name) => {
+  return lazy(() => {
+    logInfo(`[App] Starting lazy load for ${name}`);
+    return importFn().catch(error => {
+      logError(`[App] Failed to lazy load ${name}:`, error);
+      // Re-throw to trigger suspense fallback/error boundary
+      throw error;
+    });
+  });
+};
+
+// Lazy-loaded pages with enhanced error logging
+// Using relative paths to ensure Vite can resolve them correctly
+const Home = enhancedLazy(() => import('./pages/Home'), 'Home');
+
+// Import Login component directly to avoid lazy loading issues
+import LoginPage from './pages/Login';
+const Login = () => <LoginPage />;
+
+// Create a separate direct import for BulkAdd to avoid lazy loading issues
+import BulkAddComponent from './pages/BulkAdd';
+const BulkAddPage = () => <BulkAddComponent />;
+
+const Register = enhancedLazy(() => import('./pages/Register'), 'Register');
+const Trending = enhancedLazy(() => import('./pages/Trending'), 'Trending');
+const Search = enhancedLazy(() => import('./pages/Search'), 'Search');
+const RestaurantDetail = enhancedLazy(() => import('./pages/RestaurantDetail'), 'RestaurantDetail');
+const DishDetail = enhancedLazy(() => import('./pages/DishDetail'), 'DishDetail');
+const Lists = enhancedLazy(() => import('./pages/Lists'), 'Lists');
+const MyLists = enhancedLazy(() => import('./pages/Lists/MyLists'), 'MyLists');
+const NewList = enhancedLazy(() => import('./pages/Lists/NewList'), 'NewList');
+const MySubmissions = enhancedLazy(() => import('./pages/MySubmissions'), 'MySubmissions');
+const AdminPanel = enhancedLazy(() => import('./pages/AdminPanel'), 'AdminPanel');
 
 // Query Client setup
 const queryClient = new QueryClient({
@@ -54,7 +76,7 @@ function App() {
               <div className="flex flex-col min-h-screen">
                 <Navbar />
                 <main className="flex-grow pt-16">
-                  <Suspense fallback={<div>Loading...</div>}>
+                  <Suspense fallback={<EnhancedLoadingFallback componentName="page" />}>
                     <Routes>
                       <Route path="/" element={<Home />} />
                       <Route path="/login" element={<Login />} />
@@ -68,7 +90,7 @@ function App() {
                       <Route path="/lists/new" element={<NewList />} />
                       <Route path="/my-submissions" element={<MySubmissions />} />
                       <Route path="/admin" element={<AdminPanel />} />
-                      <Route path="/bulk-add" element={<BulkAdd />} />
+                      <Route path="/bulk-add" element={<BulkAddPage />} />
                     </Routes>
                   </Suspense>
                 </main>

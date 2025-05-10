@@ -1,16 +1,17 @@
 /* src/pages/Lists/ListCard.jsx */
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { listService } from '@/services/listService'; // Use .js
+import { listService } from '@/services/listService';
 import BaseCard from '@/components/UI/BaseCard';
 import { engagementService } from '@/services/engagementService';
 import ErrorMessage from '@/components/UI/ErrorMessage.jsx';
 import Button from '@/components/UI/Button.jsx';
-import { formatRelativeDate } from '@/utils/formatting'; // Use .js
-import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react'; // Import icons
+import { formatRelativeDate } from '@/utils/formatting';
+import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { logDebug } from '@/utils/logger';
 
 // Simple list item display within the card
 const ListItemDisplay = ({ item, listType }) => {
@@ -40,36 +41,53 @@ const ListCard = ({ list }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   if (!list || list.id == null || !list.name) {
-    console.warn('[ListCard] Invalid list prop:', list);
-    return null; // Or a placeholder
+    logDebug('[ListCard] Invalid list prop:', list);
+    return null;
   }
-
-  const { data: listDetails, isLoading, error } = useQuery({
+  
+  // Memoize query configuration to avoid recreating objects on every render
+  const queryConfig = useMemo(() => ({
     queryKey: ['listDetails', list.id],
     queryFn: () => listService.getListDetails(list.id),
-    enabled: isExpanded, // Only fetch details when expanded
-    staleTime: 5 * 60 * 1000, // Keep details fresh for 5 mins after expand
-    select: (response) => response?.data || { items: [] }, // Select nested data or default
-    placeholderData: { items: [] }, // Avoid flashing content
-  });
+    enabled: isExpanded,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    cacheTime: 10 * 60 * 1000, // 10 minutes
+    select: (response) => response?.data || { items: [] },
+    placeholderData: { items: [] },
+    refetchOnWindowFocus: false,
+    retry: 1
+  }), [list.id, isExpanded]);
+
+  const { data: listDetails, isLoading, error } = useQuery(queryConfig);
 
   const items = listDetails?.items || [];
   const displayItems = items.slice(0, 5); // Always show only up to 5
   const hasMoreItems = (list.item_count || 0) > 5;
 
-  const handleCardClick = () => {
+  // Memoize handlers to prevent recreation on each render
+  const handleCardClick = useCallback(() => {
     engagementService.logEngagement({
-      item_id: parseInt(String(list.id), 10), // Ensure integer
+      item_id: parseInt(String(list.id), 10),
       item_type: 'list',
       engagement_type: 'click',
     });
-  };
+  }, [list.id]);
 
-  const toggleExpand = (e) => {
+  // Optimized toggleExpand with engagement logging for expansion actions
+  const toggleExpand = useCallback((e) => {
     e.stopPropagation(); // Prevent card link navigation
     e.preventDefault();
-    setIsExpanded(!isExpanded);
-  };
+    
+    // Log expansion/collapse as an engagement action
+    const newExpandedState = !isExpanded;
+    engagementService.logEngagement({
+      item_id: parseInt(String(list.id), 10),
+      item_type: 'list',
+      engagement_type: newExpandedState ? 'expand' : 'collapse',
+    });
+    
+    setIsExpanded(newExpandedState);
+  }, [isExpanded, list.id]);
 
   const tags = Array.isArray(list.tags) ? list.tags : [];
   const updatedAt = list.updated_at ? new Date(list.updated_at) : new Date();
@@ -94,7 +112,7 @@ const ListCard = ({ list }) => {
         <p className="text-xs text-gray-500 mb-2 flex-shrink-0">{updatedText}</p>
 
         {/* Items List (takes remaining space, scrollable if expanded) */}
-        <div className={`flex-grow min-h-0 overflow-y-auto no-scrollbar`}>
+        <div className={`flex-grow min-h-0 overflow-y-auto no-scrollbar transition-all duration-300 ${isExpanded ? 'max-h-36' : 'max-h-20'}`}>
           {isLoading && isExpanded ? (
             <div className="flex items-center justify-center h-full">
               <Loader2 size={16} className="animate-spin text-gray-400" />
@@ -119,21 +137,29 @@ const ListCard = ({ list }) => {
 
       {/* Footer Area (Tags & Show More) */}
       <div className="mt-2 pt-2 border-t border-gray-100 flex-shrink-0">
-        {hasMoreItems && (
-          <Button
-            variant="link"
-            size="sm"
-            onClick={toggleExpand}
-            className="!p-0 !h-auto text-xs text-primary hover:underline focus:outline-none focus:ring-0 mb-1.5" // Adjusted styles
-            aria-expanded={isExpanded}
-          >
-            {isExpanded ? (
-              <><ChevronUp size={12} className="mr-0.5" /> Show Less</>
-            ) : (
-              <><ChevronDown size={12} className="mr-0.5" /> Show All ({list.item_count})</>
-            )}
-          </Button>
-        )}
+        <AnimatePresence>
+          {hasMoreItems && (
+            <motion.div
+              initial={{ opacity: 0.8 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0.8 }}
+            >
+              <Button
+                variant="link"
+                size="sm"
+                onClick={toggleExpand}
+                className="!p-0 !h-auto text-xs text-primary hover:underline focus:outline-none focus:ring-0 mb-1.5 transition-colors duration-200"
+                aria-expanded={isExpanded}
+              >
+                {isExpanded ? (
+                  <><ChevronUp size={12} className="mr-0.5 transition-transform duration-200" /> Show Less</>
+                ) : (
+                  <><ChevronDown size={12} className="mr-0.5 transition-transform duration-200" /> Show All ({list.item_count})</>
+                )}
+              </Button>
+            </motion.div>
+          )}
+        </AnimatePresence>
         {tags.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {tags.slice(0, 3).map((tag) => (

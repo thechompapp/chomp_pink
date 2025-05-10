@@ -11,6 +11,20 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  // Add proxy configuration to handle CORS issues
+  server: {
+    proxy: {
+      // Proxy API requests to the backend server
+      '/api': {
+        target: 'http://localhost:5001',
+        changeOrigin: true,
+        secure: false,
+        // Rewrite path to remove /api prefix for backend
+        // Comment this out if backend already expects /api prefix
+        // rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+    },
+  },
   test: {
     globals: true,
     environment: 'jsdom',

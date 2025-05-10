@@ -6,10 +6,10 @@ import PropTypes from 'prop-types';
 import InputMode from './InputMode.jsx';
 import ReviewMode from './ReviewMode.jsx';
 import useBulkAddProcessor from '@/hooks/useBulkAddProcessor.js';
-import restaurantService from '@/services/restaurantService.js';
+import { restaurantService } from '@/services/restaurantService.js';
 import { dishService } from '@/services/dishService.js';
 import { adminService } from '@/services/adminService';
-import { ApiError } from '@/services/apiClient.js';
+import { ApiError } from '@/utils/apiUtils.js';
 import Button from '@/components/UI/Button.jsx';
 import { useAdminAddRow } from '@/hooks/useAdminAddRow'; // Updated import
 

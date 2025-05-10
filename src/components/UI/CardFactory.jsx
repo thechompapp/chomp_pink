@@ -7,12 +7,18 @@ import ListPreviewCard from './ListPreviewCard.jsx'; // Import the new preview c
 const CardFactory = ({ type, data, ...props }) => {
   const cardData = data || {};
 
-  switch (type) {
+  // Normalize type to handle plural variants
+  const normalizedType = type?.toLowerCase();
+  
+  switch (normalizedType) {
     case 'dish':
+    case 'dishes':
       return <DishCard {...cardData} {...props} />;
     case 'restaurant':
+    case 'restaurants':
       return <RestaurantCard {...cardData} {...props} />;
-    case 'lists': // Matches the contentType for lists
+    case 'list':
+    case 'lists':
       // Render the ListPreviewCard, passing the list metadata object as the 'list' prop
       return <ListPreviewCard list={cardData} {...props} />;
     default:
