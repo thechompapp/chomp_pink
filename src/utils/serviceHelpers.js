@@ -1,52 +1,101 @@
 /* src/utils/serviceHelpers.js */
-import { logDebug, logError, logWarn } from './logger.js';
+/**
+ * Service helpers for standardized API client implementation
+ * These utilities ensure consistent API response handling, error processing,
+ * and data formatting across all service files.
+ */
+import { logDebug, logError, logWarn, logInfo } from './logger.js';
 
 /**
- * Standardized API response handler for services
+ * Enhanced API response handler with standardized error handling and response normalization
+ * 
  * @param {Function} apiCall - Async function that makes the API call using apiClient
- * @param {String} context - Context description for logging
+ * @param {String} context - Context description for logging (e.g. 'ServiceName.methodName')
  * @param {Function} transformFn - Optional function to transform successful response data
- * @returns {Promise<any>} - Processed response data
+ * @returns {Promise<any>} - Processed response data, never throws
  */
 export const handleApiResponse = async (apiCall, context, transformFn = null) => {
   try {
+    // Execute the API call
     const response = await apiCall();
-    logDebug(`[${context}] Response:`, response);
     
-    // apiClient should return { data: { success: boolean, data: any, message: string } }
-    if (response?.data?.success) {
+    // Log response for debugging (at debug level to avoid excessive logs)
+    logDebug(`[${context}] Response received:`, {
+      status: response?.status,
+      statusText: response?.statusText,
+      data: response?.data ? 'data present' : 'no data', // Don't log full data at debug level
+      success: response?.data?.success
+    });
+    
+    // Handle various response formats to normalize them
+    // Format 1: { success: true, data: {...}, message: "..." }
+    // Format 2: { data: [...] }
+    // Format 3: Direct data array or object
+    
+    // Case 1: API returns standardized response with success flag
+    if (response?.data?.success === true) {
       const responseData = response.data.data;
       return transformFn ? transformFn(responseData) : responseData;
-    } else {
-      const errorMessage = response?.data?.message || 'Request failed';
-      logWarn(`[${context}] Request unsuccessful: ${errorMessage}`);
-      throw new Error(errorMessage);
+    }
+    // Case 2: API returns data object with nested data property (older API format)
+    else if (response?.data?.data !== undefined) {
+      const responseData = response.data.data;
+      return transformFn ? transformFn(responseData) : responseData;
+    }
+    // Case 3: API returns data directly
+    else if (response?.data !== undefined) {
+      return transformFn ? transformFn(response.data) : response.data;
+    }
+    // Error case: No recognizable data format
+    else {
+      const errorMessage = response?.data?.message || 'Unrecognized API response format';
+      logWarn(`[${context}] Unexpected response structure: ${errorMessage}`);
+      return null; // Return null instead of throwing
     }
   } catch (error) {
-    logError(`[${context}] Error:`, error);
-    throw error;
+    // Detailed error logging for troubleshooting
+    const statusCode = error.response?.status;
+    const responseData = error.response?.data;
+    
+    logError(`[${context}] API Error (${statusCode || 'unknown status'})`, {
+      message: error.message,
+      responseData: responseData || 'No response data',
+      status: statusCode
+    });
+    
+    // Return null to indicate error without throwing
+    // Calling code should handle null returns gracefully
+    return null;
   }
 };
 
 /**
- * Creates standardized query params from a params object
- * @param {Object} params - Parameters to convert to query string
- * @returns {URLSearchParams} - URLSearchParams object for API calls
+ * Creates a URLSearchParams object from an object of parameters
+ * Enhanced with better handling of empty values and array parameters
+ * 
+ * @param {Object} params - Object containing query parameters
+ * @returns {URLSearchParams} Properly formatted query parameters
  */
 export const createQueryParams = (params = {}) => {
   const queryParams = new URLSearchParams();
   
+  if (!params || typeof params !== 'object') {
+    return queryParams;
+  }
+  
   Object.entries(params).forEach(([key, value]) => {
-    if (value === null || value === undefined) return;
-    
-    if (Array.isArray(value)) {
-      value.forEach(item => {
-        if (item !== null && item !== undefined) {
-          queryParams.append(key, item.toString());
-        }
-      });
-    } else {
-      queryParams.append(key, value.toString());
+    // Only add parameters that have values (filter out undefined, null, empty string)
+    if (value !== undefined && value !== null && value !== '') {
+      // Handle arrays by adding multiple entries with the same key
+      if (Array.isArray(value)) {
+        value.forEach(item => {
+          if (item !== undefined && item !== null && item !== '') {
+            queryParams.append(key, item.toString());
+          }
+        });
+      } else {
+        queryParams.append(key, value.toString());
+      }
     }
   });
   
@@ -75,7 +124,7 @@ export const validateId = (id, paramName = 'id', throwOnError = false) => {
       const error = new Error(`Missing ${paramName}`);
       error.status = 400;
       if (throwOnError) throw error;
-      console.warn(`[validateId] ${error.message}`);
+      logWarn(`[validateId] ${error.message}`);
       return -1;
     }
     
@@ -87,14 +136,98 @@ export const validateId = (id, paramName = 'id', throwOnError = false) => {
       const error = new Error(`Invalid ${paramName} provided: ${id}`);
       error.status = 400;
       if (throwOnError) throw error;
-      console.warn(`[validateId] ${error.message}`);
+      logWarn(`[validateId] ${error.message}`);
       return -1;
     }
     
     return numericId;
   } catch (error) {
     if (throwOnError) throw error;
-    console.error(`[validateId] Error validating ${paramName}:`, error);
+    logError(`[validateId] Error validating ${paramName}:`, error);
     return -1;
   }
+};
+
+/**
+ * Standardized response formatter to ensure consistent response structure
+ * 
+ * @param {boolean} success - Whether the operation was successful
+ * @param {any} data - The data to return
+ * @param {string} message - Optional message explaining the result
+ * @param {Error|Object|null} error - Optional error object
+ * @returns {Object} Standardized response object
+ */
+export const formatResponse = (success = true, data = null, message = '', error = null) => {
+  return {
+    success: !!success,
+    data: data === undefined ? null : data,
+    message: message || (success ? 'Operation successful' : 'Operation failed'),
+    ...(error ? { error: {
+      message: error.message || 'Unknown error',
+      code: error.code || error.status || 500,
+      details: error.details || null
+    }} : {})
+  };
+};
+
+/**
+ * Standardized error response generator
+ * 
+ * @param {Error|string} error - Error object or error message
+ * @param {number} statusCode - HTTP status code to associate with the error
+ * @param {any} details - Additional error details
+ * @returns {Object} Standardized error response
+ */
+export const formatErrorResponse = (error, statusCode = 500, details = null) => {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  logError(`[formatErrorResponse] ${errorMessage}`, {
+    statusCode, 
+    details,
+    stack: error instanceof Error ? error.stack : undefined
+  });
+  
+  return formatResponse(
+    false, 
+    null,
+    errorMessage,
+    {
+      message: errorMessage,
+      code: statusCode,
+      details
+    }
+  );
+};
+
+/**
+ * A caching utility that returns a cached version of a value
+ * with an expiration time to avoid repeated API calls
+ * 
+ * @param {string} key - Cache key
+ * @param {any} value - Value to cache
+ * @param {number} expiryMs - Expiry time in milliseconds
+ * @returns {Object} Cached item with metadata
+ */
+const cacheStorage = new Map();
+
+export const cacheValue = (key, value, expiryMs = 5 * 60 * 1000) => {
+  const expiry = Date.now() + expiryMs;
+  cacheStorage.set(key, { value, expiry });
+  return value;
+};
+
+/**
+ * Get a cached value by key
+ * @param {string} key - Cache key
+ * @returns {any|null} Cached value or null if expired/missing
+ */
+export const getCachedValue = (key) => {
+  const cached = cacheStorage.get(key);
+  if (!cached) return null;
+  
+  if (Date.now() > cached.expiry) {
+    cacheStorage.delete(key);
+    return null;
+  }
+  
+  return cached.value;
 };

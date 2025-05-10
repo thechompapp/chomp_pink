@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '@/stores/useAuthStore'; // To get current user ID
-import listService from '@/services/listService'; // Service for API calls
+import { listService } from '@/services/listService'; // Using named import for API standardization
 import ListCard from './ListCard';
 import ListCardSkeleton from './ListCardSkeleton';
 import ErrorMessage from '@/components/UI/ErrorMessage';

@@ -14,7 +14,7 @@ import useUserListStore from '@/stores/useUserListStore';
 import useSubmissionStore from '@/stores/useSubmissionStore';
 import { useQuery } from '@tanstack/react-query';
 import { searchService } from '@/services/searchService';
-import filterService from '@/services/filterService'; // Changed to default import
+import { filterService } from '@/services/filterService'; // Updated for API standardization
 
 const FloatingQuickAdd = () => {
   const [isOpen, setIsOpen] = useState(false);

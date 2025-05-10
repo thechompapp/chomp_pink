@@ -1,4 +1,8 @@
 // src/stores/useAuthStore.js
+/**
+ * Authentication store using Zustand
+ * Updated to support both default and named exports for API standardization
+ */
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import apiClient, { setAuthStoreRef } from '@/services/apiClient';
@@ -167,4 +171,6 @@ const useAuthStore = create(
 // Set the store reference in apiClient to avoid circular dependency
 setAuthStoreRef(useAuthStore);
 
+// Support both default and named exports for backward compatibility
 export default useAuthStore;
+export { useAuthStore };

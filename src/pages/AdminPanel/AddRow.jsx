@@ -4,8 +4,8 @@ import Button from '@/components/UI/Button.jsx';
 import { Save, XCircle as CancelIcon } from 'lucide-react';
 import apiClient from '@/services/apiClient.js'; // Use .js
 import EditableCell from './EditableCell.jsx'; // Use .jsx
-// Corrected import: Use default import syntax for filterService
-import filterService from '@/services/filterService.js'; // Use .js
+// Updated import to use named export following API standardization pattern
+import { filterService } from '@/services/filterService.js'; // Consistent with other service imports
 import { usePlacesApi } from '@/context/PlacesApiContext'; // Use .jsx
 
 // --- REMOVED: TypeScript interfaces ---

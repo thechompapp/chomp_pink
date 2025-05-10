@@ -3,7 +3,7 @@ import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronDown, ChevronUp, Loader2, Tag, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import filterService from '@/services/filterService';
+import { filterService } from '@/services/filterService'; // Updated to use named import for API standardization
 import { hashtagService } from '@/services/hashtagService';
 import neighborhoodService from '@/services/neighborhoodService';
 import PillButton from '@/components/UI/PillButton'; // Ensure PillButton is imported
