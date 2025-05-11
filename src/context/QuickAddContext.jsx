@@ -1,23 +1,11 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext } from 'react';
 
 const QuickAddContext = createContext();
 
-export const QuickAddProvider = ({ children, userLists, addToList, fetchError }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const [item, setItem] = useState(null);
-
-    const openQuickAdd = (itemData) => {
-        setItem(itemData);
-        setIsOpen(true);
-    };
-
-    const closeQuickAdd = () => {
-        setIsOpen(false);
-        setItem(null);
-    };
-
+export const QuickAddProvider = ({ children, openQuickAdd }) => {
+    // We're now using the props passed from App.jsx directly
     return (
-        <QuickAddContext.Provider value={{ isOpen, item, openQuickAdd, closeQuickAdd, userLists, addToList, fetchError }}>
+        <QuickAddContext.Provider value={{ openQuickAdd }}>
             {children}
         </QuickAddContext.Provider>
     );
@@ -26,7 +14,11 @@ export const QuickAddProvider = ({ children, userLists, addToList, fetchError })
 export const useQuickAdd = () => {
     const context = useContext(QuickAddContext);
     if (!context) {
-        throw new Error('useQuickAdd must be used within a QuickAddProvider');
+        console.error('useQuickAdd must be used within a QuickAddProvider');
+        // Return a safe fallback object instead of throwing
+        return { 
+            openQuickAdd: () => console.warn('QuickAdd unavailable - provider missing'),
+        };
     }
     return context;
 };

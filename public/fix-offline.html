@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Reset Offline Mode</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 20px;
+      text-align: center;
+      background: #f8f9fa;
+    }
+    h1 {
+      color: #2d3748;
+    }
+    button {
+      background: #4a5568;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+      margin: 20px 0;
+    }
+    button:hover {
+      background: #2d3748;
+    }
+    .success {
+      color: #48bb78;
+      font-weight: bold;
+      margin-top: 20px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>Reset Offline Mode</h1>
+  <p>Click the button below to reset offline mode and reconnect to the server.</p>
+  <button id="resetButton">Reset Offline Mode</button>
+  <p class="success" id="successMessage">Settings reset! Redirecting to app...</p>
+  
+  <script>
+    document.getElementById('resetButton').addEventListener('click', function() {
+      // Clear offline flags
+      localStorage.removeItem('offline_mode');
+      localStorage.removeItem('bypass_auth_check');
+      
+      // Show success message
+      document.getElementById('successMessage').style.display = 'block';
+      
+      // Redirect back to the app
+      setTimeout(function() {
+        window.location.href = '/';
+      }, 1500);
+    });
+  </script>
+</body>
+</html>

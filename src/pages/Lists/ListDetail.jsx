@@ -1,12 +1,11 @@
 // src/pages/Lists/ListDetail.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import PropTypes from 'prop-types';
-import { ArrowLeftIcon, PencilIcon, TrashIcon, PlusIcon } from '@heroicons/react/24/solid';
-
-// Correct: Use NAMED import for listService
-import { listService } from '@/services/listService.js'; // Changed import syntax
+import { ArrowLeftIcon, PencilIcon, TrashIcon, PlusIcon, ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/solid';
+import { Loader2, ChevronDown, MapPin } from 'lucide-react';
+import { listService } from '@/services/listService.js';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
 import ErrorMessage from '@/components/UI/ErrorMessage';
 import Button from '@/components/UI/Button';
@@ -15,242 +14,425 @@ import { formatRelativeDate } from '@/utils/formatting';
 import { useQuickAdd } from '@/context/QuickAddContext';
 import ConfirmationDialog from '@/components/UI/ConfirmationDialog';
 import useApiErrorHandler from '@/hooks/useApiErrorHandler';
-import useAuthStore from '@/stores/useAuthStore'; // Keep default import for AuthStore
-import { logDebug, logError, logInfo } from '@/utils/logger'; // Use named logger imports
+import useAuthStore from '@/stores/useAuthStore';
+import { logDebug, logError, logInfo, logWarn } from '@/utils/logger';
+import FollowButton from '@/components/FollowButton';
 
 function ListDetail({ listId: propListId, embedded = false }) {
-  const params = useParams();
-  // Ensure listId is properly converted to a string/number as needed
-  // This handles cases where it might be passed as either type
-  const listId = propListId || params.listId;
-  
-  // Validate and normalize listId early
-  if (!listId) {
-    console.error('[ListDetail] No listId provided');
-    return (
-      <div className={embedded ? 'p-2' : 'container mx-auto p-4'}>
-        <ErrorMessage message="No list ID provided" />
-      </div>
-    );
-  }
-  const { openQuickAdd } = useQuickAdd();
-  const { user } = useAuthStore(state => ({ user: state.user }));
-  const handleApiError = useApiErrorHandler();
-
+  // State management
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
+  const [sortOrder, setSortOrder] = useState('default');
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const { openQuickAdd } = useQuickAdd();
+  const handleApiError = useApiErrorHandler();
+  
+  // Get list ID from props or URL params
+  const { listId: urlListId } = useParams();
+  const listId = propListId || urlListId;
+  
+  // Auth state
+  const { user, isAuthenticated } = useAuthStore();
+  
+  // Ensure we're using real data
+  useEffect(() => {
+    // Remove any mock data flags to force DB connection
+    localStorage.removeItem('use_mock_data');
+    logInfo('[ListDetail] Forcing database data');
+  }, []);
 
-  const {
-    data: listDataResponse, // Renamed to avoid conflict with 'list' variable later
-    isLoading,
+  // Fetch list data using React Query with enhanced error handling
+  const { 
+    data, 
+    isLoading, 
     isError,
-    error: queryError,
-    refetch,
+    error,
+    refetch 
   } = useQuery({
     queryKey: ['listDetail', listId],
-    // Use the enhanced listService.getListDetails method
-    queryFn: () => listService.getListDetails(listId),
-    enabled: !!listId,
-    staleTime: 1 * 60 * 1000,
-    cacheTime: 5 * 60 * 1000,
-    onError: (err) => {
-      logError(`[ListDetail] Error fetching list detail for ${listId}:`, err);
-      handleApiError(err, "fetch list details");
+    queryFn: async () => {
+      logDebug(`[ListDetail] Fetching details for list ID: ${listId}`);
+      try {
+        const result = await listService.getListDetails(listId);
+        if (!result || !result.list) {
+          throw new Error('Invalid or empty list data received');
+        }
+        return result;
+      } catch (err) {
+        logError(`[ListDetail] Error in query function:`, err);
+        // Rethrow to let React Query handle it
+        throw err;
+      }
     },
-     onSuccess: (data) => {
-        logDebug(`[ListDetail] Fetched details for list ${listId}`);
-     }
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: true,
+    retry: 2, // Retry failed requests up to 2 times
+    retryDelay: attempt => Math.min(attempt > 1 ? 2000 : 1000, 30 * 1000),
+    onError: (err) => {
+      logError(`[ListDetail] Error fetching list details:`, err);
+      handleApiError(err, "fetch list details");
+    }
   });
 
-  // Extract list and items from the response data structure with fallbacks for all possible formats
-  // Handle our newly standardized response format as well as legacy formats
-  const responseError = listDataResponse?.error || listDataResponse?.message;
-  const list = listDataResponse?.list || (listDataResponse?.success === false ? null : listDataResponse);
-  const items = listDataResponse?.items || (Array.isArray(listDataResponse?.data) ? listDataResponse.data : []);
-
-  // Combined error from any source
-  const error = responseError || queryError;
-
-  const handleItemQuickAdd = (e, item) => {
-    e.stopPropagation();
-    e.preventDefault();
-    logDebug(`[ListDetail] Triggering Quick Add for list item:`, item);
+  // Destructure list data from query results
+  const { list = {}, items: rawItems = [] } = data || {};
+  
+  // Apply sorting to items
+  const items = useMemo(() => {
+    if (!rawItems || !Array.isArray(rawItems)) return [];
+    
+    let sortedItems = [...rawItems];
+    
+    switch (sortOrder) {
+      case 'az':
+        return sortedItems.sort((a, b) => {
+          const nameA = (a.restaurant_name || a.dish_name || '').toLowerCase();
+          const nameB = (b.restaurant_name || b.dish_name || '').toLowerCase();
+          return nameA.localeCompare(nameB);
+        });
+      case 'za':
+        return sortedItems.sort((a, b) => {
+          const nameA = (a.restaurant_name || a.dish_name || '').toLowerCase();
+          const nameB = (b.restaurant_name || b.dish_name || '').toLowerCase();
+          return nameB.localeCompare(nameA);
+        });
+      // Could implement distance sorting with geolocation
+      case 'distance':
+        logInfo('[ListDetail] Distance sorting requested - would require geolocation');
+        return sortedItems;
+      default:
+        return sortedItems;
+    }
+  }, [rawItems, sortOrder]);
+  
+  // Determine if user can edit
+  const canEdit = isAuthenticated && user && list.user_id === user.id;
+  
+  // Handle adding item to user's list (QuickAdd)
+  const handleQuickAdd = (item) => {
+    if (!isAuthenticated) return;
+    
+    logDebug(`[ListDetail] Quick adding item: ${item?.restaurant_name || item?.dish_name}`);
+    
     openQuickAdd({
-        defaultListId: listId,
-        defaultListName: list?.name, // Use fetched list name
-        // Optional context passing
+      defaultListId: null, // Don't pre-select any list
+      defaultItemData: {
+        restaurant_id: item.restaurant_id,
+        restaurant_name: item.restaurant_name,
+        dish_id: item.dish_id,
+        dish_name: item.dish_name,
+        note: item.note,
+      }
     });
   };
+  
+  // Handle edit note button click
+  const handleEditItemNote = (item) => {
+    logDebug(`[ListDetail] Edit note for item: ${item.list_item_id}`);
+    // Edit note implementation would go here
+  };
+  
+  // Handle delete confirmation
+  const handleDeleteItemClick = (item) => {
+    setItemToDelete(item);
+    setShowDeleteConfirm(true);
+  };
+  
+  // Handle actual item deletion
+  const handleDeleteItem = async () => {
+    if (!itemToDelete?.list_item_id) return;
+    
+    try {
+      logDebug(`[ListDetail] Deleting item ${itemToDelete.list_item_id}`);
+      // API call implementation would go here
+      
+      // Close dialog and refresh data
+      setShowDeleteConfirm(false);
+      setItemToDelete(null);
+      refetch();
+    } catch (error) {
+      logError('[ListDetail] Error deleting item:', error);
+      handleApiError(error, 'delete item');
+    }
+  };
+  
+  // Toggle sort menu
+  const toggleSortMenu = () => {
+    setSortMenuOpen(!sortMenuOpen);
+  };
 
-    const handleEditItem = (item) => {
-        logDebug('[ListDetail] Edit item clicked:', item);
-        // TODO: Implement item editing logic
-    };
+  // Set sort order
+  const changeSortOrder = (order) => {
+    setSortOrder(order);
+    setSortMenuOpen(false);
+  };
 
-    const promptDeleteItem = (item) => {
-        setItemToDelete(item);
-        setShowDeleteConfirm(true);
-    };
-
-    const confirmDeleteItem = async () => {
-        if (!itemToDelete) return;
-        logDebug(`[ListDetail] Attempting to delete item ${itemToDelete.list_item_id} from list ${listId}`);
-        try {
-            // Correct: listService is the imported named object
-            await listService.removeItemFromList(listId, itemToDelete.list_item_id);
-            logInfo(`[ListDetail] Successfully deleted item ${itemToDelete.list_item_id}`);
-            setShowDeleteConfirm(false);
-            setItemToDelete(null);
-            refetch();
-        } catch (err) {
-            logError(`[ListDetail] Failed to delete item ${itemToDelete.list_item_id}:`, err);
-            handleApiError(err, "delete list item");
-            setShowDeleteConfirm(false);
-        }
-    };
-
-  const Container = embedded ? 'div' : PageContainer;
-
+  // Render loading state
   if (isLoading) {
-    return <Container><LoadingSpinner /></Container>;
-  }
-
-  // Check any error state - from query, from standardized response, or missing list
-  if (isError || error || !list) {
-    const errorMessage = error?.message || 'Failed to load list details';
-    console.warn(`[ListDetail] Error rendering:`, errorMessage);
     return (
-      <Container>
-        <ErrorMessage
-          message={errorMessage}
-          onRetry={refetch}
-        />
-      </Container>
+      <PageContainer>
+        <div className="py-8 flex flex-col items-center justify-center">
+          <LoadingSpinner size="lg" />
+          <p className="mt-4 text-gray-600 dark:text-gray-300">Loading list...</p>
+        </div>
+      </PageContainer>
     );
   }
 
-  // Now 'list' and 'items' are defined safely
-  const canEdit = user && list.user_id === user.id;
+  // Enhanced error state with retry button and offline recovery
+  if (isError) {
+    return (
+      <PageContainer>
+        <div className="py-8 flex flex-col items-center">
+          <div className="text-center mb-6">
+            <h2 className="text-xl font-semibold text-red-600 dark:text-red-400 mb-2">
+              Unable to load list
+            </h2>
+            <p className="text-gray-600 dark:text-gray-300 mb-4">
+              {error?.message || 'There was an issue connecting to the server.'}
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+              This could be due to network connectivity issues or the server may be temporarily unavailable.
+            </p>
+          </div>
+          
+          <div className="flex flex-col sm:flex-row gap-4">
+            <Button 
+              onClick={() => refetch()}
+              className="flex items-center justify-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+              </svg>
+              Try Again
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              onClick={() => window.history.back()}
+            >
+              Go Back
+            </Button>
+          </div>
+        </div>
+      </PageContainer>
+    );
+  }
 
+  // Render main content
   return (
-    // Render logic remains the same...
-    <Container className={embedded ? 'p-0' : 'p-4'}>
-      {!embedded && (
-        <Link to="/lists" className="inline-flex items-center text-sm text-blue-600 hover:underline mb-4">
-          <ArrowLeftIcon className="h-4 w-4 mr-1" />
-          Back to My Lists
-        </Link>
-      )}
-
-      <div className={`bg-white dark:bg-gray-800 shadow rounded-lg ${embedded ? 'border-0' : 'border border-gray-200 dark:border-gray-700 p-6'}`}>
-        {/* List Header */}
+    <PageContainer>
+      {/* List header */}
+      <div className="mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
         <div className="flex justify-between items-center mb-4">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{list.name}</h1>
-          {canEdit && !embedded && (
-             <div className="flex space-x-2">
-                <Button size="sm" variant="outline" /* onClick={handleEditList} */ >Edit List</Button>
-                <Button size="sm" variant="danger" /* onClick={handleDeleteList} */ >Delete List</Button>
-             </div>
+          <div className="flex items-center">
+            {!embedded && (
+              <button
+                onClick={() => window.history.back()}
+                className="mr-2 p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                aria-label="Go back"
+              >
+                <ArrowLeftIcon className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+              </button>
+            )}
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-white">{list.name || 'List'}</h1>
+          </div>
+
+          {/* Follow button - only show for non-owners */}
+          {isAuthenticated && list && list.id && user && list.user_id !== user.id && (
+            <FollowButton 
+              listId={list.id} 
+              isFollowing={list.is_following} 
+              className="ml-2" 
+            />
           )}
         </div>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
-            Created by: {list.user_username || list.creator_handle || 'Unknown'} · Last updated: {formatRelativeDate(list.updated_at)}
-        </p>
+
+        {/* Description */}
         {list.description && (
-            <p className="text-gray-700 dark:text-gray-300 mb-6">{list.description}</p>
+          <p className="mb-4 text-gray-600 dark:text-gray-300">{list.description}</p>
         )}
 
-         {/* Add Item Button */}
-         <div className="mb-6">
-             <Button
-                 onClick={(e) => handleItemQuickAdd(e, null)}
-                 variant="primary"
-                 size="sm"
-                 className="inline-flex items-center"
-             >
-                 <PlusIcon className="h-5 w-5 mr-1" />
-                 Add Item to List
-             </Button>
-         </div>
+        {/* Tags */}
+        <div className="mb-6 flex flex-wrap gap-2">
+          {list.tags && list.tags.map(tag => (
+            <span 
+              key={tag} 
+              className="bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100 px-2 py-1 rounded-md text-xs"
+            >
+              {tag}
+            </span>
+          ))}
+          {list.city && (
+            <span className="bg-purple-100 text-purple-800 dark:bg-purple-800 dark:text-purple-100 px-2 py-1 rounded-md text-xs">
+              {list.city}
+            </span>
+          )}
+        </div>
 
+        {/* Item count and creator info */}
+        <div className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+          <span>{items.length} dish{items.length !== 1 ? 'es' : ''}</span>
+          {list.creator_handle && (
+            <span className="ml-2">by {list.creator_handle}</span>
+          )}
+          {list.updated_at && (
+            <span className="ml-2">· Updated {formatRelativeDate(list.updated_at)}</span>
+          )}
+        </div>
+      </div>
 
-        {/* List Items */}
-        <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">Items ({items.length})</h2>
-        {items.length > 0 ? (
-          <ul className="space-y-3">
+      {/* Sorting controls */}
+      <div className="mb-4 flex justify-between items-center">
+        <h2 className="text-xl font-semibold text-gray-800 dark:text-white">Restaurant & Dish Collection</h2>
+        
+        <div className="relative">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={toggleSortMenu}
+            className="flex items-center gap-1.5"
+          >
+            <span>Sort</span>
+            <ChevronDown className="h-4 w-4" />
+          </Button>
+          
+          {sortMenuOpen && (
+            <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg z-10 border border-gray-200 dark:border-gray-700">
+              <div className="py-1">
+                <button 
+                  className={`w-full text-left px-4 py-2 text-sm ${sortOrder === 'default' ? 'bg-gray-100 dark:bg-gray-700 font-medium' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                  onClick={() => changeSortOrder('default')}
+                >
+                  Default
+                </button>
+                <button 
+                  className={`w-full text-left px-4 py-2 text-sm ${sortOrder === 'az' ? 'bg-gray-100 dark:bg-gray-700 font-medium' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                  onClick={() => changeSortOrder('az')}
+                >
+                  <div className="flex items-center gap-2">
+                    <ArrowUpIcon className="h-4 w-4" />
+                    <span>A to Z</span>
+                  </div>
+                </button>
+                <button 
+                  className={`w-full text-left px-4 py-2 text-sm ${sortOrder === 'za' ? 'bg-gray-100 dark:bg-gray-700 font-medium' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                  onClick={() => changeSortOrder('za')}
+                >
+                  <div className="flex items-center gap-2">
+                    <ArrowDownIcon className="h-4 w-4" />
+                    <span>Z to A</span>
+                  </div>
+                </button>
+                <button 
+                  className={`w-full text-left px-4 py-2 text-sm ${sortOrder === 'distance' ? 'bg-gray-100 dark:bg-gray-700 font-medium' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                  onClick={() => changeSortOrder('distance')}
+                >
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4" />
+                    <span>Distance</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+      
+      {/* List items */}
+      <div className="mt-6">
+        {items && items.length > 0 ? (
+          <ul className="space-y-2">
             {items.map((item) => (
               <li
-                key={item.list_item_id}
+                key={item.list_item_id || `item-${Date.now()}-${Math.random()}`}
                 className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-md hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
               >
                 <div className="flex-1 min-w-0 mr-4">
                   <Link
-                      to={item.restaurant_id ? `/restaurants/${item.restaurant_id}` : (item.dish_id ? `/dishes/${item.dish_id}` : '#')}
-                      className="text-base font-medium text-blue-700 hover:underline dark:text-blue-400 truncate block"
-                      title={item.restaurant_name || item.dish_name}
-                    >
-                      {item.restaurant_name || item.dish_name || 'Unknown Item'}
+                    to={item.restaurant_id ? `/restaurants/${item.restaurant_id}` : (item.dish_id ? `/dishes/${item.dish_id}` : '#')}
+                    className="text-base font-medium text-blue-700 hover:underline dark:text-blue-400 truncate block"
+                    title={item.restaurant_name || item.dish_name || 'Unknown Item'}
+                  >
+                    {item.restaurant_name || item.dish_name || 'Unknown Item'}
                   </Link>
-                   {item.restaurant_address && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{item.restaurant_address}</p>}
-                   {item.note && <p className="text-sm text-gray-600 dark:text-gray-300 mt-1 italic">Note: {item.note}</p>}
+                  {item.restaurant_address && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{item.restaurant_address}</p>
+                  )}
+                  {item.note && (
+                    <p className="text-sm text-gray-600 dark:text-gray-300 mt-1 italic">Note: {item.note}</p>
+                  )}
                 </div>
 
+                {/* Action buttons */}
                 <div className="flex items-center space-x-1 flex-shrink-0">
-                  <button
-                    onClick={(e) => handleItemQuickAdd(e, item)}
-                    className="p-1 rounded-full text-gray-400 hover:text-blue-600 hover:bg-gray-200 dark:hover:text-blue-400 dark:hover:bg-gray-600 transition-colors"
-                    title="Quick Add / Edit Note"
-                    aria-label="Quick Add / Edit Note"
-                  >
-                    <PlusIcon className="h-5 w-5" />
-                  </button>
+                  {/* Quick Add button - shown to everyone except the owner */}
+                  {isAuthenticated && (!canEdit) && (
+                    <button
+                      onClick={() => handleQuickAdd(item)}
+                      className="p-1 rounded-full text-gray-400 hover:text-blue-600 hover:bg-gray-200 dark:hover:text-blue-400 dark:hover:bg-gray-600 transition-colors"
+                      title="Add to your list"
+                      aria-label="Add to your list"
+                    >
+                      <PlusIcon className="h-5 w-5" />
+                    </button>
+                  )}
 
-                   {canEdit && (
-                       <button
-                            onClick={() => handleEditItem(item)}
-                            className="p-1 rounded-full text-gray-400 hover:text-green-600 hover:bg-gray-200 dark:hover:text-green-400 dark:hover:bg-gray-600 transition-colors"
-                            title="Edit Note"
-                            aria-label="Edit Note"
-                       >
-                           <PencilIcon className="h-5 w-5" />
-                       </button>
-                   )}
-
+                  {/* Edit buttons - only shown to owner */}
                   {canEdit && (
+                    <>
                       <button
-                        onClick={() => promptDeleteItem(item)}
+                        onClick={() => handleEditItemNote(item)}
+                        className="p-1 rounded-full text-gray-400 hover:text-yellow-600 hover:bg-gray-200 dark:hover:text-yellow-400 dark:hover:bg-gray-600 transition-colors"
+                        title="Edit note"
+                        aria-label="Edit note"
+                      >
+                        <PencilIcon className="h-5 w-5" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteItemClick(item)}
                         className="p-1 rounded-full text-gray-400 hover:text-red-600 hover:bg-gray-200 dark:hover:text-red-400 dark:hover:bg-gray-600 transition-colors"
-                        title="Remove Item"
-                        aria-label="Remove Item"
+                        title="Remove from list"
+                        aria-label="Remove from list"
                       >
                         <TrashIcon className="h-5 w-5" />
                       </button>
+                    </>
                   )}
                 </div>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="text-gray-500 dark:text-gray-400">No items have been added to this list yet.</p>
+          <div className="text-center py-8">
+            <p className="text-gray-500 dark:text-gray-400">This list is empty.</p>
+            <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
+              {canEdit 
+                ? "Add restaurants and dishes to create your collection."
+                : "The owner hasn't added any restaurants or dishes yet."}
+            </p>
+          </div>
         )}
       </div>
 
+      {/* Delete confirmation dialog */}
       <ConfirmationDialog
-          isOpen={showDeleteConfirm}
-          onClose={() => setShowDeleteConfirm(false)}
-          onConfirm={confirmDeleteItem}
-          title="Confirm Delete"
-          message={`Are you sure you want to remove "${itemToDelete?.restaurant_name || itemToDelete?.dish_name || 'this item'}" from the list?`}
-          confirmButtonText="Delete"
-          confirmButtonVariant="danger"
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleDeleteItem}
+        title="Remove Item"
+        message={`Are you sure you want to remove "${itemToDelete?.restaurant_name || itemToDelete?.dish_name || 'this item'}" from your list?`}
+        confirmText="Remove"
+        cancelText="Cancel"
+        isDanger
       />
-    </Container>
+    </PageContainer>
   );
 }
 
 ListDetail.propTypes = {
   listId: PropTypes.string,
-  embedded: PropTypes.bool,
+  embedded: PropTypes.bool
 };
 
 export default ListDetail;

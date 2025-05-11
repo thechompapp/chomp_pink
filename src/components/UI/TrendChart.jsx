@@ -34,18 +34,18 @@ const TrendChart = ({ itemType }) => { // REMOVED: Type hints for props
         }
     }, [isAuthenticated, token]);
 
-    // Only set up the query if the user is authenticated and has a token
+    // Set up the query using our standardized API authentication approach
     const {
         data: chartData = [], // Default to empty array
         isLoading,
         isError,
         error,
         refetch,
-        isFetching, // Add isFetching for loading state during refetch
+        isFetching, // Used for loading state during refetch
     } = useQuery({ 
-        queryKey: ['aggregateItemTrends', itemType, period, !!token], // Include token presence in cache key
-        queryFn: () => fetchAggregateTrends(itemType, period, token),
-        enabled: !!itemType && isAuthenticated && !!token, // Only run if we have all required data
+        queryKey: ['aggregateItemTrends', itemType, period, isAuthenticated], // No need to include token explicitly
+        queryFn: () => fetchAggregateTrends(itemType, period), // Using standardized auth flow without token
+        enabled: !!itemType && isAuthenticated, // Only run if user is authenticated
         staleTime: 5 * 60 * 1000, // 5 minutes
         refetchOnWindowFocus: false,
         placeholderData: [], // Start with empty array placeholder

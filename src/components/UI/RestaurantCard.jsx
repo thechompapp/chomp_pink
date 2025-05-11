@@ -80,32 +80,32 @@ const RestaurantCard = ({
          )}
 
         {/* Use h-full text-base */}
-        <h3 className="text-sm font-semibold text-gray-900 mb-1 line-clamp-2 group-hover:text-[#A78B71] transition-colors pr-6"> {/* Added right padding to prevent overlap */}
+        <h3 className="text-sm font-semibold text-black mb-1 line-clamp-2 pr-6"> {/* Black text for better visibility */}
           {cleanName}
         </h3>
         {/* Use locationString derived from *_name props */}
-        <div className="flex items-center text-gray-500 text-xs mb-1">
-          <MapPin size={12} className="mr-1 flex-shrink-0 text-gray-400" />
+        <div className="flex items-center text-black text-xs mb-1">
+          <MapPin size={12} className="mr-1 flex-shrink-0 text-black" />
           <span className="truncate" title={locationString}> {/* Add title for full text on hover */}
             {locationString}
           </span>
         </div>
-        <div className="flex items-center text-gray-500 text-xs">
-          <Users size={12} className="mr-1 flex-shrink-0 text-gray-400" />
+        <div className="flex items-center text-black text-xs">
+          <Users size={12} className="mr-1 flex-shrink-0 text-black" />
           <span>{adds?.toLocaleString() ?? 0} adds</span> {/* Handle potential null adds */}
         </div>
       </div>
 
       {/* Footer Area (Tags) */}
       {safeTags.length > 0 && (
-        <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700 flex flex-wrap gap-1 flex-shrink-0">
+        <div className="mt-2 pt-2 border-t border-black flex flex-wrap gap-1 flex-shrink-0">
           {safeTags.slice(0, 3).map((tag) => (
-            <span key={tag} className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-600 rounded-full text-[10px] text-gray-600 dark:text-gray-200 whitespace-nowrap">
+            <span key={tag} className="px-1.5 py-0.5 bg-white border border-black rounded-full text-[10px] text-black whitespace-nowrap">
               #{tag}
             </span>
           ))}
           {safeTags.length > 3 && (
-            <span className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-600 rounded-full text-[10px] text-gray-600 dark:text-gray-200">
+            <span className="px-1.5 py-0.5 bg-white border border-black rounded-full text-[10px] text-black">
               +{safeTags.length - 3}
             </span>
           )}

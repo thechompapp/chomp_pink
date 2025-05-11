@@ -13,6 +13,15 @@ window.addEventListener('error', (event) => {
   console.error('Uncaught error:', event.error);
 });
 
+// Expose services globally for testing
+import { listService } from '@/services/listService';
+
+// VERIFICATION HOOK: Expose list service globally for testing
+if (typeof window !== 'undefined') {
+  window.listService = listService;
+  console.log('[VERIFICATION] List service exposed globally for testing');
+}
+
 // Fallback component in case of errors
 const ErrorFallback = ({ error }) => (
   <div style={{ 
@@ -70,7 +79,19 @@ try {
   }
   
   console.log('Starting application render...');
-  ReactDOM.createRoot(rootElement).render(<Root />);
+  
+  // Check if we already have a root to prevent duplicate mounting
+  let root;
+  if (window.__REACT_ROOT) {
+    root = window.__REACT_ROOT;
+    console.log('Using existing React root');
+  } else {
+    root = ReactDOM.createRoot(rootElement);
+    window.__REACT_ROOT = root; // Store the root instance
+    console.log('Created new React root');
+  }
+  
+  root.render(<Root />);
 } catch (err) {
   console.error('Critical error during application initialization:', err);
   document.body.innerHTML = `

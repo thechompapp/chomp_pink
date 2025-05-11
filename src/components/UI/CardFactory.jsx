@@ -2,7 +2,7 @@
 import React from 'react';
 import DishCard from './DishCard.jsx';
 import RestaurantCard from './RestaurantCard.jsx';
-import ListPreviewCard from './ListPreviewCard.jsx'; // Import the new preview card
+import ListCard from '@/pages/Lists/ListCard.jsx'; // Import the standard ListCard for consistency
 
 const CardFactory = ({ type, data, ...props }) => {
   const cardData = data || {};
@@ -19,8 +19,8 @@ const CardFactory = ({ type, data, ...props }) => {
       return <RestaurantCard {...cardData} {...props} />;
     case 'list':
     case 'lists':
-      // Render the ListPreviewCard, passing the list metadata object as the 'list' prop
-      return <ListPreviewCard list={cardData} {...props} />;
+      // Use the standard ListCard across the entire application for consistency
+      return <ListCard list={cardData} {...props} />;
     default:
       console.warn(`[CardFactory] Unknown card type encountered: ${type}`);
       return null; // Render nothing for unknown types

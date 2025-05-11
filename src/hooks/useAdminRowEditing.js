@@ -1,7 +1,6 @@
 /* root/src/hooks/useAdminRowEditing.js */
 import { useState, useCallback, useEffect } from 'react';
 import apiClient from '@/services/apiClient.js'; // For zipcode lookup
-import { useAdminData } from '@/pages/AdminPanel/AdminDataContext'; // Import context hook
 
 /**
  * Manages the state and logic for inline editing within the Admin Table.
@@ -9,12 +8,13 @@ import { useAdminData } from '@/pages/AdminPanel/AdminDataContext'; // Import co
  * @param {Array} initialData - The initial data array for the table.
  * @param {Array} columns - The column definitions.
  * @param {string} type - The resource type being edited (e.g., 'restaurants').
+ * @param {Array} cities - Array of cities for lookup (previously from context)
  */
-export const useAdminRowEditing = (initialData, columns, type) => {
+export const useAdminRowEditing = (initialData, columns, type, cities = []) => {
     const [editingRowIds, setEditingRowIds] = useState(new Set());
     const [editFormData, setEditFormData] = useState({}); // { rowId: { colKey: value, ... } }
     const [editError, setEditError] = useState(null); // Error specific to validation within the row
-    const { cities } = useAdminData(); // Access cities from context for lookup
+    // Cities now passed as parameter instead of from context
 
     // Effect to reset editing state when initial data changes
     useEffect(() => {

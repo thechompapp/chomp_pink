@@ -32,7 +32,7 @@ export const useAdminTableState = ({
     handleStartEdit: handleStartEditRow,
     handleCancelEdit: handleCancelEditRow,
     setEditingRowIds,
-  } = useAdminRowEditing(updatedData, columns, type);
+  } = useAdminRowEditing(updatedData, columns, type, cities);
 
   // Get error handler props from useAdminRowActions
   const {

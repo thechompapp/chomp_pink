@@ -113,23 +113,45 @@ export const authService = {
 
     /**
      * Logs out a user by clearing tokens
-     * @returns {Promise<object>} - Promise resolving with success status or rejecting with standardized error
+     * @returns {Promise<object>} - Promise resolving with success status
      */
     logout: async () => {
         logDebug('[AuthService] Attempting logout');
         
         try {
-            // Call the logout endpoint directly without using handleApiResponse
-            // This avoids token refresh attempts during logout
-            await apiClient.post(`${API_ENDPOINT}/logout`, {}, {
-                // Skip interceptors for logout requests to avoid token refresh attempts
-                _skipAuthRefresh: true
-            });
-            logDebug('[AuthService] Logout API call successful');
+            // Check local storage first to see if we're already logged out
+            const authStorage = localStorage.getItem('auth-storage');
+            if (!authStorage || !JSON.parse(authStorage)?.state?.isAuthenticated) {
+                logDebug('[AuthService] Already logged out, skipping API call');
+                return { success: true, message: 'Already logged out' };
+            }
+            
+            // Try to call the server logout endpoint but don't depend on its success
+            try {
+                await apiClient.post(`${API_ENDPOINT}/logout`, {}, {
+                    // Skip interceptors for logout requests to avoid token refresh attempts
+                    _skipAuthRefresh: true,
+                    // Prevent 401 errors from being thrown during logout
+                    validateStatus: status => status < 500
+                });
+                logDebug('[AuthService] Logout API call successful');
+            } catch (apiError) {
+                // Just log the error but continue with client-side logout
+                logError('[AuthService] Logout API call failed:', apiError);
+            }
+            
+            // Clear local storage regardless of API success
+            try {
+                localStorage.removeItem('auth-storage');
+                logDebug('[AuthService] Cleared auth storage');
+            } catch (storageError) {
+                logError('[AuthService] Failed to clear localStorage:', storageError);
+            }
+            
             return { success: true, message: 'Logged out successfully' };
         } catch (error) {
-            // Log but don't propagate the error since we want to clear client state regardless
-            logError('[AuthService] Logout API call failed:', error);
+            // Log the error but still report success to ensure UI updates properly
+            logError('[AuthService] Unexpected error during logout:', error);
             return { success: true, message: 'Logged out on client-side only' };
         }
     },

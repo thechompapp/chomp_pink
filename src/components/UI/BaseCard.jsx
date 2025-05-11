@@ -3,6 +3,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils'; // Assuming you use this for class merging
+import useAuthStore from '@/stores/useAuthStore';
 
 // Base card component with optional linking and quick add
 const BaseCard = ({
@@ -16,19 +17,20 @@ const BaseCard = ({
   showQuickAdd, // Add this to the destructuring to consume it and prevent passing to DOM
   ...props // Collect remaining props
 }) => {
+  // Check if user is authenticated
+  const { isAuthenticated } = useAuthStore();
   const cardContent = (
     <div
       className={cn(
-        "bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-3 flex flex-col h-full overflow-hidden relative", // Ensure relative positioning for potential absolute children
-        showHoverEffect && "transition-shadow duration-200 ease-in-out group-hover:shadow-md", // Apply hover effect conditionally
+        "bg-white rounded-lg border border-black p-4 flex flex-col h-full overflow-hidden relative", // Clean design with thin black border
         className // Allow overriding classes
       )}
       // Do NOT spread ...props here if the root element might change (Link vs div)
       // Or, filter out non-DOM props before spreading if always rendering a div/a
     >
       {children}
-      {/* Render QuickAdd button absolutely positioned if handler is provided */}
-      {onQuickAdd && showQuickAdd !== false && (
+      {/* Render QuickAdd button absolutely positioned if handler is provided AND user is logged in */}
+      {onQuickAdd && showQuickAdd !== false && isAuthenticated && (
         <button
           onClick={(e) => {
             e.preventDefault(); // Prevent link navigation if card is linked
@@ -37,7 +39,7 @@ const BaseCard = ({
           }}
           aria-label={quickAddLabel}
           title={quickAddLabel} // Tooltip for accessibility
-          className="absolute top-1 right-1 p-1 text-gray-400 hover:text-primary dark:hover:text-primary-dark opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-in-out bg-white dark:bg-gray-800 rounded-full focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className="absolute top-1 right-1 p-1 text-black bg-white rounded-full border border-black"
         >
           {/* Replace with appropriate Quick Add icon */}
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

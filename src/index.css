@@ -3,47 +3,57 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Fix for follow buttons to ensure they're clickable */
+[data-testid^="follow-button"] {
+  position: relative !important;
+  z-index: 9999 !important;
+  pointer-events: auto !important;
+  isolation: isolate;
+  cursor: pointer !important;
+}
+
 @layer base {
-  /* Define Dark Theme as Default */
+  /* Modern Clean Black & White Theme */
   :root {
-    /* Copied from original .dark definition */
-    --background: 240 10% 3.9%;       /* Dark background */
-    --foreground: 0 0% 98%;           /* Light text */
+    /* Core colors - pure black and white */
+    --background: 0 0% 100%;        /* Pure white background */
+    --foreground: 0 0% 0%;          /* Pure black text */
 
-    --card: 240 5% 10%;              /* Darker card background */
-    --card-foreground: 0 0% 98%;      /* Light text on cards */
+    --card: 0 0% 99%;              /* Very light gray card background */
+    --card-foreground: 0 0% 0%;     /* Black text on cards */
 
-    /* Primary: Using light/white for primary in dark theme */
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 10% 3.9%; /* Dark text on primary */
+    /* Primary: Black with white text */
+    --primary: 0 0% 0%;
+    --primary-foreground: 0 0% 100%; /* White text on black backgrounds */
 
-    /* Secondary: Dark gray */
-    --secondary: 240 4% 16%;
-    --secondary-foreground: 0 0% 98%;   /* Light text on secondary */
+    /* Secondary: Light gray */
+    --secondary: 0 0% 93%;
+    --secondary-foreground: 0 0% 0%;  /* Black text on light gray */
 
-    /* Accent: Same as secondary for muted dark theme */
-    --accent: 240 4% 16%;
-    --accent-foreground: 0 0% 98%;
+    /* Accent: Medium gray */
+    --accent: 0 0% 87%;
+    --accent-foreground: 0 0% 0%;     /* Black text on accent */
 
-    /* Muted: Same as secondary/accent */
-    --muted: 240 4% 16%;
-    --muted-foreground: 240 4% 60%;    /* Lighter gray text */
+    /* Muted: Light gray with dark gray text */
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 40%;     /* Darker gray text for muted areas */
 
-    /* Border color */
-    --border: 240 4% 16%;
+    /* Border color - very light */
+    --border: 0 0% 92%;
+    
     /* Input background */
-    --input: 240 4% 16%;
+    --input: 0 0% 97%;
 
-    /* Destructive: Adjust red for dark background if needed, using original dark value */
-    --destructive: 0 63% 31%; /* Darker red */
-    --destructive-foreground: 0 0% 98%;
+    /* Destructive: Clean red */
+    --destructive: 0 80% 50%;
+    --destructive-foreground: 0 0% 100%;
 
-    /* Accent Pink (Kept from original file) */
-    --accent-pink: 336 74% 44%; /* Darker pink */
-    --accent-pink-foreground: 0 0% 100%; /* White text on pink */
+    /* Accent color - black */
+    --accent-pink: 0 0% 0%;
+    --accent-pink-foreground: 0 0% 100%;
 
-    /* Border radius variable (Kept from original file) */
-    --radius: 0.5rem;
+    /* Border radius variable - minimal */
+    --radius: 0.25rem;
   }
 
   /* Original Light Theme Definition (Now commented out) */

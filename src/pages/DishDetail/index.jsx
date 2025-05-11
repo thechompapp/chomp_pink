@@ -148,7 +148,7 @@ const DishDetail = () => {
 
                         {dish.restaurant_id && dish.restaurant_name && (
                             <Link
-                                to={`/restaurant/${dish.restaurant_id}`}
+                                to={`/restaurants/${dish.restaurant_id}`}
                                 // ** COLOR FIX: Use theme color **
                                 className="inline-flex items-center text-primary hover:text-primary-dark dark:hover:text-primary-light mb-4 group"
                             >

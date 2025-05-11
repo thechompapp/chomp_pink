@@ -7,11 +7,9 @@ import { createQueryParams } from '@/utils/serviceHelpers.js';
  * Specialized utility for analytics endpoints which may require
  * different authentication handling than standard endpoints
  */
-export const fetchAnalyticsData = async (endpoint, params = {}, authToken = null) => {
-    if (!authToken) {
-        logWarn('[AnalyticsUtils] No auth token available for analytics request');
-        return { success: false, data: [], message: 'Authentication required' };
-    }
+export const fetchAnalyticsData = async (endpoint, params = {}) => {
+    // No need to explicitly check for authToken as we'll use the cookie-based auth
+    // that's already handled by apiClient interceptors
 
     try {
         // Format the endpoint path correctly - make sure we don't duplicate the /api prefix
@@ -29,18 +27,17 @@ export const fetchAnalyticsData = async (endpoint, params = {}, authToken = null
         
         logDebug(`[AnalyticsUtils] Fetching analytics data from: ${fullUrl}`);
         
-        // Use explicit headers for analytics endpoints
+        // Use a simpler config that just identifies analytics requests
+        // but relies on the standard auth flow with httpOnly cookies
         const config = {
             headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json',
-                'X-Analytics-Request': 'true', // Special header for analytics endpoints
-                'Accept': 'application/json',
+                'X-Analytics-Request': 'true' // Special header for analytics endpoints
             },
-            withCredentials: true // Ensure cookies are sent
+            // Allow 401 responses to trigger token refresh via the standard interceptor flow
+            withCredentials: true
         };
         
-        // Make the request with explicit configuration
+        // Make the request using the standard API client which will handle token refresh
         const response = await apiClient.get(fullUrl, config);
         
         logDebug('[AnalyticsUtils] Analytics response:', response);
@@ -72,11 +69,23 @@ export const fetchAnalyticsData = async (endpoint, params = {}, authToken = null
         logError('[AnalyticsUtils] Error fetching analytics data:', error);
         
         // Check specific error types
+        // API client will handle 401 errors and token refresh automatically
+        // We only need to check if the error is specifically authorization related
         if (error?.response?.status === 401 || error?.status === 401) {
             return {
                 success: false,
                 data: [],
-                message: 'Authentication required for analytics data',
+                message: 'You need to be logged in to view analytics data',
+                error: error
+            };
+        }
+        
+        // For 403 errors, provide a permissions message
+        if (error?.response?.status === 403 || error?.status === 403) {
+            return {
+                success: false,
+                data: [],
+                message: 'You do not have permission to view this analytics data',
                 error: error
             };
         }
@@ -95,9 +104,10 @@ export const fetchAnalyticsData = async (endpoint, params = {}, authToken = null
  * Note: This function provides mock data when the endpoint returns 404,
  * since the analytics endpoint may not be available in all environments
  */
-export const fetchAggregateTrends = async (itemType, period, authToken) => {
+export const fetchAggregateTrends = async (itemType, period) => {
     const params = { itemType, period };
-    const result = await fetchAnalyticsData('/analytics/aggregate-trends', params, authToken);
+    // Uses cookie-based authentication through apiClient interceptors
+    const result = await fetchAnalyticsData('/analytics/aggregate-trends', params);
     
     // If the endpoint returned a 404, the analytics API might not be available in this environment
     if (result.error?.status === 404 || result.error?.originalError?.status === 404) {

@@ -19,20 +19,20 @@ import { useAdminAddRow } from '@/hooks/useAdminAddRow'; // Updated import
 const fetchAllAdminData = async () => {
   try {
     console.log("[fetchAllAdminData] Starting fetch using Promise.allSettled...");
+    // First load essential data without neighborhoods (which may be causing issues)
     const results = await Promise.allSettled([
       adminService.getAdminRestaurants(),
       adminService.getAdminDishes(),
       adminService.getAdminUsers(),
       adminService.getAdminCitiesSimple(),
-      adminService.getAdminNeighborhoods(),
       adminService.getAdminHashtags(),
       adminService.getAdminData('restaurant_chains'),
       submissionService.getPendingSubmissions(),
     ]);
     console.log("[fetchAllAdminData] Promise.allSettled finished. Raw results:", results);
     const safeData = (result, dataType) => {
-      if (result.status === 'rejected') {
-        console.error(`[fetchAllAdminData] Failed to fetch ${dataType}:`, result.reason);
+      if (!result || result.status === 'rejected') {
+        console.error(`[fetchAllAdminData] Failed to fetch ${dataType}:`, result?.reason);
         return [];
       }
       const response = result.value;
@@ -54,10 +54,10 @@ const fetchAllAdminData = async () => {
       dishes: safeData(results[1], 'dishes'),
       users: safeData(results[2], 'users'),
       cities: safeData(results[3], 'cities'),
-      neighborhoods: safeData(results[4], 'neighborhoods'),
-      hashtags: safeData(results[5], 'hashtags'),
-      chains: safeData(results[6], 'chains'),
-      submissions: safeData(results[7], 'submissions'),
+      neighborhoods: [], // Use empty array as we're no longer loading neighborhoods
+      hashtags: safeData(results[4], 'hashtags'),
+      chains: safeData(results[5], 'chains'),
+      submissions: safeData(results[6], 'submissions'),
     };
     console.log("[fetchAllAdminData] Processed data:", processedData);
     return processedData;
@@ -78,21 +78,74 @@ const fetchAllAdminData = async () => {
 
 // --- Admin Panel Component ---
 const AdminPanel = () => {
+  console.log('[AdminPanel] Component mounted');
+  
+  // Add state for tracking render phases
+  const [renderPhase, setRenderPhase] = useState('initial');
   const [activeTab, setActiveTab] = useState('submissions');
   const [showFilters, setShowFilters] = useState(false);
 
-  // Fetch all main data
-  const { data: allFetchedData, isLoading: isLoadingAllData, error: fetchAllError, refetch, isSuccess } = useQuery({
+  // Log when component mounts
+  useEffect(() => {
+    console.log('[AdminPanel] Component mounted in useEffect');
+    return () => console.log('[AdminPanel] Component unmounting');
+  }, []);
+
+  // Fetch all main data with enhanced error handling
+  const { 
+    data: allFetchedData, 
+    isLoading: isLoadingAllData, 
+    error: fetchAllError, 
+    refetch, 
+    isSuccess 
+  } = useQuery({
     queryKey: ['allAdminData'],
-    queryFn: fetchAllAdminData,
+    queryFn: async () => {
+      console.log('[AdminPanel] Starting fetchAllAdminData query');
+      try {
+        const result = await fetchAllAdminData();
+        console.log('[AdminPanel] fetchAllAdminData query succeeded', result);
+        return result;
+      } catch (error) {
+        console.error('[AdminPanel] fetchAllAdminData query failed', error);
+        throw error;
+      }
+    },
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
+    retry: 1,
+    onError: (error) => {
+      console.error('[AdminPanel] Query error in allAdminData:', error);
+    },
+    onSuccess: () => {
+      console.log('[AdminPanel] Query success in allAdminData');
+      setRenderPhase('data-loaded');
+    }
   });
+
   // Fetch only cities lookup data needed globally
-  const { data: citiesLookupData, isLoading: isLoadingCities } = useQuery({
+  const { 
+    data: citiesLookupData, 
+    isLoading: isLoadingCities,
+    error: citiesError 
+  } = useQuery({
     queryKey: ['adminCitiesLookup'],
-    queryFn: filterService.getCities,
+    queryFn: async () => {
+      console.log('[AdminPanel] Starting getCities query');
+      try {
+        const result = await filterService.getCities();
+        console.log('[AdminPanel] getCities query succeeded');
+        return result;
+      } catch (error) {
+        console.error('[AdminPanel] getCities query failed', error);
+        throw error;
+      }
+    },
     staleTime: Infinity,
+    retry: 1,
+    onError: (error) => {
+      console.error('[AdminPanel] Query error in citiesLookup:', error);
+    }
   });
 
   // Memoize lookup data
@@ -198,18 +251,62 @@ const AdminPanel = () => {
 
   // Combined Loading State (excluding neighborhoods now)
   const isLoading = isLoadingAllData || isLoadingCities;
-  if (isLoading) return <div className="flex justify-center items-center h-screen"><LoadingSpinner size="lg" message="Loading Admin Data..." /></div>;
+  
+  // Prepare error message if any
+  let errorMessage = null;
   if (fetchAllError) {
-    const errorMessage = fetchAllError.message || 'An unexpected error occurred loading admin data.';
-    return <ErrorMessage message={errorMessage} onRetry={refetch} containerClassName="mt-6 p-4" />;
+    console.error('[AdminPanel] Render phase: fetchAllError detected', fetchAllError);
+    errorMessage = fetchAllError.message || 'An unexpected error occurred loading admin data.';
+  } else if (citiesError) {
+    console.error('[AdminPanel] Render phase: citiesError detected', citiesError);
+    errorMessage = citiesError.message || 'An error occurred loading cities data.';
+  } else if (!allFetchedData && !isLoadingAllData) {
+    console.error('[AdminPanel] Render phase: No data and not loading');
+    errorMessage = 'Admin data is currently unavailable.';
+  } else if (!citiesLookupData && !isLoadingCities) {
+    console.error('[AdminPanel] Render phase: No cities data and not loading');
+    errorMessage = 'City lookup data is currently unavailable.';
   }
-  if (!allFetchedData || !citiesLookupData) return <ErrorMessage message="Admin data or city lookup is currently unavailable." onRetry={refetch} containerClassName="mt-6 p-4" />;
+  
+  // Always render a UI, even if there are errors
+  // This ensures we don't get a blank screen
 
   // --- Render Panel ---
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6 bg-background text-foreground min-h-screen">
       <h1 className="text-2xl md:text-3xl font-bold">Admin Panel</h1>
-      {/* Tab Navigation */}
+      
+      {/* Debug Info - Always visible in development */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="bg-gray-100 p-4 rounded-md mb-4 text-sm">
+          <h2 className="font-bold mb-2">Debug Info:</h2>
+          <div><strong>Render Phase:</strong> {renderPhase}</div>
+          <div><strong>Loading:</strong> {isLoading ? 'Yes' : 'No'}</div>
+          <div><strong>Has Error:</strong> {errorMessage ? 'Yes' : 'No'}</div>
+          <div><strong>Has Data:</strong> {allFetchedData ? 'Yes' : 'No'}</div>
+          <div><strong>Active Tab:</strong> {activeTab}</div>
+        </div>
+      )}
+      
+      {/* Loading State */}
+      {isLoading && (
+        <div className="flex justify-center items-center py-12">
+          <LoadingSpinner size="lg" message="Loading Admin Data..." />
+        </div>
+      )}
+      
+      {/* Error State */}
+      {errorMessage && (
+        <div className="mb-6">
+          <ErrorMessage 
+            message={errorMessage} 
+            onRetry={refetch} 
+            containerClassName="p-4 border border-red-300 bg-red-50 rounded-md" 
+          />
+        </div>
+      )}
+      
+      {/* Tab Navigation - Always show even if there's an error */}
       <div className="border-b border-border">
         <nav className="-mb-px flex space-x-6 overflow-x-auto" aria-label="Tabs">
           {Object.entries(tabConfig).map(([key, { label }]) => (
@@ -220,14 +317,16 @@ const AdminPanel = () => {
                 activeTab === key ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
               }`}
               aria-current={activeTab === key ? 'page' : undefined}
+              disabled={isLoading}
             >
               {label}
             </button>
           ))}
         </nav>
       </div>
-      {/* Filter Toggle */}
-      {currentTabConfig && (
+      
+      {/* Filter Toggle - Only show if not loading and no errors */}
+      {!isLoading && !errorMessage && currentTabConfig && (
         <div className="flex justify-end">
           <Button
             variant="outline"
@@ -240,9 +339,11 @@ const AdminPanel = () => {
           </Button>
         </div>
       )}
-      {/* Content Area: Render GenericAdminTableTab or specific component */}
+      
+      {/* Content Area */}
       <div className="mt-4">
-        {resourceType && currentColumns.length > 0 ? (
+        {/* Only show content if not loading and no errors */}
+        {!isLoading && !errorMessage && resourceType && currentColumns.length > 0 ? (
           <GenericAdminTableTab
             key={resourceType}
             resourceType={resourceType}
@@ -256,11 +357,11 @@ const AdminPanel = () => {
             addRowEnabled={currentTabConfig.addRowEnabled}
             deleteRowEnabled={currentTabConfig.deleteRowEnabled}
           />
-        ) : currentTabConfig?.component ? (
+        ) : !isLoading && !errorMessage && currentTabConfig?.component ? (
           <currentTabConfig.component key={activeTab} initialData={allFetchedData} />
-        ) : (
+        ) : !isLoading && !errorMessage ? (
           <p className="text-muted-foreground">{`Content for ${currentTabConfig?.label || 'selected tab'} is not available or configured.`}</p>
-        )}
+        ) : null}
       </div>
     </div>
   );

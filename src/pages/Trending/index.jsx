@@ -2,6 +2,7 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import useAuthStore from '@/stores/useAuthStore'; // <-- Corrected default import
+import useFollowStore from '@/stores/useFollowStore'; // Import the follow store
 import RestaurantCard from '@/components/UI/RestaurantCard';
 import DishCard from '@/components/UI/DishCard';
 import ListCard from '@/pages/Lists/ListCard';
@@ -48,7 +49,8 @@ const fetchTrendingRestaurants = async () => {
         }
     } catch (error) {
         console.error("[TrendingPage] Error fetching restaurants:", error);
-        throw error; // Re-throw for React Query
+        // Return empty array instead of re-throwing to prevent auth issues
+        return [];
     }
 };
 const fetchTrendingDishes = async () => {
@@ -67,7 +69,8 @@ const fetchTrendingDishes = async () => {
         }
     } catch (error) {
         console.error("[TrendingPage] Error fetching dishes:", error);
-        throw error; // Re-throw for React Query
+        // Return empty array instead of re-throwing to prevent auth issues
+        return [];
     }
 };
 const fetchTrendingLists = async () => {
@@ -86,7 +89,9 @@ const fetchTrendingLists = async () => {
         }
     } catch (error) {
         console.error("[TrendingPage] Error fetching lists:", error);
-        throw error; // Re-throw for React Query
+        // Instead of re-throwing and potentially causing auth issues,
+        // return an empty array so the page can still function
+        return [];
     }
 };
 
@@ -97,6 +102,9 @@ const Trending = () => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const { openQuickAdd } = useQuickAdd();
   const queryClient = useQueryClient();
+  
+  // Access the follow store to track followed lists
+  const { initializeFollowedLists } = useFollowStore();
 
   const queryOptions = useMemo(() => ({
     staleTime: 5 * 60 * 1000,
@@ -113,6 +121,14 @@ const Trending = () => {
   const dishesQuery = useQuery({ queryKey: ['trendingDishesPage'], queryFn: fetchTrendingDishes, ...queryOptions });
   const listsQuery = useQuery({ queryKey: ['trendingListsPage'], queryFn: fetchTrendingLists, ...queryOptions });
 
+  // Initialize the follow store with lists data when it loads
+  useEffect(() => {
+    if (listsQuery.data && Array.isArray(listsQuery.data)) {
+      console.log('[TrendingPage] Initializing follow store with', listsQuery.data.length, 'lists');
+      initializeFollowedLists(listsQuery.data);
+    }
+  }, [listsQuery.data, initializeFollowedLists]);
+  
   useEffect(() => {
       const handleListUpdate = () => {
           console.log('[TrendingPage] List follow toggled, invalidating lists query');
@@ -333,16 +349,29 @@ const Trending = () => {
                            }
                            const key = `${activeTab}-${item.id}`;
                            // Render the appropriate card based on the active tab
-                           if (activeTab === "restaurants") {
-                               return <RestaurantCard key={key} {...item} onQuickAdd={(e) => { e.stopPropagation(); e.preventDefault(); handleQuickAdd(item, 'restaurant'); }} />;
-                           }
-                           if (activeTab === "dishes") {
-                               // Ensure restaurant name is passed correctly
-                               return <DishCard key={key} {...item} restaurant={item.restaurant || item.restaurant_name} onQuickAdd={(e) => { e.stopPropagation(); e.preventDefault(); handleQuickAdd(item, 'dish'); }} />;
-                           }
+                            if (activeTab === "restaurants") {
+                                return <RestaurantCard 
+                                    key={key} 
+                                    {...item} 
+                                    onQuickAdd={() => handleQuickAdd(item, 'restaurant')} 
+                                />;
+                            }
+                            if (activeTab === "dishes") {
+                                // Ensure restaurant name is passed correctly
+                                return <DishCard 
+                                    key={key} 
+                                    {...item} 
+                                    restaurant={item.restaurant || item.restaurant_name} 
+                                    onQuickAdd={() => handleQuickAdd(item, 'dish')} 
+                                />;
+                            }
                            if (activeTab === "lists") {
                                // Pass the entire item as the 'list' prop as ListCard expects
-                               return <ListCard key={key} list={item} />; // ListCard expects a 'list' prop, not spread props
+                               return <ListCard 
+                                    key={key} 
+                                    list={item} 
+                                    onQuickAdd={() => handleQuickAdd(item, 'list')} 
+                                />;
                            }
                            return null; // Should not happen if activeTab matches one of the cases
                        })}

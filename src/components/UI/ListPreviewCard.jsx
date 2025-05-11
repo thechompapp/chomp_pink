@@ -1,24 +1,101 @@
 // src/components/UI/ListPreviewCard.jsx
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { useQuery } from '@tanstack/react-query';
 import { PlusIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/solid';
+import { Star, Loader2 } from 'lucide-react';
 
-import BaseCard from './BaseCard';
-import ListDetail from '@/pages/Lists/ListDetail';
 import { listService } from '@/services/listService';
 import { logDebug, logError } from '@/utils/logger';
 import { useQuickAdd } from '@/context/QuickAddContext';
-import LoadingSpinner from './LoadingSpinner';
-import ErrorMessage from './ErrorMessage';
+import { useListDetail } from '@/context/ListDetailContext';
+import useAuthStore from '@/stores/useAuthStore';
+import useFollowStore from '@/stores/useFollowStore';
 import { formatRelativeDate } from '@/utils/formatting';
+import { engagementService } from '@/services/engagementService';
 
 function ListPreviewCard({ list }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const { openQuickAdd } = useQuickAdd();
+  const { user, isAuthenticated } = useAuthStore();
+  const { openListDetail } = useListDetail();
   const listId = list.id;
+  
+  // Use the follow store to manage follow status
+  const { 
+    isFollowing, 
+    toggleFollowStatus, 
+    isTogglingFollow: isFollowProcessing 
+  } = useFollowStore();
+  
+  // Check if this list is being followed
+  const followStatus = isFollowing(listId);
   const PREVIEW_LIMIT = 3;
+  
+  // Fallback user ID for mock data when auth is broken
+  const mockUserId = 1; // Assuming current user is ID 1
+  // Check if the list is owned by current user, with fallback for mock environment
+  const isOwnList = user ? (list && user.id === list.user_id) : (list && mockUserId === list.user_id);
+  
+  // Handle card click to open modal
+  const handleCardClick = useCallback((e) => {
+    // Prevent default navigation
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
+    // Log engagement
+    engagementService.logEngagement({
+      item_id: parseInt(String(listId), 10),
+      item_type: 'list',
+      engagement_type: 'click',
+    });
+    
+    // Open the modal
+    console.log(`[ListPreviewCard] Opening modal for list ${listId}`);
+    openListDetail(listId);
+  }, [listId, openListDetail]);
+
+  // Handle follow/unfollow toggle
+  const handleToggleFollow = async (e) => {
+    // Prevent navigation to list detail
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Only block if it's own list or currently processing
+    if (isOwnList || isFollowProcessing) return;
+    
+    // If not authenticated, show alert
+    if (!isAuthenticated) {
+      alert('Please log in to follow lists');
+      return;
+    }
+    
+    console.log(`[ListPreviewCard] Toggling follow for list ${listId}, current status: ${followStatus}`);
+    
+    try {
+      // Use the follow store's toggle function which handles all API interaction
+      // This now uses optimistic updates so UI should update immediately
+      const result = await toggleFollowStatus(listId);
+      
+      if (result.success) {
+        logDebug(`[ListPreviewCard] Successfully toggled follow status for list ${listId} to: ${result.isFollowing}`);
+        
+        // Force component re-render
+        setIsExpanded(prev => prev);
+        
+        // Trigger a custom event for any components that need to know about list follow changes
+        window.dispatchEvent(new CustomEvent('listFollowChanged', { 
+          detail: { listId, following: result.isFollowing } 
+        }));
+      } else {
+        logError(`[ListPreviewCard] Failed to toggle follow status for list ${listId}`, result.error);
+      }
+    } catch (error) {
+      logError(`[ListPreviewCard] Error toggling follow status for list ${listId}:`, error);
+    }
+  };
 
   const {
     data: previewItems = [],
@@ -126,14 +203,34 @@ function ListPreviewCard({ list }) {
   const hasMoreItems = list.item_count > PREVIEW_LIMIT;
 
   return (
-    <BaseCard className="relative flex flex-col h-full p-0 overflow-hidden hover:shadow-lg transition-shadow duration-200">
-      <Link to={`/lists/${listId}`} className="flex-grow p-4 block cursor-pointer">
-        <div className="flex justify-between items-start mb-2">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white truncate mr-2" title={list.name}>
-            {list.name}
-          </h3>
+    <div 
+      onClick={handleCardClick}
+      className="bg-white border border-black rounded-lg p-4 h-full flex flex-col cursor-pointer relative"
+    >
+      <div className="flex justify-between items-start mb-2">
+        <h3 className="text-lg font-semibold text-black truncate mr-2" title={list.name}>
+          {list.name}
+        </h3>
+        {/* Only show follow button for authenticated users and not their own lists */}
+        {user && !isOwnList && (
+            <button
+              onClick={handleToggleFollow}
+              className={`text-xs font-medium py-1 px-2 rounded-sm flex items-center ${followStatus
+                ? 'bg-black text-white'
+                : 'bg-white text-black border border-black'
+                }`}
+              title={followStatus ? 'Unfollow this list' : 'Follow this list'}
+            >
+              {isFollowProcessing ? (
+                <Loader2 size={12} className="animate-spin mr-1" />
+              ) : (
+                <Star size={12} className={`mr-1 ${followStatus ? 'fill-white' : ''}`} />
+              )}
+              {followStatus ? 'Following' : 'Follow'}
+            </button>
+          )}
         </div>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+        <p className="text-xs text-black mb-3">
           {list.item_count ?? 0} items · Updated {formatRelativeDate(list.updated_at)}
           {list.description && <span className="block truncate mt-1" title={list.description}> {list.description} </span>}
         </p>
@@ -143,12 +240,11 @@ function ListPreviewCard({ list }) {
         </div>
       </Link>
 
-      <div className="border-t border-gray-200 dark:border-gray-700 px-4 py-2 flex justify-between items-center bg-gray-50 dark:bg-gray-800">
+      <div className="px-4 py-2 flex justify-between items-center">
         {list.item_count > 0 ? (
           <button
             onClick={toggleExpand}
-            className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium flex items-center p-1 -ml-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-            aria-expanded={isExpanded}
+            className="text-sm font-medium flex items-center p-1"
           >
             {isExpanded ? (
               <>Show Less <ChevronUpIcon className="h-4 w-4 ml-1" /></>
@@ -165,7 +261,7 @@ function ListPreviewCard({ list }) {
 
         <button
           onClick={handleQuickAddToList}
-          className="p-1 rounded-full text-gray-500 hover:text-blue-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:text-blue-400 dark:hover:bg-gray-700 transition-colors"
+          className="p-1 text-black"
           title={`Quickly add an item to "${list.name}"`}
           aria-label={`Quickly add an item to "${list.name}"`}
         >

@@ -47,8 +47,9 @@ const FollowButton = ({ listId, isFollowing: initialIsFollowing, className = '',
         mutationFn: async () => {
             if (!listId) throw new Error("List ID is missing.");
             console.log(`[FollowButton] Toggling follow for list: ${listId}, current state: ${isFollowing}`);
-            // listService.toggleFollow returns { id, is_following, saved_count }
-            return await listService.toggleFollow(listId); // Service handles API call
+            
+            // CRITICAL FIX: Using toggleFollowList for consistency - this matches what the backend expects
+            return await listService.toggleFollowList(listId); // Use the main service method directly
         },
         onMutate: async () => {
             // Cancel outgoing refetches to avoid overwriting optimistic update
@@ -137,10 +138,23 @@ const FollowButton = ({ listId, isFollowing: initialIsFollowing, className = '',
     });
 
     const handleToggleFollow = useCallback((event) => {
-        event.stopPropagation();
-        event.preventDefault();
-        if (!isAuthenticated || isPending || !listId) return;
-        mutate(); // Trigger the mutation
+        // Ensure we have an event (might be called programmatically)
+        if (event) {
+            event.stopPropagation();
+            event.preventDefault();
+        }
+        
+        // Extra logging for debugging
+        console.log(`[FollowButton] Click handler fired for list ${listId}`);
+        
+        // Don't proceed if conditions aren't met
+        if (!isAuthenticated || isPending || !listId) {
+            console.log(`[FollowButton] Click ignored - auth: ${isAuthenticated}, pending: ${isPending}, listId: ${!!listId}`);
+            return;
+        }
+        
+        // Trigger the mutation
+        mutate();
     }, [isAuthenticated, isPending, mutate, listId]);
 
     const dataAttributes = {
@@ -150,33 +164,42 @@ const FollowButton = ({ listId, isFollowing: initialIsFollowing, className = '',
     };
 
     return (
-        <>
-            <Button
-                variant={isFollowing ? "tertiary" : "primary"}
-                size="sm"
-                onClick={handleToggleFollow}
-                disabled={isPending || !listId || !isAuthenticated} // Also disable if not authenticated
-                className={`flex items-center justify-center gap-1 transition-opacity w-full ${isPending ? 'opacity-70' : ''} ${className}`}
-                aria-label={isFollowing ? `Unfollow list` : `Follow list`}
-                aria-live="polite"
-                {...dataAttributes}
-            >
-                {isPending ? (
-                    <Loader2 size={16} className="animate-spin" />
-                ) : (
-                    isFollowing ? <HeartOff size={14} /> : <Heart size={14} />
-                )}
-                <span>{isPending ? '...' : (isFollowing ? 'Unfollow' : 'Follow')}</span>
-                {/* Optional Count Display - uncomment if desired */}
-                {/* <span className="text-xs ml-1">({currentSavedCount})</span> */}
-            </Button>
-            {/* Display mutation error directly from RQ */}
-            {error && (
-                <p role="alert" className="text-xs text-red-500 mt-1 flex items-center gap-1">
-                    <AlertTriangle size={14} /> {error.message || 'Action failed'}
-                </p>
+        <Button
+            variant={isFollowing ? "outline" : "primary"}
+            size="sm"
+            onClick={(e) => {
+                // Stop event propagation at all costs
+                if (e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                }
+                
+                // Extra debug logging
+                console.log(`[FollowButton] Button clicked for list ${listId}`);
+                
+                // Call the mutation
+                if (!isPending && isAuthenticated && listId) {
+                    mutate();
+                }
+            }}
+            disabled={isPending || !listId || !isAuthenticated}
+            className={`relative z-50 ${className}`}
+            style={{
+                pointerEvents: 'auto', // Force pointer events
+                position: 'relative' // Create stacking context
+            }}
+            data-testid={`follow-button-${listId}`}
+            data-following={String(isFollowing)}
+            data-pending={String(isPending)}
+            aria-label={isFollowing ? `Unfollow list` : `Follow list`}
+        >
+            {isPending ? (
+                <Loader2 size={16} className="animate-spin mr-1" />
+            ) : (
+                isFollowing ? <HeartOff size={14} className="mr-1" /> : <Heart size={14} className="mr-1" />
             )}
-        </>
+            <span>{isPending ? '...' : (isFollowing ? 'Unfollow' : 'Follow')}</span>
+        </Button>
     );
 };
 

@@ -1,11 +1,13 @@
 /* src/pages/Home/Results.jsx */
-import React, { useMemo, useCallback } from 'react';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import React, { useMemo, useCallback, useEffect } from 'react';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import InfiniteScroll from 'react-infinite-scroll-component';
 import ErrorMessage from '@/components/UI/ErrorMessage.jsx';
 import { listService } from '@/services/listService.js';
 import { searchService } from '@/services/searchService.js';
 import { logDebug, logError, logWarn } from '@/utils/logger.js';
+import useFollowStore from '@/stores/useFollowStore';
+import { useQuickAdd } from '@/context/QuickAddContext';
 import CardFactory from '@/components/UI/CardFactory.jsx';
 import ListCardSkeleton from '@/pages/Lists/ListCardSkeleton.jsx';
 import RestaurantCardSkeleton from '@/components/UI/RestaurantCardSkeleton.jsx';
@@ -26,6 +28,22 @@ const ItemSkeleton = ({ type }) => {
 
 const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, searchQuery }) => {
   const RESULTS_PER_PAGE = 25;
+  
+  // DIRECT FIX: Always clear mock data flag when showing lists
+  // This ensures we don't get stuck in offline mode
+  useEffect(() => {
+    if (contentType === 'lists') {
+      // Force online mode for lists
+      localStorage.removeItem('use_mock_data');
+      logDebug('[Results] Forcing real data mode for lists');
+    }
+  }, [contentType]);
+  
+  // Get the QuickAdd context to enable adding items to lists
+  const { openQuickAdd } = useQuickAdd();
+  
+  // Get the follow store initialization function
+  const { initializeFollowedLists } = useFollowStore();
 
   const fetchFunction = useCallback(async ({ pageParam = 1 }) => {
     logDebug(`[Results] Fetching page ${pageParam} for type: ${contentType}`);
@@ -91,6 +109,66 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
     }
   }, [contentType, searchQuery, cityId, boroughId, neighborhoodId, hashtags]);
 
+  // Get the queryClient for manual invalidation
+  const queryClient = useQueryClient();
+  
+  // Force refresh on page visibility change to catch up after network issues
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // Check if we've had a recent list operation
+        const recentListOp = localStorage.getItem('recent_list_operation');
+        if (recentListOp) {
+          const timestamp = parseInt(recentListOp, 10);
+          const now = Date.now();
+          // If operation was within last 60 seconds, force refresh
+          if (now - timestamp < 60000) {
+            logDebug('[Home/Results] Page became visible after recent list operation, forcing refresh');
+            queryClient.invalidateQueries({ queryKey: ['results'], exact: false });
+            queryClient.refetchQueries({ queryKey: ['results'], exact: false });
+          }
+        }
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [queryClient]);
+  
+  // Set up event listeners for list data updates
+  useEffect(() => {
+    // Only add event listeners when contentType is 'lists'
+    if (contentType !== 'lists') return;
+    
+    const handleListItemAdded = () => {
+      logDebug('[Home/Results] List item added event detected, refreshing data');
+      queryClient.invalidateQueries({ 
+        queryKey: ['results', 'lists'], 
+        exact: false 
+      });
+    };
+    
+    const handleFollowStateChanged = () => {
+      logDebug('[Home/Results] Follow state changed, refreshing lists data');
+      queryClient.invalidateQueries({ 
+        queryKey: ['results', 'lists'], 
+        exact: false 
+      });
+    };
+    
+    // Add event listeners
+    window.addEventListener('listItemAdded', handleListItemAdded);
+    window.addEventListener('followStateChanged', handleFollowStateChanged);
+    
+    // Remove event listeners on cleanup
+    return () => {
+      window.removeEventListener('listItemAdded', handleListItemAdded);
+      window.removeEventListener('followStateChanged', handleFollowStateChanged);
+    };
+  }, [contentType, queryClient]);
+
   const {
     data, error, fetchNextPage, hasNextPage, isLoading, isFetching,
     isFetchingNextPage
@@ -100,23 +178,42 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
     getNextPageParam: (lastPage, allPages) => {
       logDebug('[Results getNextPageParam CALLED] LastPage:', lastPage);
       console.log('[Results getNextPageParam] LastPage:', lastPage, 'AllPages:', allPages); // Debug log
+      
+      // Handle both response formats: {data: {items: []}} and {data: []}
       const pageData = lastPage?.data;
-      if (!pageData || !Array.isArray(pageData.items)) {
-        logWarn('[Results getNextPageParam WARN] Invalid pageData or items array in lastPage:', lastPage);
-        console.warn('[Results getNextPageParam] Invalid pageData or items:', pageData); // Debug log
+      const dataArray = Array.isArray(pageData?.data) ? pageData.data : 
+                      (Array.isArray(pageData?.items) ? pageData.items : 
+                       (Array.isArray(pageData) ? pageData : []));
+      
+      if (!dataArray || dataArray.length === 0) {
+        logWarn('[Results getNextPageParam WARN] No valid data array found in response:', lastPage);
+        console.warn('[Results getNextPageParam] No valid data array found:', pageData); // Debug log
         return undefined;
       }
-      const totalFetched = allPages.reduce((acc, page) => acc + (Array.isArray(page?.data?.items) ? page.data.items.length : 0), 0);
-      const totalAvailable = pageData.total ?? 0;
-      const currentPage = lastPage.currentPage ?? allPages.length;
+      
+      // Calculate pagination based on available data
+      let totalFetched = 0;
+      for (const page of allPages) {
+        const pageDataArray = Array.isArray(page?.data?.data) ? page.data.data : 
+                           (Array.isArray(page?.data?.items) ? page.data.items : 
+                            (Array.isArray(page?.data) ? page.data : []));
+        totalFetched += pageDataArray.length;
+      }
+      
+      // Get total from pagination metadata if available, otherwise use length
+      const totalAvailable = pageData?.pagination?.total || pageData?.total || dataArray.length;
+      const currentPage = pageData?.pagination?.page || lastPage.currentPage || allPages.length;
+      
       logDebug(`[Results getNextPageParam CALC] CurrentPage: ${currentPage}, Total Fetched: ${totalFetched}, Total Available: ${totalAvailable}`);
-      console.log('[Results getNextPageParam] Calc:', { currentPage, totalFetched, totalAvailable }); // Debug log
+      console.log('[Results getNextPageParam] Calc:', { currentPage, totalFetched, totalAvailable, dataLength: dataArray.length }); // Debug log
+      
       if (totalAvailable > totalFetched) {
         const nextPage = currentPage + 1;
         logDebug(`[Results getNextPageParam RESULT] More pages exist. Returning next page: ${nextPage}`);
         console.log('[Results getNextPageParam] More pages exist, next page:', nextPage); // Debug log
         return nextPage;
       }
+      
       logDebug('[Results getNextPageParam RESULT] No more pages.');
       console.log('[Results getNextPageParam] No more pages.'); // Debug log
       return undefined;
@@ -129,7 +226,20 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
   const items = useMemo(() => {
     logDebug('[Results useMemo] Processing data.pages:', data?.pages);
     console.log('[Results useMemo] Processing data.pages:', data?.pages); // Debug log
-    const flattened = data?.pages?.flatMap(page => page?.data?.items ?? []) ?? [];
+    
+    // Handle both response formats: {data: {items: []}} and {data: []}
+    const flattened = data?.pages?.flatMap(page => {
+      // Try different possible data structures
+      if (Array.isArray(page?.data?.data)) {
+        return page.data.data;
+      } else if (Array.isArray(page?.data?.items)) {
+        return page.data.items;
+      } else if (Array.isArray(page?.data)) {
+        return page.data;
+      }
+      return [];
+    }) ?? [];
+    
     logDebug(`[Results useMemo] Flattened items count: ${flattened.length}`);
     console.log('[Results useMemo] Flattened items count:', flattened.length); // Debug log
     return flattened;
@@ -140,12 +250,26 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
   logDebug(`[Results Component Render] Items count: ${items.length}, IsLoading: ${isLoading}, IsFetching: ${isFetching}, IsFetchingNext: ${isFetchingNextPage}, HasNextPage: ${hasNextPage}`);
   console.log('[Results Component Render] State:', { itemsCount: items.length, isLoading, isFetching, isFetchingNextPage, hasNextPage }); // Debug log
 
+  useEffect(() => {
+    if (contentType === 'lists' && data?.pages) {
+      // Extract all lists from all pages
+      const allLists = data.pages.flatMap(page => page.items || []);
+      if (allLists.length > 0) {
+        logDebug(`[Results] Initializing follow store with ${allLists.length} lists from Home page`);
+        initializeFollowedLists(allLists);
+      }
+    }
+  }, [data?.pages, contentType, initializeFollowedLists]);
+
   if (showInitialLoading) {
     logDebug('[Results Render] Showing initial skeletons.');
     console.log('[Results Render] Showing initial skeletons.'); // Debug log
+    const skeletonItems = Array(RESULTS_PER_PAGE).fill(null).map((_, index) => (
+      <ItemSkeleton key={`skeleton-${index}`} type={contentType} />
+    ));
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        {[...Array(RESULTS_PER_PAGE)].map((_, i) => (<ItemSkeleton key={`skeleton-${i}`} type={contentType} />))}
+        {skeletonItems}
       </div>
     );
   }
@@ -187,6 +311,7 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
             key={`${contentType}-${item.id}`}
             type={contentType}
             data={item}
+            onQuickAdd={openQuickAdd}
           />
         ) : null
       ))}
