@@ -21,3 +21,34 @@ export const getAllNeighborhoods = async (req, res, next) => {
 };
 
 // Add other controllers (getById, create, update, delete) if needed for public API
+
+// Controller to get neighborhoods by zipcode
+export const getNeighborhoodsByZipcode = async (req, res, next) => {
+    const { zipcode } = req.params;
+    
+    if (!zipcode || !/^\d{5}$/.test(zipcode)) {
+        return res.status(400).json({ 
+            success: false, 
+            message: 'Invalid zipcode format. Must be 5 digits.' 
+        });
+    }
+    
+    try {
+        const neighborhoods = await NeighborhoodModel.getNeighborhoodsByZipcode(zipcode);
+        
+        if (!neighborhoods || neighborhoods.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: `No neighborhoods found for zipcode: ${zipcode}` 
+            });
+        }
+        
+        // Format neighborhoods if needed
+        const formattedNeighborhoods = neighborhoods.map(formatNeighborhood);
+        
+        res.json(formattedNeighborhoods);
+    } catch (error) {
+        console.error(`Error finding neighborhoods by zipcode ${zipcode}:`, error);
+        next(error);
+    }
+};

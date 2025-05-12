@@ -1,6 +1,8 @@
 // Filename: root/src/hooks/useBulkAddProcessor.js
 import { useState, useCallback, useEffect } from 'react';
 import { adminService } from '@/services/adminService'; // Updated to named import
+import { placeService } from '@/services/placeService'; // For Google Places API integration
+import { filterService } from '@/services/filterService'; // For neighborhood lookup by zipcode
 import { useQueryClient } from '@tanstack/react-query';
 import Papa from 'papaparse'; // Confirmed correct import
 
@@ -8,9 +10,11 @@ import Papa from 'papaparse'; // Confirmed correct import
 const getRequiredFields = (itemType) => {
 	switch (itemType) {
 		case 'restaurants':
-			return ['name', 'address', 'neighborhood', 'city', 'cuisine_type']; // Add latitude, longitude if manually required
+			// For bulk add format like "Thai Villa; restaurant; New York; Thai"
+			// We only need name and city_name as required fields
+			return ['name', 'city_name']; 
 		case 'dishes':
-			return ['name', 'restaurant_name', 'cuisine_type']; // Add other required fields like description?
+			return ['name', 'restaurant_name']; 
 		default:
 			return [];
 	}
@@ -25,7 +29,25 @@ const findMatchingItem = (item, lookupMap, lookupKey) => {
 };
 // --- END: Helper ---
 
-function useBulkAddProcessor(itemType) {
+// Helper function to fetch neighborhood by zipcode
+const fetchNeighborhoodByZipcode = async (zipcode) => {
+	try {
+		console.log(`[BulkAddProcessor] Looking up neighborhood for zipcode: ${zipcode}`);
+		const response = await filterService.getNeighborhoodsByZipcode(zipcode);
+		console.log(`[BulkAddProcessor] Neighborhood lookup response:`, response);
+		
+		if (response && Array.isArray(response) && response.length > 0) {
+			// Return the first neighborhood found
+			return response[0];
+		}
+		return null;
+	} catch (error) {
+		console.error(`[BulkAddProcessor] Error fetching neighborhood for zipcode ${zipcode}:`, error);
+		return null;
+	}
+};
+
+function useBulkAddProcessor(itemType = 'restaurants') { // Default to restaurants if not specified
 	const [items, setItems] = useState([]); // Processed items ready for review/submit
 	const [errors, setErrors] = useState([]); // Errors found during processing
 	const [duplicates, setDuplicates] = useState([]); // Items identified as potential duplicates
@@ -33,6 +55,11 @@ function useBulkAddProcessor(itemType) {
 	const [parseError, setParseError] = useState(null);
 	const [submitStatus, setSubmitStatus] = useState({ state: 'idle', message: '' }); // idle, submitting, success, error
 	const queryClient = useQueryClient();
+	
+	// State for handling multiple place results
+	const [placeSelections, setPlaceSelections] = useState([]); // Array of items with multiple place options
+	const [awaitingSelection, setAwaitingSelection] = useState(false); // Whether we're waiting for user to select a place
+	const [currentProcessingIndex, setCurrentProcessingIndex] = useState(-1); // Index of the item currently awaiting selection
 
 	const resetState = useCallback(() => {
 		setItems([]);
@@ -41,7 +68,178 @@ function useBulkAddProcessor(itemType) {
 		setIsProcessing(false);
 		setParseError(null);
 		setSubmitStatus({ state: 'idle', message: '' });
+		
+		// Reset place selection state
+		setPlaceSelections([]);
+		setAwaitingSelection(false);
+		setCurrentProcessingIndex(-1);
 	}, []);
+
+	// Function to process place details after a place ID is obtained
+	const processPlaceDetails = useCallback(async (placeId, index, currentItems) => {
+		console.log(`[BulkAddProcessor] Processing place details for place ID: ${placeId} at index ${index}`);
+		
+		try {
+			// Make sure we're working with the latest items array
+			const updatedItems = currentItems || [...processedItems];
+			
+			// Update item status to processing
+			updatedItems[index].status = 'processing';
+			updatedItems[index].message = 'Fetching place details...';
+			setItems([...updatedItems]);
+			
+			// Fetch place details
+			const placeDetails = await placeService.getPlaceDetails(placeId);
+			console.log('[BulkAddProcessor] Place details:', placeDetails);
+			
+			if (!placeDetails) {
+				throw new Error('Failed to fetch place details');
+			}
+			
+			// Extract address components
+			const addressComponents = placeDetails.address_components || [];
+			const streetNumber = addressComponents.find(comp => comp.types.includes('street_number'))?.long_name || '';
+			const route = addressComponents.find(comp => comp.types.includes('route'))?.long_name || '';
+			const city = addressComponents.find(comp => comp.types.includes('locality'))?.long_name || 
+				addressComponents.find(comp => comp.types.includes('administrative_area_level_1'))?.long_name || '';
+			const state = addressComponents.find(comp => comp.types.includes('administrative_area_level_1'))?.short_name || '';
+			const zipcode = addressComponents.find(comp => comp.types.includes('postal_code'))?.long_name || '';
+			
+			// Format address
+			const formattedAddress = placeDetails.formatted_address || `${streetNumber} ${route}, ${city}, ${state} ${zipcode}`;
+			
+			// Update item with place details
+			updatedItems[index].place_id = placeId;
+			updatedItems[index].address = formattedAddress;
+			updatedItems[index].street = `${streetNumber} ${route}`.trim();
+			updatedItems[index].city = city;
+			updatedItems[index].state = state;
+			updatedItems[index].zipcode = zipcode;
+			updatedItems[index].latitude = placeDetails.geometry?.location?.lat || 0;
+			updatedItems[index].longitude = placeDetails.geometry?.location?.lng || 0;
+			
+			// Fetch neighborhood by zipcode
+			if (zipcode) {
+				updatedItems[index].message = 'Fetching neighborhood...';
+				setItems([...updatedItems]);
+				
+				try {
+					const neighborhood = await fetchNeighborhoodByZipcode(zipcode);
+					updatedItems[index].neighborhood = neighborhood;
+					
+					if (!neighborhood) {
+						updatedItems[index].status = 'warning';
+						updatedItems[index].message = 'Place details found, but no neighborhood assigned';
+					} else {
+						updatedItems[index].status = 'processed';
+						updatedItems[index].message = 'Successfully processed';
+					}
+				} catch (neighborhoodError) {
+					console.error('[BulkAddProcessor] Error fetching neighborhood:', neighborhoodError);
+					updatedItems[index].status = 'warning';
+					updatedItems[index].message = `Place details found, but neighborhood lookup failed: ${neighborhoodError.message}`;
+				}
+			} else {
+				updatedItems[index].status = 'warning';
+				updatedItems[index].message = 'Place details found, but no zipcode to lookup neighborhood';
+			}
+			
+			setItems([...updatedItems]);
+			return updatedItems[index];
+		} catch (error) {
+			console.error('[BulkAddProcessor] Error processing place details:', error);
+			
+			// Make sure we're working with the latest items array
+			const updatedItems = currentItems || [...processedItems];
+			
+			updatedItems[index].status = 'error';
+			updatedItems[index].message = `Error: ${error.message}`;
+			setItems([...updatedItems]);
+			return updatedItems[index];
+		}
+	}, [fetchNeighborhoodByZipcode]);
+
+	// Function to handle user selection of place when multiple results are found
+	const selectPlace = useCallback(async (placeId) => {
+		// Handle cancellation case
+		if (placeId === null) {
+			console.log('[BulkAddProcessor] Place selection cancelled');
+			
+			// Update the item status to cancelled if valid
+			if (awaitingSelection && currentProcessingIndex >= 0 && currentProcessingIndex < processedItems.length) {
+				const updatedItems = [...processedItems];
+				updatedItems[currentProcessingIndex].status = 'error';
+				updatedItems[currentProcessingIndex].message = 'Place selection cancelled';
+				setItems(updatedItems);
+			}
+			
+			// Move to the next place selection if there are more
+			if (placeSelections && placeSelections.length > 1) {
+				const nextSelection = placeSelections[1];
+				setCurrentProcessingIndex(nextSelection.index);
+				setPlaceSelections(placeSelections.slice(1));
+			} else {
+				// No more selections needed
+				setAwaitingSelection(false);
+				setCurrentProcessingIndex(-1);
+				setPlaceSelections([]);
+			}
+			return;
+		}
+		
+		// Validate parameters
+		if (!placeId || !awaitingSelection || currentProcessingIndex < 0 || currentProcessingIndex >= processedItems.length) {
+			console.warn('[BulkAddProcessor] Cannot select place: Invalid state or parameters');
+			setAwaitingSelection(false); // Reset state to prevent UI getting stuck
+			return;
+		}
+		
+		console.log(`[BulkAddProcessor] Selected place ID: ${placeId} for item ${currentProcessingIndex}`);
+		
+		try {
+			// Update item status to show processing
+			const updatedItems = [...processedItems];
+			
+			updatedItems[currentProcessingIndex].status = 'processing';
+			updatedItems[currentProcessingIndex].message = 'Processing selected place...';
+			setItems(updatedItems);
+			
+			// Process place details for the selected place
+			await processPlaceDetails(placeId, currentProcessingIndex, updatedItems);
+			
+			// Move to the next place selection if there are more
+			if (placeSelections && placeSelections.length > 1) {
+				const nextSelection = placeSelections[1];
+				setCurrentProcessingIndex(nextSelection.index);
+				setPlaceSelections(placeSelections.slice(1));
+			} else {
+				// No more selections needed
+				setAwaitingSelection(false);
+				setCurrentProcessingIndex(-1);
+				setPlaceSelections([]);
+			}
+		} catch (error) {
+			console.error(`[BulkAddProcessor] Error processing selected place:`, error);
+			
+			// Update the item status to error
+			const updatedItems = [...processedItems];
+			updatedItems[currentProcessingIndex].status = 'error';
+			updatedItems[currentProcessingIndex].message = `Error processing selected place: ${error.message}`;
+			setItems(updatedItems);
+			
+			// Move to the next place selection if there are more
+			if (placeSelections && placeSelections.length > 1) {
+				const nextSelection = placeSelections[1];
+				setCurrentProcessingIndex(nextSelection.index);
+				setPlaceSelections(placeSelections.slice(1));
+			} else {
+				// No more selections needed
+				setAwaitingSelection(false);
+				setCurrentProcessingIndex(-1);
+				setPlaceSelections([]);
+			}
+		}
+	}, [items, placeSelections, awaitingSelection, currentProcessingIndex, processPlaceDetails]);
 
 	// Fetch existing data needed for validation/lookups (e.g., neighborhoods, restaurants)
 	// --- START: Modified Pre-computation ---
@@ -189,11 +387,17 @@ function useBulkAddProcessor(itemType) {
 	// --- END: Modified checkDuplicate function ---
 
 	const processInputData = useCallback(async (data) => {
+		console.log('[BulkAddProcessor] Processing input data:', data);
+		console.log('[BulkAddProcessor] Current itemType:', itemType);
+		
 		setIsProcessing(true);
 		setParseError(null);
 		setErrors([]);
 		setDuplicates([]);
 		setItems([]); // Clear previous results
+		setPlaceSelections([]);
+		setAwaitingSelection(false);
+		setCurrentProcessingIndex(-1);
 
 		try {
 			const parsedItems = Array.isArray(data) ? data : []; // Assume data is already parsed array for now
@@ -238,7 +442,9 @@ function useBulkAddProcessor(itemType) {
 			const foundErrors = [];
 			const foundDuplicates = [];
 			const currentLookupData = lookupData; // Use state at the time of processing
+			const pendingPlaceSelections = [];
 
+			// First pass: validate items and prepare for processing
 			for (let i = 0; i < parsedItems.length; i++) {
 				const item = parsedItems[i];
 				// Trim whitespace from string values
@@ -249,36 +455,121 @@ function useBulkAddProcessor(itemType) {
 				const validationErrors = validateItem(trimmedItem, i, parsedItems, itemType, currentLookupData);
 				if (validationErrors) {
 					foundErrors.push(validationErrors);
-					continue; // Skip duplicate check if basic validation fails
+					continue; // Skip if basic validation fails
 				}
 
 				// Pass the fetched existingItemIdentifiers to checkDuplicate
 				const duplicateInfo = checkDuplicate(trimmedItem, i, parsedItems, itemType, existingItemIdentifiers);
 				if (duplicateInfo) {
 					foundDuplicates.push(duplicateInfo);
-                    // Decide whether to still add duplicates to 'processedItems' for review
-                    // Or filter them out entirely here. Adding them allows user review.
-                    // processedItems.push({ ...trimmedItem, status: 'duplicate', duplicateReason: duplicateInfo.reason });
-				} else {
-					// Map to expected backend structure if necessary
-					// Example: Convert neighborhood name to neighborhood_id
-					const neighborhoodName = trimmedItem.neighborhood?.toLowerCase();
-                    const neighborhood = currentLookupData.neighborhoods.get(neighborhoodName);
-
-					// Example: Convert restaurant name to restaurant_id for dishes
-					// const restaurantName = trimmedItem.restaurant_name?.toLowerCase();
-					// const restaurant = currentLookupData.restaurants.get(restaurantName);
-
+					// Add to processed items with duplicate status
 					processedItems.push({
 						...trimmedItem,
-						status: 'valid', // Mark as initially valid
-						// Add mapped IDs if needed:
-						neighborhood_id: itemType === 'restaurants' ? neighborhood?.id : undefined,
-						// restaurant_id: itemType === 'dishes' ? restaurant?.id : undefined,
-						// Remove temporary fields if needed:
-						// neighborhood: undefined,
-						// restaurant_name: undefined,
+						status: 'duplicate',
+						message: duplicateInfo.reason || 'Duplicate item',
 					});
+				} else {
+					// For restaurants, we need to look up the place details
+					if (itemType === 'restaurants') {
+						// Add to processed items with pending status
+						processedItems.push({
+							...trimmedItem,
+							status: 'pending',
+							message: 'Looking up place details...',
+						});
+					} else {
+						// For other item types, just add as valid
+						processedItems.push({
+							...trimmedItem,
+							status: 'valid',
+							message: 'Ready for submission',
+						});
+					}
+				}
+			}
+
+			// Set initial items
+			setItems(processedItems);
+			setErrors(foundErrors);
+			setDuplicates(foundDuplicates);
+
+			// Second pass: process restaurant items to look up place details
+			if (itemType === 'restaurants') {
+				for (let i = 0; i < processedItems.length; i++) {
+					const item = processedItems[i];
+					
+					// Skip items that are not pending or already have errors
+					if (item.status !== 'pending') {
+						continue;
+					}
+					
+					try {
+						// Update status
+						item.status = 'processing';
+						item.message = 'Looking up place...';
+						setItems([...processedItems]);
+						
+						// Look up place using Google Places API
+						const searchQuery = `${item.name}, ${item.city_name}`;
+						console.log(`[BulkAddProcessor] Looking up place: ${searchQuery}`);
+						
+						const placeResults = await placeService.getPlaceId(item.name, item.city_name);
+						console.log(`[BulkAddProcessor] Place lookup results:`, placeResults);
+						
+						if (!placeResults || placeResults.status !== 'OK') {
+							throw new Error(`Place lookup failed: ${placeResults?.status || 'Unknown error'}`);
+						}
+						
+						// Check if we have multiple results
+						if (Array.isArray(placeResults.data) && placeResults.data.length > 1) {
+							// Multiple results found, need user selection
+							console.log(`[BulkAddProcessor] Multiple places found for ${item.name}, need user selection`);
+							
+							// Update item status
+							item.status = 'awaiting_selection';
+							item.message = 'Multiple places found, please select one';
+							item.placeOptions = placeResults.data.map(place => ({
+								placeId: place.place_id,
+								description: place.description,
+								mainText: place.structured_formatting?.main_text,
+								secondaryText: place.structured_formatting?.secondary_text
+							}));
+							
+							// Add to pending place selections
+							pendingPlaceSelections.push({
+								index: i,
+								name: item.name,
+								options: item.placeOptions
+							});
+							
+						} else if (Array.isArray(placeResults.data) && placeResults.data.length === 1) {
+							// Single result found, process it directly
+							const placeId = placeResults.data[0].place_id;
+							item.placeId = placeId;
+							
+							// Process place details
+							await processPlaceDetails(placeId, i, processedItems);
+						} else {
+							// No results found
+							item.status = 'error';
+							item.message = 'No places found matching this name and location';
+						}
+						
+					} catch (error) {
+						console.error(`[BulkAddProcessor] Error processing item ${i}:`, error);
+						item.status = 'error';
+						item.message = `Error: ${error.message}`;
+					}
+					
+					// Update items after each processing
+					setItems([...processedItems]);
+				}
+				
+				// If we have pending place selections, set state for user selection
+				if (pendingPlaceSelections.length > 0) {
+					setPlaceSelections(pendingPlaceSelections);
+					setCurrentProcessingIndex(pendingPlaceSelections[0].index);
+					setAwaitingSelection(true);
 				}
 			}
 
@@ -364,9 +655,15 @@ function useBulkAddProcessor(itemType) {
 		parseError,
 		submitStatus,
 		isPrecomputing, // Expose precomputing state
+		// Place selection state
+		placeSelections,
+		awaitingSelection,
+		currentProcessingIndex,
+		// Functions
 		handleFileUpload,
 		processInputData, // Expose for manual data input if needed
 		submitBulkAdd,
+		selectPlace, // Expose for user selection of places
 		resetState
 	};
 }

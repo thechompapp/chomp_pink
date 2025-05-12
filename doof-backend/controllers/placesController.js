@@ -7,7 +7,7 @@ const GOOGLE_PLACES_API_BASE_URL = config.PLACES_API_BASE_URL || 'https://maps.g
 
 // Controller to proxy Google Places Autocomplete requests
 export const proxyAutocomplete = async (req, res, next) => {
-    const apiKey = config.GOOGLE_PLACES_API_KEY;
+    const apiKey = config.googlePlacesApiKey;
     if (!apiKey) { return res.status(503).json({ success: false, message: 'Service unavailable (Places API Key missing).' }); }
     try {
         const response = await axios.get(`${GOOGLE_PLACES_API_BASE_URL}/autocomplete/json`, { params: { ...req.query, key: apiKey } });
@@ -23,7 +23,7 @@ export const proxyAutocomplete = async (req, res, next) => {
 
 // Controller to proxy Google Places Details requests
 export const proxyDetails = async (req, res, next) => {
-    const apiKey = config.GOOGLE_PLACES_API_KEY;
+    const apiKey = config.googlePlacesApiKey;
     if (!apiKey) { return res.status(503).json({ success: false, message: 'Service unavailable (Places API Key missing).' }); }
     const { placeId, place_id, ...otherParams } = req.query; // Accept both placeId and place_id
     const actualPlaceId = placeId || place_id;

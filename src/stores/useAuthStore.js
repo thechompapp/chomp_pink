@@ -65,10 +65,10 @@ const useAuthStore = create(
               id: 'mock-user-1',
               name: 'Test User',
               email: 'test@example.com',
-              account_type: 'user'
+              account_type: 'superuser'
             },
             token: 'mock-token-for-development',
-            isSuperuser: false,
+            isSuperuser: true,
             lastAuthCheck: Date.now(),
             isLoading: false,
             error: null

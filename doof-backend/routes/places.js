@@ -9,6 +9,11 @@ const router = express.Router();
 
 router.use(requireAuth); // Apply auth to prevent key abuse
 
+// Add routes that match the frontend API paths
+router.get('/autocomplete', placesController.proxyAutocomplete);
+router.get('/details', placesController.proxyDetails);
+
+// Keep the original routes for backward compatibility
 router.get('/proxy/autocomplete', placesController.proxyAutocomplete);
 router.get('/proxy/details', placesController.proxyDetails);
 

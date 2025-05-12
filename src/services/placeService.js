@@ -3,7 +3,7 @@ import apiClient from './apiClient.js';
 import { handleApiResponse } from '@/utils/serviceHelpers.js';
 import { logError, logDebug, logWarn } from '@/utils/logger.js';
 
-const placeService = {
+export const placeService = {
   /**
    * Fetches a Place ID using the backend autocomplete proxy.
    * @param {string} restaurantName - The name of the restaurant.
@@ -19,7 +19,7 @@ const placeService = {
     logDebug(`[PlaceService] Fetching Place ID for ${restaurantName} in ${cityName}`);
     
     return handleApiResponse(
-      () => apiClient.get(`/api/places/proxy/autocomplete?input=${queryString}`),
+      () => apiClient.get(`/places/autocomplete?input=${queryString}`),
       context
     ).then(response => {
       // Backend succeeded, now check Google's status
@@ -68,7 +68,7 @@ const placeService = {
     logDebug(`[PlaceService] Fetching details for placeId "${placeId}"`);
     
     return handleApiResponse(
-      () => apiClient.get(`/api/places/proxy/details?placeId=${encodedPlaceId}`),
+      () => apiClient.get(`/places/details?placeId=${encodedPlaceId}`),
       context
     ).then(response => {
       const googleStatus = response.status || 'UNKNOWN_STATUS';
@@ -102,4 +102,4 @@ const placeService = {
   }
 };
 
-export default placeService;
+// Export is now handled via named export above

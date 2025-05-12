@@ -9,6 +9,7 @@ import useBulkAddProcessor from '@/hooks/useBulkAddProcessor.js';
 import { restaurantService } from '@/services/restaurantService.js';
 import { dishService } from '@/services/dishService.js';
 import { adminService } from '@/services/adminService';
+import './PlaceSelectionDialog.css'; // Import CSS for place selection dialog
 import { ApiError } from '@/utils/apiUtils.js';
 import Button from '@/components/UI/Button.jsx';
 import { useAdminAddRow } from '@/hooks/useAdminAddRow'; // Updated import
@@ -23,7 +24,17 @@ const BulkAdd = () => {
   const [submissionError, setSubmissionError] = useState(null);
   const [submissionSummary, setSubmissionSummary] = useState(null);
 
-  const { processItems, isProcessing: isItemProcessing, error: processingError, processedCount, totalItems } = useBulkAddProcessor();
+  const { 
+    processInputData, 
+    isProcessing: isItemProcessing, 
+    error: processingError, 
+    items: processedItems,
+    placeSelections,
+    awaitingSelection,
+    currentProcessingIndex,
+    selectPlace,
+    submitBulkAdd
+  } = useBulkAddProcessor('restaurants');
 
   const updateItemStatus = useCallback((index, status, message, details = {}) => {
     setItems(prevItems => {
@@ -94,8 +105,9 @@ const BulkAdd = () => {
     setMode('review');
     setSubmitProgress(0);
 
-    await processItems(rawItems, updateItemStatus, setItems, submitItems);
-  }, [rawText, processItems, updateItemStatus, setItems, submitItems]);
+    // Use the new processInputData function
+    await processInputData(rawItems);
+  }, [rawText, processInputData]);
 
   const handleSubmitReviewedItems = useCallback(async () => {
     const itemsToSubmit = items.filter(item => item.status === 'ready');
@@ -112,7 +124,7 @@ const BulkAdd = () => {
     setSubmitProgress(0);
 
     try {
-      const result = await submitItems(itemsToSubmit);
+      const result = await submitBulkAdd(itemsToSubmit);
       setItems(prevItems => {
         const finalItems = [...prevItems];
         if (result?.data?.details && Array.isArray(result.data.details)) {
@@ -152,7 +164,7 @@ const BulkAdd = () => {
       setIsSubmitting(false);
       setSubmitProgress(100);
     }
-  }, [items, submitItems]);
+  }, [items, submitBulkAdd]);
 
   const handleBackToInput = useCallback(() => {
     setMode('input');
@@ -163,7 +175,9 @@ const BulkAdd = () => {
     setSubmitProgress(0);
   }, []);
 
-  const processingProgress = totalItems > 0 ? Math.round((processedCount / totalItems) * 100) : 0;
+  // Calculate processing progress based on processed items
+  const processingProgress = processedItems && processedItems.length > 0 ? 
+    Math.round((processedItems.filter(item => item.status !== 'pending').length / processedItems.length) * 100) : 0;
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -176,6 +190,47 @@ const BulkAdd = () => {
           isProcessing={isItemProcessing}
           processingProgress={processingProgress}
         />
+      )}
+      
+      {/* Place Selection Dialog - shown when multiple places are found */}
+      {awaitingSelection && currentProcessingIndex >= 0 && processedItems && 
+       Array.isArray(processedItems) && processedItems.length > currentProcessingIndex && 
+       processedItems[currentProcessingIndex]?.placeOptions?.length > 0 && (
+        <div className="place-selection-dialog">
+          <div className="place-selection-content">
+            <h3>Multiple locations found for "{processedItems[currentProcessingIndex].name}"</h3>
+            <p>Please select the correct location:</p>
+            <div className="place-options">
+              {processedItems[currentProcessingIndex].placeOptions.map((option, index) => (
+                <div key={option.placeId || index} className="place-option">
+                  <button 
+                    onClick={() => selectPlace(option.placeId)}
+                    className="place-select-button"
+                  >
+                    <strong>
+                      {option.mainText || 
+                       (option.description && option.description.includes(',') ? 
+                        option.description.split(',')[0] : 
+                        option.description || 'Location Option ' + (index + 1))}
+                    </strong>
+                    <span>
+                      {option.secondaryText || 
+                       (option.description && option.description.includes(',') ? 
+                        option.description.substring(option.description.indexOf(',') + 1) : 
+                        '')}
+                    </span>
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button 
+              onClick={() => selectPlace(null)} 
+              className="cancel-button"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       )}
       {mode === 'review' && (
         <>

@@ -50,13 +50,30 @@ const logger = pino({
 const httpLogger = pinoHttp({ logger });
 app.use(httpLogger);
 
-const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-console.log(`Frontend URL configured for CORS: ${frontendUrl}`);
+// Allow multiple frontend origins for development flexibility
+const frontendUrls = [
+  process.env.FRONTEND_URL || 'http://localhost:5173',
+  'http://localhost:5174',  // In case Vite uses this port
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:5174'
+];
+console.log(`Frontend URLs configured for CORS:`, frontendUrls);
 const corsOptions = {
-  origin: frontendUrl,
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, etc)
+    if (!origin) return callback(null, true);
+    
+    // Check if the origin is in the allowed list
+    if (frontendUrls.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.log(`CORS blocked request from: ${origin}`);
+      callback(null, false);
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id', 'X-Forwarded-Host', 'X-Auth-Authenticated'],
 };
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));

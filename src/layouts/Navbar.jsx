@@ -2,7 +2,7 @@
 import React, { useState, useCallback, useMemo, memo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '@/stores/useAuthStore';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, User, CheckCircle } from 'lucide-react';
 import { logDebug } from '@/utils/logger';
 
 // Ensure auth bypass is enabled in development to fix flickering
@@ -32,8 +32,9 @@ const Navbar = () => {
 
   // Use useMemo to prevent recalculation on every render
   const isSuperuser = useMemo(() => {
-    return user?.account_type === 'superuser';
-  }, [user]);
+    // Check both the account_type and the isSuperuser flag from the auth store
+    return user?.account_type === 'superuser' || auth.isSuperuser;
+  }, [user, auth.isSuperuser]);
 
   // Prevent extra work during loading
   if (isLoading && !isAuthenticated && !user) {
@@ -80,6 +81,15 @@ const Navbar = () => {
                   </Link>
                 </>
               )}
+              <Link to="/profile" className="flex items-center hover:text-gray-300 ml-2">
+                <span className="flex items-center">
+                  <User size={18} className="mr-1" />
+                  {user?.name || user?.username || ''}
+                  {isSuperuser && (
+                    <CheckCircle size={16} className="ml-1 text-green-400" title="Verified Superuser" />
+                  )}
+                </span>
+              </Link>
               <button
                 onClick={handleLogout}
                 className="hover:text-gray-300 focus:outline-none"
@@ -150,6 +160,17 @@ const Navbar = () => {
                   </Link>
                 </>
               )}
+              <Link
+                to="/profile"
+                className="block py-2 px-4 hover:bg-gray-700 flex items-center"
+                onClick={toggleMobileMenu}
+              >
+                <User size={18} className="mr-2" />
+                @{user?.username || 'user'}
+                {isSuperuser && (
+                  <CheckCircle size={16} className="ml-1 text-green-400" title="Verified Superuser" />
+                )}
+              </Link>
               <button
                 onClick={handleLogout}
                 className="block w-full text-left py-2 px-4 hover:bg-gray-700 focus:outline-none"

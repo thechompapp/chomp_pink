@@ -9,7 +9,7 @@ export const submissionService = {
    */
   getPendingSubmissions: async () => {
     return handleApiResponse(
-      () => apiClient.get('/api/submissions/pending'),
+      () => apiClient.get('/api/admin/submissions'),
       'SubmissionService GetPending'
     ).catch(error => {
       logError('[SubmissionService] Failed to fetch pending submissions:', error);
@@ -19,21 +19,24 @@ export const submissionService = {
 
   /**
    * Gets all submissions for a specific user
-   * @param {string|number} userId - The ID of the user
+   * @param {string|number} userId - The ID of the user. While present, the API endpoint relies on the authenticated session.
+   * @param {object} params - Query parameters such as status, page, limit.
    */
-  getUserSubmissions: async (userId) => {
+  getUserSubmissions: async (userId, params = {}) => {
     if (!userId) {
-      throw new Error('User ID is required');
+      // This check can remain for frontend logic that might require userId explicitly before calling
+      logError('[SubmissionService] User ID is required for getUserSubmissions, though API uses authenticated user.');
+      throw new Error('User ID is required for client-side validation, API uses authenticated user.');
     }
     
-    const encodedUserId = encodeURIComponent(String(userId));
-    logDebug(`[SubmissionService] Fetching submissions for user ${userId}`);
+    // The backend route /api/submissions/user uses req.user.id from the authenticated session
+    logDebug(`[SubmissionService] Fetching submissions for authenticated user with params:`, params);
     
     return handleApiResponse(
-      () => apiClient.get(`/api/submissions/user/${encodedUserId}`),
+      () => apiClient.get(`/api/submissions/user`, { params }), // Updated endpoint to match backend route
       'SubmissionService GetUserSubmissions'
     ).catch(error => {
-      logError(`[SubmissionService] Failed to fetch submissions for user ${userId}:`, error);
+      logError(`[SubmissionService] Failed to fetch submissions for authenticated user:`, error);
       throw error;
     });
   },

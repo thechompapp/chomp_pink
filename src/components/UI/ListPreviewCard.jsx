@@ -1,272 +1,242 @@
 // src/components/UI/ListPreviewCard.jsx
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import PropTypes from 'prop-types';
-import { useQuery } from '@tanstack/react-query';
-import { PlusIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/solid';
-import { Star, Loader2 } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query'; // Added useQueryClient
+import { PlusIcon, ChevronDownIcon, ChevronUpIcon as ChevronUpSolidIcon } from '@heroicons/react/24/solid'; // Renamed ChevronUpIcon to avoid conflict
+import { Star, Loader2, ChevronUp, ChevronDown, ExternalLink, MessageSquare, Eye } from 'lucide-react'; // Added more icons
 
 import { listService } from '@/services/listService';
 import { logDebug, logError } from '@/utils/logger';
 import { useQuickAdd } from '@/context/QuickAddContext';
-import { useListDetail } from '@/context/ListDetailContext';
+import { useListDetailModal } from '@/hooks/useListDetailModal'; // Corrected hook name
 import useAuthStore from '@/stores/useAuthStore';
 import useFollowStore from '@/stores/useFollowStore';
 import { formatRelativeDate } from '@/utils/formatting';
 import { engagementService } from '@/services/engagementService';
+import Button from '@/components/UI/Button'; // Assuming custom Button
+import ErrorMessage from '@/components/UI/ErrorMessage'; // Assuming custom ErrorMessage
+import LoadingSpinner from '@/components/UI/LoadingSpinner'; // Assuming custom LoadingSpinner
+import BaseCard from './BaseCard'; // Assuming BaseCard for consistent styling and click handling
 
-function ListPreviewCard({ list }) {
+// Sub-component for displaying a single item in the preview
+const PreviewListItem = ({ item }) => (
+  <li className="flex items-center justify-between py-1.5 text-xs text-gray-600 dark:text-gray-300 group">
+    <span className="truncate pr-2" title={item.name}>{item.name || `Item`}</span>
+    {item.notes && (
+      <MessageSquare size={12} className="text-gray-400 dark:text-gray-500 flex-shrink-0" title={`Notes: ${item.notes}`} />
+    )}
+  </li>
+);
+
+PreviewListItem.propTypes = {
+  item: PropTypes.shape({
+    list_item_id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    name: PropTypes.string,
+    notes: PropTypes.string,
+  }).isRequired,
+};
+
+
+function ListPreviewCard({ list, className = '' }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const { openQuickAdd } = useQuickAdd();
+  const { openQuickAddModal } = useQuickAdd(); // Assuming context provides openQuickAddModal
   const { user, isAuthenticated } = useAuthStore();
-  const { openListDetail } = useListDetail();
-  const listId = list.id;
+  const { openListDetailModal } = useListDetailModal(); // Using the hook
+  const queryClient = useQueryClient(); // Get query client
+
+  const listId = list?.id; // Handle potentially null list initially
   
-  // Use the follow store to manage follow status
   const { 
     isFollowing, 
     toggleFollowStatus, 
-    isTogglingFollow: isFollowProcessing 
-  } = useFollowStore();
+    isTogglingFollow 
+  } = useFollowStore(state => ({
+    isFollowing: state.isFollowing,
+    toggleFollowStatus: state.toggleFollowStatus,
+    isTogglingFollow: state.isTogglingFollow[listId] || false, // Get specific loading state for this list
+  }));
   
-  // Check if this list is being followed
-  const followStatus = isFollowing(listId);
+  const followStatus = listId ? isFollowing(listId) : false;
   const PREVIEW_LIMIT = 3;
   
-  // Fallback user ID for mock data when auth is broken
-  const mockUserId = 1; // Assuming current user is ID 1
-  // Check if the list is owned by current user, with fallback for mock environment
-  const isOwnList = user ? (list && user.id === list.user_id) : (list && mockUserId === list.user_id);
+  const isOwnList = useMemo(() => 
+    user && list && (
+      user.id === list.user_id || 
+      Number(user.id) === Number(list.user_id) || 
+      list.creator_username === user.username
+    ), 
+  [user, list]);
   
-  // Handle card click to open modal
-  const handleCardClick = useCallback((e) => {
-    // Prevent default navigation
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    
-    // Log engagement
+  const handleCardClick = useCallback(() => {
+    if (!listId) return;
     engagementService.logEngagement({
-      item_id: parseInt(String(listId), 10),
-      item_type: 'list',
-      engagement_type: 'click',
+      item_id: parseInt(String(listId), 10), item_type: 'list', engagement_type: 'click',
     });
-    
-    // Open the modal
-    console.log(`[ListPreviewCard] Opening modal for list ${listId}`);
-    openListDetail(listId);
-  }, [listId, openListDetail]);
+    openListDetailModal(listId);
+  }, [listId, openListDetailModal]);
 
-  // Handle follow/unfollow toggle
   const handleToggleFollow = async (e) => {
-    // Prevent navigation to list detail
-    e.preventDefault();
-    e.stopPropagation();
-    
-    // Only block if it's own list or currently processing
-    if (isOwnList || isFollowProcessing) return;
-    
-    // If not authenticated, show alert
-    if (!isAuthenticated) {
-      alert('Please log in to follow lists');
+    e.stopPropagation(); // Prevent card click
+    if (!listId || isOwnList || isTogglingFollow || !isAuthenticated) {
+      if (!isAuthenticated) alert('Please log in to follow lists.');
       return;
     }
-    
-    console.log(`[ListPreviewCard] Toggling follow for list ${listId}, current status: ${followStatus}`);
-    
     try {
-      // Use the follow store's toggle function which handles all API interaction
-      // This now uses optimistic updates so UI should update immediately
-      const result = await toggleFollowStatus(listId);
-      
-      if (result.success) {
-        logDebug(`[ListPreviewCard] Successfully toggled follow status for list ${listId} to: ${result.isFollowing}`);
-        
-        // Force component re-render
-        setIsExpanded(prev => prev);
-        
-        // Trigger a custom event for any components that need to know about list follow changes
-        window.dispatchEvent(new CustomEvent('listFollowChanged', { 
-          detail: { listId, following: result.isFollowing } 
-        }));
-      } else {
-        logError(`[ListPreviewCard] Failed to toggle follow status for list ${listId}`, result.error);
-      }
+      await toggleFollowStatus(listId);
+      // Optimistic update handles UI. Cache invalidation will ensure eventual consistency.
+      queryClient.invalidateQueries({ queryKey: ['lists', 'following', user?.id] }); // Invalidate user's followed lists
+      queryClient.invalidateQueries({ queryKey: ['listDetails', listId] }); // Invalidate this specific list's details
     } catch (error) {
-      logError(`[ListPreviewCard] Error toggling follow status for list ${listId}:`, error);
+      logError(`[ListPreviewCard] Error toggling follow for list ${listId}:`, error);
+      alert('Failed to update follow status. Please try again.');
     }
   };
 
+  // Query for preview items (not expanded)
   const {
-    data: previewItems = [],
+    data: previewItemsData,
     isLoading: isLoadingPreview,
     error: previewError,
-    isError: isPreviewError,
   } = useQuery({
     queryKey: ['listPreviewItems', listId],
-    queryFn: () => listService.getListItems(listId, PREVIEW_LIMIT),
-    enabled: !!listId && !isExpanded,
+    queryFn: () => listService.getListItems(listId, { limit: PREVIEW_LIMIT }),
+    enabled: !!listId && !isExpanded, // Only fetch if listId exists and not expanded
     staleTime: 5 * 60 * 1000,
-    cacheTime: 10 * 60 * 1000,
-    onError: (err) => {
-      logError(`[ListPreviewCard] Error fetching items for list ${listId}:`, err);
-    },
-    onSuccess: (data) => {
-      logDebug(`[ListPreviewCard] Fetched ${data?.data?.length || 0} items for list ${listId}`);
-    },
-    select: (data) => {
-      // Handle both legacy and new API response formats
-      if (Array.isArray(data)) return data.slice(0, PREVIEW_LIMIT);
-      if (data?.data) return data.data.slice(0, PREVIEW_LIMIT) || [];
-      return [];
-    },
+    select: (response) => response?.data || [],
+    placeholderData: [],
   });
+  const previewItems = previewItemsData || [];
 
-  const toggleExpand = (e) => {
-    e.stopPropagation();
-    e.preventDefault();
-    setIsExpanded(!isExpanded);
-  };
 
-  const handleQuickAddToList = (e) => {
-    e.stopPropagation();
-    e.preventDefault();
-    logDebug(`[ListPreviewCard] Triggering Quick Add for list ID: ${listId}`);
-    openQuickAdd({ defaultListId: listId, defaultListName: list.name });
-  };
-
-  // Fetch full list details only when expanded
+  // Query for full list items (when expanded)
   const {
-    data: fullListData,
+    data: fullListItemsData,
     isLoading: isLoadingFullList,
-    isError: isFullListError,
-    error: fullListError
+    error: fullListError,
   } = useQuery({
-    queryKey: ['listFullDetails', listId],
-    queryFn: () => listService.getListDetails(listId),
-    enabled: !!listId && isExpanded,
+    queryKey: ['listFullItems', listId, 'expanded'], // More specific key
+    queryFn: () => listService.getListItems(listId, { limit: 50 }), // Fetch more when expanded
+    enabled: !!listId && isExpanded, // Only fetch if listId exists and expanded
     staleTime: 2 * 60 * 1000,
-    cacheTime: 5 * 60 * 1000,
-    onError: (err) => {
-      logError(`[ListPreviewCard] Error fetching full list details for ${listId}:`, err);
-    }
+    select: (response) => response?.data || [],
+    placeholderData: [],
   });
+  const expandedItems = fullListItemsData || [];
 
-  let content;
+  const toggleExpand = useCallback((e) => {
+    e.stopPropagation(); // Prevent card click
+    setIsExpanded(prev => !prev);
+    engagementService.logEngagement({
+      item_id: parseInt(String(listId), 10), item_type: 'list', 
+      engagement_type: !isExpanded ? 'expand_preview' : 'collapse_preview',
+    });
+  }, [listId, isExpanded]);
+
+  const handleQuickAddToListClick = useCallback((e) => {
+    e.stopPropagation(); // Prevent card click
+    if (!listId) return;
+    openQuickAddModal({ defaultListId: listId, defaultListName: list.name });
+  }, [listId, list?.name, openQuickAddModal]);
+
+  // This is the CRITICAL part for display consistency:
+  // Always use list.item_count from the prop for the main display.
+  // The backend and cache invalidation are responsible for this prop being up-to-date.
+  const displayedItemCount = list?.item_count ?? 0;
+  const itemsToShowInPreview = isExpanded ? expandedItems : previewItems;
+  const canShowMore = !isExpanded && displayedItemCount > PREVIEW_LIMIT;
   
-  if (isExpanded) {
-    if (isLoadingFullList) {
-      content = <LoadingSpinner />;
-    } else if (isFullListError) {
-      content = <ErrorMessage message={`Error loading list: ${fullListError?.message || 'Could not load list details'}`} />;
-    } else if (fullListData) {
-      // Rather than embedding the ListDetail component which has many dependencies,
-      // we'll render a simplified version of the list items
-      const listItems = fullListData?.items || [];
-      content = (
-        <div className="mt-3 p-2 bg-gray-50 dark:bg-gray-800 rounded-md">
-          <h4 className="font-medium mb-2">All Items:</h4>
-          {listItems.length > 0 ? (
-            <ul className="space-y-2 text-sm">
-              {listItems.map((item, index) => (
-                <li key={item.list_item_id || `item-${index}`} className="flex justify-between items-center">
-                  <span>{item.name || `Item ${index + 1}`}</span>
-                  {item.notes && <span className="text-xs italic text-gray-500">- {item.notes}</span>}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-gray-500">No items in this list.</p>
-          )}
-        </div>
-      );
-    }
-  } else if (isLoadingPreview) {
-    content = <LoadingSpinner size="sm" />;
-  } else if (isPreviewError) {
-    content = <ErrorMessage message={`Error loading preview: ${previewError?.message || 'Unknown error'}`} />;
-  } else if (previewItems.length > 0) {
-    content = (
-      <ul className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
-        {previewItems.map((item, index) => (
-          <li key={item.list_item_id || `preview-${index}`} className="truncate">
-            {item.name || `Item ${index + 1}`}
-            {item.notes && <span className="text-xs italic text-gray-500 ml-1"> - {item.notes}</span>}
-          </li>
-        ))}
-      </ul>
-    );
-  } else {
-    content = <p className="text-sm text-gray-500 dark:text-gray-400">This list is empty.</p>;
+  if (!list) {
+    // Optional: Render a skeleton or a placeholder if list is null
+    return <div className={`p-4 border rounded-lg shadow-sm animate-pulse bg-gray-200 ${className}`}>Loading list...</div>;
   }
 
-  const hasMoreItems = list.item_count > PREVIEW_LIMIT;
-
   return (
-    <div 
+    <BaseCard
       onClick={handleCardClick}
-      className="bg-white border border-black rounded-lg p-4 h-full flex flex-col cursor-pointer relative"
+      className={`flex flex-col bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow duration-200 rounded-xl overflow-hidden ${className}`}
+      aria-label={`View details for list: ${list.name}`}
     >
-      <div className="flex justify-between items-start mb-2">
-        <h3 className="text-lg font-semibold text-black truncate mr-2" title={list.name}>
-          {list.name}
-        </h3>
-        {/* Only show follow button for authenticated users and not their own lists */}
-        {user && !isOwnList && (
-            <button
+      {/* Header Section */}
+      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex justify-between items-start gap-2">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-800 dark:text-white line-clamp-2 flex-grow" title={list.name}>
+            {list.name}
+          </h3>
+          {isAuthenticated && !isOwnList && (
+            <Button
+              variant="icon"
+              size="sm"
               onClick={handleToggleFollow}
-              className={`text-xs font-medium py-1 px-2 rounded-sm flex items-center ${followStatus
-                ? 'bg-black text-white'
-                : 'bg-white text-black border border-black'
-                }`}
-              title={followStatus ? 'Unfollow this list' : 'Follow this list'}
+              className={`flex-shrink-0 rounded-full p-1.5 ${followStatus ? 'bg-primary-500 text-white hover:bg-primary-600' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
+              title={followStatus ? 'Unfollow list' : 'Follow list'}
+              isLoading={isTogglingFollow}
+              aria-pressed={followStatus}
             >
-              {isFollowProcessing ? (
-                <Loader2 size={12} className="animate-spin mr-1" />
-              ) : (
-                <Star size={12} className={`mr-1 ${followStatus ? 'fill-white' : ''}`} />
-              )}
-              {followStatus ? 'Following' : 'Follow'}
-            </button>
+              <Star size={14} className={followStatus ? 'fill-current' : ''} />
+            </Button>
           )}
         </div>
-        <p className="text-xs text-black mb-3">
-          {list.item_count ?? 0} items · Updated {formatRelativeDate(list.updated_at)}
-          {list.description && <span className="block truncate mt-1" title={list.description}> {list.description} </span>}
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+          {displayedItemCount} {displayedItemCount === 1 ? 'item' : 'items'} 
+          {list.updated_at && ` · Updated ${formatRelativeDate(list.updated_at)}`}
         </p>
+        {list.description && (
+          <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 line-clamp-2" title={list.description}>
+            {list.description}
+          </p>
+        )}
+      </div>
 
-        <div className="mb-2 min-h-[60px]">
-          {content}
-        </div>
-      </Link>
+      {/* Items Preview/Expanded Section */}
+      <div className="px-4 py-3 flex-grow min-h-[80px]"> {/* Ensure minimum height */}
+        {isExpanded && isLoadingFullList && <div className="flex justify-center items-center h-full"><LoadingSpinner /></div>}
+        {isExpanded && !isLoadingFullList && fullListError && <ErrorMessage message="Could not load items." />}
+        {!isExpanded && isLoadingPreview && <div className="flex justify-center items-center h-full"><LoadingSpinner /></div>}
+        {!isExpanded && !isLoadingPreview && previewError && <ErrorMessage message="Could not load preview." />}
+        
+        {(itemsToShowInPreview.length > 0) ? (
+          <ul className="space-y-1">
+            {itemsToShowInPreview.map((item) => (
+              <PreviewListItem key={item.list_item_id || item.id || `item-${Math.random()}`} item={item} />
+            ))}
+          </ul>
+        ) : (
+          !isLoadingPreview && !isLoadingFullList && <p className="text-xs text-gray-400 dark:text-gray-500 italic text-center py-2">This list is currently empty.</p>
+        )}
+      </div>
 
-      <div className="px-4 py-2 flex justify-between items-center">
-        {list.item_count > 0 ? (
-          <button
+      {/* Footer Section */}
+      <div className="p-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+        <div className="flex justify-between items-center">
+          <Button
+            variant="ghost"
+            size="xs"
             onClick={toggleExpand}
-            className="text-sm font-medium flex items-center p-1"
+            className="text-primary dark:text-primary-400 hover:underline"
+            aria-expanded={isExpanded}
           >
             {isExpanded ? (
-              <>Show Less <ChevronUpIcon className="h-4 w-4 ml-1" /></>
+              <><ChevronUp size={14} className="mr-1" />Show Less</>
             ) : (
               <>
-                Show More {hasMoreItems ? `(${list.item_count - previewItems.length} more)` : ''}
-                <ChevronDownIcon className="h-4 w-4 ml-1" />
+                {canShowMore ? `Show All (${displayedItemCount})` : (itemsToShowInPreview.length > 0 ? 'View Items' : 'View List')}
+                <ChevronDown size={14} className="ml-1" />
               </>
             )}
-          </button>
-        ) : (
-          <div aria-hidden="true" className="w-0 h-0"></div>
-        )}
-
-        <button
-          onClick={handleQuickAddToList}
-          className="p-1 text-black"
-          title={`Quickly add an item to "${list.name}"`}
-          aria-label={`Quickly add an item to "${list.name}"`}
-        >
-          <PlusIcon className="h-5 w-5" />
-        </button>
+          </Button>
+          {isAuthenticated && (
+            <Button
+              variant="icon"
+              size="sm"
+              onClick={handleQuickAddToListClick}
+              className="text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary-400 rounded-full p-1.5"
+              title="Quickly add an item to this list"
+            >
+              <PlusIcon className="h-4 w-4 sm:h-5 sm:w-5" />
+            </Button>
+          )}
+        </div>
       </div>
     </BaseCard>
   );
@@ -274,12 +244,16 @@ function ListPreviewCard({ list }) {
 
 ListPreviewCard.propTypes = {
   list: PropTypes.shape({
-    id: PropTypes.number.isRequired,
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
     name: PropTypes.string.isRequired,
     description: PropTypes.string,
     updated_at: PropTypes.string,
-    item_count: PropTypes.number,
+    item_count: PropTypes.number, // This is the key prop for item count consistency
+    user_id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    creator_username: PropTypes.string, // Assuming this might be available
+    is_public: PropTypes.bool,
   }).isRequired,
+  className: PropTypes.string,
 };
 
-export default ListPreviewCard;
+export default React.memo(ListPreviewCard);

@@ -26,4 +26,40 @@ router.post('/submissions/:submissionId/reject', adminController.rejectSubmissio
 // Bulk Operations
 router.post('/bulk/:resourceType', adminController.bulkAddResources);
 
+// Direct routes for specific resources to match frontend API calls
+router.get('/restaurants', (req, res) => {
+    req.params.resourceType = 'restaurants';
+    adminController.getAllResources(req, res);
+});
+
+router.get('/dishes', (req, res) => {
+    req.params.resourceType = 'dishes';
+    adminController.getAllResources(req, res);
+});
+
+router.get('/users', (req, res) => {
+    req.params.resourceType = 'users';
+    adminController.getAllResources(req, res);
+});
+
+router.get('/cities', (req, res) => {
+    req.params.resourceType = 'cities';
+    adminController.getAllResources(req, res);
+});
+
+router.get('/neighborhoods', (req, res) => {
+    req.params.resourceType = 'neighborhoods';
+    adminController.getAllResources(req, res);
+});
+
+router.get('/hashtags', (req, res) => {
+    req.params.resourceType = 'hashtags';
+    adminController.getAllResources(req, res);
+});
+
+router.get('/restaurant_chains', (req, res) => {
+    req.params.resourceType = 'restaurant_chains';
+    adminController.getAllResources(req, res);
+});
+
 export default router;

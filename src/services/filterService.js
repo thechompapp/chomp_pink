@@ -1,6 +1,6 @@
 /* src/services/filterService.js */
 import apiClient from './apiClient';
-import { logDebug, logError } from '@/utils/logger'; // Using named imports
+import { logDebug, logError, logWarn } from '@/utils/logger'; // Using named imports
 import { handleApiResponse } from '@/utils/serviceHelpers.js';
 
 /**
@@ -38,5 +38,42 @@ export const filterService = {
   async getCuisines() {
     /* Implement if needed */
     return [];
+  },
+
+  /**
+   * Find a neighborhood by zipcode
+   * @param {string} zipcode - The zipcode to look up
+   * @returns {Promise<Object|null>} The neighborhood object if found, null otherwise
+   */
+  async findNeighborhoodByZipcode(zipcode) {
+    if (!zipcode || !/^\d{5}$/.test(zipcode)) {
+      logWarn(`[FilterService] Invalid zipcode format: ${zipcode}`);
+      return null;
+    }
+
+    logDebug(`[FilterService] Looking up neighborhood for zipcode: ${zipcode}`);
+    
+    return handleApiResponse(
+      () => apiClient.get(`/api/neighborhoods/by-zipcode/${zipcode}`),
+      `FilterService Find Neighborhood By Zipcode (${zipcode})`,
+      (data) => {
+        if (!data || !Array.isArray(data)) {
+          logWarn(`[FilterService] No neighborhoods found for zipcode: ${zipcode}`);
+          return null;
+        }
+        
+        if (data.length === 0) {
+          logDebug(`[FilterService] No neighborhoods match zipcode: ${zipcode}`);
+          return null;
+        }
+        
+        // Return the first matching neighborhood
+        logDebug(`[FilterService] Found ${data.length} neighborhoods for zipcode: ${zipcode}`);
+        return data[0];
+      }
+    ).catch(error => {
+      logError(`[FilterService] Error finding neighborhood by zipcode ${zipcode}:`, error);
+      return null;
+    });
   }
 };

@@ -1,276 +1,349 @@
 // src/components/AddToListModal.jsx
-import React, { useState, useCallback, useEffect } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import React, { useState, useEffect, useMemo } from 'react';
 import PropTypes from 'prop-types';
-
-// Services
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+// Corrected Heroicons import: Removed XIcon as it's not used directly here and caused an error.
+// XMarkIcon would be the correct name if an X icon from Heroicons was needed.
+import { PlusIcon as PlusHeroIcon, CheckCircleIcon as CheckCircleHeroIcon } from '@heroicons/react/24/outline'; 
+import { ExternalLink, AlertCircle, CheckCircle2 } from 'lucide-react'; 
 import { listService } from '@/services/listService';
-
-// Hooks & Stores
 import useAuthStore from '@/stores/useAuthStore';
-
-// UI Components
+import { logError, logDebug, logInfo } from '@/utils/logger.js';
 import Modal from '@/components/UI/Modal';
 import Button from '@/components/UI/Button';
-import LoadingSpinner from '@/components/UI/LoadingSpinner';
-import ErrorMessage from '@/components/UI/ErrorMessage';
-import { logError, logInfo, logDebug } from '@/utils/logger.js';
-import { AlertCircle, CheckCircle2 } from 'lucide-react';
+import Input from '@/components/UI/Input';
+import Label from '@/components/UI/Label';
 
-// Fallback lists in case API fails
-const FALLBACK_LISTS = [
-  { id: '101', name: 'My Favorite Restaurants', item_count: 3 },
-  { id: '102', name: 'Weekend Brunches', item_count: 2 },
-  { id: '103', name: 'Special Occasions', item_count: 4 },
-  { id: '104', name: 'Quick Lunch Spots', item_count: 1 },
-  { id: '105', name: 'Takeout Favorites', item_count: 5 }
-];
-
-function AddToListModal({ isOpen, onClose, item }) {
-  const [selectedListId, setSelectedListId] = useState('');
-  const [localError, setLocalError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-  
-  // Get the current user
-  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
-  const userId = useAuthStore(state => state.user?.id);
+const AddToListModal = ({ isOpen, onClose, itemToAdd, onItemAdded }) => {
+  const { user, isAuthenticated } = useAuthStore();
   const queryClient = useQueryClient();
-  
-  // Fetch user lists from the API if authenticated
-  const { data: userLists, isLoading, error } = useQuery({
-    queryKey: ['userLists'],
-    queryFn: () => listService.getUserLists({ createdByUser: true }),
-    enabled: isAuthenticated && isOpen,
-    select: (data) => {
-      // Handle different response formats
-      if (Array.isArray(data)) {
-        return data;
-      } else if (data?.data && Array.isArray(data.data)) {
-        return data.data;
-      } else if (data?.items && Array.isArray(data.items)) {
-        return data.items;
-      }
-      return [];
-    },
-    staleTime: 30 * 1000, // 30 seconds
-    retry: 1,
-    onError: (err) => {
-      logError('[AddToListModal] Error fetching lists:', err);
-    }
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedListId, setSelectedListId] = useState(null);
+  const [showNewListForm, setShowNewListForm] = useState(false);
+  const [newListName, setNewListName] = useState('');
+  const [newListDescription, setNewListDescription] = useState('');
+  const [itemNotes, setItemNotes] = useState('');
+  const [step, setStep] = useState(1); // 1: Select/Create List, 2: Confirmation
+
+  const { data: userListsData, isLoading: isLoadingUserLists } = useQuery({
+    queryKey: ['userLists', user?.id],
+    queryFn: () => listService.getUserLists(user?.id), 
+    enabled: isAuthenticated && !!user?.id && isOpen,
+    staleTime: 5 * 60 * 1000,
+    select: (data) => data?.data || [],
   });
-  
-  // Determine what lists to display - either real user lists or fallbacks
-  const listsToDisplay = userLists?.length > 0 ? userLists : FALLBACK_LISTS;
-  
-  // Log when we have lists
+
+  const userLists = useMemo(() => userListsData || [], [userListsData]);
+
+  const filteredLists = useMemo(() => {
+    if (!searchTerm) return userLists;
+    return userLists.filter((list) =>
+      list.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [userLists, searchTerm]);
+
   useEffect(() => {
     if (isOpen) {
-      logDebug(`[AddToListModal] Using ${userLists?.length > 0 ? 'real' : 'fallback'} lists. Total: ${listsToDisplay.length}`);
-    }
-  }, [isOpen, userLists, listsToDisplay.length]);
-
-  // Add item to list mutation
-  const addItemMutation = useMutation({
-    mutationFn: ({ listId, itemId, itemType }) => {
-      logDebug('[AddToListModal] Adding item to list:', { listId, itemId, itemType });
-      return listService.addItemToList(listId, { 
-        item_id: itemId, 
-        item_type: itemType 
-      });
-    },
-    onSuccess: (data, variables) => {
-      // Log success details
-      logInfo('[AddToListModal] Successfully added item to list:', { 
-        listId: variables.listId,
-        response: data
-      });
-      
-      // CRITICAL: Mark that we've recently done a list operation to prevent offline mode
-      localStorage.setItem('recent_list_operation', Date.now().toString());
-      
-      // Invalidate ALL relevant queries to ensure counts and items are updated everywhere
-      // Important: Use object shape with 'exact: false' to properly invalidate all variants of userLists queries
-      queryClient.invalidateQueries({ queryKey: ['userLists'], exact: false });
-      queryClient.invalidateQueries({ queryKey: ['listDetails'], exact: false });
-      queryClient.invalidateQueries({ queryKey: ['listDetail', variables.listId] });
-      queryClient.invalidateQueries({ queryKey: ['trendingListsPage'] });
-      
-      // Critical: Also invalidate the Home page results queries
-      queryClient.invalidateQueries({ queryKey: ['results'], exact: false });
-      
-      // Force refetch list details and user lists to update immediately
-      queryClient.refetchQueries({ queryKey: ['listDetails', variables.listId] });
-      queryClient.refetchQueries({ queryKey: ['userLists'], exact: false });
-      queryClient.refetchQueries({ queryKey: ['results'], exact: false });
-      
-      // Dispatch a custom event to notify other components about the list update
-      window.dispatchEvent(new CustomEvent('listItemAdded', { 
-        detail: { listId: variables.listId }
-      }));
-      
-      // Show success message to user
-      setSuccessMessage('Item added to list successfully!');
-      
-      // Close the modal after a short delay to show the success message
-      setTimeout(() => {
-        onClose();
-      }, 1200);
-    },
-    onError: (error) => {
-      setLocalError(error.message || 'Could not add item to the selected list.');
-      logError('[AddToListModal] Error adding item to list:', error);
-    },
-  });
-
-  // Reset state when modal closes
-  React.useEffect(() => {
-    if (!isOpen) {
-      setSelectedListId('');
-      setLocalError('');
-      setSuccessMessage('');
+      setSearchTerm('');
+      setSelectedListId(null);
+      setShowNewListForm(false);
+      setNewListName('');
+      setNewListDescription('');
+      setItemNotes('');
+      setStep(1);
+      logDebug("[AddToListModal] Modal opened and state reset.");
     }
   }, [isOpen]);
 
-  // Handle form submission
-  const handleSubmit = useCallback((e) => {
-    e.preventDefault();
-    setLocalError('');
-    setSuccessMessage('');
+  const createListMutation = useMutation({
+    mutationFn: (newListData) => listService.createList(newListData),
+    onSuccess: (data) => {
+      logInfo('New list created:', data);
+      queryClient.invalidateQueries({ queryKey: ['userLists', user?.id] });
+      const newList = data?.data;
+      if (newList && newList.id) {
+        setSelectedListId(newList.id);
+        setShowNewListForm(false);
+        logDebug(`New list "${newList.name}" selected (ID: ${newList.id}).`);
+        if (itemToAdd) {
+           handleAddItemToList(newList.id); 
+        } else {
+            setStep(2); 
+        }
+      }
+    },
+    onError: (error) => {
+      logError('Error creating new list:', error);
+      alert(`Error creating list: ${error.message || 'Unknown error'}`);
+    },
+  });
 
-    // Validate item data
-    if (!item || (!item.id && item.id !== 0) || !item.type) {
-      setLocalError("Invalid item data provided.");
+  const addItemToListMutation = useMutation({
+    mutationFn: ({ listId, itemType, itemId, notes }) => {
+      if (!itemToAdd) {
+        logError("addItemToListMutation: itemToAdd is not defined");
+        throw new Error("Item to add is not defined");
+      }
+      logDebug(`Adding item to list. ListID: ${listId}, ItemType: ${itemType}, ItemID: ${itemId}, Notes: ${notes}`);
+      return listService.addItemToList(listId, itemType, itemId, { notes });
+    },
+    onSuccess: (data, variables) => {
+      logInfo('Item added to list successfully:', data);
+      localStorage.setItem('recent_list_operation', Date.now().toString());
+
+      queryClient.invalidateQueries({ queryKey: ['listDetails', variables.listId] });
+      queryClient.invalidateQueries({ queryKey: ['listItems', variables.listId] });
+      queryClient.invalidateQueries({ queryKey: ['listPreviewItems', variables.listId] });
+      
+      queryClient.invalidateQueries({ queryKey: ['userLists', user?.id], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['lists'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['searchResults'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['homeFeed'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['results'], exact: false }); 
+
+      queryClient.refetchQueries({ queryKey: ['listDetails', variables.listId], exact: true });
+      queryClient.refetchQueries({ queryKey: ['userLists', user?.id], exact: true });
+
+      window.dispatchEvent(new CustomEvent('listItemAdded', { 
+        detail: { listId: variables.listId, itemId: variables.itemId }
+      }));
+      
+      setStep(2); 
+      if (onItemAdded) {
+        onItemAdded(variables.listId, data?.data?.list_item_id);
+      }
+    },
+    onError: (error) => {
+      logError('Error adding item to list:', error);
+      alert(`Error: ${error.response?.data?.message || error.message || 'Could not add item to list.'}`);
+    },
+  });
+
+  const handleCreateList = () => {
+    if (!newListName.trim()) {
+      alert('Please enter a name for your new list.');
       return;
     }
-    
-    // Validate list selection
-    if (!selectedListId) {
-      setLocalError("Please select a list.");
-      return;
-    }
-
-    // Submit the request
-    addItemMutation.mutate({
-      listId: selectedListId,
-      itemId: item.id,
-      itemType: item.type,
+    logDebug(`Attempting to create list: ${newListName}`);
+    createListMutation.mutate({
+      name: newListName,
+      description: newListDescription,
+      is_public: true, 
+      list_type: itemToAdd?.type === 'restaurant' ? 'restaurants' : itemToAdd?.type === 'dish' ? 'dishes' : 'mixed',
     });
-  }, [selectedListId, item, addItemMutation]);
+  };
+  
+  const handleAddItemToList = (listIdToUse) => {
+    const listId = listIdToUse || selectedListId;
+    if (!listId || !itemToAdd) {
+      alert('Please select a list and ensure an item is available to add.');
+      logError("handleAddItemToList: ListId or itemToAdd missing.", { listId, itemToAddPresent: !!itemToAdd });
+      return;
+    }
+    addItemToListMutation.mutate({
+      listId,
+      itemType: itemToAdd.type,
+      itemId: itemToAdd.id,
+      notes: itemNotes,
+    });
+  };
 
-  if (!item) {
-    return null;
+  const selectedListData = useMemo(() => {
+    if (!selectedListId) return null;
+    return userLists.find(list => list.id === selectedListId);
+  }, [selectedListId, userLists]);
+
+  if (!isOpen) return null; 
+
+  if (!isAuthenticated) {
+      return (
+          <Modal isOpen={isOpen} onClose={onClose} title="Authentication Required">
+              <div className="p-4 text-center">
+                  <AlertCircle className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
+                  <p className="text-gray-600">Please log in to add items to your lists or create new lists.</p>
+                  <Button onClick={onClose} variant="primary" className="mt-6">
+                      Close
+                  </Button>
+              </div>
+          </Modal>
+      );
   }
 
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} title={`Add "${item.name}" to a list`}>
-      <form onSubmit={handleSubmit}>
-        {/* Debug information */}
-        <div className="mb-3 p-2 bg-gray-100 text-xs border-l-2 border-blue-500">
-          <div><strong>Lists:</strong> {userLists?.length > 0 ? 'Using your real lists' : 'Using fallback lists'}</div>
-          <div>Total lists: {listsToDisplay.length}</div>
-          {isAuthenticated ? <div>User ID: {userId} (authenticated)</div> : <div>Not authenticated</div>}
-        </div>
+  const renderStepOne = () => (
+    <>
+      <div className="mb-4">
+        <Label htmlFor="list-search">Search your lists or create new</Label>
+        <Input
+          id="list-search"
+          type="text"
+          placeholder="Type to search lists..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full"
+        />
+      </div>
 
-        {/* Loading state */}
-        {isLoading && (
-          <div className="flex justify-center py-4">
-            <LoadingSpinner size="md" message="Loading your lists..." />
-          </div>
-        )}
+      {isLoadingUserLists && <p className="text-sm text-gray-500 py-4 text-center">Loading your lists...</p>}
 
-        {/* Error state */}
-        {error && !isLoading && (
-          <ErrorMessage message="Could not load your lists. Using fallback data." />
-        )}
-
-        {/* Lists grid */}
-        <div className="mb-4">
-          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Select a list:</h3>
-          
-          <div className="grid grid-cols-2 gap-3 max-h-64 overflow-y-auto">
-            {listsToDisplay.map((list) => (
-              <div 
+      {!isLoadingUserLists && !showNewListForm && (
+        <div className="max-h-60 overflow-y-auto mb-4 border rounded-md shadow-sm">
+          {filteredLists.length > 0 ? (
+            filteredLists.map((list) => (
+              <div
                 key={list.id}
-                onClick={() => {
-                  setSelectedListId(list.id);
-                  setLocalError('');
-                }}
-                className={`
-                  p-3 border rounded-lg cursor-pointer transition-all
-                  ${selectedListId === list.id 
-                    ? 'border-black bg-gray-100' 
-                    : 'border-gray-200 hover:border-gray-400'}
-                `}
+                onClick={() => setSelectedListId(list.id)}
+                onKeyDown={(e) => e.key === 'Enter' && setSelectedListId(list.id)}
+                role="button"
+                tabIndex={0}
+                className={`p-3 cursor-pointer hover:bg-primary-50 dark:hover:bg-gray-700 ${
+                  selectedListId === list.id ? 'bg-primary-100 dark:bg-primary-700 border-l-4 border-primary-500 dark:border-primary-400' : 'border-b border-gray-200 dark:border-gray-600'
+                } transition-all duration-150`}
               >
-                <div className="font-medium text-black truncate">{list.name}</div>
-                <div className="text-xs text-gray-600">{list.item_count || 0} items</div>
+                <h4 className="font-medium text-sm text-gray-800 dark:text-gray-100">{list.name}</h4>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {list.item_count ?? 0} items · {list.is_public ? 'Public' : 'Private'}
+                </p>
               </div>
-            ))}
+            ))
+          ) : (
+            <p className="p-4 text-sm text-gray-500 dark:text-gray-400 text-center">No lists found. Try creating one!</p>
+          )}
+        </div>
+      )}
+
+      {!showNewListForm && (
+        <Button onClick={() => setShowNewListForm(true)} variant="outline" className="w-full mb-4">
+          <PlusHeroIcon className="h-4 w-4 mr-2" /> Create New List
+        </Button>
+      )}
+
+      {showNewListForm && (
+        <div className="mb-4 p-4 border rounded-md bg-gray-50 dark:bg-gray-700 shadow">
+          <h3 className="text-lg font-semibold mb-3 text-gray-700 dark:text-gray-200">Create New List</h3>
+          <div className="mb-3">
+            <Label htmlFor="new-list-name" className="dark:text-gray-300">List Name*</Label>
+            <Input
+              id="new-list-name"
+              type="text"
+              value={newListName}
+              onChange={(e) => setNewListName(e.target.value)}
+              placeholder="e.g., My Favorite Spots"
+              className="w-full dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600"
+            />
           </div>
-          
-          {selectedListId && (
-            <div className="mt-3 p-2 bg-gray-50 border border-gray-200 rounded">
-              <div className="text-xs text-gray-500">Selected list:</div>
-              <div className="font-medium text-black">
-                {listsToDisplay.find(l => String(l.id) === String(selectedListId))?.name}
-              </div>
-            </div>
-          )}
+          <div className="mb-4">
+            <Label htmlFor="new-list-description" className="dark:text-gray-300">Description (Optional)</Label>
+            <Input
+              id="new-list-description"
+              type="text"
+              value={newListDescription}
+              onChange={(e) => setNewListDescription(e.target.value)}
+              placeholder="A short description of your list"
+              className="w-full dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600"
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={handleCreateList} isLoading={createListMutation.isPending} className="flex-grow" variant="primary">
+              Create & Select List
+            </Button>
+            <Button onClick={() => setShowNewListForm(false)} variant="ghost" className="flex-shrink-0">
+              Cancel
+            </Button>
+          </div>
         </div>
-
-        {/* Status Messages Area */}
-        <div className="mt-4">
-          {/* Error message */}
-          {localError && (
-            <div className="p-2 border border-red-200 rounded bg-red-50 text-red-700 flex items-center">
-              <AlertCircle size={14} className="mr-2 flex-shrink-0" />
-              <span className="text-sm">{localError}</span>
-            </div>
-          )}
-          
-          {/* Success message */}
-          {successMessage && (
-            <div className="p-2 border border-green-200 rounded bg-green-50 text-green-700 flex items-center">
-              <CheckCircle2 size={14} className="mr-2 flex-shrink-0" />
-              <span className="text-sm">{successMessage}</span>
-            </div>
-          )}
+      )}
+      
+      {selectedListId && !showNewListForm && itemToAdd && (
+         <div className="mt-4 pt-4 border-t dark:border-gray-600">
+            <Label htmlFor="item-notes" className="dark:text-gray-300">Notes for {itemToAdd.name} (Optional)</Label>
+            <Input
+              id="item-notes"
+              type="text"
+              value={itemNotes}
+              onChange={(e) => setItemNotes(e.target.value)}
+              placeholder="e.g., Order the spicy ramen!"
+              className="w-full mb-3 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600"
+            />
+            <Button 
+                onClick={() => handleAddItemToList()} 
+                isLoading={addItemToListMutation.isPending} 
+                className="w-full"
+                variant="primary"
+                disabled={!selectedListId}
+            >
+              Add "{itemToAdd.name?.substring(0,20)}{itemToAdd.name?.length > 20 ? '...' : ''}" to "{selectedListData?.name?.substring(0,15)}{selectedListData?.name?.length > 15 ? '...' : ''}"
+            </Button>
         </div>
+      )}
+       {!itemToAdd && selectedListId && !showNewListForm && (
+         <div className="text-sm text-green-600 dark:text-green-400 mt-2 p-3 bg-green-50 dark:bg-green-900/30 rounded-md flex items-center">
+            <CheckCircle2 size={16} className="mr-2 flex-shrink-0" />
+            List "{selectedListData?.name}" selected.
+         </div>
+       )}
+    </>
+  );
 
-        {/* Action Buttons */}
-        <div className="flex justify-end space-x-3 mt-5">
+  const renderStepTwo = () => (
+    <div className="text-center py-6">
+      <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4" />
+      <h3 className="text-xl font-semibold mb-2 text-gray-800 dark:text-gray-100">Success!</h3>
+      {itemToAdd && selectedListData && (
+        <p className="text-gray-600 dark:text-gray-300 mb-4">
+          "{itemToAdd.name}" has been added to your list "{selectedListData.name}".
+        </p>
+      )}
+      {!itemToAdd && selectedListData && ( 
+         <p className="text-gray-600 dark:text-gray-300 mb-4">
+          List "{selectedListData.name}" is ready.
+        </p>
+      )}
+
+      <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
+        <Button onClick={onClose} variant="primary" className="w-full sm:w-auto">
+          Done
+        </Button>
+        {selectedListData && (
           <Button 
-            type="button" 
+            onClick={() => {
+              logDebug(`Viewing list: /lists/${selectedListData.id}`);
+              onClose(); 
+            }} 
             variant="outline" 
-            onClick={onClose} 
-            disabled={addItemMutation.isPending}
-            className="border border-black text-black hover:bg-gray-100 transition-colors"
+            className="w-full sm:w-auto"
           >
-            Cancel
+            View List <ExternalLink className="h-4 w-4 ml-1.5 opacity-70"/>
           </Button>
-          <Button
-            type="submit"
-            variant="primary"
-            disabled={addItemMutation.isPending || !selectedListId}
-            isLoading={addItemMutation.isPending}
-            className="bg-black text-white hover:bg-gray-800 transition-colors"
-          >
-            Add to List
-          </Button>
-        </div>
-      </form>
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <Modal 
+        isOpen={isOpen} 
+        onClose={onClose} 
+        title={step === 1 ? (itemToAdd ? `Add "${itemToAdd.name?.substring(0,30)}${itemToAdd.name?.length > 30 ? '...' : ''}" to a List` : "Select or Create List") : "Action Complete"}
+        size={step === 1 ? "lg" : "md"}
+    >
+      <div className="p-1 sm:p-2"> 
+        {step === 1 && renderStepOne()}
+        {step === 2 && renderStepTwo()}
+      </div>
     </Modal>
   );
-}
+};
 
 AddToListModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
-  item: PropTypes.shape({
-    id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+  itemToAdd: PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
     name: PropTypes.string.isRequired,
-    type: PropTypes.oneOf(['restaurant', 'dish']).isRequired,
+    type: PropTypes.string.isRequired,
   }),
+  onItemAdded: PropTypes.func,
 };
 
 export default AddToListModal;

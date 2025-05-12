@@ -18,9 +18,20 @@ export function ListDetailProvider({ children }) {
       return;
     }
     
-    console.log(`[ListDetailContext] Opening list detail modal for list ID: ${id}`);
-    setListId(id);
-    setIsOpen(true);
+    // Close any existing modal first to prevent state conflicts
+    if (isOpen) {
+      setIsOpen(false);
+      // Small delay to ensure clean state transition
+      setTimeout(() => {
+        console.log(`[ListDetailContext] Opening list detail modal for list ID: ${id}`);
+        setListId(id);
+        setIsOpen(true);
+      }, 50);
+    } else {
+      console.log(`[ListDetailContext] Opening list detail modal for list ID: ${id}`);
+      setListId(id);
+      setIsOpen(true);
+    }
   };
 
   const closeListDetail = () => {

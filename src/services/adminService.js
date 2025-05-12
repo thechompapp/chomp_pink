@@ -6,7 +6,7 @@ import { logError } from '@/utils/logger.js';
 export const adminService = {
   getAdminRestaurants: async () => {
     return handleApiResponse(
-      () => apiClient.get('/api/admin/restaurants'),
+      () => apiClient.get('/admin/restaurants'),
       'AdminService GetRestaurants'
     ).catch(error => {
       logError('Failed to fetch admin restaurants:', error);
@@ -16,7 +16,7 @@ export const adminService = {
 
   getAdminDishes: async () => {
     return handleApiResponse(
-      () => apiClient.get('/api/admin/dishes'),
+      () => apiClient.get('/admin/dishes'),
       'AdminService GetDishes'
     ).catch(error => {
       logError('Failed to fetch admin dishes:', error);
@@ -26,7 +26,7 @@ export const adminService = {
 
   getAdminUsers: async () => {
     return handleApiResponse(
-      () => apiClient.get('/api/admin/users'),
+      () => apiClient.get('/admin/users'),
       'AdminService GetUsers'
     ).catch(error => {
       logError('Failed to fetch admin users:', error);
@@ -36,7 +36,7 @@ export const adminService = {
 
   getAdminCitiesSimple: async () => {
     return handleApiResponse(
-      () => apiClient.get('/api/admin/cities'),
+      () => apiClient.get('/admin/cities'),
       'AdminService GetCitiesSimple'
     ).catch(error => {
       logError('Failed to fetch admin cities:', error);
@@ -46,7 +46,7 @@ export const adminService = {
 
   getAdminNeighborhoods: async () => {
     return handleApiResponse(
-      () => apiClient.get('/api/admin/neighborhoods'),
+      () => apiClient.get('/admin/neighborhoods'),
       'AdminService GetNeighborhoods'
     ).catch(error => {
       logError('Failed to fetch admin neighborhoods:', error);
@@ -56,7 +56,7 @@ export const adminService = {
 
   getAdminHashtags: async () => {
     return handleApiResponse(
-      () => apiClient.get('/api/admin/hashtags'),
+      () => apiClient.get('/admin/hashtags'),
       'AdminService GetHashtags'
     ).catch(error => {
       logError('Failed to fetch admin hashtags:', error);
@@ -66,7 +66,7 @@ export const adminService = {
 
   getAdminData: async (resource) => {
     return handleApiResponse(
-      () => apiClient.get(`/api/admin/${resource}`),
+      () => apiClient.get(`/admin/${resource}`),
       `AdminService Get${resource}`
     ).catch(error => {
       logError(`Failed to fetch admin ${resource}:`, error);
@@ -76,7 +76,7 @@ export const adminService = {
 
   createResource: async (type, payload) => {
     return handleApiResponse(
-      () => apiClient.post(`/api/admin/${type}`, payload),
+      () => apiClient.post(`/admin/${type}`, payload),
       `AdminService Create${type}`
     ).catch(error => {
       logError(`Failed to create ${type}:`, error);
@@ -86,7 +86,7 @@ export const adminService = {
 
   bulkAddItems: async (items) => {
     return handleApiResponse(
-      () => apiClient.post('/api/admin/bulk-add', items),
+      () => apiClient.post('/admin/bulk/items', items),
       'AdminService BulkAddItems'
     ).catch(error => {
       logError('Failed to bulk add items:', error);

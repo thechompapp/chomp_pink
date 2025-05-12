@@ -158,17 +158,23 @@ apiClient.interceptors.request.use(
     
     // If user is authenticated, ensure we send the right auth headers
     if (authState?.isAuthenticated) {
-      // Add a header to indicate user is authenticated in case cookies are not working
+      // Add the authentication token to the Authorization header
       config.headers = {
         ...config.headers,
         'X-Auth-Authenticated': 'true',
+        'Authorization': `Bearer ${authState.token || localStorage.getItem('auth-token')}`,
       };
       
       // Ensure withCredentials is true to send cookies
       config.withCredentials = true;
       
       // Debug log for authentication detection
-      logDebug(`[API Client] Sending authenticated request to ${config.url}`);
+      logDebug(`[API Client] Sending authenticated request to ${config.url} with token`);
+      
+      // For admin endpoints, ensure we have the token
+      if (config.url.includes('/admin/')) {
+        logDebug(`[API Client] Admin endpoint detected: ${config.url}`);
+      }
     }
     
     // Check if we should bypass API requests when in offline mode

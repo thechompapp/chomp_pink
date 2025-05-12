@@ -17,6 +17,13 @@ router.get(
     neighborhoodController.getAllNeighborhoods // Access via namespace
 );
 
+// Add endpoint for looking up neighborhoods by zipcode
+router.get(
+    '/by-zipcode/:zipcode',
+    optionalAuthMiddleware,
+    neighborhoodController.getNeighborhoodsByZipcode
+);
+
 // TODO: Add GET /api/neighborhoods/:id if needed
 
 export default router;

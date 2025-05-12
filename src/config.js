@@ -36,14 +36,15 @@ const getApiHostComponents = (url) => {
   }
 };
 
-// Modify API URL to use the same port as the frontend to avoid CORS issues
+// Use the backend port (5001) for API calls
 const adaptApiUrlToFrontendPort = (apiUrl) => {
-  const frontendPort = getCurrentPort();
+  // Extract protocol and host but always use backend port (5001)
   const { protocol, host } = getApiHostComponents(apiUrl);
   
-  // If it's a localhost URL, adapt to frontend port
+  // If it's a localhost URL, use the backend port
   if (host === 'localhost' || host === '127.0.0.1') {
-    return `${protocol}//${host}:${frontendPort}`;
+    // Always use port 5001 for backend API calls
+    return `${protocol}//${host}:5001`;
   }
   
   return apiUrl;

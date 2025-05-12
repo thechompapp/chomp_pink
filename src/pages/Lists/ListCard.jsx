@@ -133,7 +133,25 @@ const ListCard = (props) => {
   const { user, isAuthenticated } = useAuthStore() || {};
   const { isFollowing } = useFollowStore() || {};
 
-  // React Query v5 syntax
+  // Load list details to get accurate item count
+  const {
+    data: listDetailsData,
+    isLoading: isLoadingDetails,
+    isError: isErrorDetails
+  } = useQuery({
+    queryKey: ['list-details', safeListId],
+    queryFn: async () => {
+      return listService.getListDetails(safeListId);
+    },
+    enabled: Boolean(safeListId),
+    staleTime: 60000,
+    retry: 1,
+    onError: (error) => {
+      console.error(`[ListCard] Error fetching list details for ${safeListId}:`, error);
+    }
+  });
+
+  // Load list items when expanded - with error handling
   const {
     data: itemsData,
     isLoading,
@@ -199,9 +217,17 @@ const ListCard = (props) => {
   // Handlers (can use try/catch inside these)
   const handleCardClick = useCallback(() => {
     try {
-      if (openListDetail) {
-        openListDetail(safeListId);
+      if (!openListDetail) {
+        console.error('[ListCard] openListDetail function not available');
+        return;
       }
+      
+      // Log the click with the ID to help diagnose issues
+      console.log(`[ListCard] Card clicked for list ID: ${safeListId}`);
+      
+      // Ensure we're passing a string ID
+      const idToOpen = String(safeListId);
+      openListDetail(idToOpen);
     } catch (error) {
       console.error('[ListCard] Error in card click handler:', error);
     }
@@ -233,7 +259,16 @@ const ListCard = (props) => {
   const listName = list.name || 'Unnamed List';
   const updatedAt = list.updated_at ? new Date(list.updated_at) : new Date();
   const updatedText = formatRelativeDate(updatedAt) || 'Updated recently';
-  const itemCount = list.items?.length || list.items_count || 0;
+  
+  // Use accurate item count from listDetailsData if available
+  const itemCount = useMemo(() => {
+    // If we have details data, use the items array length from there
+    if (listDetailsData?.items && Array.isArray(listDetailsData.items)) {
+      return listDetailsData.items.length;
+    }
+    // Fallback to original calculation
+    return list.items?.length || list.items_count || 0;
+  }, [list.items, list.items_count, listDetailsData?.items]);
 
   return (
     <BaseCard
