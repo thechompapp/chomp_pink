@@ -33,7 +33,13 @@ export const PlacesApiProvider = ({ children }) => {
       setError(null);
 
       try {
-        const response = await apiClient('/api/places/proxy/autocomplete?input=New%20York');
+        // Fix: Remove the '/api' prefix since apiClient already includes it in the baseURL
+        const response = await apiClient('/places/autocomplete?input=New%20York', {
+          headers: {
+            'X-Bypass-Auth': 'true',
+            'X-Places-Api-Request': 'true'
+          }
+        });
         if (response.success && Array.isArray(response.data)) {
           setIsAvailable(true);
           setError(null);

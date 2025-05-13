@@ -109,6 +109,14 @@ const BulkAdd = () => {
     // Use the new processInputData function
     await processInputData(rawItems);
   }, [rawText, processInputData]);
+  
+  // Update items state when processedItems changes
+  useEffect(() => {
+    if (processedItems && processedItems.length > 0) {
+      console.log('[BulkAdd] Updating items with processed data:', processedItems);
+      setItems(processedItems);
+    }
+  }, [processedItems]);
 
   const handleSubmitReviewedItems = useCallback(async (itemsWithForceFlags = null) => {
     // Use provided items with force flags if available, otherwise use the current items

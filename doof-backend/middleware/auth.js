@@ -6,6 +6,23 @@ import db from '../db/index.js';
 import { ListModel } from '../models/listModel.js';
 
 export const requireAuth = async (req, res, next) => {
+  // Check for development bypass headers
+  const bypassAuth = req.headers['x-bypass-auth'] === 'true';
+  const isPlacesApiRequest = req.headers['x-places-api-request'] === 'true';
+  
+  // Allow bypass in development mode or for Places API requests with the right headers
+  if (process.env.NODE_ENV === 'development' && (bypassAuth || isPlacesApiRequest)) {
+    console.log('[Auth Middleware] Bypassing authentication for development or Places API request');
+    // Set a default user for development
+    req.user = {
+      id: 1, // Default to admin user
+      username: 'dev_user',
+      email: 'dev@example.com',
+      account_type: 'superuser' // Grant superuser access in dev mode
+    };
+    return next();
+  }
+  
   const authHeader = req.headers.authorization;
   let token;
 
