@@ -26,6 +26,35 @@ router.post('/submissions/:submissionId/reject', adminController.rejectSubmissio
 // Bulk Operations
 router.post('/bulk/:resourceType', adminController.bulkAddResources);
 
+// Check for existing items before bulk add
+router.post('/check-existing/:resourceType', async (req, res) => {
+    try {
+        const { resourceType } = req.params;
+        const itemsToCheck = req.body.items || [];
+        
+        if (!itemsToCheck || !Array.isArray(itemsToCheck) || itemsToCheck.length === 0) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'No items provided to check.' 
+            });
+        }
+        
+        const results = await adminController.checkExistingItems(resourceType, itemsToCheck);
+        
+        return res.status(200).json({
+            success: true,
+            message: `Checked ${itemsToCheck.length} items for duplicates.`,
+            data: results
+        });
+    } catch (error) {
+        console.error('Error checking for existing items:', error);
+        return res.status(500).json({
+            success: false,
+            message: `Failed to check for existing items. Error: ${error.message}`
+        });
+    }
+});
+
 // Direct routes for specific resources to match frontend API calls
 router.get('/restaurants', (req, res) => {
     req.params.resourceType = 'restaurants';

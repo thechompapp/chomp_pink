@@ -5,6 +5,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import InputMode from './InputMode.jsx';
 import ReviewMode from './ReviewMode.jsx';
+import PlaceSelectionDialog from './PlaceSelectionDialog.jsx';
 import useBulkAddProcessor from '@/hooks/useBulkAddProcessor.js';
 import { restaurantService } from '@/services/restaurantService.js';
 import { dishService } from '@/services/dishService.js';
@@ -27,8 +28,8 @@ const BulkAdd = () => {
   const { 
     processInputData, 
     isProcessing: isItemProcessing, 
-    error: processingError, 
-    items: processedItems,
+    processingError, 
+    processedItems,
     placeSelections,
     awaitingSelection,
     currentProcessingIndex,
@@ -109,8 +110,15 @@ const BulkAdd = () => {
     await processInputData(rawItems);
   }, [rawText, processInputData]);
 
-  const handleSubmitReviewedItems = useCallback(async () => {
-    const itemsToSubmit = items.filter(item => item.status === 'ready');
+  const handleSubmitReviewedItems = useCallback(async (itemsWithForceFlags = null) => {
+    // Use provided items with force flags if available, otherwise use the current items
+    const currentItems = itemsWithForceFlags || items;
+    
+    // Filter items that are ready or duplicates with forceSubmit flag
+    const itemsToSubmit = currentItems.filter(item => 
+      item.status === 'ready' || (item.isDuplicate && item.forceSubmit)
+    );
+    
     if (itemsToSubmit.length === 0) {
       console.warn('[BulkAdd handleSubmit] No items marked as ready for submission.');
       setSubmissionError('No items are ready for submission.');
@@ -196,41 +204,13 @@ const BulkAdd = () => {
       {awaitingSelection && currentProcessingIndex >= 0 && processedItems && 
        Array.isArray(processedItems) && processedItems.length > currentProcessingIndex && 
        processedItems[currentProcessingIndex]?.placeOptions?.length > 0 && (
-        <div className="place-selection-dialog">
-          <div className="place-selection-content">
-            <h3>Multiple locations found for "{processedItems[currentProcessingIndex].name}"</h3>
-            <p>Please select the correct location:</p>
-            <div className="place-options">
-              {processedItems[currentProcessingIndex].placeOptions.map((option, index) => (
-                <div key={option.placeId || index} className="place-option">
-                  <button 
-                    onClick={() => selectPlace(option.placeId)}
-                    className="place-select-button"
-                  >
-                    <strong>
-                      {option.mainText || 
-                       (option.description && option.description.includes(',') ? 
-                        option.description.split(',')[0] : 
-                        option.description || 'Location Option ' + (index + 1))}
-                    </strong>
-                    <span>
-                      {option.secondaryText || 
-                       (option.description && option.description.includes(',') ? 
-                        option.description.substring(option.description.indexOf(',') + 1) : 
-                        '')}
-                    </span>
-                  </button>
-                </div>
-              ))}
-            </div>
-            <button 
-              onClick={() => selectPlace(null)} 
-              className="cancel-button"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
+        <PlaceSelectionDialog
+          isOpen={true}
+          options={processedItems[currentProcessingIndex].placeOptions}
+          onSelect={selectPlace}
+          onCancel={() => selectPlace(null)}
+          restaurantName={processedItems[currentProcessingIndex].name}
+        />
       )}
       {mode === 'review' && (
         <>

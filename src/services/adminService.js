@@ -84,9 +84,19 @@ export const adminService = {
     });
   },
 
+  checkExistingItems: async (resourceType, items) => {
+    return handleApiResponse(
+      () => apiClient.post(`/admin/check-existing/${resourceType}`, items),
+      `AdminService CheckExisting${resourceType}`
+    ).catch(error => {
+      logError(`Failed to check existing ${resourceType}:`, error);
+      throw error;
+    });
+  },
+
   bulkAddItems: async (items) => {
     return handleApiResponse(
-      () => apiClient.post('/admin/bulk/items', items),
+      () => apiClient.post('/admin/bulk/restaurants', items),
       'AdminService BulkAddItems'
     ).catch(error => {
       logError('Failed to bulk add items:', error);

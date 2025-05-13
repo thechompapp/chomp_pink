@@ -45,6 +45,50 @@ export const filterService = {
    * @param {string} zipcode - The zipcode to look up
    * @returns {Promise<Object|null>} The neighborhood object if found, null otherwise
    */
+  /**
+   * Find a city by name
+   * @param {string} cityName - The name of the city to look up
+   * @returns {Promise<Object|null>} The city object if found, null otherwise
+   */
+  async findCityByName(cityName) {
+    if (!cityName || typeof cityName !== 'string') {
+      logWarn(`[FilterService] Invalid city name: ${cityName}`);
+      return null;
+    }
+
+    logDebug(`[FilterService] Looking up city by name: ${cityName}`);
+    
+    // First get all cities
+    return this.getCities()
+      .then(cities => {
+        if (!cities || !Array.isArray(cities)) {
+          logWarn(`[FilterService] No cities found in the database`);
+          return null;
+        }
+        
+        // Find the city by name (case insensitive)
+        const city = cities.find(c => 
+          c.name.toLowerCase() === cityName.toLowerCase());
+        
+        if (!city) {
+          logDebug(`[FilterService] No city found with name: ${cityName}`);
+          return null;
+        }
+        
+        logDebug(`[FilterService] Found city: ${city.name} (ID: ${city.id})`);
+        return city;
+      })
+      .catch(error => {
+        logError(`[FilterService] Error finding city by name ${cityName}:`, error);
+        return null;
+      });
+  },
+
+  /**
+   * Find a neighborhood by zipcode
+   * @param {string} zipcode - The zipcode to look up
+   * @returns {Promise<Object|null>} The neighborhood object if found, null otherwise
+   */
   async findNeighborhoodByZipcode(zipcode) {
     if (!zipcode || !/^\d{5}$/.test(zipcode)) {
       logWarn(`[FilterService] Invalid zipcode format: ${zipcode}`);
@@ -54,7 +98,7 @@ export const filterService = {
     logDebug(`[FilterService] Looking up neighborhood for zipcode: ${zipcode}`);
     
     return handleApiResponse(
-      () => apiClient.get(`/api/neighborhoods/by-zipcode/${zipcode}`),
+      () => apiClient.get(`/neighborhoods/by-zipcode/${zipcode}`),
       `FilterService Find Neighborhood By Zipcode (${zipcode})`,
       (data) => {
         if (!data || !Array.isArray(data)) {

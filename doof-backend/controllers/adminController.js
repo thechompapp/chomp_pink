@@ -265,6 +265,16 @@ export const rejectSubmission = async (req, res) => {
   }
 };
 
+export const checkExistingItems = async (resourceType, itemsToCheck) => {
+    try {
+        const results = await AdminModel.checkExistingItems(resourceType, itemsToCheck);
+        return results;
+    } catch (error) {
+        console.error(`Error checking existing ${resourceType}:`, error);
+        throw error;
+    }
+};
+
 export const bulkAddResources = async (req, res) => {
     const { resourceType } = req.params;
     const { items } = req.body;
