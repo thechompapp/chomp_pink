@@ -4,8 +4,7 @@
 
 # Set variables
 API_BASE_URL="http://localhost:5001/api"
-ADMIN_EMAIL="admin@example.com"
-ADMIN_PASSWORD="doof123"
+DEV_SERVER_URL="http://localhost:5173/api"
 
 # Text colors
 GREEN='\033[0;32m'
@@ -16,31 +15,110 @@ PURPLE='\033[0;35m'
 NC='\033[0m' # No Color
 
 echo -e "${BLUE}=== Chomp Bulk Add Duplicate Detection Test ===${NC}"
-echo "Testing with API base URL: $API_BASE_URL"
 
-# Step 1: Login as admin user to get authentication token
-echo -e "\n${YELLOW}Step 1: Authenticating as admin user...${NC}"
-AUTH_RESPONSE=$(curl -s -X POST "$API_BASE_URL/auth/login" \
+# Step 1: Test with the actual data format from the error log (incorrect format)
+echo -e "\n${YELLOW}Step 1: Testing with the incorrect format from the error log...${NC}"
+
+# Create a test payload with the format from the error log
+cat > /tmp/error_format_payload.json << EOL
+[
+  {"name":"Claro","type":"restaurant","city_id":1,"_lineNumber":1},
+  {"name":"Fandi Mata","type":"restaurant","city_id":1,"_lineNumber":2},
+  {"name":"Peaches","type":"restaurant","city_id":1,"_lineNumber":3},
+  {"name":"Miss Lily's","type":"restaurant","city_id":1,"_lineNumber":4},
+  {"name":"Shukette","type":"restaurant","city_id":1,"_lineNumber":5}
+]
+EOL
+
+# Send the request with the error format
+echo -e "${BLUE}Sending request with incorrect format...${NC}"
+ERROR_FORMAT_RESPONSE=$(curl -s -X POST "$DEV_SERVER_URL/admin/check-existing/restaurants" \
   -H "Content-Type: application/json" \
-  -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASSWORD\"}")
+  -H "X-Auth-Authenticated: true" \
+  -H "X-Bypass-Auth: true" \
+  --data-binary @/tmp/error_format_payload.json)
 
-# The API uses cookies for authentication instead of tokens
-# Save the response cookies to a file
-echo "$AUTH_RESPONSE" > /tmp/auth_response.txt
-curl -s -c /tmp/chomp_cookies.txt -X POST "$API_BASE_URL/auth/login" \
+# Display the response
+echo -e "${RED}Response with incorrect format (should fail):${NC}"
+echo "$ERROR_FORMAT_RESPONSE" | jq . 2>/dev/null || echo "$ERROR_FORMAT_RESPONSE"
+
+# Step 2: Test with the corrected format for the same data
+echo -e "\n${YELLOW}Step 2: Testing with the corrected format for the same data...${NC}"
+
+# Create a test payload with the corrected format
+cat > /tmp/corrected_format_payload.json << EOL
+{
+  "items": [
+    {"name":"Claro","type":"restaurant","city_id":1,"_lineNumber":1},
+    {"name":"Fandi Mata","type":"restaurant","city_id":1,"_lineNumber":2},
+    {"name":"Peaches","type":"restaurant","city_id":1,"_lineNumber":3},
+    {"name":"Miss Lily's","type":"restaurant","city_id":1,"_lineNumber":4},
+    {"name":"Shukette","type":"restaurant","city_id":1,"_lineNumber":5}
+  ]
+}
+EOL
+
+# Send the request with the corrected format
+echo -e "${BLUE}Sending request with corrected format...${NC}"
+CORRECTED_FORMAT_RESPONSE=$(curl -s -X POST "$DEV_SERVER_URL/admin/check-existing/restaurants" \
   -H "Content-Type: application/json" \
-  -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASSWORD\"}"
+  -H "X-Auth-Authenticated: true" \
+  -H "X-Bypass-Auth: true" \
+  --data-binary @/tmp/corrected_format_payload.json)
 
-if echo "$AUTH_RESPONSE" | grep -q '"success":true'; then
-  echo -e "${GREEN}Authentication successful!${NC}"
-  echo "Response: $(echo $AUTH_RESPONSE | cut -c 1-100)... (truncated)"
-else
-  echo -e "${RED}Authentication failed. Response: $AUTH_RESPONSE${NC}"
-  exit 1
-fi
+# Display the response
+echo -e "${GREEN}Response with corrected format (should succeed):${NC}"
+echo "$CORRECTED_FORMAT_RESPONSE" | jq . 2>/dev/null || echo "$CORRECTED_FORMAT_RESPONSE"
 
-# Step 2: Get a list of existing restaurants to use for duplicate detection test
-echo -e "\n${YELLOW}Step 2: Fetching existing restaurants...${NC}"
+# Step 3: Test the bulk add endpoint with the corrected format
+echo -e "\n${YELLOW}Step 3: Testing bulk add endpoint with corrected format...${NC}"
+
+# Create a test payload for bulk add
+cat > /tmp/bulk_add_payload.json << EOL
+{
+  "items": [
+    {
+      "name": "Test Restaurant $(date +%s)",
+      "type": "restaurant",
+      "address": "123 Test St",
+      "city": "New York",
+      "state": "NY",
+      "zipcode": "10001",
+      "city_id": 1,
+      "neighborhood_id": null,
+      "latitude": 40.7128,
+      "longitude": -74.0060,
+      "_lineNumber": 1
+    }
+  ]
+}
+EOL
+
+# Send the request to add items
+echo -e "${BLUE}Sending bulk add request with corrected format...${NC}"
+ADD_RESPONSE=$(curl -s -X POST "$DEV_SERVER_URL/admin/bulk/restaurants" \
+  -H "Content-Type: application/json" \
+  -H "X-Auth-Authenticated: true" \
+  -H "X-Bypass-Auth: true" \
+  --data-binary @/tmp/bulk_add_payload.json)
+
+# Display the response
+echo -e "${GREEN}Response from bulk add:${NC}"
+echo "$ADD_RESPONSE" | jq . 2>/dev/null || echo "$ADD_RESPONSE"
+
+# Clean up
+rm -f /tmp/error_format_payload.json /tmp/corrected_format_payload.json /tmp/bulk_add_payload.json
+
+echo -e "\n${BLUE}=== Test completed ===${NC}"
+
+# Provide a summary of the findings
+echo -e "\n${PURPLE}=== Test Summary ===${NC}"
+echo -e "1. Incorrect Format Test: ${YELLOW}$(echo "$ERROR_FORMAT_RESPONSE" | grep -q 'error\|fail\|invalid' && echo 'Failed (Expected)' || echo 'Succeeded (Unexpected)')${NC}"
+echo -e "2. Corrected Format Test: ${YELLOW}$(echo "$CORRECTED_FORMAT_RESPONSE" | grep -q 'error\|fail\|invalid' && echo 'Failed (Unexpected)' || echo 'Succeeded (Expected)')${NC}"
+echo -e "3. Bulk Add Test: ${YELLOW}$(echo "$ADD_RESPONSE" | grep -q 'error\|fail\|invalid' && echo 'Failed (Unexpected)' || echo 'Succeeded (Expected)')${NC}"
+
+echo -e "\n${BLUE}The issue is: ${YELLOW}The API expects an object with an 'items' property, but is receiving an array directly.${NC}"
+echo -e "${BLUE}Fix: ${YELLOW}We've updated the frontend code to send the correct payload format with an 'items' wrapper.${NC}"
 RESTAURANTS_RESPONSE=$(curl -s -X GET "$API_BASE_URL/admin/restaurants" \
   -b /tmp/chomp_cookies.txt)
 

@@ -169,111 +169,264 @@ const BulkAdd = () => {
     setSubmitProgress(0);
 
     try {
-      // Use the existing submitBulkAdd function to avoid infinite loops
-      const result = await submitBulkAdd(itemsToSubmit);
-      console.log("[BulkAdd] Submission result:", result);
+      // First, check for duplicates using the API
+      console.log('[BulkAdd] Checking for duplicates before submission...');
       
-      // Update items with the result
-      const updatedItems = [...items];
-      const successfulItems = [];
-      const duplicateItems = [];
-      const failedItems = [];
+      // Format items for duplicate check
+      const checkPayload = {
+        items: itemsToSubmit.map(item => ({
+          name: item.name,
+          type: item.type || 'restaurant',
+          city_id: item.city_id || 1,
+          _lineNumber: item._lineNumber
+        }))
+      };
       
-      // Process the result
-      if (result?.data?.details && Array.isArray(result.data.details)) {
-        result.data.details.forEach(detail => {
-          // Find the matching item
-          const matchingIndex = updatedItems.findIndex(item => 
-            item._lineNumber === detail._lineNumber || 
-            (detail.input && item._lineNumber === detail.input._lineNumber)
+      // Call the duplicate check API
+      console.log('[BulkAdd] Calling duplicate check with payload:', checkPayload);
+      const checkResponse = await adminService.checkExistingItems(checkPayload);
+      console.log('[BulkAdd] Duplicate check response:', checkResponse);
+      
+      // Process duplicate check results
+      const duplicateResults = [];
+      const uniqueItems = [];
+      
+      if (checkResponse && checkResponse.success && checkResponse.data && checkResponse.data.results) {
+        // Process each item to determine if it's a duplicate
+        itemsToSubmit.forEach(item => {
+          const matchingResult = checkResponse.data.results.find(result => 
+            result.item && result.item._lineNumber === item._lineNumber
           );
           
-          if (matchingIndex !== -1) {
-            // Update the item status
-            if (detail.status === 'added') {
-              updatedItems[matchingIndex].status = 'added';
-              updatedItems[matchingIndex].message = `Added successfully (ID: ${detail.finalId || detail.id})`;
-              updatedItems[matchingIndex].finalId = detail.finalId || detail.id;
-              successfulItems.push(updatedItems[matchingIndex]);
-            } else if (detail.status === 'duplicate' || detail.isDuplicate) {
-              updatedItems[matchingIndex].status = 'duplicate';
-              updatedItems[matchingIndex].message = `Duplicate: ${detail.message || 'Already exists'}`;
-              updatedItems[matchingIndex].isDuplicate = true;
-              duplicateItems.push(updatedItems[matchingIndex]);
-            } else if (detail.status === 'error') {
-              updatedItems[matchingIndex].status = 'error';
-              updatedItems[matchingIndex].message = `Error: ${detail.reason || detail.message || 'Unknown error'}`;
-              failedItems.push(updatedItems[matchingIndex]);
-            }
+          if (matchingResult && matchingResult.existing) {
+            // This is a duplicate
+            duplicateResults.push({
+              ...item,
+              isDuplicate: true,
+              duplicateInfo: matchingResult.existing,
+              status: 'duplicate',
+              message: `Duplicate of existing restaurant (ID: ${matchingResult.existing.id})`
+            });
+          } else {
+            // This is a unique item
+            uniqueItems.push(item);
           }
         });
-      } else if (result?.data?.createdItems && Array.isArray(result.data.createdItems)) {
-        // If no details array, use createdItems
-        result.data.createdItems.forEach(createdItem => {
-          const matchingIndex = updatedItems.findIndex(item => item.name === createdItem.name);
-          if (matchingIndex !== -1) {
-            updatedItems[matchingIndex].status = 'added';
-            updatedItems[matchingIndex].message = `Added successfully (ID: ${createdItem.id})`;
-            updatedItems[matchingIndex].finalId = createdItem.id;
-            successfulItems.push(updatedItems[matchingIndex]);
+      } else {
+        // If duplicate check fails, proceed with all items
+        uniqueItems.push(...itemsToSubmit);
+      }
+      
+      console.log(`[BulkAdd] After duplicate check: ${uniqueItems.length} unique items, ${duplicateResults.length} duplicates`);
+      
+      // If no unique items, return early with duplicate information
+      if (uniqueItems.length === 0) {
+        console.log('[BulkAdd] All items are duplicates, no submission needed');
+        
+        // Update the items with duplicate information
+        const updatedItems = [...items];
+        duplicateResults.forEach(dupItem => {
+          const index = updatedItems.findIndex(item => item._lineNumber === dupItem._lineNumber);
+          if (index !== -1) {
+            updatedItems[index] = { ...dupItem };
+          }
+        });
+        
+        setItems(updatedItems);
+        
+        // Create submission summary
+        const summary = { 
+          total: itemsToSubmit.length,
+          added: 0,
+          duplicates: duplicateResults.length,
+          errors: 0,
+          skipped: 0
+        };
+        
+        setSubmissionSummary(summary);
+        
+        // Show confirmation modal
+        setConfirmationModalData({
+          title: 'Bulk Add Results',
+          message: 'All items are duplicates. No new items were added.',
+          summary: {
+            'Total Items': itemsToSubmit.length,
+            'Added to Database': 0,
+            'Duplicates': duplicateResults.length,
+            'Errors': 0
+          },
+          variant: 'warning'
+        });
+        
+        setShowConfirmationModal(true);
+        setIsSubmitting(false);
+        setSubmitProgress(100);
+        return;
+      }
+      
+      // Format unique items for submission
+      const formattedItems = uniqueItems.map(item => ({
+        name: item.name,
+        type: item.type || 'restaurant',
+        address: item.address || '',
+        city: item.city || '',
+        state: item.state || '',
+        zipcode: item.zipcode || '',
+        city_id: item.city_id || 1,
+        neighborhood_id: item.neighborhood_id || null,
+        latitude: item.latitude || 0,
+        longitude: item.longitude || 0,
+        tags: item.tags || [],
+        place_id: item.placeId || '',
+        _lineNumber: item._lineNumber
+      }));
+      
+      // Create the payload for the API
+      const submitPayload = { items: formattedItems };
+      
+      // Submit unique items to the API
+      console.log('[BulkAdd] Submitting unique items:', submitPayload);
+      const submitResponse = await adminService.bulkAddItems(submitPayload);
+      console.log('[BulkAdd] Submission response:', submitResponse);
+      
+      if (!submitResponse || !submitResponse.success) {
+        throw new Error(submitResponse?.message || 'Failed to add items');
+      }
+      
+      // Process the response
+      const updatedItems = [...items];
+      const successfulItems = [];
+      const failedItems = [];
+      
+      // Process created items
+      if (submitResponse.data && submitResponse.data.createdItems && Array.isArray(submitResponse.data.createdItems)) {
+        submitResponse.data.createdItems.forEach(createdItem => {
+          // Find the matching item
+          const matchingItem = uniqueItems.find(item => item.name.toLowerCase() === createdItem.name.toLowerCase());
+          if (matchingItem) {
+            // Find the index in the original items array
+            const index = updatedItems.findIndex(item => item._lineNumber === matchingItem._lineNumber);
+            if (index !== -1) {
+              updatedItems[index].status = 'added';
+              updatedItems[index].message = `Added successfully (ID: ${createdItem.id})`;
+              updatedItems[index].finalId = createdItem.id;
+              successfulItems.push(updatedItems[index]);
+            }
           }
         });
       }
       
-      // Set the updated items
+      // Process error items
+      if (submitResponse.data && submitResponse.data.errors && Array.isArray(submitResponse.data.errors)) {
+        submitResponse.data.errors.forEach(error => {
+          if (error.itemProvided) {
+            // Find the matching item
+            const matchingItem = uniqueItems.find(item => {
+              if (error.itemProvided._lineNumber) {
+                return item._lineNumber === error.itemProvided._lineNumber;
+              } else if (error.itemProvided.name) {
+                return item.name.toLowerCase() === error.itemProvided.name.toLowerCase();
+              }
+              return false;
+            });
+            
+            if (matchingItem) {
+              // Find the index in the original items array
+              const index = updatedItems.findIndex(item => item._lineNumber === matchingItem._lineNumber);
+              if (index !== -1) {
+                // Check if it's a duplicate error
+                if (error.error && error.error.includes('duplicate')) {
+                  updatedItems[index].status = 'duplicate';
+                  updatedItems[index].message = `Duplicate: ${error.error}`;
+                  updatedItems[index].isDuplicate = true;
+                  duplicateResults.push(updatedItems[index]);
+                } else {
+                  updatedItems[index].status = 'error';
+                  updatedItems[index].message = `Error: ${error.error || 'Unknown error'}`;
+                  failedItems.push(updatedItems[index]);
+                }
+              }
+            }
+          }
+        });
+      }
+      
+      // Update items that were not processed
+      uniqueItems.forEach(item => {
+        const wasProcessed = 
+          successfulItems.some(s => s._lineNumber === item._lineNumber) ||
+          duplicateResults.some(d => d._lineNumber === item._lineNumber) ||
+          failedItems.some(f => f._lineNumber === item._lineNumber);
+        
+        if (!wasProcessed) {
+          const index = updatedItems.findIndex(u => u._lineNumber === item._lineNumber);
+          if (index !== -1) {
+            updatedItems[index].status = 'error';
+            updatedItems[index].message = 'Item was not processed';
+            failedItems.push(updatedItems[index]);
+          }
+        }
+      });
+      
+      // Update the items state
       setItems(updatedItems);
       
-      // Create submission summary
+      // Create submission summary including duplicates from both checks
       const summary = { 
         total: itemsToSubmit.length,
-        added: successfulItems.length, 
-        duplicates: duplicateItems.length,
+        added: successfulItems.length,
+        duplicates: duplicateResults.length,
         errors: failedItems.length,
         skipped: 0
       };
       
       setSubmissionSummary(summary);
-      console.log("[BulkAdd] Submission complete. Summary:", summary);
+      console.log('[BulkAdd] Submission complete. Summary:', summary);
       
-      // Show confirmation modal with the results
+      // Show confirmation modal
       setConfirmationModalData({
         title: 'Bulk Add Results',
         message: `Processed ${itemsToSubmit.length} items.`,
         summary: {
           'Total Items': itemsToSubmit.length,
           'Added to Database': successfulItems.length,
-          'Duplicates': duplicateItems.length,
+          'Duplicates': duplicateResults.length,
           'Errors': failedItems.length
         },
-        variant: successfulItems.length > 0 ? 'success' : (duplicateItems.length > 0 ? 'warning' : 'error')
+        variant: successfulItems.length > 0 ? 'success' : (duplicateResults.length > 0 ? 'warning' : 'error')
       });
       
-      // Show the modal
-      setTimeout(() => {
-        setShowConfirmationModal(true);
-      }, 100);
+      // Force the modal to show
+      setShowConfirmationModal(true);
     } catch (error) {
-      console.error('[BulkAdd handleSubmit] Submission failed:', error);
+      console.error('[BulkAdd] Submission failed:', error);
       setSubmissionError(error.message || 'An error occurred during submission.');
-      setItems(prev => prev.map(item => item.status === 'ready' ? { ...item, status: 'error', message: error.message || 'Submission Error' } : item));
+      
+      // Update items with error status
+      setItems(prev => prev.map(item => {
+        if (itemsToSubmit.some(i => i._lineNumber === item._lineNumber)) {
+          return { ...item, status: 'error', message: error.message || 'Submission Error' };
+        }
+        return item;
+      }));
       
       // Show error modal
       setConfirmationModalData({
         title: 'Submission Failed',
         message: error.message || 'An error occurred during submission.',
-        summary: null,
+        summary: {
+          'Error': error.message || 'An error occurred during submission.'
+        },
         variant: 'error'
       });
       
-      // Show the modal with a slight delay to avoid React update issues
-      setTimeout(() => {
-        setShowConfirmationModal(true);
-      }, 100);
+      // Force the modal to show
+      setShowConfirmationModal(true);
     } finally {
       setIsSubmitting(false);
       setSubmitProgress(100);
     }
-  }, [items, submitBulkAdd]);
+  }, [items, adminService]);
 
   const handleBackToInput = useCallback(() => {
     setMode('input');

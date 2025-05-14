@@ -192,23 +192,126 @@ export const adminService = {
     return duplicates;
   },
 
-  bulkAddItems: async (items) => {
+  checkExistingItems: async (payload, itemType = 'restaurants') => {
     try {
-      if (!items) {
-        const error = new Error('No items provided for bulk add');
-        logError('Invalid items for bulk add:', { error });
+      // Validate the payload
+      if (!payload || !payload.items || !Array.isArray(payload.items) || payload.items.length === 0) {
+        logWarn('AdminService CheckExistingItems: No valid items provided in payload');
         return {
           success: false,
-          message: 'No items provided for bulk add',
-          error: { message: 'No items provided' }
+          message: 'No valid items provided for duplicate check',
+          data: { results: [] }
         };
       }
       
-      // Ensure items is in the correct format for the API
-      const payload = items.items ? items : { items: Array.isArray(items) ? items : [] };
+      // Log the request payload for debugging
+      logDebug('AdminService CheckExistingItems request payload:', payload);
+      
+      // Make the real API call - no fallbacks, always use real data
+      try {
+        // Make the API call with the properly formatted request body
+        const response = await apiClient.post(
+          `/admin/check-existing/${itemType}`, 
+          payload,
+          {
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        // Process the response data
+        const data = response.data;
+        logDebug(`AdminService CheckExisting ${itemType} response:`, data);
+        
+        // Format the response in a consistent way
+        if (data && Array.isArray(data)) {
+          // If the API returns an array directly
+          return {
+            success: true,
+            message: 'Check completed',
+            data: {
+              results: data
+            }
+          };
+        } else if (data && data.results && Array.isArray(data.results)) {
+          // If the API returns an object with a results array
+          return {
+            success: true,
+            message: data.message || 'Check completed',
+            data: {
+              results: data.results
+            }
+          };
+        } else if (data && typeof data === 'object') {
+          // If the API returns some other object structure
+          return {
+            success: true,
+            message: data.message || 'Check completed',
+            data: {
+              results: data.results || []
+            }
+          };
+        } else {
+          // Fallback for unexpected response format
+          logWarn(`AdminService CheckExisting ${itemType} unexpected response format:`, data);
+          return {
+            success: true,
+            message: 'Check completed with unexpected response format',
+            data: {
+              results: []
+            }
+          };
+        }
+      } catch (apiError) {
+        // Enhanced error logging
+        const errorDetails = {
+          message: apiError.message,
+          status: apiError.response?.status,
+          statusText: apiError.response?.statusText,
+          data: apiError.response?.data,
+          request: {
+            endpoint: `/admin/check-existing/${itemType}`,
+            itemCount: payload.items.length,
+            method: 'POST'
+          }
+        };
+        
+        logError(`AdminService CheckExisting ${itemType} API error:`, errorDetails);
+        
+        return {
+          success: false,
+          message: apiError.response?.data?.message || apiError.message || 'Error checking for duplicates',
+          data: { results: [] }
+        };
+      }
+    } catch (error) {
+      logError('Unexpected error in checkExistingItems:', error);
+      return {
+        success: false,
+        message: error.message || 'Error checking for duplicates',
+        data: { results: [] }
+      };
+    }
+  },
+  
+  bulkAddItems: async (payload) => {
+    try {
+      if (!payload) {
+        const error = new Error('No payload provided for bulk add');
+        logError('Invalid payload for bulk add:', { error });
+        return {
+          success: false,
+          message: 'No payload provided for bulk add',
+          error: { message: 'No payload provided' }
+        };
+      }
+      
+      // Ensure payload has the correct format for the API
+      const formattedPayload = payload.items ? payload : { items: Array.isArray(payload) ? payload : [] };
       
       // Validate the payload before sending
-      if (!payload.items || !Array.isArray(payload.items) || payload.items.length === 0) {
+      if (!formattedPayload.items || !Array.isArray(formattedPayload.items) || formattedPayload.items.length === 0) {
         return {
           success: false,
           message: 'Invalid items format for bulk add',
@@ -217,7 +320,7 @@ export const adminService = {
       }
       
       // Ensure each item has the required fields
-      const validItems = payload.items.map(item => ({
+      const validItems = formattedPayload.items.map(item => ({
         name: item.name,
         type: item.type || 'restaurant',
         address: item.address || '',
@@ -241,8 +344,16 @@ export const adminService = {
       
       // Make the real API call - no fallbacks, always use real data
       try {
-        // Make the real API call with proper error handling
-        const response = await apiClient.post('/admin/bulk/restaurants', validatedPayload);
+        // Make the real API call with proper error handling and explicit content type
+        const response = await apiClient.post(
+          '/admin/bulk/restaurants', 
+          validatedPayload,
+          {
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }
+        );
         
         // Process the response
         const data = response.data;

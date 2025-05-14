@@ -126,18 +126,20 @@ function useBulkAddProcessor(itemType = 'restaurants') {
     }
     
     try {
-      // Format items for duplicate check
-      const formattedItems = items.map(item => ({
-        name: item.name,
-        type: item.type || 'restaurant',
-        city_id: item.city_id || 1,
-        _lineNumber: item._lineNumber
-      }));
+      // Create a properly formatted payload for duplicate check
+      const payload = {
+        items: items.map(item => ({
+          name: item.name,
+          type: item.type || 'restaurant',
+          city_id: item.city_id || 1,
+          _lineNumber: item._lineNumber
+        }))
+      };
       
-      logDebug('[BulkAddProcessor] Checking for duplicates with items:', formattedItems);
+      logDebug('[BulkAddProcessor] Checking for duplicates with payload:', payload);
       
       // Call the admin service to check for duplicates
-      const response = await adminService.checkExistingItems(formattedItems);
+      const response = await adminService.checkExistingItems(payload, itemType);
       
       if (!response || !response.success) {
         logWarn('[BulkAddProcessor] Invalid response from checkExistingItems:', response);
@@ -729,38 +731,15 @@ function useBulkAddProcessor(itemType = 'restaurants') {
     }
     
     try {
-      // First check for duplicates using the API
+      // First check for duplicates using the checkForDuplicates function
       logDebug('[BulkAddProcessor] Checking for duplicates before submission...');
+      const itemsWithDuplicateFlags = await checkForDuplicates(items);
       
-      // First, check each item individually to avoid transaction issues
-      const uniqueItems = [];
-      const duplicateItems = [];
+      // Separate items into duplicates and non-duplicates
+      const duplicateItems = itemsWithDuplicateFlags.filter(item => item.isDuplicate);
+      const uniqueItems = itemsWithDuplicateFlags.filter(item => !item.isDuplicate);
       
-      // Process items one by one to avoid transaction rollbacks
-      for (const item of items) {
-        try {
-          // Format the item for submission
-          const formattedItem = {
-            name: item.name,
-            uniqueItems.push({
-              ...formattedItem,
-              isDuplicate: false,
-              status: 'ready'
-            });
-          }
-        } catch (itemCheckError) {
-          logWarn(`[BulkAddProcessor] Error checking item ${item.name}:`, itemCheckError);
-          // Add to unique items but mark as potentially problematic
-          uniqueItems.push({
-            ...item,
-            isDuplicate: false,
-            status: 'ready',
-            message: 'Could not verify uniqueness'
-          });
-        }
-      }
-      
-      logDebug(`[BulkAddProcessor] Found ${uniqueItems.length} unique items and ${duplicateItems.length} duplicates`);
+      logDebug(`[BulkAddProcessor] After duplicate check: ${uniqueItems.length} unique items, ${duplicateItems.length} duplicates`);
       
       // If no unique items, return early
       if (uniqueItems.length === 0) {
@@ -788,52 +767,116 @@ function useBulkAddProcessor(itemType = 'restaurants') {
         };
       }
       
-      // Now submit each unique item individually to avoid transaction rollbacks
+      // Format unique items for submission
+      const formattedItems = uniqueItems.map(item => ({
+        name: item.name,
+        type: item.type || 'restaurant',
+        address: item.address || '',
+        city: item.city || '',
+        state: item.state || '',
+        zipcode: item.zipcode || '',
+        city_id: item.city_id || 1,
+        neighborhood_id: item.neighborhood_id || null,
+        latitude: item.latitude || 0,
+        longitude: item.longitude || 0,
+        tags: item.tags || [],
+        place_id: item.placeId || '',
+        _lineNumber: item._lineNumber
+      }));
+      
+      // Submit items to the API
+      logDebug('[BulkAddProcessor] Submitting items to API:', formattedItems);
+      const response = await adminService.bulkAddItems(formattedItems);
+      logDebug('[BulkAddProcessor] API response:', response);
+      
+      // Process the response
+      if (!response || !response.success) {
+        // Handle API error
+        logError('[BulkAddProcessor] API returned error:', response);
+        return {
+          status: 500,
+          data: {
+            success: false,
+            message: response?.message || 'Error submitting items',
+            details: uniqueItems.map(item => ({
+              ...item,
+              status: 'error',
+              message: response?.message || 'API error',
+              input: { _lineNumber: item._lineNumber }
+            })),
+            summary: {
+              total: items.length,
+              added: 0,
+              duplicates: duplicateItems.length,
+              errors: uniqueItems.length,
+              skipped: 0
+            }
+          }
+        };
+      }
+      
+      // Process successful response
       const successfulItems = [];
       const failedItems = [];
       
-      for (const item of uniqueItems) {
-        try {
-          // Submit just this one item
-          const singleItemResponse = await adminService.bulkAddItems([item]);
-          
-          if (singleItemResponse.success && singleItemResponse.data && singleItemResponse.data.createdItems && singleItemResponse.data.createdItems.length > 0) {
-            // Item was successfully added
-            const createdItem = singleItemResponse.data.createdItems[0];
+      // Process created items
+      if (response.data && response.data.createdItems && Array.isArray(response.data.createdItems)) {
+        response.data.createdItems.forEach(createdItem => {
+          const originalItem = uniqueItems.find(item => item.name === createdItem.name);
+          if (originalItem) {
             successfulItems.push({
-              ...item,
+              ...originalItem,
               status: 'added',
               message: `Added successfully (ID: ${createdItem.id})`,
               finalId: createdItem.id
             });
-          } else if (singleItemResponse.data && singleItemResponse.data.errors && singleItemResponse.data.errors.length > 0) {
-            // Item failed due to an error
-            const error = singleItemResponse.data.errors[0];
-            failedItems.push({
-              ...item,
-              status: 'error',
-              message: `Error: ${error.error || 'Unknown error'}`,
-              error: error
-            });
-          } else {
-            // Unknown result
-            failedItems.push({
-              ...item,
-              status: 'error',
-              message: 'Unknown error during submission'
-            });
           }
-        } catch (singleItemError) {
-          // Error submitting this item
-          logError(`[BulkAddProcessor] Error submitting item ${item.name}:`, singleItemError);
-          failedItems.push({
-            ...item,
-            status: 'error',
-            message: `Error: ${singleItemError.message || 'Submission failed'}`,
-            error: singleItemError
-          });
-        }
+        });
       }
+      
+      // Process error items
+      if (response.data && response.data.errors && Array.isArray(response.data.errors)) {
+        response.data.errors.forEach(error => {
+          const itemName = error.itemProvided?.name;
+          if (itemName) {
+            const originalItem = uniqueItems.find(item => item.name === itemName);
+            if (originalItem) {
+              // Check if it's a duplicate error
+              if (error.error && error.error.includes('duplicate key value')) {
+                duplicateItems.push({
+                  ...originalItem,
+                  status: 'duplicate',
+                  message: `Duplicate: ${error.detail || error.error}`,
+                  isDuplicate: true
+                });
+              } else {
+                failedItems.push({
+                  ...originalItem,
+                  status: 'error',
+                  message: `Error: ${error.error || 'Unknown error'}`,
+                  error: error
+                });
+              }
+            }
+          }
+        });
+      }
+      
+      // Any items not in successfulItems or failedItems are unknown
+      const unknownItems = uniqueItems.filter(item => 
+        !successfulItems.some(s => s._lineNumber === item._lineNumber) && 
+        !failedItems.some(f => f._lineNumber === item._lineNumber) &&
+        !duplicateItems.some(d => d._lineNumber === item._lineNumber)
+      );
+      
+      // Add unknown items to failed items
+      unknownItems.forEach(item => {
+        failedItems.push({
+          ...item,
+          status: 'error',
+          message: 'Unknown status after submission'
+        });
+      });
       
       // Combine all results
       const allResults = [
