@@ -204,15 +204,29 @@ export const adminService = {
         };
       }
       
+      // Ensure all items have consistent city_id and other required fields
+      const normalizedItems = payload.items.map(item => ({
+        name: item.name,
+        type: item.type || 'restaurant',
+        city_id: item.city_id || 1, // Default to 1 (New York) if missing
+        _lineNumber: item._lineNumber,
+        // Include additional fields that might be needed for duplicate detection
+        place_id: item.place_id || item.placeId || '',
+        google_place_id: item.google_place_id || ''
+      }));
+      
+      // Create a new payload with normalized items
+      const normalizedPayload = { items: normalizedItems };
+      
       // Log the request payload for debugging
-      logDebug('AdminService CheckExistingItems request payload:', payload);
+      logDebug('AdminService CheckExistingItems normalized payload:', normalizedPayload);
       
       // Make the real API call - no fallbacks, always use real data
       try {
         // Make the API call with the properly formatted request body
         const response = await apiClient.post(
           `/admin/check-existing/${itemType}`, 
-          payload,
+          normalizedPayload,
           {
             headers: {
               'Content-Type': 'application/json'
@@ -229,7 +243,7 @@ export const adminService = {
           // If the API returns an array directly
           return {
             success: true,
-            message: 'Check completed',
+            message: `Checked ${normalizedItems.length} items for duplicates.`,
             data: {
               results: data
             }
@@ -238,7 +252,7 @@ export const adminService = {
           // If the API returns an object with a results array
           return {
             success: true,
-            message: data.message || 'Check completed',
+            message: data.message || `Checked ${normalizedItems.length} items for duplicates.`,
             data: {
               results: data.results
             }
@@ -247,7 +261,7 @@ export const adminService = {
           // If the API returns some other object structure
           return {
             success: true,
-            message: data.message || 'Check completed',
+            message: data.message || `Checked ${normalizedItems.length} items for duplicates.`,
             data: {
               results: data.results || []
             }
@@ -257,7 +271,7 @@ export const adminService = {
           logWarn(`AdminService CheckExisting ${itemType} unexpected response format:`, data);
           return {
             success: true,
-            message: 'Check completed with unexpected response format',
+            message: `Checked ${normalizedItems.length} items with unexpected response format.`,
             data: {
               results: []
             }
@@ -272,7 +286,7 @@ export const adminService = {
           data: apiError.response?.data,
           request: {
             endpoint: `/admin/check-existing/${itemType}`,
-            itemCount: payload.items.length,
+            itemCount: normalizedItems.length,
             method: 'POST'
           }
         };
@@ -282,7 +296,8 @@ export const adminService = {
         return {
           success: false,
           message: apiError.response?.data?.message || apiError.message || 'Error checking for duplicates',
-          data: { results: [] }
+          data: { results: [] },
+          error: errorDetails
         };
       }
     } catch (error) {
@@ -290,7 +305,11 @@ export const adminService = {
       return {
         success: false,
         message: error.message || 'Error checking for duplicates',
-        data: { results: [] }
+        data: { results: [] },
+        error: {
+          message: error.message,
+          stack: error.stack
+        }
       };
     }
   },

@@ -27,45 +27,71 @@ export const handleApiResponse = async (apiCall, context, transformFn = null) =>
       success: response?.data?.success
     });
     
+    // If the response already has a standardized format with success flag, return it directly
+    if (response?.data && typeof response.data === 'object' && 'success' in response.data) {
+      return response.data;
+    }
+    
     // Handle various response formats to normalize them
     // Format 1: { success: true, data: {...}, message: "..." }
     // Format 2: { data: [...] }
     // Format 3: Direct data array or object
     
-    // Case 1: API returns standardized response with success flag
-    if (response?.data?.success === true) {
+    // Case 1: API returns data object with nested data property (older API format)
+    if (response?.data?.data !== undefined) {
       const responseData = response.data.data;
-      return transformFn ? transformFn(responseData) : responseData;
+      const transformedData = transformFn ? transformFn(responseData) : responseData;
+      return {
+        success: true,
+        message: response.data.message || 'Operation successful',
+        data: transformedData
+      };
     }
-    // Case 2: API returns data object with nested data property (older API format)
-    else if (response?.data?.data !== undefined) {
-      const responseData = response.data.data;
-      return transformFn ? transformFn(responseData) : responseData;
-    }
-    // Case 3: API returns data directly
+    // Case 2: API returns data directly
     else if (response?.data !== undefined) {
-      return transformFn ? transformFn(response.data) : response.data;
+      const transformedData = transformFn ? transformFn(response.data) : response.data;
+      return {
+        success: true,
+        message: 'Operation successful',
+        data: transformedData
+      };
     }
     // Error case: No recognizable data format
     else {
       const errorMessage = response?.data?.message || 'Unrecognized API response format';
       logWarn(`[${context}] Unexpected response structure: ${errorMessage}`);
-      return null; // Return null instead of throwing
+      return {
+        success: false,
+        message: errorMessage,
+        error: {
+          type: 'unexpected_format',
+          details: 'API returned an unrecognized data format'
+        }
+      };
     }
   } catch (error) {
     // Detailed error logging for troubleshooting
     const statusCode = error.response?.status;
     const responseData = error.response?.data;
+    const errorMessage = error.message || 'Unknown error occurred';
     
     logError(`[${context}] API Error (${statusCode || 'unknown status'})`, {
-      message: error.message,
+      message: errorMessage,
       responseData: responseData || 'No response data',
       status: statusCode
     });
     
-    // Return null to indicate error without throwing
-    // Calling code should handle null returns gracefully
-    return null;
+    // Return a structured error object instead of null
+    return {
+      success: false,
+      message: responseData?.message || errorMessage,
+      error: {
+        type: 'api_error',
+        status: statusCode,
+        message: errorMessage,
+        details: responseData || {}
+      }
+    };
   }
 };
 

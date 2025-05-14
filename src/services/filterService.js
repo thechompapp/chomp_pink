@@ -53,35 +53,81 @@ export const filterService = {
   async findCityByName(cityName) {
     if (!cityName || typeof cityName !== 'string') {
       logWarn(`[FilterService] Invalid city name: ${cityName}`);
-      return null;
+      // Return default New York City object instead of null
+      return { id: 1, name: 'New York', has_boroughs: true };
     }
 
     logDebug(`[FilterService] Looking up city by name: ${cityName}`);
     
-    // First get all cities
-    return this.getCities()
-      .then(cities => {
-        if (!cities || !Array.isArray(cities)) {
-          logWarn(`[FilterService] No cities found in the database`);
-          return null;
+    // Normalize city name to handle common variations
+    const normalizedCityName = this.normalizeCityName(cityName);
+    
+    try {
+      // First get all cities
+      const cities = await this.getCities();
+      
+      if (!cities || !Array.isArray(cities)) {
+        logWarn(`[FilterService] No cities found in the database`);
+        // Return default New York City object instead of null
+        return { id: 1, name: 'New York', has_boroughs: true };
+      }
+      
+      // Find the city by name (case insensitive)
+      const city = cities.find(c => 
+        this.normalizeCityName(c.name) === normalizedCityName);
+      
+      if (!city) {
+        logDebug(`[FilterService] No city found with name: ${cityName}`);
+        // Check for partial matches if exact match fails
+        const partialMatch = cities.find(c => 
+          this.normalizeCityName(c.name).includes(normalizedCityName) || 
+          normalizedCityName.includes(this.normalizeCityName(c.name)));
+        
+        if (partialMatch) {
+          logDebug(`[FilterService] Found partial match for ${cityName}: ${partialMatch.name} (ID: ${partialMatch.id})`);
+          return partialMatch;
         }
         
-        // Find the city by name (case insensitive)
-        const city = cities.find(c => 
-          c.name.toLowerCase() === cityName.toLowerCase());
-        
-        if (!city) {
-          logDebug(`[FilterService] No city found with name: ${cityName}`);
-          return null;
-        }
-        
-        logDebug(`[FilterService] Found city: ${city.name} (ID: ${city.id})`);
-        return city;
-      })
-      .catch(error => {
-        logError(`[FilterService] Error finding city by name ${cityName}:`, error);
-        return null;
-      });
+        // Return default New York City object instead of null
+        return { id: 1, name: 'New York', has_boroughs: true };
+      }
+      
+      logDebug(`[FilterService] Found city: ${city.name} (ID: ${city.id})`);
+      return city;
+    } catch (error) {
+      logError(`[FilterService] Error finding city by name ${cityName}:`, error);
+      // Return default New York City object instead of null
+      return { id: 1, name: 'New York', has_boroughs: true };
+    }
+  },
+  
+  /**
+   * Normalize city name for consistent matching
+   * @param {string} cityName - The city name to normalize
+   * @returns {string} Normalized city name
+   */
+  normalizeCityName(cityName) {
+    if (!cityName || typeof cityName !== 'string') return '';
+    
+    // Convert to lowercase and remove extra spaces
+    let normalized = cityName.toLowerCase().trim();
+    
+    // Remove common suffixes and prefixes
+    normalized = normalized
+      .replace(/\s+city$/i, '') // Remove 'city' suffix
+      .replace(/^city\s+of\s+/i, ''); // Remove 'city of' prefix
+    
+    // Handle common city name variations
+    const cityMappings = {
+      'ny': 'new york',
+      'nyc': 'new york',
+      'new york city': 'new york',
+      'la': 'los angeles',
+      'sf': 'san francisco',
+      'dc': 'washington'
+    };
+    
+    return cityMappings[normalized] || normalized;
   },
 
   /**

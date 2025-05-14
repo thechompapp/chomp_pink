@@ -68,10 +68,17 @@ const markLocalDuplicates = (items, duplicates) => {
 console.log('[BulkAdd/index.jsx] Loaded version with setError defined and timeout');
 
 // Helper function to fetch neighborhood by zipcode using the real API
-const fetchNeighborhoodByZipcode = async (zipcode) => {
+/**
+ * Fetch neighborhood information by zipcode with improved error handling and caching
+ * @param {string} zipcode - The zipcode to look up
+ * @param {number} cityId - Optional city_id to associate with the neighborhood
+ * @returns {Promise<Object|null>} - The neighborhood object if found, null otherwise
+ */
+const fetchNeighborhoodByZipcode = async (zipcode, cityId = 1) => {
   try {
-    logDebug(`[BulkAddProcessor] Looking up neighborhood for zipcode: ${zipcode}`);
+    logDebug(`[BulkAddProcessor] Looking up neighborhood for zipcode: ${zipcode}, cityId: ${cityId}`);
     
+    // Basic validation
     if (!zipcode || !/^\d{5}$/.test(zipcode)) {
       logWarn(`[BulkAddProcessor] Invalid zipcode format: ${zipcode}`);
       return null;
@@ -83,7 +90,32 @@ const fetchNeighborhoodByZipcode = async (zipcode) => {
     
     if (!response) {
       logWarn(`[BulkAddProcessor] No neighborhood found for zipcode: ${zipcode}`);
+      // Try to get a neighborhood by city_id as fallback
+      try {
+        if (cityId) {
+          const cityResponse = await filterService.getCities();
+          if (cityResponse && Array.isArray(cityResponse)) {
+            const city = cityResponse.find(c => c.id === cityId);
+            if (city) {
+              logDebug(`[BulkAddProcessor] Found city for fallback: ${city.name}`);
+              // Return a default neighborhood based on the city
+              return {
+                id: 999, // Default ID for fallback neighborhoods
+                name: `${city.name} Area`,
+                city_id: cityId,
+                city: city.name
+              };
+            }
+          }
+        }
+      } catch (fallbackError) {
+        logError(`[BulkAddProcessor] Error in neighborhood fallback:`, fallbackError);
+      }
     } else {
+      // Ensure the neighborhood has a city_id property
+      if (!response.city_id && cityId) {
+        response.city_id = cityId;
+      }
       logDebug(`[BulkAddProcessor] Found neighborhood for zipcode ${zipcode}: ${response.name} (ID: ${response.id})`);
     }
     
@@ -126,36 +158,76 @@ function useBulkAddProcessor(itemType = 'restaurants') {
     }
     
     try {
-      // Create a properly formatted payload for duplicate check
-      const payload = {
-        items: items.map(item => ({
+      // Ensure all items have consistent city_id and other required fields
+      const normalizedItems = items.map(item => {
+        // Ensure city_id is present and valid
+        let city_id = item.city_id || 1; // Default to 1 (New York) if missing
+        if (typeof city_id !== 'number' || isNaN(city_id)) {
+          city_id = 1;
+        }
+        
+        // For dishes, ensure restaurant_id is present
+        let restaurant_id = null;
+        if (itemType === 'dishes' && item.restaurant_id) {
+          restaurant_id = item.restaurant_id;
+        }
+        
+        return {
           name: item.name,
-          type: item.type || 'restaurant',
-          city_id: item.city_id || 1,
-          _lineNumber: item._lineNumber
-        }))
-      };
+          type: item.type || (itemType === 'dishes' ? 'dish' : 'restaurant'),
+          city_id: city_id,
+          restaurant_id: restaurant_id,
+          _lineNumber: item._lineNumber,
+          // Include additional fields that might be needed for duplicate detection
+          place_id: item.place_id || item.placeId || '',
+          google_place_id: item.google_place_id || ''
+        };
+      });
       
-      logDebug('[BulkAddProcessor] Checking for duplicates with payload:', payload);
+      // Create a properly formatted payload for duplicate check
+      const payload = { items: normalizedItems };
+      
+      logDebug('[BulkAddProcessor] Checking for duplicates with normalized payload:', payload);
       
       // Call the admin service to check for duplicates
       const response = await adminService.checkExistingItems(payload, itemType);
       
-      if (!response || !response.success) {
-        logWarn('[BulkAddProcessor] Invalid response from checkExistingItems:', response);
+      if (!response) {
+        logWarn('[BulkAddProcessor] No response from checkExistingItems');
         return items;
+      }
+      
+      if (!response.success) {
+        logWarn('[BulkAddProcessor] Failed response from checkExistingItems:', response);
+        // Return items with error information
+        return items.map(item => ({
+          ...item,
+          duplicateCheckError: true,
+          message: response.message || 'Error checking for duplicates',
+          status: 'error'
+        }));
       }
       
       logDebug('[BulkAddProcessor] Duplicate check response:', response);
       
-      
       // Process the response and mark duplicates
-      const duplicateResults = response.data || [];
+      const duplicateResults = response.data?.results || [];
       logDebug('[BulkAddProcessor] Duplicate results data:', duplicateResults);
       
       const itemsWithDuplicateFlags = items.map(item => {
-        const duplicateResult = duplicateResults.find(result => 
-          result.item && result.item._lineNumber === item._lineNumber);
+        // Find the duplicate result for this item
+        const duplicateResult = duplicateResults.find(result => {
+          // Match by line number if available
+          if (result.item && result.item._lineNumber && item._lineNumber) {
+            return result.item._lineNumber === item._lineNumber;
+          }
+          
+          // Otherwise match by name and city_id
+          return result.item && 
+                 result.item.name === item.name && 
+                 (result.item.city_id === item.city_id || 
+                  (!result.item.city_id && !item.city_id));
+        });
         
         if (duplicateResult && duplicateResult.existing) {
           // Mark as duplicate
@@ -166,14 +238,18 @@ function useBulkAddProcessor(itemType = 'restaurants') {
             duplicateInfo: {
               id: duplicateResult.existing.id,
               name: duplicateResult.existing.name,
-              message: `Duplicate of existing restaurant with ID ${duplicateResult.existing.id}`
+              message: `Duplicate of existing ${itemType === 'dishes' ? 'dish' : 'restaurant'} with ID ${duplicateResult.existing.id}`
             },
             status: 'warning',
-            message: `Duplicate of existing restaurant: ${duplicateResult.existing.name} (ID: ${duplicateResult.existing.id})`
+            message: `Duplicate of existing ${itemType === 'dishes' ? 'dish' : 'restaurant'}: ${duplicateResult.existing.name} (ID: ${duplicateResult.existing.id})`
           };
         }
         
-        return item;
+        return {
+          ...item,
+          isDuplicate: false,
+          status: 'success'
+        };
       });
       
       // Log duplicate detection results
@@ -192,10 +268,11 @@ function useBulkAddProcessor(itemType = 'restaurants') {
       return items.map(item => ({
         ...item,
         duplicateCheckError: true,
-        message: item.message || `Warning: Error checking for duplicates: ${error.message}`
+        status: 'error',
+        message: item.message || `Warning: Error checking for duplicates: ${error.message || 'Unknown error'}`
       }));
     }
-  }, []);
+  }, [itemType]);
 
   /**
    * Process input data for bulk add
@@ -447,11 +524,12 @@ function useBulkAddProcessor(itemType = 'restaurants') {
         logWarn(`[BulkAddProcessor] No city in address, using default city_id: 1`);
       }
       
-      // Fetch neighborhood by zipcode
+      // Fetch neighborhood by zipcode, passing the city_id for better fallback handling
       if (zipcode) {
-        logDebug(`[BulkAddProcessor] Fetching neighborhood for zipcode: ${zipcode}`);
+        logDebug(`[BulkAddProcessor] Fetching neighborhood for zipcode: ${zipcode} with city_id: ${currentItems[index].city_id}`);
         try {
-          const neighborhood = await fetchNeighborhoodByZipcode(zipcode);
+          // Pass the city_id to the enhanced fetchNeighborhoodByZipcode function
+          const neighborhood = await fetchNeighborhoodByZipcode(zipcode, currentItems[index].city_id);
           logDebug(`[BulkAddProcessor] Neighborhood lookup result for zipcode ${zipcode}:`, neighborhood);
           
           if (neighborhood && neighborhood.id && neighborhood.name) {
@@ -459,6 +537,11 @@ function useBulkAddProcessor(itemType = 'restaurants') {
             currentItems[index].neighborhood = neighborhood.name;
             currentItems[index].neighborhood_name = neighborhood.name;
             currentItems[index].neighborhood_id = neighborhood.id;
+            // If the neighborhood has a city_id, ensure it's consistent
+            if (neighborhood.city_id && neighborhood.city_id !== currentItems[index].city_id) {
+              logDebug(`[BulkAddProcessor] Updating city_id from ${currentItems[index].city_id} to ${neighborhood.city_id} based on neighborhood data`);
+              currentItems[index].city_id = neighborhood.city_id;
+            }
             logDebug(`[BulkAddProcessor] Successfully set neighborhood for item ${index}: ${neighborhood.name} (ID: ${neighborhood.id})`);
           } else {
             // If no neighborhood found, use a default one based on the city
@@ -466,7 +549,8 @@ function useBulkAddProcessor(itemType = 'restaurants') {
               id: 999,
               name: city ? `${city} Area` : 'Unknown Area',
               borough: city || 'Unknown',
-              city: city || 'New York'
+              city: city || 'New York',
+              city_id: currentItems[index].city_id || 1
             };
             // Set both neighborhood and neighborhood_name for compatibility
             currentItems[index].neighborhood = defaultNeighborhood.name;
@@ -481,7 +565,8 @@ function useBulkAddProcessor(itemType = 'restaurants') {
             id: 999,
             name: city ? `${city} Area` : 'Unknown Area',
             borough: city || 'Unknown',
-            city: city || 'New York'
+            city: city || 'New York',
+            city_id: currentItems[index].city_id || 1
           };
           // Set both neighborhood and neighborhood_name for compatibility
           currentItems[index].neighborhood = defaultNeighborhood.name;
@@ -495,7 +580,8 @@ function useBulkAddProcessor(itemType = 'restaurants') {
           id: 999,
           name: city ? `${city} Area` : 'Unknown Area',
           borough: city || 'Unknown',
-          city: city || 'New York'
+          city: city || 'New York',
+          city_id: currentItems[index].city_id || 1
         };
         // Set both neighborhood and neighborhood_name for compatibility
         currentItems[index].neighborhood = defaultNeighborhood.name;

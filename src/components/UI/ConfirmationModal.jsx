@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import PropTypes from 'prop-types';
 import './ConfirmationModal.css';
 import Button from './Button';
@@ -12,6 +12,22 @@ const ConfirmationModal = ({
   summary = null,
   variant = 'success' // success, error, warning, info
 }) => {
+  // Force the modal to be visible when isOpen is true
+  useEffect(() => {
+    if (isOpen) {
+      console.log('[ConfirmationModal] Modal is open with title:', title);
+      // Force the modal to be visible
+      document.body.classList.add('modal-open');
+    } else {
+      document.body.classList.remove('modal-open');
+    }
+    
+    // Cleanup function
+    return () => {
+      document.body.classList.remove('modal-open');
+    };
+  }, [isOpen, title]);
+  
   if (!isOpen) return null;
 
   const getVariantClass = () => {
@@ -22,16 +38,22 @@ const ConfirmationModal = ({
       default: return 'modal-success';
     }
   };
+  
+  const handleClose = (e) => {
+    if (e) e.preventDefault();
+    console.log('[ConfirmationModal] Closing modal');
+    onClose();
+  };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={handleClose}>
       <div className={`modal-container ${getVariantClass()}`} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h2>{title}</h2>
-          <button className="modal-close" onClick={onClose}>×</button>
+          <button className="modal-close" onClick={handleClose}>×</button>
         </div>
         <div className="modal-content">
-          <p>{message}</p>
+          <p className="modal-message">{message}</p>
           
           {summary && (
             <div className="modal-summary">
@@ -39,7 +61,7 @@ const ConfirmationModal = ({
               <ul>
                 {Object.entries(summary).map(([key, value]) => (
                   <li key={key}>
-                    <strong>{key.charAt(0).toUpperCase() + key.slice(1)}:</strong> {value}
+                    <strong>{key}:</strong> {value}
                   </li>
                 ))}
               </ul>
@@ -47,7 +69,7 @@ const ConfirmationModal = ({
           )}
         </div>
         <div className="modal-footer">
-          <Button onClick={onClose} variant="primary">{confirmLabel}</Button>
+          <Button onClick={handleClose} variant="primary">{confirmLabel}</Button>
         </div>
       </div>
     </div>

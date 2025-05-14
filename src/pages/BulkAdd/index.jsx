@@ -1,7 +1,7 @@
 /* src/pages/BulkAdd/index.jsx */
 /* Patched: Fix dishService import to use named import */
 /* Patched: Define and pass submitItems function to processItems */
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 import InputMode from './InputMode.jsx';
 import ReviewMode from './ReviewMode.jsx';
@@ -147,9 +147,50 @@ const BulkAdd = () => {
     }
   }, [processedItems]);
 
+  // Initialize modal data state to null
+  const [modalData, setModalData] = useState(null);
+  
+  // Use a ref to track if we're in the process of showing a modal
+  // This helps prevent infinite loops from state updates
+  const showingModalRef = useRef(false);
+  
+  // Effect to handle showing the confirmation modal
+  // This separates the modal display logic from the submission logic
+  useEffect(() => {
+    // Only proceed if we have modal data and we're not already showing a modal
+    if (modalData && !showingModalRef.current) {
+      console.log('[BulkAdd] Setting confirmation modal with data:', modalData);
+      
+      // Set the flag to prevent re-entry
+      showingModalRef.current = true;
+      
+      // Update the confirmation modal data
+      setConfirmationModalData({
+        title: modalData.title || '',
+        message: modalData.message || '',
+        summary: modalData.summary || null,
+        variant: modalData.variant || 'success'
+      });
+      
+      // Show the modal
+      setShowConfirmationModal(true);
+      
+      // Reset the flag after a short delay
+      const timer = setTimeout(() => {
+        showingModalRef.current = false;
+      }, 100);
+      
+      // Clean up the timer when the component unmounts or modalData changes
+      return () => clearTimeout(timer);
+    }
+  }, [modalData]);
+
   const handleSubmitReviewedItems = useCallback(async (itemsWithForceFlags = null) => {
     // Use provided items with force flags if available, otherwise use the current items
     const currentItems = itemsWithForceFlags || items;
+    
+    // Reset modal data to prevent stale modal information
+    setModalData(null);
     
     // Filter items that are ready or duplicates with forceSubmit flag
     const itemsToSubmit = currentItems.filter(item => 
@@ -172,13 +213,16 @@ const BulkAdd = () => {
       // First, check for duplicates using the API
       console.log('[BulkAdd] Checking for duplicates before submission...');
       
-      // Format items for duplicate check
+      // Format items for duplicate check with consistent city_id
       const checkPayload = {
         items: itemsToSubmit.map(item => ({
           name: item.name,
           type: item.type || 'restaurant',
           city_id: item.city_id || 1,
-          _lineNumber: item._lineNumber
+          _lineNumber: item._lineNumber,
+          // Include additional fields that might be needed for duplicate detection
+          place_id: item.place_id || item.placeId || '',
+          google_place_id: item.google_place_id || ''
         }))
       };
       
@@ -245,8 +289,8 @@ const BulkAdd = () => {
         
         setSubmissionSummary(summary);
         
-        // Show confirmation modal
-        setConfirmationModalData({
+        // Prepare modal data but don't set it directly
+        const newModalData = {
           title: 'Bulk Add Results',
           message: 'All items are duplicates. No new items were added.',
           summary: {
@@ -256,15 +300,15 @@ const BulkAdd = () => {
             'Errors': 0
           },
           variant: 'warning'
-        });
+        };
         
-        setShowConfirmationModal(true);
+        setModalData(newModalData);
         setIsSubmitting(false);
         setSubmitProgress(100);
         return;
       }
       
-      // Format unique items for submission
+      // Format unique items for submission with consistent city_id
       const formattedItems = uniqueItems.map(item => ({
         name: item.name,
         type: item.type || 'restaurant',
@@ -278,6 +322,7 @@ const BulkAdd = () => {
         longitude: item.longitude || 0,
         tags: item.tags || [],
         place_id: item.placeId || '',
+        google_place_id: item.google_place_id || '',
         _lineNumber: item._lineNumber
       }));
       
@@ -289,8 +334,27 @@ const BulkAdd = () => {
       const submitResponse = await adminService.bulkAddItems(submitPayload);
       console.log('[BulkAdd] Submission response:', submitResponse);
       
-      if (!submitResponse || !submitResponse.success) {
-        throw new Error(submitResponse?.message || 'Failed to add items');
+      if (!submitResponse) {
+        throw new Error('No response received from the server. Please try again.');
+      }
+      
+      if (!submitResponse.success) {
+        // Create a detailed error message with information from the response
+        let errorMessage = submitResponse.message || 'Failed to add items';
+        
+        // If there's detailed error information, include it
+        if (submitResponse.error) {
+          if (typeof submitResponse.error === 'string') {
+            errorMessage += `: ${submitResponse.error}`;
+          } else if (submitResponse.error.message) {
+            errorMessage += `: ${submitResponse.error.message}`;
+          }
+        }
+        
+        // Log the detailed error for debugging
+        console.error('[BulkAdd] API error details:', submitResponse);
+        
+        throw new Error(errorMessage);
       }
       
       // Process the response
@@ -383,8 +447,8 @@ const BulkAdd = () => {
       setSubmissionSummary(summary);
       console.log('[BulkAdd] Submission complete. Summary:', summary);
       
-      // Show confirmation modal
-      setConfirmationModalData({
+      // Prepare modal data but don't set it directly
+      const newModalData = {
         title: 'Bulk Add Results',
         message: `Processed ${itemsToSubmit.length} items.`,
         summary: {
@@ -394,10 +458,10 @@ const BulkAdd = () => {
           'Errors': failedItems.length
         },
         variant: successfulItems.length > 0 ? 'success' : (duplicateResults.length > 0 ? 'warning' : 'error')
-      });
+      };
       
-      // Force the modal to show
-      setShowConfirmationModal(true);
+      // Set modal data to trigger the useEffect
+      setModalData(newModalData);
     } catch (error) {
       console.error('[BulkAdd] Submission failed:', error);
       setSubmissionError(error.message || 'An error occurred during submission.');
@@ -410,18 +474,18 @@ const BulkAdd = () => {
         return item;
       }));
       
-      // Show error modal
-      setConfirmationModalData({
+      // Prepare error modal data
+      const newModalData = {
         title: 'Submission Failed',
         message: error.message || 'An error occurred during submission.',
         summary: {
           'Error': error.message || 'An error occurred during submission.'
         },
         variant: 'error'
-      });
+      };
       
-      // Force the modal to show
-      setShowConfirmationModal(true);
+      // Set modal data to trigger the useEffect
+      setModalData(newModalData);
     } finally {
       setIsSubmitting(false);
       setSubmitProgress(100);
