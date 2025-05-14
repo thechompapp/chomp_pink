@@ -1,7 +1,7 @@
 /* src/services/adminService.js */
 import apiClient from './apiClient.js';
 import { handleApiResponse } from '@/utils/serviceHelpers.js';
-import { logError } from '@/utils/logger.js';
+import { logError, logDebug, logWarn } from '@/utils/logger.js';
 
 export const adminService = {
   getAdminRestaurants: async () => {
@@ -84,24 +84,217 @@ export const adminService = {
     });
   },
 
-  checkExistingItems: async (resourceType, items) => {
-    return handleApiResponse(
-      () => apiClient.post(`/admin/check-existing/${resourceType}`, items),
-      `AdminService CheckExisting${resourceType}`
-    ).catch(error => {
-      logError(`Failed to check existing ${resourceType}:`, error);
-      throw error;
+  checkExistingItems: async (items, resourceType = 'restaurants') => {
+    try {
+      // Log the request for debugging
+      logDebug(`AdminService CheckExisting ${resourceType} request:`, items);
+      
+      // Ensure items is in the correct format
+      const formattedItems = Array.isArray(items) ? { items } : items;
+      
+      // Validate input
+      if (!formattedItems || !formattedItems.items || !Array.isArray(formattedItems.items) || formattedItems.items.length === 0) {
+        logWarn(`Invalid items format for checkExistingItems:`, formattedItems);
+        return {
+          success: false,
+          message: 'Invalid items format',
+          data: { results: [] }
+        };
+      }
+      
+      // Make the API call to check for existing items
+      return handleApiResponse(
+        () => apiClient.post(`/admin/check-existing/restaurants`, formattedItems),
+        `AdminService CheckExisting restaurants`,
+        (data) => {
+          logDebug(`AdminService CheckExisting restaurants response:`, data);
+          return {
+            success: true,
+            message: data.message || 'Check completed',
+            data: {
+              results: data.results || []
+            }
+          };
+        }
+      ).catch(error => {
+        logError(`Failed to check existing restaurants:`, error);
+        
+        // If API call fails, fall back to local duplicate detection
+        const localDuplicates = adminService.findLocalDuplicates(formattedItems.items);
+        if (localDuplicates.length > 0) {
+          logDebug(`API call failed, using ${localDuplicates.length} local duplicates:`, localDuplicates);
+          return {
+            success: true,
+            message: 'Using local duplicate detection',
+            data: {
+              results: localDuplicates.map(dup => ({
+                item: { name: dup.duplicate.name, _lineNumber: dup.duplicate._lineNumber },
+                existing: {
+                  id: -1, // Use -1 to indicate local duplicate
+                  name: dup.original.name,
+                  type: dup.original.type || 'restaurant'
+                }
+              }))
+            }
+          };
+        }
+        
+        // If no duplicates found locally, return empty results
+        return {
+          success: true,
+          message: 'No duplicates found (local check)',
+          data: { results: [] }
+        };
+      });
+    } catch (error) {
+      logError(`Unexpected error in checkExistingItems:`, error);
+      return {
+        success: false,
+        message: error.message || 'Error checking for duplicates',
+        data: { results: [] }
+      };
+    }
+  },
+  
+  // Helper function to find duplicates within the current batch
+  findLocalDuplicates: (items) => {
+    if (!items || !Array.isArray(items)) return [];
+    
+    const duplicates = [];
+    const seen = new Map();
+    
+    // First pass: record all items
+    items.forEach((item, index) => {
+      if (!item.name) return;
+      
+      const key = item.name.toLowerCase();
+      if (!seen.has(key)) {
+        seen.set(key, { item, index });
+      }
     });
+    
+    // Second pass: find duplicates
+    items.forEach((item, index) => {
+      if (!item.name) return;
+      
+      const key = item.name.toLowerCase();
+      const firstOccurrence = seen.get(key);
+      
+      if (firstOccurrence && firstOccurrence.index !== index) {
+        duplicates.push({
+          original: firstOccurrence.item,
+          duplicate: item
+        });
+      }
+    });
+    
+    logDebug(`Local duplicate check found ${duplicates.length} duplicates`);
+    return duplicates;
   },
 
   bulkAddItems: async (items) => {
-    return handleApiResponse(
-      () => apiClient.post('/admin/bulk/restaurants', items),
-      'AdminService BulkAddItems'
-    ).catch(error => {
-      logError('Failed to bulk add items:', error);
-      throw error;
-    });
+    try {
+      if (!items) {
+        const error = new Error('No items provided for bulk add');
+        logError('Invalid items for bulk add:', { error });
+        return {
+          success: false,
+          message: 'No items provided for bulk add',
+          error: { message: 'No items provided' }
+        };
+      }
+      
+      // Ensure items is in the correct format for the API
+      const payload = items.items ? items : { items: Array.isArray(items) ? items : [] };
+      
+      // Validate the payload before sending
+      if (!payload.items || !Array.isArray(payload.items) || payload.items.length === 0) {
+        return {
+          success: false,
+          message: 'Invalid items format for bulk add',
+          error: { message: 'Items must be a non-empty array' }
+        };
+      }
+      
+      // Ensure each item has the required fields
+      const validItems = payload.items.map(item => ({
+        name: item.name,
+        type: item.type || 'restaurant',
+        address: item.address || '',
+        city: item.city || '',
+        state: item.state || '',
+        zipcode: item.zipcode || '',
+        city_id: item.city_id || 1, // Default to 1 if missing
+        neighborhood_id: item.neighborhood_id || null,
+        latitude: item.latitude || 0,
+        longitude: item.longitude || 0,
+        tags: item.tags || [],
+        place_id: item.placeId || '',
+        _lineNumber: item._lineNumber // Keep for tracking
+      }));
+      
+      // Create a new payload with validated items
+      const validatedPayload = { items: validItems };
+      
+      // Log the request payload for debugging
+      logDebug('AdminService BulkAddItems request payload:', validatedPayload);
+      
+      // Make the real API call - no fallbacks, always use real data
+      try {
+        // Make the real API call with proper error handling
+        const response = await apiClient.post('/admin/bulk/restaurants', validatedPayload);
+        
+        // Process the response
+        const data = response.data;
+        logDebug('AdminService BulkAddItems response:', data);
+        
+        // Return standardized response with actual data from the API
+        return {
+          success: true,
+          message: data.message || 'Items added successfully',
+          data: {
+            successCount: data.successCount || 0,
+            failureCount: data.failureCount || 0,
+            createdItems: data.createdItems || [],
+            errors: data.errors || []
+          }
+        };
+      } catch (apiError) {
+        // Enhanced error logging with request details
+        const errorDetails = {
+          message: apiError.message,
+          status: apiError.response?.status,
+          statusText: apiError.response?.statusText,
+          data: apiError.response?.data,
+          request: {
+            endpoint: '/admin/bulk/restaurants',
+            itemCount: validItems.length,
+            method: 'POST'
+          }
+        };
+        
+        logError('Failed to bulk add items:', errorDetails);
+        
+        // Return a formatted error response
+        return {
+          success: false,
+          message: apiError.message || 'Error submitting items',
+          error: errorDetails
+        };
+      }
+    } catch (error) {
+      logError('Unexpected error in bulkAddItems:', error);
+      
+      // Return a formatted error response
+      return {
+        success: false,
+        message: error.message || 'Unexpected error in bulk add',
+        error: {
+          message: error.message,
+          stack: error.stack
+        }
+      };
+    }
   },
 };
 

@@ -50,8 +50,9 @@ Dish Example: Plain Pie; dish; Lucali; pizza, brooklyn`;
           id="bulkInput"
           value={rawText}
           onChange={handleChange}
-          rows={10}
+          rows={15}
           className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 font-mono text-sm"
+          style={{ minWidth: '100%', maxWidth: '100%' }}
           placeholder={exampleFormat} // Use the updated example format
           disabled={isProcessing}
         />

@@ -14,6 +14,7 @@ import './PlaceSelectionDialog.css'; // Import CSS for place selection dialog
 import { ApiError } from '@/utils/apiUtils.js';
 import Button from '@/components/UI/Button.jsx';
 import { useAdminAddRow } from '@/hooks/useAdminAddRow'; // Updated import
+import ConfirmationModal from '@/components/UI/ConfirmationModal.jsx';
 
 const BulkAdd = () => {
   console.log('[BulkAdd/index.jsx] Loaded version with setError defined and timeout');
@@ -24,6 +25,13 @@ const BulkAdd = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionError, setSubmissionError] = useState(null);
   const [submissionSummary, setSubmissionSummary] = useState(null);
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [confirmationModalData, setConfirmationModalData] = useState({
+    title: '',
+    message: '',
+    summary: null,
+    variant: 'success'
+  });
 
   const { 
     processInputData, 
@@ -114,6 +122,27 @@ const BulkAdd = () => {
   useEffect(() => {
     if (processedItems && processedItems.length > 0) {
       console.log('[BulkAdd] Updating items with processed data:', processedItems);
+      
+      // Log neighborhood and address information for debugging
+      const locationInfo = processedItems.map(item => ({
+        name: item.name,
+        address: item.address || 'No address',
+        neighborhood: item.neighborhood_name || 'No neighborhood',
+        neighborhood_id: item.neighborhood_id || 'No ID',
+        status: item.status
+      }));
+      
+      console.log('[BulkAdd] Location information in processed items:', locationInfo);
+      
+      // Check if any items are missing critical information
+      const missingInfo = processedItems.filter(item => 
+        !item.address || !item.neighborhood_name || !item.neighborhood_id
+      );
+      
+      if (missingInfo.length > 0) {
+        console.warn('[BulkAdd] Some items are missing location information:', missingInfo);
+      }
+      
       setItems(processedItems);
     }
   }, [processedItems]);
@@ -140,42 +169,106 @@ const BulkAdd = () => {
     setSubmitProgress(0);
 
     try {
+      // Use the existing submitBulkAdd function to avoid infinite loops
       const result = await submitBulkAdd(itemsToSubmit);
-      setItems(prevItems => {
-        const finalItems = [...prevItems];
-        if (result?.data?.details && Array.isArray(result.data.details)) {
-          result.data.details.forEach(detail => {
-            const originalLineNumber = detail.input?._lineNumber ?? detail.input?.line;
-            const matchingIndex = originalLineNumber
-              ? finalItems.findIndex(item => item._lineNumber === originalLineNumber)
-              : -1;
-
-            if (matchingIndex !== -1) {
-              finalItems[matchingIndex].status = detail.status;
-              finalItems[matchingIndex].message = detail.reason || (detail.status === 'added' ? `Added (ID: ${detail.id})` : detail.status);
-              if (detail.duplicateInfo) {
-                finalItems[matchingIndex].message += ` (Duplicate: ${detail.duplicateInfo.message || 'Exists'})`;
-                if (detail.duplicateInfo.existingId) {
-                  finalItems[matchingIndex].message += ` ID: ${detail.duplicateInfo.existingId}`;
-                }
-              }
-              finalItems[matchingIndex].finalId = detail.id;
-            } else {
-              console.warn("Could not match backend submission detail to frontend item:", detail);
+      console.log("[BulkAdd] Submission result:", result);
+      
+      // Update items with the result
+      const updatedItems = [...items];
+      const successfulItems = [];
+      const duplicateItems = [];
+      const failedItems = [];
+      
+      // Process the result
+      if (result?.data?.details && Array.isArray(result.data.details)) {
+        result.data.details.forEach(detail => {
+          // Find the matching item
+          const matchingIndex = updatedItems.findIndex(item => 
+            item._lineNumber === detail._lineNumber || 
+            (detail.input && item._lineNumber === detail.input._lineNumber)
+          );
+          
+          if (matchingIndex !== -1) {
+            // Update the item status
+            if (detail.status === 'added') {
+              updatedItems[matchingIndex].status = 'added';
+              updatedItems[matchingIndex].message = `Added successfully (ID: ${detail.finalId || detail.id})`;
+              updatedItems[matchingIndex].finalId = detail.finalId || detail.id;
+              successfulItems.push(updatedItems[matchingIndex]);
+            } else if (detail.status === 'duplicate' || detail.isDuplicate) {
+              updatedItems[matchingIndex].status = 'duplicate';
+              updatedItems[matchingIndex].message = `Duplicate: ${detail.message || 'Already exists'}`;
+              updatedItems[matchingIndex].isDuplicate = true;
+              duplicateItems.push(updatedItems[matchingIndex]);
+            } else if (detail.status === 'error') {
+              updatedItems[matchingIndex].status = 'error';
+              updatedItems[matchingIndex].message = `Error: ${detail.reason || detail.message || 'Unknown error'}`;
+              failedItems.push(updatedItems[matchingIndex]);
             }
-          });
-        } else {
-          console.warn("Submission response details missing or not an array:", result?.data?.details);
-        }
-        return finalItems;
+          }
+        });
+      } else if (result?.data?.createdItems && Array.isArray(result.data.createdItems)) {
+        // If no details array, use createdItems
+        result.data.createdItems.forEach(createdItem => {
+          const matchingIndex = updatedItems.findIndex(item => item.name === createdItem.name);
+          if (matchingIndex !== -1) {
+            updatedItems[matchingIndex].status = 'added';
+            updatedItems[matchingIndex].message = `Added successfully (ID: ${createdItem.id})`;
+            updatedItems[matchingIndex].finalId = createdItem.id;
+            successfulItems.push(updatedItems[matchingIndex]);
+          }
+        });
+      }
+      
+      // Set the updated items
+      setItems(updatedItems);
+      
+      // Create submission summary
+      const summary = { 
+        total: itemsToSubmit.length,
+        added: successfulItems.length, 
+        duplicates: duplicateItems.length,
+        errors: failedItems.length,
+        skipped: 0
+      };
+      
+      setSubmissionSummary(summary);
+      console.log("[BulkAdd] Submission complete. Summary:", summary);
+      
+      // Show confirmation modal with the results
+      setConfirmationModalData({
+        title: 'Bulk Add Results',
+        message: `Processed ${itemsToSubmit.length} items.`,
+        summary: {
+          'Total Items': itemsToSubmit.length,
+          'Added to Database': successfulItems.length,
+          'Duplicates': duplicateItems.length,
+          'Errors': failedItems.length
+        },
+        variant: successfulItems.length > 0 ? 'success' : (duplicateItems.length > 0 ? 'warning' : 'error')
       });
-
-      setSubmissionSummary(result?.data?.summary || { added: 0, skipped: 0, error: 0 });
-      console.log("[BulkAdd] Submission successful:", result?.data?.summary);
+      
+      // Show the modal
+      setTimeout(() => {
+        setShowConfirmationModal(true);
+      }, 100);
     } catch (error) {
       console.error('[BulkAdd handleSubmit] Submission failed:', error);
       setSubmissionError(error.message || 'An error occurred during submission.');
       setItems(prev => prev.map(item => item.status === 'ready' ? { ...item, status: 'error', message: error.message || 'Submission Error' } : item));
+      
+      // Show error modal
+      setConfirmationModalData({
+        title: 'Submission Failed',
+        message: error.message || 'An error occurred during submission.',
+        summary: null,
+        variant: 'error'
+      });
+      
+      // Show the modal with a slight delay to avoid React update issues
+      setTimeout(() => {
+        setShowConfirmationModal(true);
+      }, 100);
     } finally {
       setIsSubmitting(false);
       setSubmitProgress(100);
@@ -244,18 +337,6 @@ const BulkAdd = () => {
             isSubmitting={isSubmitting}
             submitProgress={submitProgress}
           />
-          <div className="mt-6 flex justify-between">
-            <Button onClick={handleBackToInput} variant="secondary" disabled={isSubmitting}>
-              Back to Input
-            </Button>
-            <Button
-              onClick={handleSubmitReviewedItems}
-              disabled={isSubmitting || items.filter(item => item.status === 'ready').length === 0}
-              isLoading={isSubmitting}
-            >
-              {isSubmitting ? 'Submitting...' : `Submit ${items.filter(item => item.status === 'ready').length} Ready Items`}
-            </Button>
-          </div>
         </>
       )}
     </div>

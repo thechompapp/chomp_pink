@@ -76,73 +76,93 @@ function ReviewMode({ items, onSubmit, onBack, isSubmitting, submitProgress }) {
           </div>
         </div>
       )}
-      <div className="overflow-x-auto border border-gray-200 rounded-md shadow-sm max-h-[60vh] overflow-y-auto">
-        <table className="min-w-full bg-white divide-y divide-gray-200">
+      <div className="overflow-x-auto border border-gray-200 rounded-md shadow-sm max-h-[70vh] overflow-y-auto">
+        <table className="min-w-full bg-white divide-y divide-gray-200 table-fixed">
           <thead className="bg-gray-50 sticky top-0 z-10"><tr>
-            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Line</th>
-            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location Detail</th>
-            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Neighborhood</th>
-            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[200px]">Address</th>
-            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tags</th>
-            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">Message</th>
+            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[5%]">Line</th>
+            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[8%]">Type</th>
+            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[15%]">Name</th>
+            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[12%]">Location</th>
+            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[12%]">Neighborhood</th>
+            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[20%]">Address</th>
+            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[10%]">Tags</th>
+            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[8%]">Status</th>
+            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[10%]">Message</th>
           </tr></thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {items && items.length > 0 ? items.map((item, index) => (
-              <tr key={index} className={`hover:bg-gray-50 ${item.status === 'error' ? 'bg-red-50' : item.status === 'skipped' ? 'bg-yellow-50 opacity-80' : ''}`}>
-                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{item._lineNumber || index + 1}</td>
-                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{item.type || '-'}</td>
-                {/* ++ Use toTitleCase for the name ++ */}
-                <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{toTitleCase(item.name || '-')}</td>
-                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">
-                  {/* ++ Use toTitleCase for restaurant name if it's a dish ++ */}
-                  {item.type === 'restaurant' ? toTitleCase(item.city_name || '-') : toTitleCase(item.restaurant_name || '-')}
-                </td>
-                {/* ++ Use toTitleCase for neighborhood name ++ */}
-                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{toTitleCase(item.neighborhood_name || '-')}</td>
-                <td className="px-3 py-2 text-sm text-gray-700">{item.address || '-'}</td>
-                <td className="px-3 py-2 text-sm text-gray-700">
-                  {item.tags?.length > 0 ? item.tags.join(', ') : '-'}
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap text-sm">
-                  {/* Status Indicators */}
-                  {item.status === 'ready' && <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"><CheckCircle className="w-3 h-3 mr-1" /> Ready</span>}
-                  {item.status === 'error' && <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800"><XCircle className="w-3 h-3 mr-1" /> Error</span>}
-                  {item.status === 'processing' && <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Processing...</span>}
-                  {item.status === 'pending' && <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">Pending</span>}
-                  {item.status === 'skipped' && <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800"><Info className="w-3 h-3 mr-1" /> Skipped</span>}
-                  {item.status === 'review_needed' && (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800"><AlertTriangle className="w-3 h-3 mr-1" /> Review Needed</span>
-                  )}
-                  {item.isDuplicate && (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800"><Copy className="w-3 h-3 mr-1" /> Duplicate</span>
-                  )}
-                </td>
-                <td className="px-3 py-2 text-sm text-gray-600">
-                  {item.isDuplicate ? (
-                    <div className="flex flex-col space-y-1">
-                      <div>{item.message || `Duplicate of existing item`}</div>
-                      <div className="flex items-center">
-                        <input 
-                          type="checkbox" 
-                          id={`force-submit-${item._lineNumber}`}
-                          checked={!!forceSubmitItems[item._lineNumber]}
-                          onChange={() => toggleForceSubmit(item._lineNumber)}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        />
-                        <label htmlFor={`force-submit-${item._lineNumber}`} className="ml-2 text-xs font-medium text-gray-700">
-                          Force Submit
-                        </label>
+            {items && items.length > 0 ? items.map((item, index) => {
+              // Determine row class based on status and duplicate flag
+              let rowClass = 'hover:bg-gray-50';
+              if (item.status === 'error') rowClass += ' bg-red-50';
+              else if (item.status === 'skipped') rowClass += ' bg-yellow-50 opacity-80';
+              else if (item.isDuplicate) rowClass += ' bg-amber-50';
+              else if (item.status === 'ready') rowClass += ' bg-green-50';
+              
+              return (
+                <tr key={index} className={rowClass}>
+                  <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{item._lineNumber || index + 1}</td>
+                  <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{item.type || '-'}</td>
+                  {/* Use toTitleCase for the name */}
+                  <td className="px-3 py-2 text-sm font-medium text-gray-900 truncate" title={toTitleCase(item.name || '-')}>
+                    {toTitleCase(item.name || '-')}
+                  </td>
+                  <td className="px-3 py-2 text-sm text-gray-700 truncate" 
+                      title={item.type === 'restaurant' ? toTitleCase(item.city_name || '-') : toTitleCase(item.restaurant_name || '-')}>
+                    {/* Use toTitleCase for restaurant name if it's a dish */}
+                    {item.type === 'restaurant' ? toTitleCase(item.city_name || '-') : toTitleCase(item.restaurant_name || '-')}
+                  </td>
+                  {/* Use toTitleCase for neighborhood name */}
+                  <td className="px-3 py-2 text-sm text-gray-700 truncate" title={toTitleCase(item.neighborhood_name || '-')}>
+                    {toTitleCase(item.neighborhood_name || '-')}
+                  </td>
+                  <td className="px-3 py-2 text-sm text-gray-700 truncate" title={item.address || '-'}>
+                    {item.address || '-'}
+                  </td>
+                  <td className="px-3 py-2 text-sm text-gray-700 truncate" title={item.tags?.length > 0 ? item.tags.join(', ') : '-'}>
+                    {item.tags?.length > 0 ? item.tags.join(', ') : '-'}
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap text-sm">
+                    {/* Status Indicators */}
+                    {item.status === 'ready' && <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"><CheckCircle className="w-3 h-3 mr-1" /> Ready</span>}
+                    {item.status === 'error' && <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800"><XCircle className="w-3 h-3 mr-1" /> Error</span>}
+                    {item.status === 'processing' && <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Processing...</span>}
+                    {item.status === 'pending' && <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">Pending</span>}
+                    {item.status === 'skipped' && <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800"><Info className="w-3 h-3 mr-1" /> Skipped</span>}
+                    {item.status === 'review_needed' && (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800"><AlertTriangle className="w-3 h-3 mr-1" /> Review</span>
+                    )}
+                    {item.isDuplicate && (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800"><Copy className="w-3 h-3 mr-1" /> Duplicate</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-sm text-gray-600">
+                    {item.isDuplicate ? (
+                      <div className="flex flex-col space-y-1">
+                        <div className="truncate" title={item.message || `Duplicate of existing item`}>
+                          {item.message || `Duplicate of existing item`}
+                        </div>
+                        <div className="flex items-center">
+                          <input 
+                            type="checkbox" 
+                            id={`force-submit-${item._lineNumber}`}
+                            checked={!!forceSubmitItems[item._lineNumber]}
+                            onChange={() => toggleForceSubmit(item._lineNumber)}
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          />
+                          <label htmlFor={`force-submit-${item._lineNumber}`} className="ml-2 text-xs font-medium text-gray-700">
+                            Force Submit
+                          </label>
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    item.message || (item.status === 'ready' ? 'Ready' : item.status === 'processing' ? 'Processing...' : '')
-                  )}
-                </td>
-              </tr>
-            )) : (
+                    ) : (
+                      <div className="truncate" title={item.message || (item.status === 'ready' ? 'Ready' : item.status === 'processing' ? 'Processing...' : '')}>
+                        {item.message || (item.status === 'ready' ? 'Ready' : item.status === 'processing' ? 'Processing...' : '')}
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              );
+            }) : (
                 <tr>
                     <td colSpan="9" className="px-3 py-4 text-center text-sm text-gray-500">No items to review. Enter data above and click "Process Items".</td>
                 </tr>

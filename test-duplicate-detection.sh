@@ -55,27 +55,18 @@ else
   exit 1
 fi
 
-# Step 3: Test the check-existing endpoint
-echo -e "\n${YELLOW}Step 3: Testing check-existing endpoint...${NC}"
+# Step 3: Test bulk add with duplicate detection
+echo -e "\n${YELLOW}Step 3: Testing bulk add with duplicate detection...${NC}"
 
-# Create a test payload with the existing restaurant
-cat > /tmp/check_existing_payload.json << EOF
-{
-  "items": [
+# Create a payload with the existing restaurant and a new one
+BULK_ADD_PAYLOAD="{
+  \"items\": [
     {
-      "name": "$EXISTING_RESTAURANT_NAME",
-      "type": "restaurant",
-      "city_id": 1,
-      "_lineNumber": 1
-    }
-  ]
-}
-EOF
-
-echo "Check Existing Payload:"
-cat /tmp/check_existing_payload.json
-
-# Call the check-existing endpoint
+      \"name\": \"$EXISTING_RESTAURANT_NAME\",
+      \"type\": \"restaurant\",
+      \"city_id\": 1,
+      \"neighborhood_id\": 1
+    },
 CHECK_EXISTING_RESPONSE=$(curl -s -X POST "$API_BASE_URL/admin/check-existing/restaurants" \
   -H "Content-Type: application/json" \
   -b /tmp/chomp_cookies.txt \

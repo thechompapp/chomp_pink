@@ -6,6 +6,65 @@ import { filterService } from '@/services/filterService.js';
 import { adminService } from '@/services/adminService.js';
 import { logDebug, logError, logWarn } from '@/utils/logger.js';
 
+// Helper function to find duplicates within the current batch
+const findLocalDuplicates = (items) => {
+  if (!items || !Array.isArray(items) || items.length === 0) return [];
+  
+  const duplicates = [];
+  const seen = new Map();
+  
+  // First pass: record all items
+  items.forEach((item, index) => {
+    if (!item.name) return;
+    
+    const key = item.name.toLowerCase();
+    if (!seen.has(key)) {
+      seen.set(key, { item, index });
+    } else {
+      // Found a duplicate
+      const firstOccurrence = seen.get(key);
+      duplicates.push({
+        original: firstOccurrence.item,
+        duplicate: item,
+        originalIndex: firstOccurrence.index,
+        duplicateIndex: index
+      });
+    }
+  });
+  
+  return duplicates;
+};
+
+// Helper function to mark items as duplicates
+const markLocalDuplicates = (items, duplicates) => {
+  if (!duplicates || duplicates.length === 0) return items;
+  
+  // Create a copy of the items array
+  const markedItems = [...items];
+  
+  // Mark each duplicate
+  duplicates.forEach(dup => {
+    const duplicateIndex = dup.duplicateIndex;
+    const originalIndex = dup.originalIndex;
+    
+    if (duplicateIndex >= 0 && duplicateIndex < markedItems.length) {
+      markedItems[duplicateIndex] = {
+        ...markedItems[duplicateIndex],
+        isDuplicate: true,
+        duplicateInfo: {
+          id: -1, // Use -1 to indicate local duplicate
+          name: markedItems[originalIndex].name,
+          message: `Duplicate of item on line ${markedItems[originalIndex]._lineNumber}`
+        },
+        status: 'warning',
+        message: `Duplicate of ${markedItems[originalIndex].name} on line ${markedItems[originalIndex]._lineNumber}`
+      };
+    }
+  });
+  
+  return markedItems;
+};
+
 console.log('[BulkAdd/index.jsx] Loaded version with setError defined and timeout');
 
 // Helper function to fetch neighborhood by zipcode using the real API
@@ -13,9 +72,20 @@ const fetchNeighborhoodByZipcode = async (zipcode) => {
   try {
     logDebug(`[BulkAddProcessor] Looking up neighborhood for zipcode: ${zipcode}`);
     
+    if (!zipcode || !/^\d{5}$/.test(zipcode)) {
+      logWarn(`[BulkAddProcessor] Invalid zipcode format: ${zipcode}`);
+      return null;
+    }
+    
     // Use the real API call from filterService
     const response = await filterService.findNeighborhoodByZipcode(zipcode);
     logDebug(`[BulkAddProcessor] Neighborhood lookup response:`, response);
+    
+    if (!response) {
+      logWarn(`[BulkAddProcessor] No neighborhood found for zipcode: ${zipcode}`);
+    } else {
+      logDebug(`[BulkAddProcessor] Found neighborhood for zipcode ${zipcode}: ${response.name} (ID: ${response.id})`);
+    }
     
     return response;
   } catch (error) {
@@ -51,33 +121,43 @@ function useBulkAddProcessor(itemType = 'restaurants') {
   const checkForDuplicates = useCallback(async (items) => {
     logDebug('[BulkAddProcessor] Checking for duplicates:', items);
     
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return [];
+    }
+    
     try {
       // Format items for duplicate check
       const formattedItems = items.map(item => ({
         name: item.name,
-        type: item.type,
-        city_id: item.city_id,
-        place_id: item.placeId,
+        type: item.type || 'restaurant',
+        city_id: item.city_id || 1,
         _lineNumber: item._lineNumber
       }));
       
-      // Use the adminService to check for existing items
-      const response = await adminService.checkExistingItems('restaurants', { items: formattedItems });
-      logDebug('[BulkAddProcessor] Duplicate check response:', response);
+      logDebug('[BulkAddProcessor] Checking for duplicates with items:', formattedItems);
+      
+      // Call the admin service to check for duplicates
+      const response = await adminService.checkExistingItems(formattedItems);
       
       if (!response || !response.success) {
-        logWarn('[BulkAddProcessor] Duplicate check failed:', response?.message || 'Unknown error');
-        return items; // Continue with submission if duplicate check fails
+        logWarn('[BulkAddProcessor] Invalid response from checkExistingItems:', response);
+        return items;
       }
+      
+      logDebug('[BulkAddProcessor] Duplicate check response:', response);
+      
       
       // Process the response and mark duplicates
       const duplicateResults = response.data || [];
+      logDebug('[BulkAddProcessor] Duplicate results data:', duplicateResults);
+      
       const itemsWithDuplicateFlags = items.map(item => {
         const duplicateResult = duplicateResults.find(result => 
-          result.item._lineNumber === item._lineNumber);
+          result.item && result.item._lineNumber === item._lineNumber);
         
         if (duplicateResult && duplicateResult.existing) {
           // Mark as duplicate
+          logDebug(`[BulkAddProcessor] Found duplicate for item ${item.name}:`, duplicateResult.existing);
           return {
             ...item,
             isDuplicate: true,
@@ -98,10 +178,20 @@ function useBulkAddProcessor(itemType = 'restaurants') {
       const duplicateCount = itemsWithDuplicateFlags.filter(item => item.isDuplicate).length;
       logDebug(`[BulkAddProcessor] Found ${duplicateCount} duplicates out of ${items.length} items`);
       
+      if (duplicateCount > 0) {
+        const duplicates = itemsWithDuplicateFlags.filter(item => item.isDuplicate);
+        logDebug('[BulkAddProcessor] Duplicate items:', duplicates);
+      }
+      
       return itemsWithDuplicateFlags;
     } catch (error) {
       logError('[BulkAddProcessor] Error checking for duplicates:', error);
-      return items; // Continue with submission if duplicate check fails
+      // Mark items with error information instead of silently continuing
+      return items.map(item => ({
+        ...item,
+        duplicateCheckError: true,
+        message: item.message || `Warning: Error checking for duplicates: ${error.message}`
+      }));
     }
   }, []);
 
@@ -358,17 +448,33 @@ function useBulkAddProcessor(itemType = 'restaurants') {
       // Fetch neighborhood by zipcode
       if (zipcode) {
         logDebug(`[BulkAddProcessor] Fetching neighborhood for zipcode: ${zipcode}`);
-        const neighborhood = await fetchNeighborhoodByZipcode(zipcode);
-        logDebug(`[BulkAddProcessor] Neighborhood lookup result:`, neighborhood);
-        
-        if (neighborhood) {
-          // Set both neighborhood and neighborhood_name for compatibility
-          currentItems[index].neighborhood = neighborhood.name;
-          currentItems[index].neighborhood_name = neighborhood.name;
-          currentItems[index].neighborhood_id = neighborhood.id;
-          logDebug(`[BulkAddProcessor] Set neighborhood for item ${index}:`, neighborhood.name);
-        } else {
-          // If no neighborhood found, use a default one based on the city
+        try {
+          const neighborhood = await fetchNeighborhoodByZipcode(zipcode);
+          logDebug(`[BulkAddProcessor] Neighborhood lookup result for zipcode ${zipcode}:`, neighborhood);
+          
+          if (neighborhood && neighborhood.id && neighborhood.name) {
+            // Set both neighborhood and neighborhood_name for compatibility
+            currentItems[index].neighborhood = neighborhood.name;
+            currentItems[index].neighborhood_name = neighborhood.name;
+            currentItems[index].neighborhood_id = neighborhood.id;
+            logDebug(`[BulkAddProcessor] Successfully set neighborhood for item ${index}: ${neighborhood.name} (ID: ${neighborhood.id})`);
+          } else {
+            // If no neighborhood found, use a default one based on the city
+            const defaultNeighborhood = {
+              id: 999,
+              name: city ? `${city} Area` : 'Unknown Area',
+              borough: city || 'Unknown',
+              city: city || 'New York'
+            };
+            // Set both neighborhood and neighborhood_name for compatibility
+            currentItems[index].neighborhood = defaultNeighborhood.name;
+            currentItems[index].neighborhood_name = defaultNeighborhood.name;
+            currentItems[index].neighborhood_id = defaultNeighborhood.id;
+            logDebug(`[BulkAddProcessor] No neighborhood found for zipcode ${zipcode}, using default for item ${index}: ${defaultNeighborhood.name}`);
+          }
+        } catch (error) {
+          logError(`[BulkAddProcessor] Error fetching neighborhood for zipcode ${zipcode}:`, error);
+          // Use a default neighborhood if there's an error
           const defaultNeighborhood = {
             id: 999,
             name: city ? `${city} Area` : 'Unknown Area',
@@ -379,7 +485,7 @@ function useBulkAddProcessor(itemType = 'restaurants') {
           currentItems[index].neighborhood = defaultNeighborhood.name;
           currentItems[index].neighborhood_name = defaultNeighborhood.name;
           currentItems[index].neighborhood_id = defaultNeighborhood.id;
-          logDebug(`[BulkAddProcessor] Set default neighborhood for item ${index}:`, defaultNeighborhood.name);
+          logDebug(`[BulkAddProcessor] Error fetching neighborhood, using default for item ${index}: ${defaultNeighborhood.name}`);
         }
       } else {
         // If no zipcode, use a default neighborhood
@@ -393,7 +499,7 @@ function useBulkAddProcessor(itemType = 'restaurants') {
         currentItems[index].neighborhood = defaultNeighborhood.name;
         currentItems[index].neighborhood_name = defaultNeighborhood.name;
         currentItems[index].neighborhood_id = defaultNeighborhood.id;
-        logDebug(`[BulkAddProcessor] No zipcode, set default neighborhood for item ${index}:`, defaultNeighborhood.name);
+        logDebug(`[BulkAddProcessor] No zipcode available for item ${index}, using default neighborhood: ${defaultNeighborhood.name}`);
       }
       
       // Update item status
@@ -540,22 +646,69 @@ function useBulkAddProcessor(itemType = 'restaurants') {
   const processSubmission = useCallback(async (items) => {
     logDebug('[BulkAddProcessor] Processing final submission:', items);
     
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      const error = new Error('No valid items provided for submission');
+      logError('[BulkAddProcessor] Invalid items for submission:', { items, error });
+      throw error;
+    }
+    
     try {
       // Log the formatted items to verify city_id is included
       logDebug('[BulkAddProcessor] Formatted items for submission:', items);
       
-      // Use the adminService to submit items
-      const response = await adminService.bulkAddItems({ items });
-      logDebug('[BulkAddProcessor] Submission response:', response);
+      // Validate that each item has the required fields
+      const missingFields = [];
+      items.forEach((item, index) => {
+        const requiredFields = ['name', 'type', 'city_id'];
+        const missing = requiredFields.filter(field => !item[field]);
+        if (missing.length > 0) {
+          missingFields.push({ index, item: item.name, missing });
+        }
+      });
       
-      if (!response || !response.success) {
-        throw new Error(response?.message || 'Submission failed');
+      if (missingFields.length > 0) {
+        const error = new Error(`Items missing required fields: ${JSON.stringify(missingFields)}`);
+        logError('[BulkAddProcessor] Items missing required fields:', { missingFields, error });
+        throw error;
       }
       
+      // Use the adminService to submit items
+      logDebug('[BulkAddProcessor] Calling adminService.bulkAddItems with:', { items });
+      
+      // Call the adminService and handle the response
+      const response = await adminService.bulkAddItems(items);
+      logDebug('[BulkAddProcessor] Submission response:', response);
+      
+      // Validate the response
+      if (!response) {
+        throw new Error('Received null response from bulkAddItems');
+      }
+      
+      if (!response.success) {
+        throw new Error(response.message || 'Submission failed');
+      }
+      
+      // Return the successful response
       return response;
     } catch (error) {
-      logError('[BulkAddProcessor] Error in processSubmission:', error);
-      throw error;
+      // Capture detailed error information
+      const errorDetails = {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+        response: error.response || null,
+        items: items.map(item => ({ 
+          name: item.name, 
+          type: item.type, 
+          city_id: item.city_id,
+          neighborhood_id: item.neighborhood_id || null
+        }))
+      };
+      
+      logError('[BulkAddProcessor] Error in processSubmission:', errorDetails);
+      
+      // Rethrow with a clearer message
+      throw new Error(`Submission failed: ${error.message}`);
     }
   }, []);
   
@@ -563,101 +716,160 @@ function useBulkAddProcessor(itemType = 'restaurants') {
   const submitBulkAdd = useCallback(async (items) => {
     logDebug('[BulkAddProcessor] Submitting items:', items);
     
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      logWarn('[BulkAddProcessor] No valid items provided for submission');
+      return {
+        status: 400,
+        data: {
+          success: false,
+          message: 'No valid items provided for submission',
+          details: []
+        }
+      };
+    }
+    
     try {
-      // First check for duplicates
-      const itemsWithDuplicateFlags = await checkForDuplicates(items);
+      // First check for duplicates using the API
+      logDebug('[BulkAddProcessor] Checking for duplicates before submission...');
       
-      // Filter out items marked as duplicates unless they're explicitly marked for submission
-      const itemsToSubmit = itemsWithDuplicateFlags.filter(item => 
-        !item.isDuplicate || item.forceSubmit);
+      // First, check each item individually to avoid transaction issues
+      const uniqueItems = [];
+      const duplicateItems = [];
       
-      // If all items are duplicates and none are forced to submit, return early
-      if (itemsToSubmit.length === 0) {
-        logWarn('[BulkAddProcessor] All items are duplicates and none are marked for forced submission');
+      // Process items one by one to avoid transaction rollbacks
+      for (const item of items) {
+        try {
+          // Format the item for submission
+          const formattedItem = {
+            name: item.name,
+            uniqueItems.push({
+              ...formattedItem,
+              isDuplicate: false,
+              status: 'ready'
+            });
+          }
+        } catch (itemCheckError) {
+          logWarn(`[BulkAddProcessor] Error checking item ${item.name}:`, itemCheckError);
+          // Add to unique items but mark as potentially problematic
+          uniqueItems.push({
+            ...item,
+            isDuplicate: false,
+            status: 'ready',
+            message: 'Could not verify uniqueness'
+          });
+        }
+      }
+      
+      logDebug(`[BulkAddProcessor] Found ${uniqueItems.length} unique items and ${duplicateItems.length} duplicates`);
+      
+      // If no unique items, return early
+      if (uniqueItems.length === 0) {
+        logWarn('[BulkAddProcessor] All items are duplicates');
         return {
           status: 200,
           data: {
             success: true,
             message: 'No new items to submit. All items are duplicates.',
-            details: itemsWithDuplicateFlags.map(item => ({
+            details: duplicateItems.map(item => ({
               ...item,
-              status: item.isDuplicate ? 'duplicate' : 'skipped',
+              status: 'duplicate',
               input: {
                 _lineNumber: item._lineNumber
               }
-            }))
+            })),
+            summary: {
+              total: items.length,
+              added: 0,
+              duplicates: duplicateItems.length,
+              skipped: 0,
+              error: 0
+            }
           }
         };
       }
       
-      // Format items for submission
-      const formattedItems = itemsToSubmit.map(item => ({
-        name: item.name,
-        type: item.type,
-        address: item.address,
-        city: item.city,
-        state: item.state,
-        zipcode: item.zipcode,
-        city_id: item.city_id, // Include city_id which is required by the database
-        neighborhood_id: item.neighborhood_id,
-        latitude: item.latitude,
-        longitude: item.longitude,
-        tags: item.tags || [],
-        place_id: item.placeId,
-        _lineNumber: item._lineNumber // Keep for tracking
-      }));
+      // Now submit each unique item individually to avoid transaction rollbacks
+      const successfulItems = [];
+      const failedItems = [];
       
-      // Submit the formatted items
-      const response = await processSubmission(formattedItems);
-      
-      // Combine the results with the duplicate flags
-      const allResults = itemsWithDuplicateFlags.map(item => {
-        if (item.isDuplicate && !item.forceSubmit) {
-          return {
+      for (const item of uniqueItems) {
+        try {
+          // Submit just this one item
+          const singleItemResponse = await adminService.bulkAddItems([item]);
+          
+          if (singleItemResponse.success && singleItemResponse.data && singleItemResponse.data.createdItems && singleItemResponse.data.createdItems.length > 0) {
+            // Item was successfully added
+            const createdItem = singleItemResponse.data.createdItems[0];
+            successfulItems.push({
+              ...item,
+              status: 'added',
+              message: `Added successfully (ID: ${createdItem.id})`,
+              finalId: createdItem.id
+            });
+          } else if (singleItemResponse.data && singleItemResponse.data.errors && singleItemResponse.data.errors.length > 0) {
+            // Item failed due to an error
+            const error = singleItemResponse.data.errors[0];
+            failedItems.push({
+              ...item,
+              status: 'error',
+              message: `Error: ${error.error || 'Unknown error'}`,
+              error: error
+            });
+          } else {
+            // Unknown result
+            failedItems.push({
+              ...item,
+              status: 'error',
+              message: 'Unknown error during submission'
+            });
+          }
+        } catch (singleItemError) {
+          // Error submitting this item
+          logError(`[BulkAddProcessor] Error submitting item ${item.name}:`, singleItemError);
+          failedItems.push({
             ...item,
-            status: 'duplicate',
-            message: item.message || `Duplicate of existing restaurant (ID: ${item.duplicateInfo?.id || 'unknown'})`
-          };
+            status: 'error',
+            message: `Error: ${singleItemError.message || 'Submission failed'}`,
+            error: singleItemError
+          });
         }
-        
-        // For submitted items, use the response data
-        const submittedItem = response.data?.createdItems?.find(created => 
-          created.name === item.name) || null;
-        
-        if (submittedItem) {
-          return {
-            ...item,
-            status: 'added',
-            message: `Added successfully (ID: ${submittedItem.id})`,
-            finalId: submittedItem.id
-          };
-        }
-        
-        // Default case for items that weren't duplicates but weren't in the response
-        return {
-          ...item,
-          status: 'unknown',
-          message: 'Status unknown after submission'
-        };
-      });
+      }
       
+      // Combine all results
+      const allResults = [
+        ...successfulItems,
+        ...failedItems,
+        ...duplicateItems
+      ];
+      
+      // Return the combined results
       return {
         status: 200,
         data: {
           success: true,
-          message: response.message || `Processed ${itemsToSubmit.length} items`,
+          message: `Processed ${items.length} items. Added: ${successfulItems.length}, Failed: ${failedItems.length}, Duplicates: ${duplicateItems.length}`,
           details: allResults,
+          createdItems: successfulItems.map(item => ({
+            id: item.finalId,
+            name: item.name,
+            type: item.type,
+            city_id: item.city_id,
+            neighborhood_id: item.neighborhood_id
+          })),
+          successCount: successfulItems.length,
+          failureCount: failedItems.length,
           summary: {
-            total: itemsWithDuplicateFlags.length,
-            added: response.data?.successCount || 0,
-            duplicates: itemsWithDuplicateFlags.filter(item => item.isDuplicate && !item.forceSubmit).length,
-            skipped: 0,
-            error: response.data?.failureCount || 0
+            total: items.length,
+            added: successfulItems.length,
+            duplicates: duplicateItems.length,
+            errors: failedItems.length,
+            skipped: 0
           }
         }
       };
     } catch (error) {
-      logError('[BulkAddProcessor] Error submitting items:', error);
+      // Handle any unexpected errors
+      logError('[BulkAddProcessor] Unexpected error in submitBulkAdd:', error);
       
       // Return a formatted error response
       return {
@@ -665,6 +877,12 @@ function useBulkAddProcessor(itemType = 'restaurants') {
         data: {
           success: false,
           message: error.message || 'Error submitting items',
+          errorDetails: {
+            message: error.message,
+            stack: error.stack,
+            name: error.name,
+            response: error.response || null
+          },
           details: items.map(item => ({
             ...item,
             status: 'error',
@@ -672,7 +890,14 @@ function useBulkAddProcessor(itemType = 'restaurants') {
             input: {
               _lineNumber: item._lineNumber
             }
-          }))
+          })),
+          summary: {
+            total: items.length,
+            added: 0,
+            duplicates: 0,
+            errors: items.length,
+            skipped: 0
+          }
         }
       };
     }
