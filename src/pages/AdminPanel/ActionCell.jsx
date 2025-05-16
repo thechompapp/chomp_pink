@@ -1,8 +1,9 @@
 // src/pages/AdminPanel/ActionCell.jsx
 /* ADDED: Logging for submission status check */
+/* UPDATED: Removed save button, clicking away from cell auto-saves */
+/* UPDATED: Added support for data cleanup approve/reject actions */
 import React from 'react';
-import Button from '@/components/UI/Button.jsx';
-import { Edit, Trash2, Check, Save, XCircle as CancelIcon, Loader2 } from 'lucide-react';
+import { Pencil, Check, X, Trash2, Save, XCircle } from 'lucide-react';
 
 const ActionCell = ({
   row,
@@ -17,7 +18,7 @@ const ActionCell = ({
   // Callbacks from useAdminTableState hook (passed via AdminTableRow)
   onStartEdit,
   onCancelEdit,
-  onSaveEdit,
+  onSaveEdit, // Still needed for some operations but not as a button
   onApprove,
   onReject,
   onDelete, // This is the handleDeleteClick handler
@@ -25,66 +26,124 @@ const ActionCell = ({
   confirmDeleteInfo,
   setConfirmDeleteInfo,
   handleDeleteConfirm,
+  // Data cleanup specific props
+  isDataCleanup,
 }) => {
-  const isDeletingThisRow = actionState?.deletingId === row.id;
-  const isApprovingThisRow = actionState?.approvingId === row.id;
-  const isRejectingThisRow = actionState?.rejectingId === row.id;
-  // Determine if this row is busy (being saved globally, or specific action happening on it)
-  const isRowBusy = isSaving || isDeletingThisRow || isApprovingThisRow || isRejectingThisRow;
-  // Overall disabled state for buttons
-  const isDisabled = disableActions || isRowBusy;
+  const isDeleting = actionState?.deletingId === row.id;
+  const isApproving = actionState?.approvingId === row.id;
+  const isRejecting = actionState?.rejectingId === row.id;
+  const isBusy = isSaving || isDeleting || isApproving || isRejecting;
+
+  const buttonBaseClasses = "p-1.5 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
+  const buttonVariants = {
+    edit: "hover:bg-blue-100 dark:hover:bg-blue-900 text-blue-600 dark:text-blue-400",
+    save: "hover:bg-green-100 dark:hover:bg-green-900 text-green-600 dark:text-green-400",
+    cancel: "hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400",
+    delete: "hover:bg-red-100 dark:hover:bg-red-900 text-red-600 dark:text-red-400",
+    approve: "hover:bg-green-100 dark:hover:bg-green-900 text-green-600 dark:text-green-400",
+    reject: "hover:bg-red-100 dark:hover:bg-red-900 text-red-600 dark:text-red-400",
+  };
 
   // --- Internal Click Handlers ---
-  const triggerStartEdit = () => !isDisabled && onStartEdit && onStartEdit(row);
-  const triggerSaveEdit = () => !isDisabled && onSaveEdit && onSaveEdit(row.id);
+  const triggerStartEdit = () => !isBusy && onStartEdit && onStartEdit(row);
   const triggerCancelEdit = () => !isSaving && onCancelEdit && onCancelEdit(row.id);
-  const triggerDeleteClick = () => !isDisabled && onDelete && onDelete(row.id, resourceType); // Pass type
-  const triggerApprove = () => !isDisabled && onApprove && onApprove(row.id);
-  const triggerReject = () => !isDisabled && onReject && onReject(row.id);
+  const triggerDeleteClick = () => !isBusy && onDelete && onDelete(row.id, resourceType); // Pass type
+  const triggerApprove = () => !isBusy && onApprove && onApprove(row.id);
+  const triggerReject = () => !isBusy && onReject && onReject(row.id);
 
-  // *** ADDED: Logging for submission button logic ***
+  // Show approve/reject buttons for:
+  // 1. Submissions with status 'pending'
+  // 2. Data cleanup changes (which don't have a status field)
   const showSubmissionActions = resourceType === 'submissions' && row?.status === 'pending' && !isEditing;
+  
+  // Always show actions for cleanup items
+  const showCleanupActions = (isDataCleanup === true || resourceType === 'cleanup') && !isEditing;
+  
+  const showApproveRejectButtons = showSubmissionActions || showCleanupActions;
+  
+  // Debugging logs
   if (resourceType === 'submissions' && !isEditing) {
-    console.log(`[ActionCell] Row ID: ${row.id}, Status: ${row?.status}, Should show Approve/Reject? ${row?.status === 'pending'}`);
+    console.log(`[ActionCell] Submission Row ID: ${row.id}, Status: ${row?.status}, Should show Approve/Reject? ${row?.status === 'pending'}`);
   }
-  // *** END LOGGING ***
+  
+  if (isDataCleanup || resourceType === 'cleanup') {
+    console.log(`[ActionCell] Data Cleanup Row ID: ${row.id}, isDataCleanup=${isDataCleanup}, resourceType=${resourceType}, showCleanupActions=${showCleanupActions}, showApproveRejectButtons=${showApproveRejectButtons}`);
+  } else if (resourceType && row.id && !showApproveRejectButtons) {
+    // Log when we might expect buttons but they're not showing
+    console.log(`[ActionCell] NO ACTIONS: resourceType=${resourceType}, isDataCleanup=${isDataCleanup}, isEditing=${isEditing}, Row ID: ${row.id}`);
+  }
 
   return (
-    <>
-      <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap justify-end">
-        {/* Edit/Save/Cancel Buttons */}
-        {canEdit &&
-          (isEditing ? (
+    <div className="flex items-center justify-end gap-1">
+      {isEditing ? (
+        <>
+          <button
+            onClick={() => onSaveEdit(row.id)}
+            disabled={isBusy}
+            className={`${buttonBaseClasses} ${buttonVariants.save}`}
+            aria-label="Save changes"
+          >
+            <Save size={16} />
+          </button>
+          <button
+            onClick={() => onCancelEdit(row.id)}
+            disabled={isBusy}
+            className={`${buttonBaseClasses} ${buttonVariants.cancel}`}
+            aria-label="Cancel editing"
+          >
+            <XCircle size={16} />
+          </button>
+        </>
+      ) : (
+        <>
+          {/* Only show edit button for regular items, not cleanup items */}
+          {canEdit && !isDataCleanup && resourceType !== 'cleanup' && (
+            <button
+              onClick={() => onStartEdit(row)}
+              disabled={disableActions || isBusy}
+              className={`${buttonBaseClasses} ${buttonVariants.edit}`}
+              aria-label="Edit row"
+            >
+              <Pencil size={16} />
+            </button>
+          )}
+
+          {/* Always show approve/reject for cleanup items */}
+          {canMutate && showApproveRejectButtons && (
             <>
-              <Button size="sm" variant="primary" onClick={triggerSaveEdit} isLoading={isSaving} disabled={isDisabled} className="!p-1.5" title="Save Changes"> <Save size={14} /> </Button>
-              <Button size="sm" variant="tertiary" onClick={triggerCancelEdit} disabled={isSaving} className="!p-1.5 text-gray-600 dark:text-gray-400" title="Cancel Edit"> <CancelIcon size={14} /> </Button>
+              <button
+                onClick={triggerApprove}
+                disabled={disableActions || isBusy || (!isDataCleanup && resourceType !== 'cleanup' && row.status === 'approved')}
+                className={`${buttonBaseClasses} ${buttonVariants.approve}`}
+                aria-label={(isDataCleanup || resourceType === 'cleanup') ? "Apply change" : "Approve submission"}
+              >
+                <Check size={16} />
+              </button>
+              <button
+                onClick={triggerReject}
+                disabled={disableActions || isBusy || (!isDataCleanup && resourceType !== 'cleanup' && row.status === 'rejected')}
+                className={`${buttonBaseClasses} ${buttonVariants.reject}`}
+                aria-label={(isDataCleanup || resourceType === 'cleanup') ? "Reject change" : "Reject submission"}
+              >
+                <X size={16} />
+              </button>
             </>
-          ) : (
-            <Button size="sm" variant="tertiary" onClick={triggerStartEdit} disabled={isDisabled} className="!p-1.5" title="Edit Row"> <Edit size={14} /> </Button>
-          ))}
-
-        {/* Delete Button (for non-submissions) */}
-        {canMutate && resourceType !== 'submissions' && !isEditing && (
-          <Button size="sm" variant="tertiary" onClick={triggerDeleteClick} isLoading={isDeletingThisRow} disabled={isDisabled} className="!p-1.5 text-red-500 hover:text-red-700" title="Delete Row">
-            {isDeletingThisRow ? <Loader2 className="animate-spin h-3.5 w-3.5" /> : <Trash2 size={14} />}
-          </Button>
-        )}
-
-        {/* Approve/Reject Buttons (for pending submissions) */}
-        {showSubmissionActions && ( // Use the calculated flag
-          <>
-            <Button size="sm" variant="tertiary" onClick={triggerApprove} isLoading={isApprovingThisRow} disabled={isDisabled} className="!p-1.5 text-green-600 hover:text-green-800" title="Approve Submission">
-              {isApprovingThisRow ? <Loader2 className="animate-spin h-3.5 w-3.5" /> : <Check size={14} />}
-            </Button>
-            <Button size="sm" variant="tertiary" onClick={triggerReject} isLoading={isRejectingThisRow} disabled={isDisabled} className="!p-1.5 text-red-500 hover:text-red-700" title="Reject Submission">
-              {isRejectingThisRow ? <Loader2 className="animate-spin h-3.5 w-3.5" /> : <CancelIcon size={14} />}
-            </Button>
-          </>
-        )}
-      </div>
-      {/* Display edit error only if this row is being edited */}
-      {isEditing && editError && ( <p className="text-[11px] text-red-600 mt-1 whitespace-normal" role="alert"> {editError} </p> )}
-    </>
+          )}
+          
+          {/* Only show delete button for regular items, not cleanup items */}
+          {canMutate && !isDataCleanup && resourceType !== 'cleanup' && (
+            <button
+              onClick={triggerDeleteClick}
+              disabled={disableActions || isBusy}
+              className={`${buttonBaseClasses} ${buttonVariants.delete}`}
+              aria-label="Delete row"
+            >
+              <Trash2 size={16} />
+            </button>
+          )}
+        </>
+      )}
+    </div>
   );
 };
 

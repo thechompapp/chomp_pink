@@ -8,6 +8,11 @@ const router = express.Router();
 // Secure all admin routes
 router.use(requireAuth, requireSuperuser);
 
+// Data Cleanup Routes
+router.get('/cleanup/analyze/:resourceType', adminController.analyzeData);
+router.post('/cleanup/apply/:resourceType', adminController.applyChanges);
+router.post('/cleanup/reject/:resourceType', adminController.rejectChanges);
+
 // Generic Resource Management Routes
 router.get('/resources/:resourceType', adminController.getAllResources);
 router.get('/resources/:resourceType/:id', adminController.getResourceById);

@@ -25,6 +25,7 @@ export const useAdminRowEditing = (initialData, columns, type, cities = []) => {
 
     // Callback to update the form data for a specific row being edited
     const handleRowDataChange = useCallback(async (rowId, incomingChanges) => {
+        console.log(`[useAdminRowEditing] Row data change for row ${rowId}:`, incomingChanges);
         setEditError(null); // Clear previous row error on new change
 
         // Update form state optimistically first
@@ -66,14 +67,21 @@ export const useAdminRowEditing = (initialData, columns, type, cities = []) => {
                   processedChanges.zipcode = ''; // Clear invalid zipcode input
              }
         }
-
+        
+        // Retrieve existing form data for this row
+        const existingRowData = editFormData[rowId] || {};
+        
         // Update the central form data state
-        setEditFormData((prev) => ({
-            ...prev,
-            [rowId]: { ...(prev[rowId] || {}), ...processedChanges }
-        }));
+        setEditFormData((prev) => {
+            const newFormData = {
+                ...prev,
+                [rowId]: { ...existingRowData, ...processedChanges }
+            };
+            console.log(`[useAdminRowEditing] Updated form data for row ${rowId}:`, newFormData[rowId]);
+            return newFormData;
+        });
 
-    }, [type, cities]); // Dependency: type, cities
+    }, [type, cities, editFormData]); // Added editFormData as dependency
 
     // Callback to start editing a row
     const handleStartEdit = useCallback((row) => {
@@ -82,25 +90,33 @@ export const useAdminRowEditing = (initialData, columns, type, cities = []) => {
         // Skip inline editing for lists (handled by modal elsewhere)
         if (type === 'lists') return;
 
+        console.log(`[useAdminRowEditing] Starting edit for row ${row.id}, type: ${type}`);
+        console.log('[useAdminRowEditing] Columns:', columns);
+
         const initialRowData = {};
         columns.forEach((col) => {
-            if (col.editable && col.key !== 'select' && col.key !== 'actions') {
-                 let initialValue = row[col.key];
-                 if ((col.key === 'tags' || col.key === 'zipcode_ranges') && Array.isArray(initialValue)) {
+            const key = col.key || col.accessor;
+            // Make sure to use isEditable instead of editable to match column definitions
+            if (col.isEditable && key && key !== 'select' && key !== 'actions') {
+                 console.log(`[useAdminRowEditing] Initializing form data for column ${key}`);
+                 let initialValue = row[key];
+                 if ((key === 'tags' || key === 'zipcode_ranges') && Array.isArray(initialValue)) {
                       initialValue = initialValue.join(', ');
                  }
-                 if (col.inputType === 'boolean') {
+                 if (col.inputType === 'boolean' || col.cellType === 'boolean') {
                      initialValue = String(initialValue ?? false);
                  }
                  // Capture corresponding names
-                 if (col.key === 'city_id') initialRowData.city_name = row.city_name;
-                 if (col.key === 'neighborhood_id') initialRowData.neighborhood_name = row.neighborhood_name;
-                 if (col.key === 'restaurant_id') initialRowData.restaurant_name = row.restaurant_name;
+                 if (key === 'city_id') initialRowData.city_name = row.city_name;
+                 if (key === 'neighborhood_id') initialRowData.neighborhood_name = row.neighborhood_name;
+                 if (key === 'restaurant_id') initialRowData.restaurant_name = row.restaurant_name;
 
-                 initialRowData[col.key] = initialValue ?? '';
+                 initialRowData[key] = initialValue ?? '';
             }
         });
 
+        console.log(`[useAdminRowEditing] Initial form data:`, initialRowData);
+        
         setEditingRowIds((prev) => new Set(prev).add(row.id));
         setEditFormData((prev) => ({ ...prev, [row.id]: initialRowData }));
         setEditError(null);

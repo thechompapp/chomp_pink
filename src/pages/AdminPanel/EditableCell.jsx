@@ -1,12 +1,37 @@
 /* src/pages/AdminPanel/EditableCell.jsx */
 /* MODIFIED: Conditionally render RestaurantAutocomplete for dish restaurant names */
 /* FIXED: Simplified and corrected originalDisplayValue rendering logic */
-import React, { useMemo, useCallback } from 'react';
+/* ADDED: Auto-save functionality when clicking away from cell */
+import React, { useMemo, useCallback, useRef } from 'react';
 import PlacesAutocomplete from '@/components/UI/PlacesAutocomplete.jsx';
 import RestaurantAutocomplete from '@/components/UI/RestaurantAutocomplete.jsx'; // Ensure import
+import NeighborhoodAutocomplete from '@/components/UI/NeighborhoodAutocomplete.jsx'; // Import our new component
+import CityAutocomplete from '@/components/UI/CityAutocomplete.jsx'; // Import city autocomplete
 import { usePlacesApi } from '@/context/PlacesApiContext.jsx';
 import Input from '@/components/UI/Input.jsx';
 import Select from '@/components/UI/Select.jsx';
+import { Edit, Loader2 } from 'lucide-react';
+
+const validateField = (value, type, required = false) => {
+  if (required && (!value || value.trim() === '')) {
+    return 'This field is required';
+  }
+
+  switch (type) {
+    case 'email':
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? null : 'Invalid email address';
+    case 'url':
+      return /^https?:\/\/.+/.test(value) ? null : 'Invalid URL';
+    case 'number':
+      return !isNaN(value) ? null : 'Must be a number';
+    case 'phone':
+      return /^\+?[\d\s-()]+$/.test(value) ? null : 'Invalid phone number';
+    case 'zipcode':
+      return /^\d{5}(-\d{4})?$/.test(value) ? null : 'Invalid zipcode';
+    default:
+      return null;
+  }
+};
 
 const EditableCell = ({
   row, // The original data for the row
@@ -18,24 +43,61 @@ const EditableCell = ({
   cities, // Lookup data
   neighborhoods, // Lookup data
   resourceType, // *** ADDED: Pass the resource type (e.g., 'dishes', 'restaurants') ***
+  onStartEdit, // Added onStartEdit prop
+  onSaveEdit, // Added onSaveEdit prop to enable auto-save
 }) => {
   // --- Hooks ---
   const { isAvailable: placesApiAvailable } = usePlacesApi();
   const currentRowId = useMemo(() => row?.id ?? '__NEW_ROW__', [row]);
   const columnKey = useMemo(() => col?.key || col?.accessor, [col]); // Ensure we have a valid key
+  const prevValueRef = useRef(null); // Store previous value to prevent unnecessary auto-saves
 
   // --- Memos ---
-  const cityId = useMemo(() => String(rowData?.city_id ?? row?.city_id ?? ''), [rowData, row]);
-  const neighborhoodId = useMemo(() => String(rowData?.neighborhood_id ?? row?.neighborhood_id ?? ''), [rowData, row]);
+  const cityId = useMemo(() => {
+    // Skip computation if both rowData and row are undefined or null
+    if ((!rowData || typeof rowData !== 'object') && (!row || typeof row !== 'object')) {
+      return '';
+    }
+    const value = String(rowData?.city_id ?? row?.city_id ?? '');
+    // Only log if we have a meaningful value or debug is needed
+    if (value) {
+      console.log(`[EditableCell] Computed cityId: ${value}, from rowData:`, 
+        rowData?.city_id, 'or row:', row?.city_id);
+    }
+    return value;
+  }, [rowData, row]);
+  
+  const neighborhoodId = useMemo(() => {
+    // Skip computation if both rowData and row are undefined or null
+    if ((!rowData || typeof rowData !== 'object') && (!row || typeof row !== 'object')) {
+      return '';
+    }
+    const value = String(rowData?.neighborhood_id ?? row?.neighborhood_id ?? '');
+    // Only log if we have a meaningful value or debug is needed
+    if (value) {
+      console.log(`[EditableCell] Computed neighborhoodId: ${value}, from rowData:`, 
+        rowData?.neighborhood_id, 'or row:', row?.neighborhood_id);
+    }
+    return value;
+  }, [rowData, row]);
+  
   // Use value from form state (rowData) if editing, otherwise use original row data
   const cellValue = useMemo(() => {
-      if (isEditing && rowData && columnKey && typeof rowData === 'object') {
-          // Use optional chaining for safety, default to empty string if undefined/null
-          return rowData[columnKey] ?? '';
-      }
-      // For display mode, use original row data (handled in originalDisplayValue)
-      return ''; // Default for editing mode if rowData is missing
-  }, [isEditing, rowData, columnKey]);
+    if (isEditing && rowData && columnKey && typeof rowData === 'object') {
+        // If we have form data for this cell, use it
+        if (rowData[columnKey] !== undefined) {
+            return rowData[columnKey];
+        }
+        // If no form data yet but we have original row data, use that for initial value
+        if (row && row[columnKey] !== undefined) {
+            return row[columnKey];
+        }
+        // Fallback to empty string only if truly nothing is available
+        return '';
+    }
+    // For display mode, use original row data (handled in originalDisplayValue)
+    return ''; // Default for editing mode if rowData is missing
+  }, [isEditing, rowData, columnKey, row]);
 
 
   // --- FIXED: Simplified logic for displaying non-editable values ---
@@ -58,7 +120,7 @@ const EditableCell = ({
      if (columnKey === 'restaurant_name' && resourceType === 'dishes') {
         const restaurantId = Number(row?.restaurant_id);
         if (!isNaN(restaurantId) && restaurantId > 0) {
-            return <a href={`/restaurant/${restaurantId}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">{value || `ID: ${restaurantId}`}</a>;
+            return <a href={`/restaurant/${restaurantId}`} target="_blank" rel="noopener noreferrer" className="text-gray-700 dark:text-gray-300 hover:underline">{value || `ID: ${restaurantId}`}</a>;
         }
         return value || (row?.restaurant_id ? `ID: ${row.restaurant_id}` : <span className="text-gray-400 italic">N/A</span>);
      }
@@ -69,7 +131,7 @@ const EditableCell = ({
          return value || <span className="text-gray-400 italic">N/A</span>;
      }
      if (columnKey === 'website' && value) {
-        return <a href={value.startsWith('http') ? value : `//${value}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline truncate block max-w-xs">{value}</a>;
+        return <a href={value.startsWith('http') ? value : `//${value}`} target="_blank" rel="noopener noreferrer" className="text-gray-700 dark:text-gray-300 hover:underline truncate block max-w-xs">{value}</a>;
      }
 
     // 2. Handle general data types
@@ -112,11 +174,30 @@ const EditableCell = ({
   // --- Callbacks ---
   const handleDataUpdate = useCallback((changes) => {
       if (onDataChange) {
+        // Store current value for auto-save comparison
+        prevValueRef.current = changes[columnKey];
         onDataChange(currentRowId, changes);
       } else {
           console.error("[EditableCell] onDataChange handler is missing!");
       }
-   }, [currentRowId, onDataChange]);
+   }, [currentRowId, onDataChange, columnKey]);
+
+  // Add auto-save handler for blur events
+  const handleBlur = useCallback(() => {
+    // Only auto-save if there's a valid row id and we're in edit mode
+    if (onSaveEdit && isEditing && !isSaving && row?.id) {
+      // Check if the value has actually changed before saving
+      const isValueChanged = prevValueRef.current !== undefined && 
+                            JSON.stringify(prevValueRef.current) !== JSON.stringify(row[columnKey]);
+      
+      // Only log when we're actually saving
+      console.log(`[EditableCell] Auto-saving on blur for row ${row.id}, column: ${columnKey}`);
+      
+      // Even if the value hasn't visibly changed, we still want to save in case
+      // other properties were updated (like IDs for autocomplete fields)
+      onSaveEdit(row.id);
+    }
+  }, [onSaveEdit, isEditing, isSaving, row, columnKey]);
 
   const handlePlaceSelected = useCallback((placeData) => {
     if (!placeData) return;
@@ -177,19 +258,54 @@ const EditableCell = ({
 
 
   // --- Render Logic ---
-  if (!isEditing || !col.editable) {
+  if (!isEditing || !col.isEditable) {
     // Render the calculated display value when not editing
-    return <div className="truncate">{originalDisplayValue}</div>;
+    
+    // Add onClick to toggle edit mode if the cell is editable
+    const handleEditClick = (e) => {
+      console.log('[EditableCell] Cell clicked!');
+      
+      // If this cell is editable and we have a valid onStartEdit function and row
+      if (col.isEditable && onStartEdit && row && typeof onStartEdit === 'function') {
+        console.log(`[EditableCell] Starting edit for row ${row.id}, column: ${columnKey}`);
+        onStartEdit(row);
+      }
+    };
+    
+    // Prepare class names based on whether the cell is editable
+    const editableCellClasses = col.isEditable 
+      ? 'cursor-pointer relative group border-0 hover:bg-muted/50 transition-all duration-150 ease-in-out rounded-sm p-2 flex items-center justify-between' 
+      : 'truncate';
+    
+    return (
+      <div 
+        className={editableCellClasses}
+        onClick={col.isEditable ? handleEditClick : undefined}
+        title={col.isEditable ? "Click to edit" : undefined}
+        style={col.isEditable ? { minHeight: '36px' } : undefined}
+        data-editable={col.isEditable}
+        data-column={columnKey}
+      >
+        <span className="truncate block pr-5 text-foreground">{originalDisplayValue}</span>
+        
+        {col.isEditable && (
+          <div className="absolute right-2 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+            <Edit size={16} strokeWidth={1.5} />
+          </div>
+        )}
+      </div>
+    );
   }
 
   // --- Editing Render ---
   const inputProps = {
-    value: cellValue, // Use value derived from form state
+    value: cellValue,
     onChange: handleInputChange,
-    className: "block w-full p-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-[#D1B399] focus:border-[#D1B399] disabled:opacity-50 disabled:bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200",
+    onBlur: handleBlur,
+    className: "block w-full p-1 border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-ring focus:border-border disabled:opacity-50 disabled:bg-muted bg-background text-foreground",
     disabled: isSaving,
     required: col.required,
-    'aria-label': typeof col.header === 'string' ? col.header : columnKey, // Use header or key for aria-label
+    'aria-label': typeof col.header === 'string' ? col.header : columnKey,
   };
 
   // --- Specific Input Types ---
@@ -205,6 +321,7 @@ const EditableCell = ({
               required={col.required}
               useLocalSearch={true} // Assuming backend search
               placeholder="Search Restaurant..."
+              onBlur={handleBlur} // Added onBlur to auto-save
           />
       );
   }
@@ -219,29 +336,117 @@ const EditableCell = ({
               disabled={isSaving || !placesApiAvailable}
               enableManualEntry={true} // Allows typing if needed
               required={col.required}
+              onBlur={handleBlur} // Added onBlur to auto-save
           />
       );
   }
 
-  // City Select
+  // City Select with Autocomplete
   if (col.cellType === 'city_select') { // Use cellType from column definition
-      return (
-          <Select {...inputProps} value={cityId} onChange={handleCityChange}>
-              <option value="">Select City...</option>
-              {Array.isArray(cities) && cities.map(city => (
-                  <option key={`city-opt-${city.id}`} value={String(city.id)}>{city.name}</option>
-              ))}
-          </Select>
-      );
+    // Add more detailed logging about cities data
+    const cityName = rowData?.city_name || row?.city_name || '';
+    const cityId = String(rowData?.city_id ?? row?.city_id ?? '');
+    
+    console.log('[EditableCell] Rendering CityAutocomplete, cities:', {
+      length: cities?.length || 0,
+      isArray: Array.isArray(cities),
+      sample: cities?.slice(0, 3),
+      rowData,
+      row,
+      cityId,
+      cityName,
+      // What we're going to send to CityAutocomplete
+      cellValueToUse: cityId || cityName
+    });
+    
+    return (
+      <CityAutocomplete
+        inputValue={cityId || cityName} // Use ID for lookup or name for display
+        onCitySelected={(selectedCity) => {
+          console.log('[EditableCell] City selected:', selectedCity);
+          if (selectedCity?.id) {
+            handleDataUpdate({
+              city_id: selectedCity.id,
+              city_name: selectedCity.name,
+              // Reset neighborhood when city changes
+              neighborhood_id: null,
+              neighborhood_name: null
+            });
+            // Auto-save after selection
+            setTimeout(() => handleBlur(), 100);
+          } else {
+            handleDataUpdate({ 
+              city_id: null,
+              city_name: null,
+              neighborhood_id: null,
+              neighborhood_name: null 
+            });
+          }
+        }}
+        onChange={(newName) => {
+          // Just update the display name when typing; ID will be updated on selection
+          handleDataUpdate({ city_name: newName });
+        }}
+        disabled={isSaving}
+        cities={cities || []}
+        placeholder="Search cities..."
+        onBlur={handleBlur} // Added onBlur to auto-save
+      />
+    );
   }
 
-  // Neighborhood Select
+  // Neighborhood Select with Autocomplete
   if (col.cellType === 'neighborhood_select') { // Use cellType from column definition
+    const neighborhoodName = rowData?.neighborhood_name || row?.neighborhood_name || '';
+    const neighborhoodId = String(rowData?.neighborhood_id ?? row?.neighborhood_id ?? '');
+    // Use city_id from rowData first, then from row as fallback
+    const effectiveCityId = String(rowData?.city_id ?? row?.city_id ?? '');
+    
+    console.log('[EditableCell] Rendering NeighborhoodAutocomplete:', {
+      neighborhoods: neighborhoods?.length || 0, 
+      effectiveCityId, // Log the city ID we're actually passing
+      cityId, // Original cityId memo
+      rowData_city_id: rowData?.city_id, // Log source of city_id
+      row_city_id: row?.city_id, // Log source of city_id
+      neighborhoodId,
+      neighborhoodName,
+      valueToUse: neighborhoodId || neighborhoodName
+    });
+    
     return (
-      <Select {...inputProps} value={neighborhoodId} onChange={handleNeighborhoodChange} disabled={isSaving || !cityId || relevantNeighborhoods.length === 0} >
-        <option value=""> {!cityId ? '(Select City First)' : relevantNeighborhoods.length === 0 ? 'No Neighborhoods Found' : 'Select Neighborhood...'} </option>
-        {relevantNeighborhoods.map(nb => ( <option key={`nb-opt-${nb.id}`} value={String(nb.id)}>{nb.name}</option> ))}
-      </Select>
+      <NeighborhoodAutocomplete
+        inputValue={neighborhoodId || neighborhoodName} // Use ID for lookup or name for display
+        onNeighborhoodSelected={(selectedNeighborhood) => {
+          console.log('[EditableCell] Neighborhood selected:', selectedNeighborhood);
+          if (selectedNeighborhood?.id) {
+            handleDataUpdate({
+              neighborhood_id: selectedNeighborhood.id,
+              neighborhood_name: selectedNeighborhood.name,
+              // Optionally update city if the neighborhood has city information
+              ...(selectedNeighborhood.city_id && {
+                city_id: selectedNeighborhood.city_id,
+                city_name: selectedNeighborhood.city_name
+              })
+            });
+            // Auto-save after selection
+            setTimeout(() => handleBlur(), 100);
+          } else {
+            handleDataUpdate({ 
+              neighborhood_id: null,
+              neighborhood_name: null
+            });
+          }
+        }}
+        onChange={(newName) => {
+          // Just update the display name when typing; ID will be updated on selection
+          handleDataUpdate({ neighborhood_name: newName });
+        }}
+        disabled={isSaving || !effectiveCityId} // Use effectiveCityId instead of cityId
+        neighborhoods={neighborhoods || []}
+        cityId={effectiveCityId} // Use effectiveCityId instead of cityId
+        placeholder={effectiveCityId ? "Search neighborhoods..." : "Select a city first"}
+        onBlur={handleBlur} // Added onBlur to auto-save
+      />
     );
   }
 

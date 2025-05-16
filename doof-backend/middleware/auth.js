@@ -9,16 +9,21 @@ export const requireAuth = async (req, res, next) => {
   // Check for development bypass headers
   const bypassAuth = req.headers['x-bypass-auth'] === 'true';
   const isPlacesApiRequest = req.headers['x-places-api-request'] === 'true';
+  const isAdminRoute = req.path.startsWith('/admin/');
+  
+  // Check if we're running in development mode
+  const isDevMode = process.env.NODE_ENV === 'development';
+  const isLocalhost = req.headers.host?.includes('localhost') || req.headers.host?.includes('127.0.0.1');
   
   // Allow bypass in development mode or for Places API requests with the right headers
-  if (process.env.NODE_ENV === 'development' && (bypassAuth || isPlacesApiRequest)) {
-    console.log('[Auth Middleware] Bypassing authentication for development or Places API request');
-    // Set a default user for development
+  if (isDevMode && isLocalhost && (bypassAuth || isPlacesApiRequest || isAdminRoute)) {
+    console.log(`[Auth Middleware] Bypassing authentication for ${req.path} in development mode on localhost`);
+    // Set a default admin user for development
     req.user = {
-      id: 1, // Default to admin user
-      username: 'dev_user',
-      email: 'dev@example.com',
-      account_type: 'superuser' // Grant superuser access in dev mode
+      id: 1,
+      username: 'admin',
+      email: 'admin@example.com',
+      account_type: 'superuser'
     };
     return next();
   }

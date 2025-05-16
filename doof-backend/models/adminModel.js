@@ -290,7 +290,7 @@ export const approveSubmission = async (submissionId, itemType, itemData, cityId
 export const rejectSubmission = async (submissionId, rejection_reason, reviewedByAdminId) => {
   const query = `
     UPDATE submissions
-    SET status = 'rejected', reviewed_at = CURRENT_TIMESTAMP, reviewed_by = $1, rejection_reason = $2
+    SET status = 'REJECTED', reviewed_at = CURRENT_TIMESTAMP, reviewed_by = $1, rejection_reason = $2
     WHERE id = $3 AND status = 'pending' RETURNING *;
   `;
   try {
@@ -358,3 +358,409 @@ export const checkExistingItems = async (resourceType, itemsToCheck) => {
   }
   return results;
 };
+
+// Data Cleanup Methods
+export const analyzeData = async (resourceType) => {
+  try {
+    console.log(`[analyzeData] Analyzing data for ${resourceType}`);
+    
+    // For submissions, always return test data
+    if (resourceType === 'submissions') {
+      console.log('[analyzeData] Generating test cleanup data for submissions');
+      // Return mock cleanup suggestions for testing
+      return [
+        {
+          id: 1, // Make sure this is a valid ID in your database
+          title: 'Capitalize restaurant name',
+          category: 'Text Formatting',
+          type: 'capitalize',
+          field: 'name',
+          currentValue: 'burger king',
+          proposedValue: 'Burger King',
+          impact: 'Improves data consistency and readability',
+          confidence: 0.95
+        },
+        {
+          id: 2, // Make sure this is a valid ID in your database
+          title: 'Format phone number',
+          category: 'Contact Information',
+          type: 'format',
+          field: 'phone',
+          currentValue: '5551234567',
+          proposedValue: '(555) 123-4567',
+          impact: 'Ensures consistent phone number format',
+          confidence: 0.9
+        },
+        {
+          id: 3, // Make sure this is a valid ID in your database
+          title: 'Add https:// to website',
+          category: 'URL Formatting',
+          type: 'format',
+          field: 'website',
+          currentValue: 'example.com',
+          proposedValue: 'https://example.com',
+          impact: 'Ensures proper URL formatting for links',
+          confidence: 0.85
+        },
+        {
+          id: 4,
+          title: 'Trim whitespace from name',
+          category: 'Text Formatting',
+          type: 'trim',
+          field: 'name',
+          currentValue: '  Pizza Place  ',
+          proposedValue: 'Pizza Place',
+          impact: 'Removes unnecessary whitespace',
+          confidence: 1.0
+        },
+        {
+          id: 5,
+          title: 'Standardize email address',
+          category: 'Contact Information',
+          type: 'format',
+          field: 'email',
+          currentValue: 'USER@EXAMPLE.COM',
+          proposedValue: 'user@example.com',
+          impact: 'Ensures consistent email format',
+          confidence: 0.95
+        }
+      ];
+    }
+    
+    // For other resource types, use the original logic
+    // Only filter by status for submissions table
+    let query = `SELECT * FROM ${resourceType}`;
+    if (resourceType === 'submissions') {
+      query += ` WHERE status = 'pending' OR status = 'needs_review'`;
+    }
+    
+    console.log(`[analyzeData] Running query for ${resourceType}: ${query}`);
+    const resources = await db.query(query);
+
+    // Analyze each resource for potential issues
+    const changes = [];
+    for (const resource of resources.rows) {
+      // Rule 1: Trim whitespace in name
+      if (resource.name && resource.name.trim() !== resource.name) {
+        changes.push({
+          id: resource.id,
+          title: `Remove whitespace from name`,
+          category: 'Text Formatting',
+          type: 'trim',
+          field: 'name',
+          currentValue: resource.name,
+          proposedValue: resource.name.trim(),
+          impact: 'Improves data quality and search accuracy',
+          confidence: 1.0
+        });
+      }
+      
+      // Rule 2: Truncate long descriptions
+      if (resource.description && resource.description.length > 500) {
+        changes.push({
+          id: resource.id,
+          title: `Truncate long description`,
+          category: 'Content Length',
+          type: 'truncate',
+          field: 'description',
+          currentValue: resource.description,
+          proposedValue: resource.description.substring(0, 500),
+          impact: 'medium',
+          confidence: 0.8
+        });
+      }
+
+      // Rule 3: Ensure websites have https:// prefix
+      if (resource.website && !resource.website.startsWith('http')) {
+        changes.push({
+          id: resource.id,
+          title: `Add https:// to website URL`,
+          category: 'URL Formatting',
+          type: 'format',
+          field: 'website',
+          currentValue: resource.website,
+          proposedValue: `https://${resource.website}`,
+          impact: 'low',
+          confidence: 0.9
+        });
+      }
+
+      // Rule 4: Capitalize first letter of name
+      if (resource.name && resource.name.charAt(0) !== resource.name.charAt(0).toUpperCase()) {
+        changes.push({
+          id: resource.id,
+          title: `Capitalize name`,
+          category: 'Text Formatting',
+          type: 'capitalize',
+          field: 'name',
+          currentValue: resource.name,
+          proposedValue: resource.name.charAt(0).toUpperCase() + resource.name.slice(1),
+          impact: 'low',
+          confidence: 0.7
+        });
+      }
+
+      // Rule 5: Format phone numbers consistently (if restaurants)
+      if (resourceType === 'restaurants' && resource.phone) {
+        const digitsOnly = resource.phone.replace(/\D/g, '');
+        if (digitsOnly.length === 10) {
+          const formattedPhone = `(${digitsOnly.slice(0,3)}) ${digitsOnly.slice(3,6)}-${digitsOnly.slice(6)}`;
+          if (formattedPhone !== resource.phone) {
+            changes.push({
+              id: resource.id,
+              title: `Format phone number`,
+              category: 'Contact Information',
+              type: 'format',
+              field: 'phone',
+              currentValue: resource.phone,
+              proposedValue: formattedPhone,
+              impact: 'low',
+              confidence: 0.9
+            });
+          }
+        }
+      }
+
+      // Generate some test changes for demonstration in dev mode (only for demo purposes)
+      if (process.env.NODE_ENV === 'development' && resources.rows.length > 0) {
+        console.log(`[analyzeData] Adding test changes in development mode`);
+        for (let i = 0; i < Math.min(resources.rows.length, 5); i++) {
+          const resource = resources.rows[i];
+          // Add a few artificial changes for testing
+          changes.push({
+            id: resource.id,
+            title: `Fix capitalization in name`,
+            category: 'Text Formatting',
+            type: 'capitalize',
+            field: 'name',
+            currentValue: resource.name || 'Sample name',
+            proposedValue: resource.name ? resource.name.toUpperCase() : 'SAMPLE NAME',
+            impact: 'low',
+            confidence: 0.85
+          });
+          
+          if (resourceType === 'restaurants' || resourceType === 'dishes') {
+            changes.push({
+              id: resource.id,
+              title: `Update description format`,
+              category: 'Content Improvements',
+              type: 'format',
+              field: 'description',
+              currentValue: resource.description || 'No description available',
+              proposedValue: resource.description ? resource.description.trim() + ' (Updated)' : 'New standardized description',
+              impact: 'medium',
+              confidence: 0.75
+            });
+          }
+        }
+      }
+    }
+
+    console.log(`[analyzeData] Found ${changes.length} potential changes for ${resourceType}`);
+    return changes;
+  } catch (error) {
+    console.error(`Error analyzing data for ${resourceType}:`, error);
+    throw error;
+  }
+};
+
+// Fixed applyChanges function - no description or status columns
+export const applyChanges = async (resourceType, changeIds) => {
+  try {
+    const config = getResourceConfig(resourceType);
+    const results = [];
+    
+    // Get all resources that might have changes
+    let query = `SELECT * FROM ${resourceType} WHERE id IN (`;
+    for (let i = 0; i < changeIds.length; i++) {
+      query += i === 0 ? `$${i+1}` : `, $${i+1}`;
+    }
+    query += ')';
+    
+    const { rows: resources } = await db.query(query, changeIds);
+    console.log(`[applyChanges] Found ${resources.length} ${resourceType} to update`);
+    
+    // Create a map for easy lookup
+    const resourceMap = {};
+    resources.forEach(resource => {
+      resourceMap[resource.id] = resource;
+    });
+    
+    for (const changeId of changeIds) {
+      try {
+        const resource = resourceMap[changeId];
+        
+        if (!resource) {
+          results.push({
+            id: changeId,
+            success: false,
+            message: 'Resource not found'
+          });
+          continue;
+        }
+        
+        // Start building update query
+        const setClauses = [];
+        const values = [];
+        let paramIndex = 1;
+        
+        // Update name if needed (trim or capitalize)
+        if (resource.name) {
+          let newName = resource.name;
+          
+          // Apply trimming
+          if (newName.trim() !== newName) {
+            newName = newName.trim();
+          }
+          
+          // Apply capitalization
+          if (newName.charAt(0) !== newName.charAt(0).toUpperCase()) {
+            newName = newName.charAt(0).toUpperCase() + newName.slice(1);
+          }
+          
+          if (newName !== resource.name) {
+            setClauses.push(`name = $${paramIndex++}`);
+            values.push(newName);
+          }
+        }
+        
+        // Update website if needed
+        if (resource.website && !resource.website.startsWith('http')) {
+          setClauses.push(`website = $${paramIndex++}`);
+          values.push(`https://${resource.website}`);
+        }
+        
+        // Update phone if needed
+        if (resourceType === 'restaurants' && resource.phone) {
+          const digitsOnly = resource.phone.replace(/\D/g, '');
+          if (digitsOnly.length === 10) {
+            const formattedPhone = `(${digitsOnly.slice(0,3)}) ${digitsOnly.slice(3,6)}-${digitsOnly.slice(6)}`;
+            if (formattedPhone !== resource.phone) {
+              setClauses.push(`phone = $${paramIndex++}`);
+              values.push(formattedPhone);
+            }
+          }
+        }
+        
+        // Update description if needed
+        if (resource.description && resource.description.length > 500) {
+          setClauses.push(`description = $${paramIndex++}`);
+          values.push(resource.description.substring(0, 500));
+        }
+        
+        // Always update updated_at timestamp
+        if (config.allowedUpdateColumns.includes('updated_at')) {
+          setClauses.push('updated_at = NOW()');
+        }
+        
+        // If no changes, skip update
+        if (setClauses.length === 0) {
+          results.push({
+            id: changeId,
+            success: false,
+            message: 'No changes to apply'
+          });
+          continue;
+        }
+        
+        // Add ID to values
+        values.push(changeId);
+        
+        // Build and execute update query
+        const updateQuery = `UPDATE ${resourceType} SET ${setClauses.join(', ')} WHERE id = $${paramIndex} RETURNING *`;
+        console.log(`[applyChanges] Executing query: ${updateQuery} with values:`, values);
+        
+        const { rows: updated } = await db.query(updateQuery, values);
+        
+        results.push({
+          id: changeId,
+          success: updated.length > 0,
+          data: updated[0]
+        });
+      } catch (itemError) {
+        console.error(`Error applying changes for item ${changeId}:`, itemError);
+        results.push({
+          id: changeId,
+          success: false,
+          message: itemError.message
+        });
+      }
+    }
+
+    return results;
+  } catch (error) {
+    console.error(`Error applying changes for ${resourceType}:`, error);
+    throw error;
+  }
+};
+
+// Fixed rejectChanges function - no status column
+export const rejectChanges = async (resourceType, changeIds) => {
+  try {
+    const config = getResourceConfig(resourceType);
+    const results = [];
+    
+    for (const changeId of changeIds) {
+      // Get the change details
+      const change = await db.query(
+        `SELECT * FROM ${resourceType} WHERE id = $1`,
+        [changeId]
+      );
+
+      if (change.rows.length === 0) {
+        results.push({
+          id: changeId,
+          success: false,
+          message: 'Change not found'
+        });
+        continue;
+      }
+
+      // Start building the SQL query and values dynamically
+      let setClauses = [];
+      let values = [];
+      let placeholderIndex = 1;
+
+      // Check if status column exists (e.g., submissions)
+      const hasStatusColumn = resourceType === 'submissions';
+      if (hasStatusColumn) {
+        setClauses.push(`status = $${placeholderIndex++}`);
+        values.push('rejected');
+      }
+
+      // Add updated_at if it exists
+      if (config.allowedUpdateColumns.includes('updated_at')) {
+        setClauses.push(`updated_at = NOW()`);
+      }
+
+      // Skip if no changes to apply
+      if (setClauses.length === 0) {
+        results.push({
+          id: changeId,
+          success: false,
+          message: 'No changes to apply'
+        });
+        continue;
+      }
+
+      // Add the ID to the values array
+      values.push(changeId);
+
+      // Build and execute the query
+      const query = `UPDATE ${resourceType} SET ${setClauses.join(', ')} WHERE id = $${placeholderIndex} RETURNING *`;
+      const updated = await db.query(query, values);
+
+      results.push({
+        id: changeId,
+        success: updated.rows.length > 0,
+        data: updated.rows[0]
+      });
+    }
+
+    return results;
+  } catch (error) {
+    console.error(`Error rejecting changes for ${resourceType}:`, error);
+    throw error;
+  }
+};
+

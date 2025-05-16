@@ -147,7 +147,7 @@ async function testPlaceDetails(placeId) {
 async function testNeighborhoodLookup(zipcode) {
   try {
     console.log(`Looking up neighborhood for zipcode: ${zipcode}`);
-    const response = await api.get(`/filters/neighborhoods?zipcode=${zipcode}`);
+    const response = await api.get(`/neighborhoods/by-zipcode/${zipcode}`);
     
     console.log('Neighborhood lookup response:', JSON.stringify(response.data, null, 2));
     return response.data;
@@ -239,8 +239,18 @@ async function processPlaceDetails(item, placeId) {
 async function testBulkAddSubmission(items) {
   try {
     console.log(`Submitting ${items.length} items for bulk add`);
+    
+    // Ensure all items have necessary fields
+    const validItems = items.map(item => {
+      if (!item.neighborhood_id) {
+        console.warn(`Item ${item.name} is missing neighborhood_id, using default value`);
+        item.neighborhood_id = 1; // Default or mock value
+      }
+      return item;
+    });
+    
     const response = await api.post(`/admin/bulk-add/restaurants`, {
-      items
+      items: validItems
     });
     
     console.log('Bulk add response:', JSON.stringify(response.data, null, 2));

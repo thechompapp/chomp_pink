@@ -6,6 +6,7 @@ BLUE='\033[0;34m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 PURPLE='\033[0;35m'
+RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 # API base URL
@@ -31,7 +32,7 @@ if echo "$AUTH_RESPONSE" | grep -q '"success":true'; then
   echo -e "${GREEN}Authentication successful!${NC}"
   echo "Response: $(echo $AUTH_RESPONSE | cut -c 1-100)... (truncated)"
 else
-  echo -e "\033[0;31mAuthentication failed!${NC}"
+  echo -e "${RED}Authentication failed!${NC}"
   echo "Response: $AUTH_RESPONSE"
   exit 1
 fi
@@ -67,12 +68,12 @@ process_restaurant() {
       echo -e "${GREEN}Successfully retrieved place ID: $PLACE_ID${NC}"
       echo -e "${GREEN}Place description: $DESCRIPTION${NC}"
     else
-      echo -e "\033[0;31mFailed to extract place ID from response${NC}"
+      echo -e "${RED}Failed to extract place ID from response${NC}"
       echo "Response: $PLACE_RESPONSE"
       return
     fi
   else
-    echo -e "\033[0;31mFailed to get place ID${NC}"
+    echo -e "${RED}Failed to get place ID${NC}"
     echo "Response: $PLACE_RESPONSE"
     return
   fi
@@ -106,11 +107,11 @@ process_restaurant() {
     if [ -n "$ZIPCODE" ]; then
       echo -e "${GREEN}Successfully extracted zipcode: $ZIPCODE${NC}"
     else
-      echo -e "\033[0;31mFailed to extract zipcode from address${NC}"
+      echo -e "${RED}Failed to extract zipcode from address${NC}"
       ZIPCODE="10001" # Default to Manhattan
     fi
   else
-    echo -e "\033[0;31mFailed to get place details${NC}"
+    echo -e "${RED}Failed to get place details${NC}"
     echo "Response: $DETAILS_RESPONSE"
     return
   fi
@@ -129,7 +130,7 @@ process_restaurant() {
   if [ -n "$NEIGHBORHOOD_ID" ] && [ -n "$NEIGHBORHOOD_NAME" ]; then
     echo -e "${GREEN}Successfully retrieved neighborhood: $NEIGHBORHOOD_NAME (ID: $NEIGHBORHOOD_ID)${NC}"
   else
-    echo -e "\033[0;31mFailed to retrieve neighborhood info${NC}"
+    echo -e "${RED}Failed to retrieve neighborhood info${NC}"
     echo "Using default neighborhood (Manhattan)"
     NEIGHBORHOOD_ID=1
     NEIGHBORHOOD_NAME="Manhattan"
@@ -203,7 +204,7 @@ EOF
       CREATED_ITEMS+=("$name:0:$NEIGHBORHOOD_NAME:0")
     fi
   else
-    echo -e "\033[0;31mBulk add failed!${NC}"
+    echo -e "${RED}Bulk add failed!${NC}"
     CREATED_ITEMS+=("$name:0:$NEIGHBORHOOD_NAME:0")
   fi
   

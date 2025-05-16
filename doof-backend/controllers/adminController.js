@@ -289,3 +289,99 @@ export const bulkAddResources = async (req, res) => {
         res.status(500).json({ success: false, message: `Failed to bulk add ${resourceType}. Error: ${error.message}` });
     }
 };
+
+// Data Cleanup Methods
+export const analyzeData = async (req, res) => {
+  const { resourceType } = req.params;
+  try {
+    console.log(`[adminController] Analyzing data for ${resourceType}`);
+
+    // Validate resource type
+    const validResourceTypes = ['restaurants', 'dishes', 'users', 'cities', 'neighborhoods', 'hashtags', 'lists', 'submissions'];
+    if (!validResourceTypes.includes(resourceType)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid resource type: ${resourceType}. Valid types are: ${validResourceTypes.join(', ')}`
+      });
+    }
+
+    const changes = await AdminModel.analyzeData(resourceType);
+    
+    console.log(`[adminController] Found ${changes.length} changes for ${resourceType}`);
+    
+    // Add debug info to help frontend development
+    const samplesForLog = changes.slice(0, 3).map(c => ({ 
+      id: c.id, 
+      type: c.type, 
+      field: c.field 
+    }));
+    console.log(`[adminController] Sample changes:`, samplesForLog);
+    
+    // Return the results
+    res.status(200).json({
+      success: true,
+      message: `Data analysis completed for ${resourceType}.`,
+      changes: changes
+    });
+  } catch (error) {
+    console.error(`[adminController] Error analyzing data for ${resourceType}:`, error);
+    res.status(500).json({
+      success: false,
+      message: `Failed to analyze data for ${resourceType}. Error: ${error.message}`
+    });
+  }
+};
+
+export const applyChanges = async (req, res) => {
+  const { resourceType } = req.params;
+  const { changeIds } = req.body;
+  
+  if (!changeIds || !Array.isArray(changeIds)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid request. changeIds must be an array.'
+    });
+  }
+
+  try {
+    const results = await AdminModel.applyChanges(resourceType, changeIds);
+    res.status(200).json({
+      success: true,
+      message: `Changes applied successfully for ${resourceType}.`,
+      data: results
+    });
+  } catch (error) {
+    console.error(`Error applying changes for ${resourceType}:`, error);
+    res.status(500).json({
+      success: false,
+      message: `Failed to apply changes for ${resourceType}. Error: ${error.message}`
+    });
+  }
+};
+
+export const rejectChanges = async (req, res) => {
+  const { resourceType } = req.params;
+  const { changeIds } = req.body;
+  
+  if (!changeIds || !Array.isArray(changeIds)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid request. changeIds must be an array.'
+    });
+  }
+
+  try {
+    const results = await AdminModel.rejectChanges(resourceType, changeIds);
+    res.status(200).json({
+      success: true,
+      message: `Changes rejected successfully for ${resourceType}.`,
+      data: results
+    });
+  } catch (error) {
+    console.error(`Error rejecting changes for ${resourceType}:`, error);
+    res.status(500).json({
+      success: false,
+      message: `Failed to reject changes for ${resourceType}. Error: ${error.message}`
+    });
+  }
+};

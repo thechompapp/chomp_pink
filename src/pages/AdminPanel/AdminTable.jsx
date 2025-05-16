@@ -2,15 +2,20 @@
 /* REFACTORED: Accepts props based on new hook structure from AdminPanel */
 /* FIXED: Pass editingRowIds prop */
 /* FIXED: Pass isEditing function correctly to AdminTableRow */
-import React from 'react';
+import React, { useEffect } from 'react';
 import AdminTableRow from './AdminTableRow';
 import TableHeader from './TableHeader';
 import AddRow from './AddRow'; // Assuming AddRow component exists
+import { AlertCircle } from 'lucide-react';
+import ErrorState from './ErrorState';
+import TableSkeleton from './TableSkeleton';
+import EmptyState from './EmptyState';
 
 const AdminTable = ({
     data = [],
     columns = [],
     isLoading,
+    error,
     currentSort, // { column: string, direction: 'asc' | 'desc' } | null
     onSort, // (type, columnKey, direction) => void
     // Row Editing Props
@@ -48,48 +53,67 @@ const AdminTable = ({
     resourceType,
     cities,
     neighborhoods,
+    onRetry,
+    onAddNew,
+    visibleColumns = [],
+    onToggleColumn,
+    isDataCleanup = false, // Added: Flag for data cleanup mode
 }) => {
 
-    if (isLoading && data.length === 0) {
-        return <div className="text-center py-4">Loading data...</div>;
+    // Debug cities data
+    useEffect(() => {
+        console.log(`[AdminTable] Received cities data:`, {
+            length: cities?.length || 0,
+            isArray: Array.isArray(cities),
+            sample: cities?.slice(0, 3),
+            source: 'props from GenericAdminTableTab'
+        });
+    }, [cities]);
+
+    if (error) {
+        return <ErrorState error={error} onRetry={onRetry} />;
+    }
+
+    if (isLoading) {
+        return <TableSkeleton />;
     }
 
     if (!isLoading && data.length === 0 && !isAdding) {
-        return <div className="text-center py-4 text-gray-600 dark:text-gray-400">No {resourceType} found.</div>;
+        return <EmptyState resourceType={resourceType} onAdd={onAddNew} />;
     }
 
     return (
-        <div className="overflow-x-auto shadow rounded-lg border border-gray-200 dark:border-gray-700">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+        <div className="overflow-x-auto rounded-lg border border-border shadow-sm">
+            <table className="min-w-full divide-y divide-border">
                 <TableHeader
                     columns={columns}
-                    currentSortColumn={currentSort?.column} // Pass column part
-                    currentSortDirection={currentSort?.direction} // Pass direction part
-                    onSortChange={onSort} // Pass sort handler (renamed prop)
+                    currentSortColumn={currentSort?.column}
+                    currentSortDirection={currentSort?.direction}
+                    onSortChange={onSort}
                     type={resourceType}
                     isAdding={isAdding}
-                    editingRowIds={editingRowIds} // *** Pass editingRowIds down ***
+                    editingRowIds={editingRowIds}
                     isAllSelected={isAllSelected}
                     onSelectAll={onSelectAll}
-                    showSelect={resourceType !== 'submissions'} // Don't show select for submissions
+                    showSelect={resourceType !== 'submissions'}
+                    visibleColumns={visibleColumns}
+                    onToggleColumn={onToggleColumn}
                 />
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-600">
+                <tbody className="bg-background divide-y divide-border">
                     {/* Add New Row UI */}
                     {isAdding && (
                         <AddRow
                             columns={columns}
-                            // NOTE: Assuming newRowFormData is correctly structured under '__NEW_ROW__' key in parent
-                            newRowData={newRowFormData || {}} // Pass the specific form data for the new row
-                            // Pass setNewRowData callback correctly targeting the '__NEW_ROW__' key
-                            setNewRowData={(key, value) => onNewRowDataChange({ [key]: value })} // Simplified, assuming hook handles '__NEW_ROW__'
+                            newRowData={newRowFormData || {}}
+                            setNewRowData={(key, value) => onNewRowDataChange({ [key]: value })}
                             isSaving={isSavingNew}
-                            setIsSaving={() => {}} // isSavingNew is directly controlled by hook state
-                            setError={() => {}} // Assuming editError state in hook handles add errors too
+                            setIsSaving={() => {}}
+                            setError={() => {}}
                             onSave={onSaveNewRow}
                             type={resourceType}
                             cities={cities}
                             neighborhoods={neighborhoods}
-                            setIsAdding={onCancelAdd} // Use onCancelAdd to signal cancellation
+                            setIsAdding={onCancelAdd}
                         />
                     )}
                     {/* Existing Data Rows */}
@@ -98,33 +122,30 @@ const AdminTable = ({
                             key={row.id}
                             row={row}
                             columns={columns}
-                            // *** FIXED: Pass the isEditing FUNCTION itself, not the result ***
                             isEditing={isEditing}
-                            editFormData={editFormData || {}} // Pass the whole edit form data object
+                            editFormData={editFormData || {}}
                             onStartEdit={onStartEdit}
                             onCancelEdit={onCancelEdit}
                             onSaveEdit={onSaveEdit}
-                            onDataChange={onDataChange} // This function likely expects (rowId, changes)
-                            editError={editError} // Pass row-specific edit error (hook needs logic for this)
-                            isSaving={isSaving} // General saving state
-                            actionState={actionState} // Specific action states (delete/approve/reject)
+                            onDataChange={onDataChange}
+                            editError={editError}
+                            isSaving={isSaving}
+                            actionState={actionState}
                             onApprove={onApprove}
                             onReject={onReject}
-                            onDelete={onDelete} // Pass the click handler
-                            selectedRows={selectedRows || new Set()} // Pass selected rows Set
+                            onDelete={onDelete}
+                            selectedRows={selectedRows || new Set()}
                             onRowSelect={onRowSelect}
                             resourceType={resourceType}
                             cities={cities}
                             neighborhoods={neighborhoods}
-                            // Pass confirmation props for potential use in ActionCell
                             confirmDeleteInfo={confirmDeleteInfo}
                             setConfirmDeleteInfo={setConfirmDeleteInfo}
                             handleDeleteConfirm={handleDeleteConfirm}
-                            // Pass editingRowIds for potential conditional logic if needed
                             editingRowIds={editingRowIds}
-                            // Pass add/bulk edit flags for disabling logic
                             isAdding={isAdding}
-                            isBulkEditing={selectedRows?.size > 1 && editingRowIds?.size > 0} // Example logic
+                            isBulkEditing={selectedRows?.size > 1 && editingRowIds?.size > 0}
+                            isDataCleanup={isDataCleanup}
                         />
                     ))}
                 </tbody>

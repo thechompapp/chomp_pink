@@ -1,8 +1,9 @@
 // src/components/UI/ConfirmationDialog.jsx
 import React from 'react';
-import Modal from '@/components/UI/Modal'; // Use alias
-import Button from '@/components/UI/Button'; // Corrected import path
+import Modal from '@/components/UI/Modal';
+import Button from '@/components/UI/Button';
 import { AlertTriangle, Loader2 } from 'lucide-react';
+import PropTypes from 'prop-types';
 
 const ConfirmationDialog = ({
   isOpen,
@@ -13,8 +14,8 @@ const ConfirmationDialog = ({
   children,
   confirmButtonText = "Confirm",
   cancelButtonText = "Cancel",
-  confirmButtonVariant = "primary",
-  confirmButtonCustomClasses = "bg-red-600 hover:bg-red-700 focus:ring-red-500 !text-white",
+  confirmButtonVariant = "destructive",
+  confirmButtonCustomClasses = "",
 }) => {
   if (!isOpen) {
     return null;
@@ -29,7 +30,7 @@ const ConfirmationDialog = ({
 
         <div className="flex justify-end space-x-3">
           <Button
-            variant="tertiary"
+            variant="secondary"
             size="sm"
             onClick={onClose}
             disabled={isLoading}
@@ -42,7 +43,7 @@ const ConfirmationDialog = ({
             onClick={onConfirm}
             disabled={isLoading}
             isLoading={isLoading}
-            className={`${confirmButtonCustomClasses} min-w-[80px] flex justify-center`}
+            className="min-w-[80px] flex justify-center"
           >
             {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : confirmButtonText}
           </Button>
@@ -52,4 +53,21 @@ const ConfirmationDialog = ({
   );
 };
 
+ConfirmationDialog.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  onConfirm: PropTypes.func.isRequired,
+  title: PropTypes.string,
+  isLoading: PropTypes.bool,
+  children: PropTypes.node.isRequired,
+  confirmButtonText: PropTypes.string,
+  cancelButtonText: PropTypes.string,
+  confirmButtonVariant: PropTypes.oneOf(['primary', 'secondary', 'destructive', 'outline', 'ghost', 'link']),
+  confirmButtonCustomClasses: PropTypes.string
+};
+
+ConfirmationDialog.displayName = 'ConfirmationDialog';
+
+// Support both default and named exports
 export default ConfirmationDialog;
+export { ConfirmationDialog };

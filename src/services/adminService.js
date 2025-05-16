@@ -426,6 +426,39 @@ export const adminService = {
       };
     }
   },
+
+  async analyzeData(resourceType) {
+    logDebug(`[adminService] Analyzing data for cleanup: ${resourceType}`);
+    return handleApiResponse(
+      () => apiClient.get(`/api/admin/cleanup/analyze/${resourceType}`),
+      `AdminService AnalyzeData ${resourceType}`
+    ).catch(error => {
+      logError(`[adminService] Error analyzing ${resourceType} data:`, error);
+      throw error;
+    });
+  },
+  
+  async applyChanges(resourceType, changeIds) {
+    logDebug(`[adminService] Applying changes for ${resourceType}:`, changeIds);
+    return handleApiResponse(
+      () => apiClient.post(`/api/admin/cleanup/apply/${resourceType}`, { changeIds }),
+      `AdminService ApplyChanges ${resourceType}`
+    ).catch(error => {
+      logError(`[adminService] Error applying changes to ${resourceType}:`, error);
+      throw error;
+    });
+  },
+  
+  async rejectChanges(resourceType, changeIds) {
+    logDebug(`[adminService] Rejecting changes for ${resourceType}:`, changeIds);
+    return handleApiResponse(
+      () => apiClient.post(`/api/admin/cleanup/reject/${resourceType}`, { changeIds }),
+      `AdminService RejectChanges ${resourceType}`
+    ).catch(error => {
+      logError(`[adminService] Error rejecting changes to ${resourceType}:`, error);
+      throw error;
+    });
+  },
 };
 
 // Only use named export for consistency

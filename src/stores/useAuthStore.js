@@ -57,14 +57,14 @@ const useAuthStore = create(
         logger.debug('[AuthStore checkAuthStatus] Initializing, current state:', currentState);
         
         // EMERGENCY FIX: Force authentication in development mode
-        if (process.env.NODE_ENV === 'development' || window.location.hostname === 'localhost') {
-          logger.info('[AuthStore] EMERGENCY MODE: Using mock authentication for testing');
+        if (process.env.NODE_ENV === 'development' && window.location.hostname === 'localhost') {
+          logger.info('[AuthStore] Development mode: Using mock authentication for localhost only');
           set({
             isAuthenticated: true,
             user: {
-              id: 'mock-user-1',
-              name: 'Test User',
-              email: 'test@example.com',
+              id: 1,
+              username: 'admin',
+              email: 'admin@example.com',
               account_type: 'superuser'
             },
             token: 'mock-token-for-development',

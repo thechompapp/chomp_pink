@@ -90,17 +90,17 @@ const AddRow = ({ // Removed : React.FC<AddRowProps>
   }, [setNewRowData]);
 
   return (
-    <tr className="bg-blue-50 hover:bg-blue-100">
+    <tr className="bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800">
       {/* Skip Select Checkbox Column */}
       {columns.filter(col => col.key !== 'select').map((col) => (
         <td key={`add-${col.key}`} className={`px-3 py-1 align-top ${col?.className || ''}`}>
           {col.key === 'actions' ? (
             <div className="flex items-center gap-1.5 py-1">
               <Button size="sm" variant="primary" onClick={handleTriggerSave} isLoading={isSaving} disabled={isSaving} className="!p-1.5" title="Save New Row"> <Save size={14} /> </Button>
-              <Button size="sm" variant="tertiary" onClick={setIsAdding} disabled={isSaving} className="!p-1.5 text-gray-600" title="Cancel Add"> <CancelIcon size={14} /> </Button>
+              <Button size="sm" variant="tertiary" onClick={setIsAdding} disabled={isSaving} className="!p-1.5" title="Cancel Add"> <CancelIcon size={14} /> </Button>
               {/* Manual Entry Button for Restaurants */}
               {type === 'restaurants' && !placesApiAvailable && !newRowData.lookupFailed && (
-                 <Button size="sm" variant="secondary" onClick={enableManualEntry} disabled={isSaving} className="!p-1.5 text-xs !text-amber-700 !border-amber-300 hover:!bg-amber-100" title="Manual Entry"> Manual </Button>
+                 <Button size="sm" variant="secondary" onClick={enableManualEntry} disabled={isSaving} className="!p-1.5 text-xs" title="Manual Entry"> Manual </Button>
               )}
             </div>
           ) : (

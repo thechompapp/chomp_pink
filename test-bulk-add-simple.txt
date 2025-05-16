@@ -1,0 +1,5 @@
+Maison Yaki; restaurant; New York; French-Japanese
+Kru; restaurant; New York; Modern Thai
+King; restaurant; New York; Italian-Mediterranean
+Zaytinya; restaurant; New York; Eastern Mediterranean
+Cholita Cuencana; restaurant; New York; Ecuadorian 

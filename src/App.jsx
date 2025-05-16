@@ -12,11 +12,11 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 import EnhancedLoadingFallback from '@/components/UI/EnhancedLoadingFallback';
 import DevModeToggle from '@/components/UI/DevModeToggle';
 import OfflineIndicator from '@/components/UI/OfflineIndicator';
-import ListDataStatus from './components/ListDataStatus';
 import TestQuickAdd from '@/components/UI/TestQuickAdd';
 import useAuthStore from '@/stores/useAuthStore';
 import useUserListStore from '@/stores/useUserListStore'; // Ensure this is used or remove
 import { logError, logInfo, logDebug } from '@/utils/logger';
+import ProtectedRoute from '@/components/ProtectedRoute';
 
 // Enhanced lazy loading with error handling
 const enhancedLazy = (importFn, name) => {
@@ -137,7 +137,7 @@ function App() {
           <QuickAddProvider openQuickAdd={handleOpenQuickAdd} onClose={handleCloseQuickAdd}>
             <ListDetailProvider>
               <PlacesApiProvider>
-                <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900">
+                <div className="flex flex-col min-h-screen bg-background">
                   <Navbar />
                   <main className="flex-grow pt-16"> {/* Adjust pt if navbar height changes */}
                     <Suspense fallback={<EnhancedLoadingFallback componentName="Page" />}>
@@ -155,8 +155,8 @@ function App() {
                         <Route path="/lists/new" element={<NewList />} />
                         <Route path="/lists/:listId" element={<ListDetail />} />
                         <Route path="/my-submissions" element={<MySubmissions />} />
-                        <Route path="/admin" element={<AdminPanel />} />
-                        <Route path="/bulk-add" element={<BulkAddPage />} />
+                        <Route path="/admin" element={<ProtectedRoute requireSuperuser><AdminPanel /></ProtectedRoute>} />
+                        <Route path="/bulk-add" element={<ProtectedRoute requireSuperuser><BulkAddPage /></ProtectedRoute>} />
                       </Routes>
                     </Suspense>
                   </main>
@@ -169,7 +169,7 @@ function App() {
                   {/* Diagnostic components - consider removing or conditionally rendering for production */}
                   {process.env.NODE_ENV === 'development' && (
                     <>
-                      <ListDataStatus />
+                      {/* ListDataStatus component removed */}
                     </>
                   )}
                   <DevModeToggle />

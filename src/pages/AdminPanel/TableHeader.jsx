@@ -1,8 +1,15 @@
 // src/pages/AdminPanel/TableHeader.jsx
 /* FIXED: Add defensive check for undefined editingRowIds */
 /* FIXED: Added key to conditional select-all th */
+/* FIXED: Updated references from col.sortable to col.isSortable for consistency */
 import React from 'react';
-import { ArrowDown, ArrowUp } from 'lucide-react';
+import { ArrowDown, ArrowUp, Settings2 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/UI/DropdownMenu';
 
 const TableHeader = ({
   columns,
@@ -15,81 +22,101 @@ const TableHeader = ({
   isAllSelected, // Passed from AdminTable
   onSelectAll, // Passed from AdminTable
   showSelect, // Passed from AdminTable
+  visibleColumns = [], // Add default value
+  onToggleColumn,
+  onColumnOrderChange,
 }) => {
   const handleSortClick = (key, sortable) => {
-    // Ensure editingRowIds is treated as a Set, even if undefined is passed
     const safeEditingRowIds = editingRowIds instanceof Set ? editingRowIds : new Set();
     if (!onSortChange || !key || !type || !sortable || isAdding || safeEditingRowIds.size > 0) return;
 
     const newDirection = currentSortColumn === key && currentSortDirection === 'asc' ? 'desc' : 'asc';
-    onSortChange(type, key, newDirection); // Assuming AdminTable maps its onSort prop to this
+    onSortChange(type, key, newDirection);
   };
 
-  // Ensure editingRowIds is treated as a Set, even if undefined is passed
   const safeEditingRowIds = editingRowIds instanceof Set ? editingRowIds : new Set();
 
   return (
-    <thead className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-900">
+    <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm border-b border-border">
       <tr>
-        {/* Select All Checkbox (Conditionally Rendered) */}
+        {/* Select All Checkbox */}
         {showSelect && (
-           // *** FIXED: Added unique key ***
-           <th key="select-all-header" scope="col" className="px-3 py-2.5 text-left">
-               <input
-                   type="checkbox"
-                   className="rounded border-gray-300 dark:border-gray-600 text-primary dark:text-primary-dark focus:ring-primary-dark disabled:opacity-50 bg-white dark:bg-gray-700"
-                   checked={isAllSelected ?? false} // Handle potential undefined
-                   onChange={(e) => onSelectAll && onSelectAll(e.target.checked)}
-                   aria-label="Select all rows"
-                   // Disable if adding or editing any row
-                   disabled={isAdding || safeEditingRowIds.size > 0}
-               />
-           </th>
+          <th key="select-all-header" scope="col" className="px-3 py-3 text-left">
+            <input
+              type="checkbox"
+              className="rounded border-input text-foreground focus:ring-ring disabled:opacity-50 bg-background"
+              checked={isAllSelected ?? false}
+              onChange={(e) => onSelectAll && onSelectAll(e.target.checked)}
+              aria-label="Select all rows"
+              disabled={isAdding || safeEditingRowIds.size > 0}
+            />
+          </th>
         )}
         {/* Column Headers */}
         {columns.map((col) => {
-            // Use accessor or key for consistency
-            const columnKey = col.key || col.accessor;
-            if (!columnKey) {
-                console.warn("[TableHeader] Column definition missing key/accessor:", col);
-                return <th key={`header-invalid-${col.header || Math.random()}`} className="px-3 py-2.5 text-left font-semibold text-red-500 italic">Invalid Col</th>;
-            }
-            // Skip rendering if column key is explicitly 'actions' or handled elsewhere
-            if (columnKey === 'actions') return null;
+          const columnKey = col.accessor;
+          const sortKey = columnKey;
+          const canSortNow = !isAdding && safeEditingRowIds.size === 0;
+          const ariaSort = currentSortColumn === sortKey ? currentSortDirection : undefined;
+          const title = canSortNow ? `Sort by ${col.header}` : undefined;
 
-            const sortKey = col.sortKey || columnKey; // Use specific sortKey if provided
-            const ariaSort = col.sortable ? (currentSortColumn === sortKey ? (currentSortDirection === 'asc' ? 'ascending' : 'descending') : 'none') : undefined;
-            const title = col.sortable ? `Sort by ${typeof col.header === 'string' ? col.header : 'column'}` : undefined;
-            // Use safeEditingRowIds for the check
-            const canSortNow = col.sortable && !isAdding && safeEditingRowIds.size === 0;
-
-            return (
-              <th
-                // *** Use columnKey for the React key ***
-                key={`header-${columnKey}`}
-                scope="col"
-                className={`px-3 py-2.5 text-left font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider text-xs ${ col.className || '' } ${canSortNow ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors group' : 'cursor-default'}`}
-                onClick={canSortNow ? () => handleSortClick(sortKey, col.sortable) : undefined}
-                aria-sort={ariaSort}
-                title={title}
-              >
-                <div className="flex items-center gap-1">
-                  {/* Render header content (string or JSX) */}
-                  {col.header}
-                  {col.sortable && (
-                    <span className={`transition-opacity ${canSortNow ? 'opacity-40 group-hover:opacity-100' : 'opacity-20'}`}>
-                      {currentSortColumn === sortKey ? (
-                        currentSortDirection === 'asc' ? ( <ArrowUp size={12} /> ) : ( <ArrowDown size={12} /> )
-                      ) : (
-                        // Show dimmed down arrow as default sort indicator
-                        <ArrowDown size={12} className="opacity-50" />
-                      )}
-                    </span>
+          return (
+            <th
+              key={`header-${columnKey}`}
+              scope="col"
+              className={`px-3 py-3 text-left font-semibold text-sm text-foreground ${col.className || ''} ${
+                canSortNow ? 'cursor-pointer hover:bg-muted transition-colors group' : 'cursor-default'
+              }`}
+              onClick={canSortNow ? () => handleSortClick(sortKey, true) : undefined}
+              aria-sort={ariaSort}
+              title={title}
+            >
+              <div className="flex items-center gap-1">
+                <span className="font-medium">{col.header}</span>
+                <span className={`transition-opacity ${canSortNow ? 'opacity-50 group-hover:opacity-100' : 'opacity-30'}`}>
+                  {currentSortColumn === sortKey ? (
+                    currentSortDirection === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />
+                  ) : (
+                    <ArrowDown size={14} className="opacity-40" />
                   )}
-                </div>
-              </th>
-            );
+                </span>
+              </div>
+            </th>
+          );
         })}
+        {/* Actions Column */}
+        <th scope="col" className="px-3 py-3 text-right">
+          <div className="flex items-center justify-end gap-2">
+            <span className="text-sm font-semibold text-foreground">Actions</span>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="p-1.5 hover:bg-muted rounded transition-colors"
+                  aria-label="Column settings"
+                >
+                  <Settings2 size={16} className="text-foreground" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                {columns.map((col) => (
+                  <DropdownMenuItem
+                    key={col.accessor}
+                    onSelect={() => onToggleColumn && onToggleColumn(col.accessor)}
+                    className="flex items-center gap-2"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={visibleColumns.includes(col.accessor)}
+                      onChange={() => {}}
+                      className="rounded border-input text-foreground focus:ring-ring"
+                    />
+                    <span>{col.header}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </th>
       </tr>
     </thead>
   );

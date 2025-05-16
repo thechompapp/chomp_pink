@@ -3,108 +3,135 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Fix for follow buttons to ensure they're clickable */
-[data-testid^="follow-button"] {
-  position: relative !important;
-  z-index: 9999 !important;
-  pointer-events: auto !important;
-  isolation: isolate;
-  cursor: pointer !important;
-}
-
 @layer base {
-  /* Modern Clean Black & White Theme */
   :root {
-    /* Core colors - pure black and white */
-    --background: 0 0% 100%;        /* Pure white background */
-    --foreground: 0 0% 0%;          /* Pure black text */
-
-    --card: 0 0% 99%;              /* Very light gray card background */
-    --card-foreground: 0 0% 0%;     /* Black text on cards */
-
-    /* Primary: Black with white text */
-    --primary: 0 0% 0%;
-    --primary-foreground: 0 0% 100%; /* White text on black backgrounds */
-
-    /* Secondary: Light gray */
-    --secondary: 0 0% 93%;
-    --secondary-foreground: 0 0% 0%;  /* Black text on light gray */
-
-    /* Accent: Medium gray */
-    --accent: 0 0% 87%;
-    --accent-foreground: 0 0% 0%;     /* Black text on accent */
-
-    /* Muted: Light gray with dark gray text */
-    --muted: 0 0% 96%;
-    --muted-foreground: 0 0% 40%;     /* Darker gray text for muted areas */
-
-    /* Border color - very light */
-    --border: 0 0% 92%;
+    /* Core colors - using HSL for better control */
+    --background: 0 0% 100%;        /* White background */
+    --foreground: 0 0% 0%;          /* Black text */
     
-    /* Input background */
-    --input: 0 0% 97%;
-
-    /* Destructive: Clean red */
-    --destructive: 0 80% 50%;
-    --destructive-foreground: 0 0% 100%;
-
-    /* Accent color - black */
-    --accent-pink: 0 0% 0%;
-    --accent-pink-foreground: 0 0% 100%;
-
-    /* Border radius variable - minimal */
+    /* Card colors */
+    --card: 0 0% 99%;              /* Very light gray */
+    --card-foreground: 0 0% 0%;     /* Black text */
+    
+    /* Primary colors */
+    --primary: 0 0% 0%;            /* Black */
+    --primary-foreground: 0 0% 100%; /* White text */
+    
+    /* Secondary colors */
+    --secondary: 0 0% 93%;         /* Light gray */
+    --secondary-foreground: 0 0% 0%; /* Black text */
+    
+    /* Accent colors */
+    --accent: 0 0% 87%;           /* Medium gray */
+    --accent-foreground: 0 0% 0%;  /* Black text */
+    
+    /* Muted colors */
+    --muted: 0 0% 96%;            /* Very light gray */
+    --muted-foreground: 0 0% 40%;  /* Dark gray text */
+    
+    /* Border colors */
+    --border: 0 0% 92%;           /* Light gray border */
+    --input: 0 0% 97%;            /* Input background */
+    
+    /* Semantic colors */
+    --destructive: 0 80% 50%;     /* Red for errors */
+    --destructive-foreground: 0 0% 100%; /* White text */
+    
+    /* Border radius */
     --radius: 0.25rem;
   }
 
-  /* Original Light Theme Definition (Now commented out) */
-  /*
-  :root {
-    --background: 0 0% 98%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --primary: 240 10% 3.9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 5% 96%;
-    --secondary-foreground: 240 10% 3.9%;
-    --accent: 240 5% 90%;
-    --accent-foreground: 240 10% 3.9%;
-    --muted: 240 5% 90%;
-    --muted-foreground: 240 4% 45%;
-    --border: 240 5% 88%;
-    --input: 0 0% 100%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 98%;
-    --accent-pink: 336 84% 54%;
-    --accent-pink-foreground: 0 0% 100%;
-    --radius: 0.5rem;
-  }
-  */
-
+  /* Base element styles */
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 
+  /* Typography */
   h1, h2, h3, h4, h5, h6 {
-     @apply font-semibold tracking-tight text-foreground; /* Use foreground for headings */
+    @apply font-semibold tracking-tight text-foreground;
+  }
+
+  /* Links */
+  a {
+    @apply text-primary hover:text-primary/80 transition-colors;
+  }
+
+  /* Focus styles */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-primary/50 ring-offset-2 ring-offset-background;
   }
 }
 
-/* Scrollbar styling (optional, uses theme variables) */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+@layer components {
+  /* Button base styles */
+  .btn {
+    @apply inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors 
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 
+           disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  /* Card styles */
+  .card {
+    @apply rounded-lg border border-border bg-card text-card-foreground shadow-sm;
+  }
+
+  /* Input styles */
+  .input {
+    @apply flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm 
+           ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium 
+           placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 
+           focus-visible:ring-primary/50 focus-visible:ring-offset-2 disabled:cursor-not-allowed 
+           disabled:opacity-50;
+  }
+
+  /* Table styles */
+  .table-container {
+    @apply w-full overflow-auto rounded-lg border border-border;
+  }
+
+  .table {
+    @apply w-full border-collapse text-sm;
+  }
+
+  .table th {
+    @apply bg-muted px-4 py-3 text-left font-medium text-muted-foreground;
+  }
+
+  .table td {
+    @apply border-t border-border px-4 py-3;
+  }
+
+  .table tr:hover {
+    @apply bg-muted/50;
+  }
 }
-::-webkit-scrollbar-track {
-  background: hsl(var(--background)); /* Uses dark background */
-  border-radius: 4px;
+
+/* Scrollbar styling */
+@layer utilities {
+  .scrollbar-custom {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted)) transparent;
+  }
+
+  .scrollbar-custom::-webkit-scrollbar {
+    @apply w-2 h-2;
+  }
+
+  .scrollbar-custom::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  .scrollbar-custom::-webkit-scrollbar-thumb {
+    @apply bg-muted rounded-full;
+  }
+
+  .scrollbar-custom::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/50;
+  }
 }
-::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted)); /* Uses dark muted */
-  border-radius: 4px;
-  border: 2px solid hsl(var(--background)); /* Border matches dark background */
-}
-::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--secondary)); /* Use dark secondary on hover */
+
+/* Fix for follow buttons */
+[data-testid^="follow-button"] {
+  @apply relative z-50 pointer-events-auto isolate cursor-pointer;
 }

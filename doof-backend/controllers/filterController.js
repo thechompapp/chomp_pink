@@ -1,6 +1,7 @@
 // Filename: /root/doof-backend/controllers/filterController.js
 /* REFACTORED: Convert to ES Modules */
 import FilterModel from '../models/filterModel.js'; // Default import assumed
+import * as NeighborhoodModel from '../models/neighborhoodModel.js'; // Import neighborhood model
 
 // Controller to get filter options based on type
 export const getFilterOptions = async (req, res, next) => {
@@ -22,7 +23,8 @@ export const getFilterOptions = async (req, res, next) => {
                 if (cityId && isNaN(cityIdNum)) {
                     return res.status(400).json({ success: false, message: 'Invalid cityId parameter.' });
                 }
-                options = await FilterModel.getNeighborhoodsByCity(cityIdNum); // Use correct function name
+                // Use NeighborhoodModel instead of FilterModel
+                options = await NeighborhoodModel.getBoroughsByCity(cityIdNum); 
                 break;
             default:
                 return res.status(400).json({ success: false, message: `Invalid filter type specified: ${type}` });

@@ -8,6 +8,10 @@ import { useAdminRowEditing } from './useAdminRowEditing.js';
 import { useAdminRowActions } from './useAdminRowActions.js';
 import { useAdminAddRow } from './useAdminAddRow.js';
 import { useAdminBulkEditing } from './useAdminBulkEditing.js';
+import useApiErrorHandler from '@/hooks/useApiErrorHandler.js';
+import { toast } from 'react-hot-toast';
+import { useAuthStore } from '@/stores/useAuthStore';
+import { useAdminStore } from '@/stores/useAdminStore';
 
 export const useAdminTableState = ({
   initialData = [],
@@ -17,6 +21,22 @@ export const useAdminTableState = ({
   neighborhoods = [],
   onDataMutated,
 }) => {
+  const { user } = useAuthStore();
+  const { setAdminData } = useAdminStore();
+  const queryClient = useQueryClient();
+  const handleApiError = useApiErrorHandler();
+
+  // Debug the input data
+  useEffect(() => {
+    console.log(`[useAdminTableState] Received data for type ${type}:`, {
+      dataLength: initialData?.length || 0,
+      isArray: Array.isArray(initialData),
+      sampleData: Array.isArray(initialData) && initialData.length > 0 
+        ? initialData.slice(0, 2)
+        : null
+    });
+  }, [initialData, type]);
+
   const [currentSort, setCurrentSort] = useState(null);
   const [updatedData, setUpdatedData] = useState(initialData);
   // Removed main error state, rely on sub-hooks' error states
@@ -88,8 +108,9 @@ export const useAdminTableState = ({
     setUpdatedData(initialData);
     setEditingRowIds(new Set());
     setEditFormData({});
-    setIsAdding(false);
-    setIsBulkEditing(false);
+    // Removed direct state setters for sub-hook managed states
+    // setIsAdding(false);
+    // setIsBulkEditing(false);
     setSelectedRows(new Set());
     clearActionError?.(); // Clear errors from sub-hooks
     clearAddRowError?.();
@@ -99,7 +120,8 @@ export const useAdminTableState = ({
     // Reset actionState if not handled internally by useAdminRowActions
     // setActionState({ deletingId: null, approvingId: null, rejectingId: null });
     setCurrentSort(null);
-    setBulkSaveError(null);
+    // Removed direct state setter for bulkSaveError as it's managed by useAdminBulkEditing
+    // setBulkSaveError(null);
   }, [initialData, type, clearActionError, clearAddRowError, clearListEditError]); // Add clear functions to deps
 
   // --- Combined Handlers / Logic ---
@@ -137,10 +159,12 @@ export const useAdminTableState = ({
       // adminService.updateResource propagates errors
       await adminService.updateResource('lists', listId, payload);
       handleCloseListEditModal();
+      toast.success('List updated successfully');
       onDataMutated?.();
     } catch (err) {
       console.error(`[useAdminTableState SaveListEdit] Error saving list ${listId}:`, err);
       handleListEditError(err, 'Failed to save list.'); // Use the list modal's error handler
+      toast.error('Failed to save list');
     } finally {
       setIsSavingList(false);
     }
@@ -157,7 +181,7 @@ export const useAdminTableState = ({
       clearAddRowError?.();
       clearListEditError?.();
       // Clear bulkSaveError separately if needed
-      setBulkSaveError(null);
+      // setBulkSaveError(null);
   }, [clearActionError, clearAddRowError, clearListEditError]);
 
   // --- Return hook state and handlers ---
@@ -185,7 +209,8 @@ export const useAdminTableState = ({
     clearError: clearCombinedError, // Provide a single clear function
     handleSort,
     handleRowDataChange, // From useAdminRowEditing
-    handleStartEdit: handleOpenListEditModal, // Wrapper for list modal logic
+    handleStartEdit: handleStartEditRow, // Use direct row editing function for normal tables
+    handleOpenListEditModal, // Keep the list modal logic available separately
     handleCancelEdit: handleCancelEditRow, // From useAdminRowEditing
     handleSaveEdit: handleSaveEditRow, // From useAdminRowActions
     handleStartAdd: handleStartAddRow, // From useAdminAddRow

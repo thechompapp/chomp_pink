@@ -112,8 +112,8 @@ function ReviewMode({ items, onSubmit, onBack, isSubmitting, submitProgress }) {
                     {item.type === 'restaurant' ? toTitleCase(item.city_name || '-') : toTitleCase(item.restaurant_name || '-')}
                   </td>
                   {/* Use toTitleCase for neighborhood name */}
-                  <td className="px-3 py-2 text-sm text-gray-700 truncate" title={toTitleCase(item.neighborhood_name || '-')}>
-                    {toTitleCase(item.neighborhood_name || '-')}
+                  <td className="px-3 py-2 text-sm text-gray-700 truncate" title={toTitleCase(item.neighborhood_name || item.neighborhood || 'Default Neighborhood')}>
+                    {toTitleCase(item.neighborhood_name || item.neighborhood || 'Default Neighborhood')}
                   </td>
                   <td className="px-3 py-2 text-sm text-gray-700 truncate" title={item.address || '-'}>
                     {item.address || '-'}

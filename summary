@@ -1,0 +1,588 @@
+## Chomp/Doof - Comprehensive Project Summary
+
+**Last Updated:** May 14, 2025
+
+**Document Purpose:** To provide a comprehensive overview of the Chomp/Doof application, enabling a new developer or AI assistant to understand its purpose, architecture, current state, and future direction, facilitating a seamless continuation of development.
+
+### 1. Project Purpose and Core Functionality
+
+**Purpose:**
+Chomp/Doof is a web application designed for users to discover, save, and share information about restaurants and dishes. It aims to be a go-to platform for food enthusiasts to explore culinary options, create personalized lists, and engage with a community of like-minded users. The application also includes administrative features for managing the platform's data.
+
+**Core Functionality:**
+* **User Authentication:** Secure registration and login for users.
+* **Restaurant & Dish Discovery:** Search and browse restaurants and dishes. View detailed information including location, cuisine, price, user reviews (future), and associated tags.
+* **List Management:** Users can create, manage, and share personalized lists of restaurants and/or dishes (e.g., "Best Pizza in NYC," "To Try Next"). Lists can be public or private.
+* **Social Features:** Follow other users and their public lists (partially implemented).
+* **Bulk Data Addition:** Admin-focused feature to add multiple restaurants or dishes to the database efficiently using a text-based input.
+* **Admin Panel:** Interface for administrators to manage users, restaurants, dishes, submissions, and view analytics.
+* **Submission System:** Users can submit new restaurants or dishes, or corrections to existing data, for admin approval.
+* **Filtering & Sorting:** Users can filter and sort search results and list items based on various criteria (e.g., cuisine, neighborhood, price).
+* **Trending Content:** (Planned/Partially Implemented) Display trending restaurants or dishes.
+
+### 2. Key Technologies, Frameworks, and Libraries
+
+**Frontend (chomp_pink directory):**
+* **Core:** React (v18+), Vite (build tool)
+* **State Management:** Zustand
+* **Routing:** Custom logic within `App.jsx` (simulating page navigation, no explicit router library like React Router)
+* **UI Components:**
+    * Shadcn/UI (likely, based on common React practices and `src/lib/utils.js` which is typical for Shadcn)
+    * Custom UI components in `src/components/UI/`
+* **Styling:** Tailwind CSS, CSS Modules (e.g., `ConfirmationModal.css`)
+* **API Communication:** `axios` (via `src/services/apiClient.js`)
+* **Data Fetching/Caching:** React Query (`@tanstack/react-query`)
+* **Forms:** Likely custom handling, potentially with helper hooks like `useFormHandler.js`.
+* **Maps/Places:** Google Places API (via `PlacesApiContext.jsx`, `placesService.js`)
+* **Linting/Formatting:** ESLint, Prettier
+
+**Backend (doof-backend directory):**
+* **Core:** Node.js, Express.js
+* **Database:** PostgreSQL
+* **ORM/Query Builder:** `pg` (node-postgres) library directly, with SQL queries in model files. `pg-format` for SQL formatting.
+* **Authentication:** JWT (JSON Web Tokens) for API authentication (see `middleware/auth.js`). Password hashing likely with `bcrypt`.
+* **Validation:** `express-validator` for request validation in routes.
+* **File Structure:** Organized into `routes`, `controllers`, `models`, `middleware`, `db`, `config`.
+* **Migrations:** SQL files in `migrations/` directory (though no migration runner tool is explicitly mentioned, these are manual or run via a custom script).
+
+### 3. Current Architecture and Component Structure
+
+**High-Level Architecture:**
+The application follows a typical client-server architecture:
+
+* **Frontend (Client):** A Single Page Application (SPA) built with React. It handles user interface, user interactions, and makes API calls to the backend for data and operations.
+* **Backend (Server):** A Node.js/Express.js application that serves as an API. It handles business logic, interacts with the PostgreSQL database, and manages user authentication.
+
+**Frontend Component Structure (Conceptual):**
+* **`main.jsx`:** Entry point, sets up React Query, Context Providers.
+* **`App.jsx`:** Main application component, handles routing logic (simulated), renders different pages based on state.
+* **`src/pages/`:** Contains components for different "pages" of the application (e.g., `Home`, `Login`, `RestaurantDetail`, `BulkAdd`, `AdminPanel`).
+* **`src/components/`:** Contains reusable UI components (e.g., `Button`, `Modal`, `RestaurantCard`, `DishCard`, `Navbar`).
+    * `src/components/UI/`: General-purpose UI elements.
+* **`src/layouts/`:** Components for page structure (e.g., `Navbar`, `PageContainer`).
+* **`src/services/`:** Modules for making API calls to specific backend resources (e.g., `authService.js`, `restaurantService.js`). Uses `apiClient.js`.
+* **`src/hooks/`:** Custom React hooks for reusable logic (e.g., `useAuthStore`, `useBulkAddProcessor`, `useApiErrorHandler`).
+* **`src/stores/`:** Zustand store modules for global state management (e.g., `useAuthStore`, `useUIStateStore`).
+* **`src/utils/`:** Utility functions (e.g., `formatting.js`, `apiUtils.js`, `logger.js`).
+* **`src/context/`:** React Context providers (e.g., `PlacesApiContext`, `QuickAddContext`).
+
+**Backend Structure:**
+* **`server.js`:** Entry point, sets up Express app, middleware, routes.
+* **`doof-backend/routes/`:** Defines API endpoints and maps them to controller functions.
+* **`doof-backend/controllers/`:** Handles incoming requests, validates data, calls model functions, and sends responses.
+* **`doof-backend/models/`:** Interacts directly with the PostgreSQL database, executes SQL queries.
+* **`doof-backend/middleware/`:** Functions that run during the request-response cycle (e.g., `auth.js` for JWT verification, `validators.js`).
+* **`doof-backend/db/`:** Database connection setup (`index.js`).
+* **`doof-backend/config/`:** Application configuration (e.g., database credentials, JWT secret).
+* **`doof-backend/utils/`:** Utility functions for the backend (e.g., `formatters.js`).
+
+### 4. Directory Structure
+
+
+
+chomp_pink/
+├── doof-backend/
+│ ├── config/
+│ │ └── config.js # Backend configuration
+│ ├── controllers/ # Request handlers (business logic)
+│ │ ├── adminController.js
+│ │ ├── authController.js
+│ │ ├── dishController.js
+│ │ ├── listController.js
+│ │ ├── neighborhoodController.js
+│ │ ├── restaurantController.js
+│ │ └── ... (other controllers)
+│ ├── db/
+│ │ └── index.js # PostgreSQL connection setup
+│ ├── middleware/
+│ │ ├── auth.js # JWT authentication middleware
+│ │ ├── optionalAuth.js
+│ │ ├── requireSuperuser.js
+│ │ └── validators.js # Request validation rules
+│ ├── models/ # Database interaction logic (SQL queries)
+│ │ ├── adminModel.js
+│ │ ├── authModel.js # (Likely userModel handles auth-related DB ops)
+│ │ ├── dishModel.js
+│ │ ├── listModel.js
+│ │ ├── neighborhoodModel.js
+│ │ ├── restaurantModel.js
+│ │ ├── userModel.js
+│ │ └── ... (other models)
+│ ├── routes/ # API endpoint definitions
+│ │ ├── admin.js
+│ │ ├── auth.js
+│ │ ├── dishes.js
+│ │ ├── lists.js
+│ │ ├── neighborhoods.js
+│ │ ├── restaurants.js
+│ │ └── ... (other routes)
+│ ├── utils/
+│ │ └── formatters.js # Data formatting utilities for backend
+│ ├── .eslintrc.js
+│ ├── package.json
+│ ├── package-lock.json
+│ ├── schema_definition.sql # Definitive DB schema
+│ ├── schema_dump.sql # Original DB schema dump
+│ ├── server.js # Backend application entry point
+│ └── start-backend.sh
+├── migrations/ # SQL migration files
+│ ├── 0001_align_schema_with_definition.sql
+│ └── ...
+├── public/ # Static assets for frontend
+│ └── ...
+├── src/ # Frontend source code
+│ ├── tests/ # Frontend tests
+│ ├── App.jsx # Main React application component, routing
+│ ├── components/ # Reusable React components
+│ │ ├── Admin/
+│ │ ├── UI/ # Generic UI elements (Button, Modal, etc.)
+│ │ └── ... (feature-specific components)
+│ ├── context/ # React Context providers
+│ │ ├── PlacesApiContext.jsx
+│ │ └── QuickAddContext.jsx
+│ ├── hooks/ # Custom React hooks
+│ │ ├── useAdmin*.js
+│ │ ├── useApiErrorHandler.js
+│ │ ├── useBulkAddProcessor.js
+│ │ └── ...
+│ ├── layouts/ # Page layout components (Navbar, PageContainer)
+│ ├── lib/
+│ │ └── utils.js # Utility for cn (classnames), typical with Shadcn/UI
+│ ├── pages/ # Page-level components
+│ │ ├── AdminPanel/
+│ │ ├── BulkAdd/
+│ │ ├── Home/
+│ │ ├── Login/
+│ │ ├── RestaurantDetail/
+│ │ └── ...
+│ ├── services/ # API call abstractions
+│ │ ├── adminService.js
+│ │ ├── apiClient.js # Axios client configuration
+│ │ ├── authService.js
+│ │ └── ...
+│ ├── stores/ # Zustand state stores
+│ │ ├── useAuthStore.js
+│ │ └── ...
+│ ├── utils/ # Frontend utility functions
+│ │ ├── apiClient.js # (Duplicate? Should be in services/)
+│ │ ├── formatters.js
+│ │ ├── logger.js
+│ │ └── ...
+│ ├── config.js # Frontend configuration (API base URL, etc.)
+│ ├── index.css # Global CSS styles
+│ └── main.jsx # Frontend application entry point
+├── .eslintrc.js # (Likely moved to eslint.config.js)
+├── eslint.config.js
+├── index.html # Main HTML file for Vite
+├── jsconfig.json
+├── package.json
+├── package-lock.json
+├── tailwind.config.js
+├── vite.config.js
+└── README.md
+### 5. Explanation of Major Files and Functions
+
+#### Frontend (src/)
+
+* **`src/main.jsx`**: Entry point; renders `App`, wraps it with `QueryClientProvider` and other global contexts.
+* **`src/App.jsx`**: Core application shell; handles client-side navigation (simulated), renders layouts and pages.
+    * `App()`: Main functional component. Manages current page state, user authentication status to direct navigation.
+* **`src/services/apiClient.js`**: Configures and exports an Axios instance for making HTTP requests to the backend.
+    * `apiClient`: The configured Axios instance.
+* **`src/services/authService.js`**: Handles API calls related to authentication (login, register, logout).
+    * `login()`: Sends login credentials to backend.
+    * `register()`: Sends registration data to backend.
+    * `logout()`: (Typically clears token and calls a backend logout endpoint if it exists).
+* **`src/services/restaurantService.js`**: Handles API calls for restaurant data.
+    * `getAllRestaurants()`: Fetches a list of restaurants.
+    * `getRestaurantById()`: Fetches details for a specific restaurant.
+* **`src/services/adminService.js`**: Handles API calls for admin-specific functionalities.
+    * `bulkAddItems()`: Sends a list of items (restaurants/dishes) to be added in bulk.
+    * `checkExistingItems()`: Sends items to the backend to check for duplicates before submission.
+    * `getAdminTableData()`: Fetches data for various admin panel tables.
+* **`src/hooks/useAuthStore.js`**: Zustand store for managing authentication state (user info, token, loading/error states).
+    * `loginAction()`: Async action to perform login and update store.
+    * `logoutAction()`: Action to clear auth state.
+* **`src/hooks/useBulkAddProcessor.js`**: Complex hook managing the multi-step logic for the bulk add feature.
+    * `processInputData()`: Parses raw text input, initiates Google Places API lookups for restaurants.
+    * `selectPlace()`: Handles user selection when multiple Google Places results are found.
+    * `checkForDuplicates()`: Calls `adminService.checkExistingItems` to identify potential duplicates before final submission.
+    * `submitBulkAdd()`: Prepares and sends the final list of processed and validated items to the backend for saving.
+    * `fetchNeighborhoodByZipcode()`: Utility within the hook to get neighborhood data based on zipcode via `filterService`.
+* **`src/pages/BulkAdd/index.jsx`**: Main UI component for the Bulk Add feature.
+    * `BulkAdd()`: Orchestrates the input, review, and submission phases. Uses `useBulkAddProcessor`.
+    * `handleProcess()`: Initiates the processing of raw text input.
+    * `handleSubmitReviewedItems()`: Handles the final submission of reviewed items to the backend via `useBulkAddProcessor.submitBulkAdd`. Manages confirmation modal display.
+* **`src/pages/AdminPanel/index.jsx`**: Main UI for the admin section, likely uses tabs for different data types.
+    * `AdminPanel()`: Renders different admin tabs (`SubmissionsTab`, `GenericAdminTableTab`).
+* **`src/components/UI/ConfirmationModal.jsx`**: Reusable modal for showing success/error/warning messages.
+    * `ConfirmationModal()`: Renders the modal based on `isOpen` and other props.
+
+#### Backend (doof-backend/)
+
+* **`doof-backend/server.js`**: Initializes the Express application, sets up middleware (CORS, JSON parsing, authentication), and mounts the route handlers.
+* **`doof-backend/config/config.js`**: Stores configuration variables (database connection strings, JWT secrets, API keys - though API keys should ideally be environment variables).
+* **`doof-backend/db/index.js`**: Configures and exports the `pg` Pool for database connections.
+* **`doof-backend/routes/admin.js`**: Defines API endpoints for administrative tasks (e.g., `/api/admin/bulk-add`, `/api/admin/check-existing`).
+    * Maps routes like `POST /bulk-add` to `adminController.bulkAddItems`.
+* **`doof-backend/controllers/adminController.js`**: Contains logic for handling admin-related API requests.
+    * `bulkAddItems()`: Receives an array of items, processes each (validates, interacts with models like `RestaurantModel` or `DishModel` to save), and handles database transactions.
+    * `checkExistingItems()`: Receives items and checks against the database for potential duplicates using relevant models.
+* **`doof-backend/routes/restaurants.js`**: Defines API endpoints for restaurant CRUD operations and search.
+* **`doof-backend/controllers/restaurantController.js`**: Handles requests for restaurant data.
+    * `getAllRestaurants()`: Fetches and returns a paginated/filtered list of restaurants.
+    * `getRestaurantById()`: Fetches and returns a single restaurant by its ID.
+* **`doof-backend/models/restaurantModel.js`**: Contains functions for direct database interaction related to restaurants.
+    * `findAllRestaurants()`: Constructs and executes SQL to fetch multiple restaurants with filtering, sorting, and pagination.
+    * `findRestaurantById()`: Fetches a single restaurant by ID, including related data like city, neighborhood, and tags.
+    * `createRestaurant()`: Inserts a new restaurant record into the database, handling associated tags.
+* **`doof-backend/models/neighborhoodModel.js`**: Handles database operations for neighborhoods.
+    * `getNeighborhoodsByZipcode()`: Attempts to find neighborhood(s) based on a zipcode. (Recently patched to query DB instead of hardcoded map).
+    * `getBoroughsByCity()`: Fetches boroughs for a given city.
+* **`doof-backend/middleware/auth.js`**: Express middleware to verify JWTs provided in request headers, attaching user information to `req.user` if valid.
+* **`doof-backend/schema_definition.sql`**: The canonical SQL definition of the database schema, including tables, columns, constraints, and indexes.
+
+### 6. Implementation Details of Major Features Completed So Far
+
+* **User Authentication:**
+    * Frontend: Login (`src/pages/Login/index.jsx`) and Register (`src/pages/Register/index.jsx`) pages. `useAuthStore` manages user state. `authService.js` calls backend.
+    * Backend: `/auth/login`, `/auth/register` routes in `doof-backend/routes/auth.js`. `authController.js` handles logic, `userModel.js` interacts with DB. JWTs issued upon successful login. `middleware/auth.js` protects routes.
+* **Restaurant/Dish Browsing & Details:**
+    * Frontend: `src/pages/Home/index.jsx` (likely for browsing/searching). `src/pages/RestaurantDetail/index.jsx` and `src/pages/DishDetail/index.jsx` show item details. `RestaurantCard.jsx`, `DishCard.jsx` for display.
+    * Backend: Endpoints in `restaurants.js`, `dishes.js` (e.g., `GET /restaurants`, `GET /restaurants/:id`). `restaurantController.js`, `dishController.js` use respective models.
+* **List Management:**
+    * Frontend: `src/pages/Lists/index.jsx` (and sub-components like `MyLists.jsx`, `ListDetail.jsx`, `NewList.jsx`). `listService.js` for API calls. `AddToListModal.jsx` for adding items to lists.
+    * Backend: Endpoints in `lists.js`. `listController.js` and `listModel.js` handle CRUD for lists and list items.
+* **Bulk Add Restaurants/Dishes:**
+    * Frontend: `src/pages/BulkAdd/index.jsx` provides UI for text input and review. `useBulkAddProcessor.js` encapsulates complex client-side processing (parsing, Google Places lookup, duplicate checks via API, final submission). `adminService.js` makes API calls.
+    * Backend: `/admin/bulk-add` and `/admin/check-existing` endpoints in `admin.js`. `adminController.js` handles the request, iterates through items, performs database operations using `restaurantModel.js` and `dishModel.js`, and manages transactions.
+* **Admin Panel:**
+    * Frontend: `src/pages/AdminPanel/index.jsx` with various tabs (`SubmissionsTab.jsx`, `GenericAdminTableTab.jsx`) for managing different data types. Uses `adminService.js`.
+    * Backend: Various admin-specific endpoints in `admin.js` (and potentially other route files if actions are entity-specific but admin-protected). `adminController.js` and corresponding models.
+* **Search Functionality:**
+    * Frontend: `SearchBar.jsx` component. Search logic likely in `src/pages/Home/index.jsx` or a dedicated search results page, using `searchService.js`.
+    * Backend: `/search` endpoint in `search.js`. `searchController.js` and `searchModel.js` to query multiple tables (restaurants, dishes, etc.).
+* **Neighborhood/City Filtering:**
+    * Frontend: `FilterPanel.jsx`, `FilterSection.jsx`. `filterService.js` for fetching filter options (cities, neighborhoods).
+    * Backend: `filters.js` route. `filterController.js` uses `cityModel.js`, `neighborhoodModel.js`.
+
+### 7. Known Issues, Limitations, or Technical Debt
+
+* **Neighborhood Lookup:**
+    * The backend's `neighborhoodModel.getNeighborhoodsByZipcode` was recently patched to query the database instead of a hardcoded map. However, this relies on the `neighborhoods` table having a `zip_code` column or a related table for zipcode mapping, which is **not currently in `schema_definition.sql`**. This is a critical data gap.
+    * If a neighborhood cannot be resolved, `useBulkAddProcessor` now sets `neighborhood_id` to `null`. While this prevents FK errors for nullable `neighborhood_id` in `restaurants`, it means some restaurants might be saved without neighborhood data.
+* **Duplicate Detection:**
+    * The logic for identifying duplicates, especially for restaurants, is complex and relies on matching multiple fields (`google_place_id`, name, city). While improved, edge cases might exist.
+    * The frontend `useBulkAddProcessor` and backend `adminController.checkExistingItems` must be perfectly in sync regarding duplicate criteria.
+* **Bulk Add Error Handling:**
+    * While patched to provide more details, if the backend `bulkAddItems` encounters a fundamental issue (e.g., database connection lost mid-transaction), the atomicity of the bulk operation might be compromised if not handled carefully with transactions. The current backend code in `adminController.js` does use a transaction (`client.query('BEGIN')`, `COMMIT`, `ROLLBACK`).
+* **Schema Inconsistencies:**
+    * The `schema_definition.sql` is the source of truth. However, `schema_dump.sql` (an older version) and `schema.sql` (potentially another variant) exist. Ensure all development aligns with `schema_definition.sql`.
+    * The `restaurants` table in `schema_definition.sql` has `city_id` (references `cities`) and `neighborhood_id` (references `neighborhoods`). It also has `city_name` and `neighborhood_name` which are denormalized and should ideally be populated consistently or derived via joins. The bulk add process needs to ensure `city_id` and `neighborhood_id` are correctly resolved.
+* **Frontend Routing:** Custom routing in `App.jsx` can become hard to manage as the application grows. Consider migrating to a standard library like React Router.
+* **State Management:** Zustand is used, which is fine. Ensure consistency in its usage and avoid prop-drilling where stores are more appropriate.
+* **Testing:** Limited information on test coverage. Files like `useBulkAddProcessor.test.jsx` exist, but comprehensive testing (unit, integration, e2e) is crucial.
+* **Configuration Management:** API keys or sensitive data might be in `config.js` files. These should be managed via environment variables.
+* **Code Duplication:** `apiClient.js` appears in `src/services/` and `src/utils/`. Consolidate to one location (likely `src/services/`).
+* **Error Handling Consistency:** Ensure consistent error handling patterns both on the frontend (e.g., using `useApiErrorHandler.js`) and backend (standardized error responses).
+* **Logging:** Frontend `logger.js` and backend `console.log` statements are used. Consider a more structured logging solution for production.
+
+### 8. Immediate Next Steps and Future Development Plans
+
+**Immediate Next Steps:**
+1.  **Resolve Neighborhood Data Strategy:**
+    * **Crucial:** Decide how zipcodes will map to `neighborhood_id`.
+        * Option A: Add a `zip_code` column (or an array of zipcodes) to the `neighborhoods` table.
+        * Option B: Create a `neighborhood_zipcodes` join table (`neighborhood_id`, `zip_code`).
+    * Update `schema_definition.sql` and apply migrations.
+    * Populate this data for existing neighborhoods.
+    * Ensure `neighborhoodModel.getNeighborhoodsByZipcode` uses this new structure effectively.
+2.  **Thoroughly Test Bulk Add:** With the neighborhood fix, test bulk additions extensively, including edge cases, different data formats, and error conditions. Verify data integrity in the database.
+3.  **Refine Duplicate Detection:** Test and refine duplicate detection logic. Ensure consistency between frontend optimistic checks and backend authoritative checks.
+4.  **Review and Consolidate `apiClient.js`**.
+5.  **Address Critical Errors:** Fix any errors identified in the "Identified Errors" section below.
+
+**Future Development Plans:**
+* **User Reviews and Ratings:** Allow users to review and rate restaurants and dishes.
+* **Enhanced Social Features:** Implement following users/lists more robustly, activity feeds.
+* **Advanced Search Filters:** More granular filtering options (e.g., opening hours, amenities).
+* **Map View:** Display restaurants on an interactive map.
+* **Image Uploads:** Allow users/admins to upload photos for restaurants/dishes.
+* **Notifications:** For new followers, list updates, submission status changes.
+* **Full Mobile Responsiveness:** Ensure all pages and components are fully mobile-friendly.
+* **Performance Optimization:** For both frontend (rendering, API calls) and backend (database queries).
+* **Comprehensive Testing:** Increase unit, integration, and end-to-end test coverage.
+* **CI/CD Pipeline:** Implement continuous integration and deployment.
+* **Replace Custom Routing:** Migrate to React Router for more robust navigation.
+
+### 9. Critical Design Decisions or Tradeoffs Made
+
+* **Initial Neighborhood Data:** The initial hardcoding of NYC zipcodes to neighborhoods in `neighborhoodModel.js` was a significant shortcut and a source of current issues. This was a tradeoff for speed but incurred technical debt.
+* **Frontend Routing:** Using custom state-based routing in `App.jsx` instead of a library like React Router was likely simpler initially but is less scalable and lacks features like deep linking without manual effort.
+* **State Management:** Choosing Zustand offers a simpler API than Redux for global state, which can be beneficial for smaller to medium-sized teams/apps.
+* **Direct DB Queries (Backend):** Using the `pg` library directly with SQL queries in models provides fine-grained control but can be more verbose and error-prone than using an ORM. It requires careful SQL construction.
+* **Google Places API Integration:** Relying on Google Places API for restaurant data during bulk add helps with data accuracy but introduces an external dependency and API costs.
+* **Admin Panel Functionality:** Building a comprehensive admin panel is a significant feature, indicating a need for data curation and management.
+
+### 10. API Documentation (Conceptual - Key Endpoints)
+
+This is a conceptual overview. Actual API documentation should be generated using tools like Swagger/OpenAPI.
+
+**Base URL:** `/api` (from `src/config.js` and backend setup)
+
+**Authentication:**
+* `POST /auth/register`
+    * Purpose: Register a new user.
+    * Request Body: `{ username, email, password }`
+    * Response: `{ success, message, data: { user, token } }`
+* `POST /auth/login`
+    * Purpose: Log in an existing user.
+    * Request Body: `{ email, password }`
+    * Response: `{ success, message, data: { user, token } }`
+* `GET /auth/me` (Protected)
+    * Purpose: Get current authenticated user's details.
+    * Response: `{ success, data: { user } }`
+
+**Restaurants:**
+* `GET /restaurants`
+    * Purpose: Get a list of restaurants (supports pagination, sorting, filtering by city_id, neighborhood_id, cuisine, search).
+    * Query Params: `page`, `limit`, `sort`, `order`, `search`, `city_id`, `neighborhood_id`, `cuisine`
+    * Response: `{ success, message, data: [restaurants], pagination: { ... } }`
+* `GET /restaurants/:id`
+    * Purpose: Get details of a specific restaurant.
+    * Response: `{ success, message, data: restaurant }`
+* `POST /restaurants` (Admin/Protected)
+    * Purpose: Create a new restaurant.
+    * Request Body: Restaurant data (name, address, city_id, neighborhood_id, tags, etc.)
+    * Response: `{ success, data: newRestaurant }`
+* `PUT /restaurants/:id` (Admin/Protected)
+    * Purpose: Update an existing restaurant.
+    * Request Body: Fields to update.
+    * Response: `{ success, data: updatedRestaurant }`
+* `DELETE /restaurants/:id` (Admin/Protected)
+    * Purpose: Delete a restaurant.
+    * Response: `{ success, message }`
+
+**Dishes:**
+* `GET /dishes`
+    * Purpose: Get a list of dishes (supports filtering by restaurant_id, etc.).
+    * Response: `{ success, message, data: [dishes], pagination: { ... } }`
+* `GET /dishes/:id`
+    * Purpose: Get details of a specific dish.
+    * Response: `{ success, message, data: dish }`
+* ... (similar CRUD endpoints as Restaurants)
+
+**Lists:**
+* `GET /lists` (supports filtering by user_id, public/private)
+* `GET /lists/:id`
+* `POST /lists` (Protected)
+* `PUT /lists/:id` (Protected)
+* `DELETE /lists/:id` (Protected)
+* `POST /lists/:id/items` (Protected): Add item to a list.
+* `DELETE /lists/:listId/items/:itemId` (Protected): Remove item from a list.
+* `POST /lists/:id/follow` (Protected)
+* `DELETE /lists/:id/follow` (Protected)
+
+**Admin:**
+* `POST /admin/bulk-add` (Admin Protected)
+    * Purpose: Add multiple restaurants/dishes.
+    * Request Body: `{ items: [{ name, type, location, tags, ... }] }`
+    * Response: `{ success, message, data: { createdItems: [], errors: [] } }` (Status 207 for partial success)
+* `POST /admin/check-existing` (Admin Protected)
+    * Purpose: Check if items already exist in the database.
+    * Request Body: `{ items: [{ name, type, city_id, google_place_id, ... }] }`
+    * Response: `{ success, data: { results: [{ item, existing: true/false, details? }] } }`
+* `GET /admin/data/:tableName` (Admin Protected)
+    * Purpose: Get data for generic admin tables.
+    * Response: `{ success, data: [rows], columns: [...] }`
+* ... (other admin endpoints for managing users, submissions, etc.)
+
+**Filters:**
+* `GET /filters/cities`
+* `GET /filters/neighborhoods?city_id=:cityId`
+* `GET /filters/neighborhood-by-zipcode/:zipcode`
+* `GET /filters/hashtags`
+
+**Submissions:**
+* `POST /submissions` (Protected)
+* `GET /submissions/my-submissions` (Protected)
+* `GET /admin/submissions` (Admin Protected)
+* `PUT /admin/submissions/:id/status` (Admin Protected)
+
+### 11. Refactoring Strategies and Opportunities
+
+* **Schema for Zipcode-Neighborhood Mapping:** As mentioned, this is critical. Implement a robust way to link zipcodes to `neighborhood_id` in the database.
+* **Frontend Routing:** Introduce `react-router-dom` for cleaner, more maintainable, and feature-rich client-side routing.
+* **Service Layer Consistency (Frontend):** Ensure all API interactions go through the `src/services/*` files. Standardize error handling and data transformation within these services.
+* **Backend Model Logic:**
+    * Some models directly use `console.error`. Abstract this to a shared logging utility.
+    * Consider if complex SQL queries in models could be simplified or made more maintainable, perhaps with a lightweight query builder if `pg-format` isn't sufficient for all cases (though for this project size, it's likely fine).
+    * Ensure all database operations within a single logical action (especially writes to multiple tables) are wrapped in transactions in the controller or model layer. `adminController.bulkAddItems` already does this, which is good.
+* **`useBulkAddProcessor.js` Simplification:** This hook is very large. Explore if it can be broken down into smaller, more focused hooks or utility functions.
+* **Configuration:** Move all sensitive configurations (API keys, JWT secrets, DB credentials) to environment variables (e.g., using `.env` files and `dotenv` library in backend).
+* **Error Handling Standardization:**
+    * Backend: Consistently use the `handleControllerError` helper or a similar global error handler in Express to ensure uniform error responses (status codes, JSON structure).
+    * Frontend: Leverage `useApiErrorHandler` more broadly or establish a clear pattern for displaying API errors to the user.
+* **Code Deduplication:**
+    * Address the `apiClient.js` duplication.
+    * Look for repeated logic in React components that could be extracted into reusable child components or hooks.
+* **CSS Management:** While Tailwind CSS is primary, some custom CSS files exist (e.g., `ConfirmationModal.css`, `PlaceSelectionDialog.css`). Ensure these are scoped properly (e.g., using CSS Modules if not already) or consider if styles can be fully migrated to Tailwind for consistency.
+* **Backend `formatters.js`:** Ensure this is used consistently and that formatting logic isn't duplicated across models/controllers.
+
+### 12. Identified Errors in the Codebase (Descriptions - No Code Snippets)
+
+* **Neighborhoods Schema Gap:** The most significant "error" is the mismatch between the `neighborhoodModel.getNeighborhoodsByZipcode`'s need for zipcode-to-ID mapping and the `schema_definition.sql` not explicitly providing a `zip_code` column in `neighborhoods` or a dedicated join table. This will cause the neighborhood lookup to be unreliable outside the patched logic's limited scope or fallbacks.
+* **`restaurants` table `city_id` constraint:** `schema_definition.sql` shows `city_id INTEGER REFERENCES cities(id)`. The patch to `restaurantModel.js` correctly makes `city_id` required for `createRestaurant`. However, the `findAllRestaurants` in `restaurantModel.js` and other parts of the code should ensure `city_id` is always handled as a non-nullable foreign key when creating/updating restaurants. The bulk add processor must reliably provide this.
+* **`submissionController.js` `createSubmission`:** The `validationResult(req)` check is present, but if errors exist, it returns without `next(error)`. While it sends a 400 response, it bypasses any global error handling middleware if one were added later for logging/monitoring validation errors centrally.
+* **`restaurantController.js` `getAllRestaurants`:** The `validationResult(req)` check is present, but `if (!errors.isEmpty()) { return; }` is incomplete. It should send a response (e.g., `res.status(400).json(...)`) or call `next()` with an error. Currently, it might leave the request hanging if validation fails.
+* **Inconsistent `city_name` and `neighborhood_name` in `restaurants` table:** The `restaurants` table in `schema_definition.sql` has `city_name` and `neighborhood_name` fields. These appear to be denormalized. Logic for populating and updating these must be consistent with `city_id` and `neighborhood_id` to avoid data drift. It's generally better to derive these via JOINs in queries or ensure strict update procedures. The `restaurantModel.createRestaurant` and `updateRestaurant` do not explicitly handle setting these string name fields; they rely on `city_id` and `neighborhood_id`. This means `city_name` and `neighborhood_name` in the `restaurants` table might often be `NULL` unless populated by another mechanism (e.g., a database trigger or a separate update step after resolving IDs).
+* **`neighborhoodModel.js` `getNeighborhoodsByZipcode` Fallback:** The fallback logic, if a zipcode isn't directly mapped, currently returns a default "New York" neighborhood. This is likely not the desired behavior for zipcodes outside NYC and could lead to incorrect data associations. It should ideally return an empty array or a specific "not found" indicator.
+* **`adminController.js` `bulkAddItems` error response:** When errors occur during item processing in `bulkAddItems`, the `itemProvided` in the error object is good. However, the overall status code might be misleading if some items succeed and others fail (currently 207 is used, which is appropriate, but if *all* fail, a 400 or 500 might be more suitable depending on error type). The patch improved this.
+* **`restaurantModel.findAllRestaurants` Count Query Parameter Indexing:** The parameter indexing for the `countQuery` in `findAllRestaurants` was manually adjusted. This is fragile. It's safer if the `countParams` array is built in parallel and correctly reflects the parameters needed *only* for the count query's WHERE clause, using distinct placeholder numbers if necessary or by ensuring the `countParams` only contains values for the WHERE conditions also present in the main query. The current approach of replacing placeholders (`$${i+1}` to `$${i}`) can lead to errors if the structure of WHERE clauses diverges significantly or if new conditions are added without careful re-evaluation.
+
+### 13. Software Architecture Diagram (Conceptual - Mermaid Syntax)
+
+This diagram provides a high-level overview.
+
+```mermaid
+graph TD
+    subgraph Frontend (React - chomp_pink)
+        U[User Browser] --> App[App.jsx - Routing/Layout]
+        App --> Pages[Page Components <br> (Home, Login, BulkAdd, AdminPanel)]
+        Pages --> ReusableComps[Reusable Components <br> (Button, Card, Modal, Navbar)]
+        Pages --> Hooks[Custom Hooks <br> (useBulkAddProcessor, useAuthStore)]
+        Hooks --> Stores[Zustand Stores <br> (AuthStore, UIStore)]
+        Pages --> Services[Service Layers <br> (authService, restaurantService, adminService)]
+        Services --> APIClient[apiClient.js (Axios)]
+        APIClient --> BackendAPI{Backend API Gateway}
+        Pages --> Contexts[React Context <br> (PlacesAPIContext)]
+    end
+
+    subgraph Backend (Node.js/Express - doof-backend)
+        BackendAPI --> ExpressApp[server.js - Express App]
+        ExpressApp --> Routes[Route Handlers <br> (admin.js, restaurants.js)]
+        Routes --> Middleware[Middleware <br> (auth.js, validators.js)]
+        Middleware --> Controllers
+        Routes --> Controllers[Controller Layer <br> (adminController, restaurantController)]
+        Controllers --> Models[Model Layer <br> (restaurantModel, userModel, neighborhoodModel)]
+        Models --> DB[(PostgreSQL Database)]
+        ExpressApp --> Config[config.js]
+        Models --> DBUtils[db/index.js - DB Pool]
+    end
+
+    subgraph External Services
+        Hooks --> GooglePlaces[Google Places API]
+    end
+
+    %% Data Flow Example: User Login
+    U -- Login Attempt --> Pages
+    Pages -- Credentials --> Services
+    Services -- POST /auth/login --> BackendAPI
+    BackendAPI -- /auth/login --> Routes
+    Routes -- Credentials --> Controllers
+    Controllers -- Validate & Query --> Models
+    Models -- Check User --> DB
+    DB -- User Data/Error --> Models
+    Models -- Result --> Controllers
+    Controllers -- JWT/Error --> Routes
+    Routes -- Response --> BackendAPI
+    BackendAPI -- Token/User Data/Error --> APIClient
+    APIClient -- Response --> Services
+    Services -- Update State --> Hooks/Stores
+    Hooks/Stores -- Update UI --> Pages
+    Pages -- Display Logged-in State --> U
+
+
+14. File Relationships and Program Flows (Conceptual)
+Key Program Flows:
+User Authentication (Login):
+User interacts with src/pages/Login/index.jsx.
+Form data -> authService.login() -> apiClient POST to /api/auth/login.
+doof-backend/routes/auth.js -> authController.login() -> userModel.findByEmail() & password check.
+userModel queries users table in DB.
+authController generates JWT -> Response to Frontend.
+authService receives response -> useAuthStore updates state -> UI reflects login.
+Bulk Add Restaurants:
+Admin User interacts with src/pages/BulkAdd/index.jsx (InputMode).
+Raw text input -> handleRawTextChange -> handleProcess.
+useBulkAddProcessor.processInputData() is called:
+Parses text.
+For each restaurant item: calls placeService.getPlaceId() then placeService.getPlaceDetails() (which internally might use Google Places API via PlacesApiContext).
+Calls fetchNeighborhoodByZipcode() (within hook) -> filterService.findNeighborhoodByZipcode() -> apiClient GET to /api/filters/neighborhood-by-zipcode/:zipcode.
+Backend: routes/filters.js -> neighborhoodController.getNeighborhoodsByZipcode() -> neighborhoodModel.getNeighborhoodsByZipcode() -> DB.
+Updates item state in processedItems.
+UI switches to ReviewMode.jsx. Admin reviews/modifies.
+handleSubmitReviewedItems() in BulkAdd/index.jsx:
+Calls adminService.checkExistingItems() -> apiClient POST to /api/admin/check-existing.
+Backend: routes/admin.js -> adminController.checkExistingItems() -> restaurantModel/dishModel queries to DB.
+Processes duplicate results.
+Calls adminService.bulkAddItems() with unique/forced items -> apiClient POST to /api/admin/bulk-add.
+Backend: routes/admin.js -> adminController.bulkAddItems() -> uses restaurantModel.createRestaurant() / dishModel.createDish() within a DB transaction.
+Models insert into restaurants, dishes, restauranthashtags, dishhashtags tables in DB.
+Response -> BulkAdd/index.jsx shows ConfirmationModal.jsx.
+Viewing Restaurant Details:
+User navigates to a restaurant detail page (e.g., from a card on src/pages/Home/index.jsx).
+src/pages/RestaurantDetail/index.jsx mounts.
+useEffect hook calls restaurantService.getRestaurantById(id).
+apiClient GET to /api/restaurants/:id.
+doof-backend/routes/restaurants.js -> restaurantController.getRestaurantById() -> restaurantModel.findRestaurantById(id).
+restaurantModel queries restaurants, cities, neighborhoods, hashtags, restauranthashtags tables in DB.
+Response -> RestaurantDetail page displays data.
+File Interconnections (Example for Bulk Add):
+src/pages/BulkAdd/index.jsx (UI, top-level logic)
+Uses: src/hooks/useBulkAddProcessor.js (core client-side processing)
+Uses: src/components/UI/InputMode.jsx, ReviewMode.jsx, PlaceSelectionDialog.jsx, ConfirmationModal.jsx (UI elements)
+Calls: src/services/adminService.js (for checkExistingItems, bulkAddItems)
+src/hooks/useBulkAddProcessor.js
+Calls: src/services/placeService.js (for Google Places lookups)
+Calls: src/services/filterService.js (for neighborhood by zipcode)
+Calls: src/services/adminService.js (indirectly via its submitBulkAdd being called by the page)
+src/services/adminService.js, placeService.js, filterService.js
+All use: src/services/apiClient.js (to make HTTP requests)
+src/services/apiClient.js
+Connects to: Backend API endpoints (e.g., /api/admin/bulk-add)
+doof-backend/routes/admin.js (defines /api/admin/bulk-add)
+Uses: doof-backend/controllers/adminController.js
+doof-backend/controllers/adminController.js (bulkAddItems function)
+Uses: doof-backend/models/restaurantModel.js (createRestaurant)
+Uses: doof-backend/models/dishModel.js (createDish)
+Uses: doof-backend/models/hashtagModel.js (findOrCreateHashtags, linkTagsToRestaurant)
+Uses: doof-backend/db/index.js (for transaction client)
+doof-backend/models/*.js
+All use: doof-backend/db/index.js (to query the DB)
+This interconnectedness shows that a failure in, for example, neighborhoodModel.js (backend) to correctly find a neighborhood ID can directly impact the success of adminController.bulkAddItems (backend), which in turn affects the outcome reported to src/pages/BulkAdd/index.jsx (frontend).
+15. Feedback on Unused/Redundant Code and Overall Structure
+Identifying Unused Code:
+Frontend:
+Use IDE features (e.g., "Find Usages" in VS Code) for components, hooks, services, and utils.
+Utilize linters (ESLint with plugins like eslint-plugin-unused-imports) to automatically detect unused imports and variables.
+Code coverage tools (e.g., Jest's coverage reporter) can highlight un-tested and potentially unused code paths.
+Manually review src/utils/mockData.js, src/pages/Lists/guaranteed-mock-lists.js - are these still needed or were they for initial development/testing?
+The file src/utils/formatting.js seems to be a subset of or similar to src/utils/formatters.js. Consolidate.
+Multiple ListDetail*.jsx files in src/pages/Lists/ (ListDetail_backup.jsx, ListDetailFixed.jsx, FixedListDetail.jsx, WorkingListDetail.jsx, CompleteListDetail.jsx). It's highly likely only one or two of these are in active use. The primary one seems to be ListDetail.jsx. The others should be reviewed and deleted if they are old versions or experiments.
+Similarly, modal variations like FixedListDetailModal.jsx, DirectListDetailModal.jsx alongside ListDetailModal.jsx need review.
+Backend:
+Similar to frontend, use IDE "Find Usages" for controllers, models, and utility functions.
+Check if all routes defined in doof-backend/routes/ are actually called by the frontend or are intended for other clients/testing.
+The file doof-backend/models/trending.js and doof-backend/routes/trending.js might be for a partially implemented or future feature. Assess their current usage.
+doof-backend/schema.sql and doof-backend/schema_dump.sql should be considered superseded by doof-backend/schema_definition.sql. Keep schema_definition.sql as the single source of truth for the schema structure. The others can be archived or deleted to avoid confusion.
+Overall Structure Feedback:
+Frontend:
+The separation of concerns into pages, components, hooks, services, and stores is generally good and follows common React practices.
+The src/utils/ directory is a bit of a catch-all. Some utilities might be better co-located with the features they serve or grouped more specifically (e.g., apiUtils.js could be part of services).
+The custom routing in App.jsx is a point of technical debt.
+Backend:
+The MVC-like structure (Models, Routes as entry points, Controllers for logic) is standard for Express apps and is well-organized.
+The use of ES Modules (import/export) is a modern approach.
+Direct SQL in models is acceptable but requires discipline.
+Monorepo-like Structure: The project (chomp_pink) contains both the frontend and the doof-backend. This is common. Ensure clear separation of build processes and dependencies (which seems to be the case with separate package.json files).
+Configuration: Centralizing frontend config in src/config.js and backend in doof-backend/config/config.js is good, but environment variables should be prioritized for sensitive data.
+Database Schema: schema_definition.sql is crucial. The presence of migrations/ suggests an attempt to manage schema changes, but without a clear migration tool mentioned, this process might be manual and error-prone. Adopting a tool like node-pg-migrate or Flyway/Liquibase (if more robust control is needed) would be beneficial.
+General Recommendation:
+A thorough audit pass focusing on "Find Usages" for all exported functions, components, and variables across both frontend and backend would be highly beneficial to confidently identify and remove dead code. Start with less critical files (e.g., old component variants, potentially unused utility functions) and then move to services and stores. Always commit changes incrementally and test after deletions.
+This comprehensive summary should provide a solid foundation for any developer or AI to continue working on the Chomp/Doof application.
+I have provided a comprehensive project summary covering all the aspects you requested. The diagrams are described conceptually and using Mermaid syntax, which can be rendered by various tools. The API documentation is also conceptual, outlining the key endpoints.
+
+This document should serve as a good handoff point. Let me know if you have any more questions.
+
+

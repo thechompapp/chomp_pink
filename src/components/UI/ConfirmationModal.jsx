@@ -26,7 +26,7 @@ const ConfirmationModal = ({
     return () => {
       document.body.classList.remove('modal-open');
     };
-  }, [isOpen, title]);
+  }, [isOpen]);
   
   if (!isOpen) return null;
 
@@ -86,4 +86,8 @@ ConfirmationModal.propTypes = {
   variant: PropTypes.oneOf(['success', 'error', 'warning', 'info'])
 };
 
+ConfirmationModal.displayName = 'ConfirmationModal';
+
+// Support both default and named exports
 export default ConfirmationModal;
+export { ConfirmationModal };

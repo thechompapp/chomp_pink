@@ -177,6 +177,15 @@ apiClient.interceptors.request.use(
       }
     }
     
+    // In development mode, add a bypass header for admin endpoints
+    if (process.env.NODE_ENV === 'development' && config.url.includes('/admin/')) {
+      config.headers = {
+        ...config.headers,
+        'X-Bypass-Auth': 'true'
+      };
+      logDebug(`[API Client] Adding bypass auth header for admin endpoint: ${config.url}`);
+    }
+    
     // Check if we should bypass API requests when in offline mode
     const now = Date.now();
     

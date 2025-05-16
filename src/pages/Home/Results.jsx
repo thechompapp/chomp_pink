@@ -50,7 +50,16 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
     
     const limit = RESULTS_PER_PAGE;
     const offset = (pageParam - 1) * limit;
-    let responseData = { items: [], total: 0 };
+    let responseData = { 
+      restaurants: [], 
+      dishes: [], 
+      lists: [], 
+      totalRestaurants: 0, 
+      totalDishes: 0, 
+      totalLists: 0,
+      items: [],
+      total: 0
+    };
     
     try {
       if (contentType === 'lists') {
@@ -67,7 +76,31 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
         };
         
         const listApiResponse = await listService.getUserLists(params);
-        responseData = listApiResponse || { items: [], total: 0 };
+        
+        // Ensure we have a consistent structure
+        if (listApiResponse && listApiResponse.data) {
+          responseData.lists = listApiResponse.data;
+          responseData.totalLists = listApiResponse.total || 0;
+          
+          // Set general items and total for consistency
+          responseData.items = responseData.lists;
+          responseData.total = responseData.totalLists;
+        } else if (Array.isArray(listApiResponse)) {
+          responseData.lists = listApiResponse;
+          responseData.totalLists = listApiResponse.length;
+          
+          // Set general items and total for consistency
+          responseData.items = responseData.lists;
+          responseData.total = responseData.totalLists;
+        } else {
+          // Handle other response formats
+          responseData.lists = listApiResponse?.items || [];
+          responseData.totalLists = listApiResponse?.total || 0;
+          
+          // Set general items and total for consistency
+          responseData.items = responseData.lists;
+          responseData.total = responseData.totalLists;
+        }
       } 
       else if (contentType === 'restaurants' || contentType === 'dishes') {
         // Get restaurants or dishes using searchService
@@ -84,18 +117,29 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
         
         const searchApiResponse = await searchService.search(params);
         
-        // Extract the right data based on content type
-        const dataKey = contentType;
-        const totalKey = `total${contentType.charAt(0).toUpperCase() + contentType.slice(1)}`;
-        
-        responseData = {
-          items: searchApiResponse?.[dataKey] || [],
-          total: searchApiResponse?.[totalKey] ?? 0,
-        };
+        // Extract data based on content type
+        if (searchApiResponse) {
+          // Handle different response formats
+          if (searchApiResponse.data) {
+            // If searchApiResponse has .data property (newer API format)
+            responseData = searchApiResponse.data;
+          } else {
+            // Direct response (older API format)
+            responseData = searchApiResponse;
+          }
+          
+          // Make sure the response has the expected structure
+          if (contentType === 'restaurants') {
+            responseData.items = responseData.restaurants || [];
+            responseData.total = responseData.totalRestaurants || 0;
+          } else if (contentType === 'dishes') {
+            responseData.items = responseData.dishes || [];
+            responseData.total = responseData.totalDishes || 0;
+          }
+        }
       } 
       else {
         logWarn(`[Results] Unsupported contentType: ${contentType}`);
-        responseData = { items: [], total: 0 };
       }
       
       return { 
@@ -179,44 +223,64 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
       logDebug('[Results getNextPageParam CALLED] LastPage:', lastPage);
       console.log('[Results getNextPageParam] LastPage:', lastPage, 'AllPages:', allPages); // Debug log
       
-      // Handle both response formats: {data: {items: []}} and {data: []}
-      const pageData = lastPage?.data;
-      const dataArray = Array.isArray(pageData?.data) ? pageData.data : 
-                      (Array.isArray(pageData?.items) ? pageData.items : 
-                       (Array.isArray(pageData) ? pageData : []));
+      // Fix: Handle the correct response structure
+      // First check if we have a valid lastPage object
+      if (!lastPage || !lastPage.data) {
+        return undefined; // No more pages
+      }
       
-      if (!dataArray || dataArray.length === 0) {
-        logWarn('[Results getNextPageParam WARN] No valid data array found in response:', lastPage);
+      // Extract the data from the response based on different possible formats
+      const pageData = lastPage.data; // This is either {items: [], total: 0} or similar format
+      
+      // Extract items directly from pageData structure for all possible formats
+      const items = Array.isArray(pageData.items) ? pageData.items : 
+                   (Array.isArray(pageData.data) ? pageData.data : 
+                    (Array.isArray(pageData.restaurants || pageData.dishes || pageData.lists) ? 
+                     (pageData.restaurants || pageData.dishes || pageData.lists) : []));
+      
+      if (!items || items.length === 0) {
         console.warn('[Results getNextPageParam] No valid data array found:', pageData); // Debug log
-        return undefined;
+        return undefined; // No more pages
       }
       
-      // Calculate pagination based on available data
+      // Calculate total items based on all available formats
+      const total = pageData.total || 
+                   pageData.totalRestaurants || 
+                   pageData.totalDishes || 
+                   pageData.totalLists || 
+                   0;
+      
+      // Calculate current page and total fetched
+      const currentPage = lastPage.currentPage || 1;
       let totalFetched = 0;
+      
+      // Count total items fetched so far
       for (const page of allPages) {
-        const pageDataArray = Array.isArray(page?.data?.data) ? page.data.data : 
-                           (Array.isArray(page?.data?.items) ? page.data.items : 
-                            (Array.isArray(page?.data) ? page.data : []));
-        totalFetched += pageDataArray.length;
+        const pgData = page.data;
+        const pgItems = Array.isArray(pgData.items) ? pgData.items : 
+                       (Array.isArray(pgData.data) ? pgData.data : 
+                        (Array.isArray(pgData.restaurants || pgData.dishes || pgData.lists) ? 
+                         (pgData.restaurants || pgData.dishes || pgData.lists) : []));
+                         
+        totalFetched += pgItems.length;
       }
       
-      // Get total from pagination metadata if available, otherwise use length
-      const totalAvailable = pageData?.pagination?.total || pageData?.total || dataArray.length;
-      const currentPage = pageData?.pagination?.page || lastPage.currentPage || allPages.length;
+      console.log('[Results getNextPageParam] Calc:', { 
+        currentPage, 
+        totalFetched, 
+        total, 
+        dataLength: items.length 
+      }); // Debug log
       
-      logDebug(`[Results getNextPageParam CALC] CurrentPage: ${currentPage}, Total Fetched: ${totalFetched}, Total Available: ${totalAvailable}`);
-      console.log('[Results getNextPageParam] Calc:', { currentPage, totalFetched, totalAvailable, dataLength: dataArray.length }); // Debug log
-      
-      if (totalAvailable > totalFetched) {
+      // If we have more items to fetch, return the next page
+      if (total > totalFetched) {
         const nextPage = currentPage + 1;
-        logDebug(`[Results getNextPageParam RESULT] More pages exist. Returning next page: ${nextPage}`);
         console.log('[Results getNextPageParam] More pages exist, next page:', nextPage); // Debug log
         return nextPage;
       }
       
-      logDebug('[Results getNextPageParam RESULT] No more pages.');
       console.log('[Results getNextPageParam] No more pages.'); // Debug log
-      return undefined;
+      return undefined; // No more pages
     },
     initialPageParam: 1,
     staleTime: 5 * 60 * 1000,
@@ -227,23 +291,51 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
     logDebug('[Results useMemo] Processing data.pages:', data?.pages);
     console.log('[Results useMemo] Processing data.pages:', data?.pages); // Debug log
     
-    // Handle both response formats: {data: {items: []}} and {data: []}
-    const flattened = data?.pages?.flatMap(page => {
-      // Try different possible data structures
-      if (Array.isArray(page?.data?.data)) {
-        return page.data.data;
-      } else if (Array.isArray(page?.data?.items)) {
-        return page.data.items;
-      } else if (Array.isArray(page?.data)) {
-        return page.data;
-      }
+    if (!data || !data.pages || !Array.isArray(data.pages)) {
       return [];
-    }) ?? [];
+    }
+    
+    // Handle the data structure that matches getNextPageParam
+    const flattened = data.pages.flatMap(page => {
+      if (!page || !page.data) {
+        return [];
+      }
+      
+      const pageData = page.data;
+      
+      // Extract data based on content type
+      if (contentType === 'restaurants' && Array.isArray(pageData.restaurants)) {
+        return pageData.restaurants;
+      }
+      
+      if (contentType === 'dishes' && Array.isArray(pageData.dishes)) {
+        return pageData.dishes;
+      }
+      
+      if (contentType === 'lists' && Array.isArray(pageData.lists)) {
+        return pageData.lists;
+      }
+      
+      // General fallback logic for any array data
+      if (Array.isArray(pageData.items)) {
+        return pageData.items;
+      }
+      
+      if (Array.isArray(pageData.data)) {
+        return pageData.data;
+      }
+      
+      if (Array.isArray(pageData)) {
+        return pageData;
+      }
+      
+      return [];
+    });
     
     logDebug(`[Results useMemo] Flattened items count: ${flattened.length}`);
     console.log('[Results useMemo] Flattened items count:', flattened.length); // Debug log
     return flattened;
-  }, [data]);
+  }, [data, contentType]);
 
   const showInitialLoading = isLoading && !items.length;
 

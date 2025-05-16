@@ -1,7 +1,8 @@
 /* src/pages/AdminPanel/AdminTableRow.jsx */
 /* FIXED: Use col.key OR col.accessor for validation and React key */
 /* ADDED: Safety check for isEditing prop type */
-import React from 'react';
+/* UPDATED: Pass onSaveEdit to EditableCell for auto-save functionality */
+import React, { useCallback, useRef, useEffect } from 'react';
 import EditableCell from './EditableCell.jsx';
 import ActionCell from './ActionCell.jsx';
 
@@ -39,6 +40,7 @@ const AdminTableRow = ({
   // --- End Redundant Props ---
   isBulkEditing, // Flag from hook
   isAdding, // Flag from hook
+  isDataCleanup = false, // Flag to indicate if this is part of data cleanup process
   // editingRowIds // Can likely be derived from isEditing prop if needed locally
 }) => {
 
@@ -76,86 +78,121 @@ const AdminTableRow = ({
   // Disable interactions if adding globally, this row is busy, or bulk editing is active AND this row isn't the one being edited
   const disableRowInteractions = isAdding || isRowBusy || (isBulkEditing && !isCurrentlyEditing);
 
+  // Function to handle saving edits for this specific row
+  const handleSaveEditForRow = () => {
+    if (onSaveEdit && typeof onSaveEdit === 'function' && !isThisRowSaving) {
+      console.log(`[AdminTableRow] Saving edits for row ${currentRowId}`);
+      onSaveEdit(currentRowId);
+    }
+  };
+
+  // Add keyboard navigation
+  const handleKeyDown = useCallback((e) => {
+    if (isCurrentlyEditing) {
+      switch (e.key) {
+        case 'Enter':
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            handleSaveEditForRow();
+          }
+          break;
+        case 'Escape':
+          e.preventDefault();
+          onCancelEdit(currentRowId);
+          break;
+      }
+    }
+  }, [isCurrentlyEditing, handleSaveEditForRow, onCancelEdit, currentRowId]);
+
+  // Add focus management
+  const rowRef = useRef(null);
+  useEffect(() => {
+    if (isCurrentlyEditing && rowRef.current) {
+      const firstInput = rowRef.current.querySelector('input, select, textarea');
+      if (firstInput) {
+        firstInput.focus();
+      }
+    }
+  }, [isCurrentlyEditing]);
 
   return (
     <tr
-      key={currentRowId} // Use guaranteed row.id
-      className={` ${isCurrentlyEditing ? 'bg-blue-50 dark:bg-blue-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'} ${isRowBusy ? 'opacity-50 pointer-events-none' : ''} transition-colors duration-150 `}
+      ref={rowRef}
+      key={currentRowId}
+      className={`${
+        isCurrentlyEditing 
+          ? 'bg-muted/50' 
+          : 'hover:bg-muted/20'
+      } ${
+        isRowBusy ? 'opacity-50 pointer-events-none' : ''
+      } transition-colors duration-150`}
       aria-busy={isRowBusy}
+      onKeyDown={handleKeyDown}
+      role="row"
+      aria-selected={selectedRows?.has(currentRowId)}
     >
       {/* Select Checkbox Column */}
-       {resourceType !== 'submissions' && ( // Conditionally render select checkbox
-            <td className="px-3 py-2 align-top">
-                <input
-                    type="checkbox"
-                    className="rounded border-gray-300 dark:border-gray-600 text-primary dark:text-primary-dark focus:ring-primary-dark disabled:opacity-50 bg-white dark:bg-gray-700"
-                    checked={selectedRows?.has(currentRowId) ?? false} // Safe check for Set
-                    onChange={(e) => onRowSelect && onRowSelect(currentRowId, e.target.checked)}
-                    aria-label={`Select row ${currentRowId}`}
-                    disabled={disableRowInteractions}
-                />
-            </td>
-        )}
+      {resourceType !== 'submissions' && (
+        <td className="px-3 py-2 align-top" role="cell">
+          <input
+            type="checkbox"
+            className="rounded border-input text-foreground focus:ring-ring disabled:opacity-50 bg-background"
+            checked={selectedRows?.has(currentRowId) ?? false}
+            onChange={(e) => onRowSelect && onRowSelect(currentRowId, e.target.checked)}
+            aria-label={`Select row ${currentRowId}`}
+            disabled={disableRowInteractions}
+          />
+        </td>
+      )}
       {/* Data Columns */}
       {columns.map((col) => {
-          // *** Use accessor as fallback key for validation and mapping ***
-          const columnKey = col.key || col.accessor;
-          if (!col || typeof columnKey !== 'string') {
-               console.warn("[AdminTableRow] Invalid column definition encountered (missing key/accessor):", col);
-               // Render placeholder but use a more stable key
-               return <td key={`invalid-col-${col?.header || Math.random()}`} className="px-3 py-2 text-red-500 italic">Invalid Col Def</td>;
-          }
-
-          // Skip rendering the dedicated actions column if defined in columns array
-          if (columnKey === 'actions') return null;
-
-          return (
-            <td
-              key={`${currentRowId}-${columnKey}`} // Use columnKey here
-              className={`px-3 py-2 align-top text-sm text-gray-700 dark:text-gray-300 ${col?.className || ''} ${isCurrentlyEditing && col.editable ? 'py-1' : ''}`} // Adjust padding for editable cells
-            >
-              <EditableCell // Handles display or input based on isCurrentlyEditing
-                row={row}
-                col={col} // Pass full column definition
-                isEditing={isCurrentlyEditing}
-                // Pass the specific data FOR THIS ROW from the main edit form state
-                rowData={currentRowEditData}
-                // Ensure onDataChange passes rowId correctly
-                onDataChange={(changes) => onDataChange && onDataChange(currentRowId, changes)}
-                isSaving={isThisRowSaving} // Pass saving state specific to this row
-                cities={cities} // Pass lookup data
-                neighborhoods={neighborhoods}
-                resourceType={resourceType}
-              />
-            </td>
-          );
-        })}
-       {/* Actions Column (Always render last) */}
-       <td key={`${currentRowId}-actions-cell`} className="px-3 py-2 align-top text-right">
-           <ActionCell
+        const columnKey = col.accessor;
+        return (
+          <td
+            key={`${currentRowId}-${columnKey}`}
+            className={`px-3 py-2 align-top text-sm text-foreground ${col?.className || ''}`}
+            role="cell"
+          >
+            <EditableCell
               row={row}
-              resourceType={resourceType} // Pass resourceType instead of 'type'
-              canEdit={columns.some(c => c.editable)} // Derive canEdit from column definitions
-              canMutate={true} // TODO: Determine based on user permissions?
+              col={col}
               isEditing={isCurrentlyEditing}
-              isSaving={isThisRowSaving} // Pass saving state specific to this row
-              actionState={actionState}
-              // Pass row-specific error (Hook/parent needs logic to determine this)
-              editError={isCurrentlyEditing ? editError : null}
-              disableActions={disableRowInteractions} // Pass combined disable flag
-              // Pass handlers down
+              rowData={currentRowEditData}
+              onDataChange={(changes) => onDataChange && onDataChange(currentRowId, changes)}
+              isSaving={isThisRowSaving}
+              cities={cities}
+              neighborhoods={neighborhoods}
+              resourceType={resourceType}
               onStartEdit={onStartEdit}
-              onCancelEdit={onCancelEdit}
-              onSaveEdit={onSaveEdit}
-              onApprove={onApprove}
-              onReject={onReject}
-              onDelete={onDelete} // Pass the click handler
-              // Pass confirmation dialog state/handlers
-              confirmDeleteInfo={confirmDeleteInfo}
-              setConfirmDeleteInfo={setConfirmDeleteInfo}
-              handleDeleteConfirm={handleDeleteConfirm}
+              onSaveEdit={handleSaveEditForRow}
             />
-        </td>
+          </td>
+        );
+      })}
+      {/* Actions Column */}
+      <td key={`${currentRowId}-actions-cell`} className="px-3 py-2 align-top text-right" role="cell">
+        <ActionCell
+          row={row}
+          resourceType={resourceType}
+          canEdit={columns.some(c => c.isEditable)}
+          canMutate={true}
+          isEditing={isCurrentlyEditing}
+          isSaving={isThisRowSaving}
+          actionState={actionState}
+          editError={isCurrentlyEditing ? editError : null}
+          disableActions={disableRowInteractions}
+          onStartEdit={onStartEdit}
+          onCancelEdit={onCancelEdit}
+          onSaveEdit={handleSaveEditForRow}
+          onApprove={onApprove}
+          onReject={onReject}
+          onDelete={onDelete}
+          confirmDeleteInfo={confirmDeleteInfo}
+          setConfirmDeleteInfo={setConfirmDeleteInfo}
+          handleDeleteConfirm={handleDeleteConfirm}
+          isDataCleanup={isDataCleanup}
+        />
+      </td>
     </tr>
   );
 };
