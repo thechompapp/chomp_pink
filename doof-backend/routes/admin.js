@@ -15,13 +15,34 @@ router.use((req, res, next) => {
     return next();
   }
   
-  // Check if user is authenticated and is a superuser
+  // Development mode bypass - check for special headers
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  const hasBypassHeader = req.headers['x-bypass-auth'] === 'true';
+  const hasSuperuserHeader = req.headers['x-superuser-override'] === 'true';
+  const hasAdminHeader = req.headers['x-admin-access'] === 'true';
+  
+  // Allow access in development mode with bypass headers
+  if (isDevelopment && (hasBypassHeader || hasSuperuserHeader || hasAdminHeader)) {
+    console.log('[Admin Route] Development mode bypass authentication enabled');
+    // Set a mock superuser for the request
+    req.user = {
+      id: 1,
+      username: 'admin',
+      email: 'admin@example.com',
+      account_type: 'superuser',
+      role: 'admin'
+    };
+    return next();
+  }
+  
+  // Standard production check - user must be authenticated and a superuser
   if (!req.user || req.user.account_type !== 'superuser') {
     return res.status(403).json({ 
       success: false, 
       message: 'Access denied: Superuser privileges required.' 
     });
   }
+  
   next();
 });
 

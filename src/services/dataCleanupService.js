@@ -4,22 +4,17 @@ import { handleApiResponse } from '@/utils/serviceHelpers';
 
 // Constants for API endpoints (can be moved to a config file if needed)
 const API_ENDPOINTS = {
-  health: '/api/admin/cleanup/health',
-  analyze: (resourceType) => `/api/admin/cleanup/analyze/${resourceType}`,
-  apply: (resourceType) => `/api/admin/cleanup/apply/${resourceType}`,
-  reject: (resourceType) => `/api/admin/cleanup/reject/${resourceType}`
+  health: '/admin/cleanup/health',
+  analyze: (resourceType) => `/admin/cleanup/analyze/${resourceType}`,
+  apply: (resourceType) => `/admin/cleanup/apply/${resourceType}`,
+  reject: (resourceType) => `/admin/cleanup/reject/${resourceType}`
 };
 
-// Enable mock mode if needed (e.g. for development or when endpoints not available)
-const ENABLE_MOCK_MODE = true;
+// Disable mock mode
+const ENABLE_MOCK_MODE = false;
 
 class DataCleanupService {
   async checkApiAvailability() {
-    if (ENABLE_MOCK_MODE) {
-      logWarn('[dataCleanupService] Mock mode enabled, bypassing API availability check');
-      return true;
-    }
-    
     try {
       logDebug(`[dataCleanupService] Checking if cleanup API endpoints are available`);
       
@@ -56,18 +51,13 @@ class DataCleanupService {
   async analyzeData(resourceType) {
     try {
       const isApiAvailable = await this.checkApiAvailability();
-      if (!isApiAvailable && !ENABLE_MOCK_MODE) {
+      if (!isApiAvailable) {
         logWarn(`[dataCleanupService] Data cleanup API is not available for resource: ${resourceType}`);
         // Return a mock response with no changes when API is not available
         return [];
       }
       
       logDebug(`[dataCleanupService] Analyzing data for ${resourceType}`);
-      
-      if (ENABLE_MOCK_MODE) {
-        logWarn(`[dataCleanupService] Using mock data for ${resourceType} analysis`);
-        return this.getMockChanges(resourceType);
-      }
       
       try {
         const endpoint = API_ENDPOINTS.analyze(resourceType);
@@ -90,9 +80,6 @@ class DataCleanupService {
         // If the endpoint doesn't exist (404), log a warning and return empty array
         if (error.response?.status === 404) {
           logWarn(`[dataCleanupService] Cleanup analyze endpoint not found for ${resourceType}. Feature may not be implemented.`);
-          if (ENABLE_MOCK_MODE) {
-            return this.getMockChanges(resourceType);
-          }
           return [];
         }
         // For other errors, rethrow
@@ -101,9 +88,6 @@ class DataCleanupService {
     } catch (error) {
       logError(`[dataCleanupService] Error analyzing data for ${resourceType}: ${error.message}`, { error, resourceType });
       // Return empty array instead of throwing to prevent UI errors
-      if (ENABLE_MOCK_MODE) {
-        return this.getMockChanges(resourceType);
-      }
       return [];
     }
   }
@@ -111,6 +95,13 @@ class DataCleanupService {
   async applyChanges(resourceType, approvedChanges, options = {}) {
     // approvedChanges should be an array of full change objects from the modal
     try {
+      console.log('[dataCleanupService] applyChanges called with:', {
+        resourceType,
+        approvedChangesLength: approvedChanges?.length,
+        firstChangeId: approvedChanges?.[0]?.changeId,
+        options
+      });
+      
       // Validate input
       if (!approvedChanges) {
         logError('[dataCleanupService] approvedChanges is undefined or null');
@@ -134,7 +125,9 @@ class DataCleanupService {
       }
       
       const isApiAvailable = await this.checkApiAvailability();
-      if (!isApiAvailable && !ENABLE_MOCK_MODE) {
+      console.log('[dataCleanupService] API availability check result:', isApiAvailable);
+      
+      if (!isApiAvailable) {
         logWarn(`[dataCleanupService] Cannot apply changes - API is not available for resource: ${resourceType}`);
         return { success: false, message: 'Data cleanup API is not available', data: [] };
       }
@@ -155,27 +148,15 @@ class DataCleanupService {
         };
       }
       
-      if (ENABLE_MOCK_MODE) {
-        logWarn(`[dataCleanupService] Using mock mode to apply changes for ${resourceType}`);
-        // Simulate a delay to mimic server processing
-        await new Promise(resolve => setTimeout(resolve, 500));
-        return {
-          success: true,
-          message: `Successfully applied ${approvedChanges.length} changes in mock mode`,
-          data: approvedChanges.map(change => ({ ...change, success: true }))
-        };
-      }
-      
       try {
         const endpoint = API_ENDPOINTS.apply(resourceType);
-        // Send the full change objects, not just IDs
-        const payload = { 
-          changes: approvedChanges,
-          options
-        };
+        // Extract changeIds from the change objects
+        const changeIds = approvedChanges.map(change => change.changeId);
+        const payload = { changeIds };
         
         // Log what we're sending to help with debugging
-        logDebug(`[dataCleanupService] Sending payload to ${endpoint}:`, JSON.stringify(payload));
+        console.log(`[dataCleanupService] Sending payload to ${endpoint}:`, JSON.stringify(payload));
+        console.log('[dataCleanupService] Change IDs being sent:', changeIds);
         
         const response = await apiClient.post(
           endpoint,
@@ -186,7 +167,27 @@ class DataCleanupService {
         // Parse the response
         const result = response?.data || { success: false, message: 'No response from server', data: [] };
         
-        logDebug(`[dataCleanupService] Server response for applying ${approvedChanges.length} changes:`, result);
+        console.log(`[dataCleanupService] Server response for applying ${approvedChanges.length} changes:`, result);
+        
+        // Check if any non-display changes were actually applied
+        const nonDisplayChanges = approvedChanges.filter(change => !change.displayOnly);
+        const displayOnlyChanges = approvedChanges.filter(change => change.displayOnly);
+        
+        console.log(`[dataCleanupService] Changes breakdown:`, {
+          total: approvedChanges.length,
+          nonDisplayChanges: nonDisplayChanges.length,
+          displayOnlyChanges: displayOnlyChanges.length
+        });
+        
+        // For display-only changes, consider the operation successful even if backend changes weren't applied
+        if (nonDisplayChanges.length === 0 && displayOnlyChanges.length > 0) {
+          console.log('[dataCleanupService] All changes were display-only, marking as successful');
+          return { 
+            success: true,
+            message: `Successfully applied ${displayOnlyChanges.length} display-only changes`,
+            data: result.data || []
+          };
+        }
         
         return { 
           success: result.success,
@@ -194,16 +195,11 @@ class DataCleanupService {
           data: result.data || []
         };
       } catch (error) {
+        console.error('[dataCleanupService] Error during API call:', error);
+        console.error('[dataCleanupService] Error response:', error.response?.data);
+        
         if (error.response?.status === 404) {
           logWarn(`[dataCleanupService] Cleanup apply endpoint not found for ${resourceType}. Full error:`, error);
-          if (ENABLE_MOCK_MODE) {
-            // Simulate a successful response in mock mode
-            return {
-              success: true,
-              message: `Successfully applied ${approvedChanges.length} changes in mock mode (after 404)`,
-              data: approvedChanges.map(change => ({ ...change, success: true }))
-            };
-          }
           return { 
             success: false, 
             message: 'Data cleanup feature is not implemented on the server',
@@ -245,30 +241,18 @@ class DataCleanupService {
       }
     
       const isApiAvailable = await this.checkApiAvailability();
-      if (!isApiAvailable && !ENABLE_MOCK_MODE) {
+      if (!isApiAvailable) {
         logWarn(`[dataCleanupService] Cannot reject changes - API is not available for resource: ${resourceType}`);
         return { success: false, message: 'Data cleanup API is not available', data: [] };
       }
       
       logDebug(`[dataCleanupService] Rejecting ${rejectedChanges.length} changes for ${resourceType}`);
       
-      if (ENABLE_MOCK_MODE) {
-        logWarn(`[dataCleanupService] Using mock mode to reject changes for ${resourceType}`);
-        // Simulate a delay to mimic server processing
-        await new Promise(resolve => setTimeout(resolve, 500));
-        return {
-          success: true,
-          message: `Successfully rejected ${rejectedChanges.length} changes in mock mode`,
-          data: rejectedChanges.map(change => ({ ...change, success: true }))
-        };
-      }
-      
       try {
         const endpoint = API_ENDPOINTS.reject(resourceType);
-        // Send the full change objects, not just IDs
-        const payload = { 
-          changes: rejectedChanges
-        };
+        // Extract changeIds from the change objects
+        const changeIds = rejectedChanges.map(change => change.changeId);
+        const payload = { changeIds };
         
         // Log what we're sending to help with debugging
         logDebug(`[dataCleanupService] Sending payload to ${endpoint}:`, JSON.stringify(payload));
@@ -292,14 +276,6 @@ class DataCleanupService {
       } catch (error) {
         if (error.response?.status === 404) {
           logWarn(`[dataCleanupService] Cleanup reject endpoint not found for ${resourceType}.`);
-          if (ENABLE_MOCK_MODE) {
-            // Simulate a successful response in mock mode
-            return {
-              success: true,
-              message: `Successfully rejected ${rejectedChanges.length} changes in mock mode (after 404)`,
-              data: rejectedChanges.map(change => ({ ...change, success: true }))
-            };
-          }
           return { 
             success: false, 
             message: 'Data cleanup feature is not implemented on the server',

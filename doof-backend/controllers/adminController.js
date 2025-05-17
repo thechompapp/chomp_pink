@@ -410,9 +410,19 @@ export const analyzeData = async (req, res) => {
   const { resourceType } = req.params;
   try {
     console.log(`[adminController] Analyzing data for ${resourceType}`);
+    console.log(`[adminController] User from request: ${req.user ? JSON.stringify({id: req.user.id, type: req.user.account_type}) : 'No user'}`);
+    console.log(`[adminController] Auth header: ${req.headers.authorization ? 'Present' : 'Missing'}`);
+    
     // Validation for resourceType happens in AdminModel.getResourceConfig now
     const changes = await AdminModel.analyzeData(resourceType);
     console.log(`[adminController] Found ${changes.length} changes for ${resourceType}`);
+    
+    // Log a few sample changeIds to help with debugging
+    if (changes.length > 0) {
+      const sampleSize = Math.min(changes.length, 5);
+      const sampleChanges = changes.slice(0, sampleSize);
+      console.log(`[adminController] Sample changeIds: ${sampleChanges.map(c => c.changeId).join(', ')}`);
+    }
     
     res.status(200).json({
       success: true,
@@ -436,23 +446,37 @@ export const applyChanges = async (req, res) => {
   // Log the request body to help with debugging
   console.log(`[adminController] Apply changes for ${resourceType} request:`, {
     bodyKeys: Object.keys(req.body),
-    changesCount: req.body.changes?.length,
-    options: req.body.options
+    changeIds: req.body.changeIds,
+    authHeader: req.headers.authorization ? 'Present' : 'Missing',
+    userInfo: req.user ? `ID: ${req.user.id}, Type: ${req.user.account_type}` : 'No user in request'
   });
   
-  // Expecting an array of detailed change objects now, not just IDs
-  const changesToApply = req.body.changes || [];
-  const options = req.body.options || {};
+  // Expecting an array of changeIds
+  const changeIds = req.body.changeIds || [];
   
-  if (!changesToApply || !Array.isArray(changesToApply)) {
+  if (!changeIds || !Array.isArray(changeIds)) {
     return res.status(400).json({
       success: false,
-      message: 'Invalid request. `changes` must be an array of change objects.'
+      message: 'Invalid request. `changeIds` must be an array.'
     });
   }
 
   try {
-    const results = await AdminModel.applyChanges(resourceType, changesToApply, options);
+    // Fetch the actual changes based on the changeIds
+    console.log(`[adminController] Fetching changes for IDs: ${changeIds.join(', ')}`);
+    const changes = await AdminModel.getChangesByIds(resourceType, changeIds);
+    
+    if (!changes || changes.length === 0) {
+      console.log(`[adminController] No changes found for IDs: ${changeIds.join(', ')}`);
+      return res.status(404).json({
+        success: false,
+        message: 'No valid changes found with the provided changeIds.'
+      });
+    }
+    
+    console.log(`[adminController] Found ${changes.length} changes to apply`);
+    
+    const results = await AdminModel.applyChanges(resourceType, changes);
     const successfulChanges = results.filter(r => r.success).length;
     const failedChanges = results.length - successfulChanges;
 
@@ -460,7 +484,12 @@ export const applyChanges = async (req, res) => {
     console.log(`[adminController] Apply changes for ${resourceType} completed:`, {
       total: results.length,
       successful: successfulChanges,
-      failed: failedChanges
+      failed: failedChanges,
+      resultSummary: results.map(r => ({
+        changeId: r.changeId,
+        success: r.success,
+        message: r.message
+      }))
     });
 
     res.status(200).json({
@@ -469,7 +498,9 @@ export const applyChanges = async (req, res) => {
       data: results
     });
   } catch (error) {
-    console.error(`Error applying changes for ${resourceType}:`, error);
+    console.error(`[adminController] Error applying changes for ${resourceType}:`, error);
+    console.error(`[adminController] Stack trace:`, error.stack);
+    
     if (error.message.startsWith('Unsupported resource type')) {
       return res.status(400).json({ success: false, message: error.message });
     }
@@ -485,21 +516,30 @@ export const rejectChanges = async (req, res) => {
   // Log the request body to help with debugging
   console.log(`[adminController] Reject changes for ${resourceType} request:`, {
     bodyKeys: Object.keys(req.body),
-    changesCount: req.body.changes?.length
+    changeIds: req.body.changeIds
   });
   
-  // Expecting an array of detailed change objects
-  const changesToReject = req.body.changes || [];
+  // Expecting an array of changeIds
+  const changeIds = req.body.changeIds || [];
   
-  if (!changesToReject || !Array.isArray(changesToReject)) {
+  if (!changeIds || !Array.isArray(changeIds)) {
     return res.status(400).json({
       success: false,
-      message: 'Invalid request. `changes` must be an array of change objects.'
+      message: 'Invalid request. `changeIds` must be an array.'
     });
   }
 
   try {
-    const results = await AdminModel.rejectChanges(resourceType, changesToReject);
+    // Fetch the actual changes based on the changeIds
+    const changes = await AdminModel.getChangesByIds(resourceType, changeIds);
+    if (!changes || changes.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No valid changes found with the provided changeIds.'
+      });
+    }
+    
+    const results = await AdminModel.rejectChanges(resourceType, changes);
     const successfulRejections = results.filter(r => r.success).length;
     const failedRejections = results.length - successfulRejections;
 

@@ -65,7 +65,11 @@ export const COLUMN_CONFIG = {
   dishes: [
     { accessor: 'id', header: 'ID', isEditable: false, isSortable: true },
     { accessor: 'name', header: 'Dish Name', isEditable: true, isSortable: true, isFilterable: true },
-    { accessor: 'restaurant_id', header: 'Restaurant', isEditable: true, isSortable: true, isFilterable: true },
+    { accessor: 'restaurant_id', header: 'Restaurant', isEditable: true, isSortable: true, isFilterable: true,
+      render(value, row) {
+        return row['restaurant_name'] || row['restaurant_id_display'] || value || '-';
+      }
+    },
     { accessor: 'price', header: 'Price', isEditable: true, isSortable: true },
     { accessor: 'description', header: 'Description', isEditable: true, isSortable: false },
   ],

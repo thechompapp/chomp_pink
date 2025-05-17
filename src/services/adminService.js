@@ -65,16 +65,49 @@ export const adminService = {
   },
 
   getAdminData: async (resource) => {
+    // Log the request for debugging
+    logDebug(`Fetching admin data for resource: ${resource}`);
+    
+    // Use the correct endpoint based on the resource type
+    let endpoint = `/admin/${resource}`;
+    
+    // Special case for submissions which has a dedicated endpoint
+    if (resource === 'submissions') {
+      endpoint = '/admin/submissions';
+    }
+    
+    logDebug(`Using endpoint: ${endpoint} for resource: ${resource}`);
+    
     return handleApiResponse(
-      () => apiClient.get(`/admin/${resource}`),
+      () => apiClient.get(endpoint),
       `AdminService Get${resource}`
-    ).catch(error => {
+    )
+    .then(response => {
+      logDebug(`Admin data response for ${resource}:`, {
+        status: response?.status || 'unknown',
+        dataType: typeof response,
+        isArray: Array.isArray(response),
+        hasData: !!response?.data,
+        dataLength: Array.isArray(response) ? response.length : 
+                  (Array.isArray(response?.data) ? response.data.length : 'not array')
+      });
+      
+      // Extract the data from the response based on the structure
+      // The API returns { success: true, message: string, data: Array }
+      if (response && typeof response === 'object' && response.data) {
+        return response.data;
+      }
+      
+      return response;
+    })
+    .catch(error => {
       logError(`Failed to fetch admin ${resource}:`, error);
       throw error;
     });
   },
 
   createResource: async (type, payload) => {
+    console.log(`[adminService] Creating resource of type ${type} with payload:`, JSON.stringify(payload, null, 2));
     return handleApiResponse(
       () => apiClient.post(`/admin/${type}`, payload),
       `AdminService Create${type}`

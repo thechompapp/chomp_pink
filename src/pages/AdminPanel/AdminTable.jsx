@@ -58,6 +58,7 @@ const AdminTable = ({
     visibleColumns = [],
     onToggleColumn,
     isDataCleanup = false, // Added: Flag for data cleanup mode
+    displayChanges = {}, // Added: Display changes for data cleanup
 }) => {
 
     // Debug cities data
@@ -69,6 +70,13 @@ const AdminTable = ({
             source: 'props from GenericAdminTableTab'
         });
     }, [cities]);
+
+    // Log display changes
+    useEffect(() => {
+        if (Object.keys(displayChanges).length > 0) {
+            console.log(`[AdminTable] Received display changes:`, displayChanges);
+        }
+    }, [displayChanges]);
 
     if (error) {
         return <ErrorState error={error} onRetry={onRetry} />;
@@ -146,6 +154,7 @@ const AdminTable = ({
                             isAdding={isAdding}
                             isBulkEditing={selectedRows?.size > 1 && editingRowIds?.size > 0}
                             isDataCleanup={isDataCleanup}
+                            displayChanges={displayChanges[row.id] || {}}
                         />
                     ))}
                 </tbody>

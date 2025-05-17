@@ -332,15 +332,33 @@ const generateChangeId = (resourceType, resourceId, field, changeType) => {
 };
 
 // Helper function to fetch data from Google Places API
-const fetchFromGooglePlaces = async (placeId) => {
-  // In a real implementation, this would call the Google Places API
-  // For now, we'll simulate it with mock data
-  console.log(`[Mock] Fetching data from Google Places API for ID: ${placeId}`);
-  return {
-    address: "123 Example St, City, State 12345",
-    website: "https://example.com",
-    phone: "(555) 123-4567"
-  };
+async function fetchFromGooglePlaces(placeId) {
+  try {
+    // Use Google Places API client library
+    const googleMapsClient = require('@googlemaps/google-maps-services-js').Client;
+    const client = new googleMapsClient({});
+    
+    const response = await client.placeDetails({
+      params: {
+        place_id: placeId,
+        fields: ['name', 'formatted_address', 'website', 'formatted_phone_number'],
+        key: process.env.GOOGLE_MAPS_API_KEY
+      }
+    });
+    
+    if (response.data.result) {
+      return {
+        name: response.data.result.name,
+        address: response.data.result.formatted_address,
+        website: response.data.result.website,
+        phone: response.data.result.formatted_phone_number
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Error fetching from Google Places API:', error);
+    return null;
+  }
 };
 
 // Helper function to look up neighborhood by zip code
@@ -503,7 +521,127 @@ export const analyzeData = async (resourceType) => {
         continue;
     }
     const resourceId = resource.id;
-
+    
+    // Special case for restaurants: check for missing data that can be enhanced
+    if (resourceType === 'restaurants') {
+      // Check for missing address
+      if (!resource.address && resource.google_place_id) {
+        try {
+          const placeDetails = await fetchFromGooglePlaces(resource.google_place_id);
+          if (placeDetails?.address) {
+            changes.push({
+              changeId: generateChangeId(resourceType, resourceId, 'address', 'google_places'),
+              resourceId,
+              resourceType,
+              field: 'address',
+              currentValue: resource.address || null,
+              proposedValue: placeDetails.address,
+              changeType: 'google_places',
+              changeReason: 'Missing address retrieved from Google Places API',
+              status: 'pending'
+            });
+          }
+        } catch (error) {
+          console.error(`Error fetching Google Places data for restaurant ${resourceId}:`, error);
+        }
+      }
+      
+      // Check for missing website
+      if (!resource.website && resource.google_place_id) {
+        try {
+          const placeDetails = await fetchFromGooglePlaces(resource.google_place_id);
+          if (placeDetails?.website) {
+            changes.push({
+              changeId: generateChangeId(resourceType, resourceId, 'website', 'google_places'),
+              resourceId,
+              resourceType,
+              field: 'website',
+              currentValue: resource.website || null,
+              proposedValue: formatWebsite(placeDetails.website),
+              changeType: 'google_places',
+              changeReason: 'Missing website retrieved from Google Places API',
+              status: 'pending'
+            });
+          }
+        } catch (error) {
+          console.error(`Error fetching Google Places data for restaurant ${resourceId}:`, error);
+        }
+      }
+      
+      // Check for address but no neighborhood
+      if (resource.address && !resource.neighborhood_id && resource.zip_code) {
+        try {
+          const neighborhood = await lookupNeighborhoodByZip(resource.zip_code);
+          if (neighborhood?.id) {
+            changes.push({
+              changeId: generateChangeId(resourceType, resourceId, 'neighborhood_id', 'zip_lookup'),
+              resourceId,
+              resourceType,
+              field: 'neighborhood_id',
+              currentValue: resource.neighborhood_id || null,
+              proposedValue: neighborhood.id,
+              changeType: 'zip_lookup',
+              changeReason: `Neighborhood ${neighborhood.name} (ID: ${neighborhood.id}) found for zip code ${resource.zip_code}`,
+              status: 'pending'
+            });
+          }
+        } catch (error) {
+          console.error(`Error looking up neighborhood for restaurant ${resourceId} by zip code:`, error);
+        }
+      }
+      
+      // Check for incorrectly formatted phone number
+      if (resource.phone) {
+        const formattedPhone = formatPhoneNumber(resource.phone);
+        if (formattedPhone !== resource.phone) {
+          changes.push({
+            changeId: generateChangeId(resourceType, resourceId, 'phone', 'format'),
+            resourceId,
+            resourceType,
+            field: 'phone',
+            currentValue: resource.phone,
+            proposedValue: formattedPhone,
+            changeType: 'format',
+            changeReason: 'Phone number formatted consistently',
+            status: 'pending'
+          });
+        }
+      }
+      
+      // Check for incorrectly formatted website
+      if (resource.website) {
+        const formattedWebsite = formatWebsite(resource.website);
+        if (formattedWebsite !== resource.website) {
+          changes.push({
+            changeId: generateChangeId(resourceType, resourceId, 'website', 'format'),
+            resourceId,
+            resourceType,
+            field: 'website',
+            currentValue: resource.website,
+            proposedValue: formattedWebsite,
+            changeType: 'format',
+            changeReason: 'Website URL formatted consistently',
+            status: 'pending'
+          });
+        }
+      }
+    }
+    
+    // Special case for hashtags: ensure they have # prefix
+    if (resourceType === 'hashtags' && resource.name && !resource.name.startsWith('#')) {
+      changes.push({
+        changeId: generateChangeId(resourceType, resourceId, 'name', 'format'),
+        resourceId,
+        resourceType,
+        field: 'name',
+        currentValue: resource.name,
+        proposedValue: `#${resource.name}`,
+        changeType: 'format',
+        changeReason: 'Added # prefix to hashtag name',
+        status: 'pending'
+      });
+    }
+    
     // Standard field cleanup rules
     for (const field in config.fieldsForCleanup) {
       if (resource.hasOwnProperty(field)) {
@@ -1390,4 +1528,48 @@ export const checkExistingItems = async (resourceType, itemsToCheck) => {
     });
   }
   return results;
+};
+
+// Helper function to get changes by IDs
+export const getChangesByIds = async (resourceType, changeIds) => {
+  if (!changeIds || !Array.isArray(changeIds) || changeIds.length === 0) {
+    console.log('[AdminModel] getChangesByIds called with empty or invalid changeIds');
+    return [];
+  }
+
+  console.log(`[AdminModel] getChangesByIds: Attempting to find ${changeIds.length} changes for ${resourceType}`);
+  console.log(`[AdminModel] changeIds to find: ${changeIds.join(', ')}`);
+
+  try {
+    // First get all changes for the resource type
+    const allChanges = await analyzeData(resourceType);
+    
+    console.log(`[AdminModel] analyzeData returned ${allChanges.length} total changes`);
+    
+    // Log all changeIds from analyzeData for comparison
+    console.log(`[AdminModel] All available changeIds: ${allChanges.map(c => c.changeId).join(', ')}`);
+    
+    // Filter to only the changes with matching changeIds
+    const matchedChanges = allChanges.filter(change => 
+      changeIds.includes(change.changeId)
+    );
+    
+    console.log(`[AdminModel] Found ${matchedChanges.length} changes out of ${changeIds.length} requested IDs for ${resourceType}`);
+    
+    // Log each change that was found
+    matchedChanges.forEach((change, index) => {
+      console.log(`[AdminModel] Found change #${index + 1}: changeId=${change.changeId}, type=${change.type}, field=${change.field}`);
+    });
+    
+    // Log each changeId that wasn't found
+    const missingChangeIds = changeIds.filter(id => !matchedChanges.some(change => change.changeId === id));
+    if (missingChangeIds.length > 0) {
+      console.log(`[AdminModel] Missing changeIds: ${missingChangeIds.join(', ')}`);
+    }
+    
+    return matchedChanges;
+  } catch (error) {
+    console.error(`[AdminModel] Error in getChangesByIds for ${resourceType}:`, error);
+    throw error;
+  }
 };

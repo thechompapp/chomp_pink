@@ -108,21 +108,19 @@ export const useAdminTableState = ({
     setUpdatedData(initialData);
     setEditingRowIds(new Set());
     setEditFormData({});
-    // Removed direct state setters for sub-hook managed states
-    // setIsAdding(false);
-    // setIsBulkEditing(false);
     setSelectedRows(new Set());
-    clearActionError?.(); // Clear errors from sub-hooks
+    setCurrentSort(null);
+    // Error clearing moved outside to ensure consistent hook execution
+  }, [initialData, type]);
+
+  // Clear errors separately to avoid conditional hook issues
+  useEffect(() => {
+    clearActionError?.();
     clearAddRowError?.();
     clearListEditError?.();
     setIsListEditModalOpen(false);
     setListToEditData(null);
-    // Reset actionState if not handled internally by useAdminRowActions
-    // setActionState({ deletingId: null, approvingId: null, rejectingId: null });
-    setCurrentSort(null);
-    // Removed direct state setter for bulkSaveError as it's managed by useAdminBulkEditing
-    // setBulkSaveError(null);
-  }, [initialData, type, clearActionError, clearAddRowError, clearListEditError]); // Add clear functions to deps
+  }, [initialData, type, clearActionError, clearAddRowError, clearListEditError]);
 
   // --- Combined Handlers / Logic ---
 

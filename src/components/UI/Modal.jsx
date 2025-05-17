@@ -1,9 +1,18 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 
 const Modal = ({ isOpen, onClose, title, children, className = '', dialogClassName = '' }) => {
-  if (!isOpen) return null;
+  useEffect(() => {
+    console.log(`[Modal] Rendering modal with title "${title}", isOpen: ${isOpen}`);
+  }, [isOpen, title]);
+
+  if (!isOpen) {
+    console.log(`[Modal] "${title}" is not open, returning null`);
+    return null;
+  }
+
+  console.log(`[Modal] Rendering "${title}" modal content`);
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">

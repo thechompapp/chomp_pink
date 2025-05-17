@@ -59,15 +59,29 @@ const useAuthStore = create(
         // EMERGENCY FIX: Force authentication in development mode
         if (process.env.NODE_ENV === 'development' && window.location.hostname === 'localhost') {
           logger.info('[AuthStore] Development mode: Using mock authentication for localhost only');
+          
+          // Set localStorage flags to ensure consistent superuser access
+          localStorage.setItem('bypass_auth_check', 'true');
+          localStorage.setItem('superuser_override', 'true');
+          localStorage.setItem('admin_access_enabled', 'true');
+          
+          // Create a stronger token with admin privileges embedded
+          const adminToken = 'admin-mock-token-with-superuser-privileges-' + Date.now();
+          
+          // Store the token in localStorage directly for API client access
+          localStorage.setItem('auth-token', adminToken);
+          
           set({
             isAuthenticated: true,
             user: {
               id: 1,
               username: 'admin',
               email: 'admin@example.com',
-              account_type: 'superuser'
+              account_type: 'superuser',
+              role: 'admin',
+              permissions: ['admin', 'superuser']
             },
-            token: 'mock-token-for-development',
+            token: adminToken,
             isSuperuser: true,
             lastAuthCheck: Date.now(),
             isLoading: false,

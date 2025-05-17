@@ -49,6 +49,9 @@ if (useProxy) {
 // Create the API client instance with consistent configuration
 const apiClient = axios.create({
   baseURL: apiBaseUrl,
+  // Make the apiClient instance available globally for debugging
+  // This doesn't change functionality but helps with debugging
+  ...(typeof window !== 'undefined' && { _id: 'doofApiClient' }),
   withCredentials: true, // Include cookies in cross-site requests
   headers: {
     'Content-Type': 'application/json',
@@ -171,19 +174,54 @@ apiClient.interceptors.request.use(
       // Debug log for authentication detection
       logDebug(`[API Client] Sending authenticated request to ${config.url} with token`);
       
-      // For admin endpoints, ensure we have the token
+      // For admin endpoints, ensure we have the token and superuser privileges
       if (config.url.includes('/admin/')) {
         logDebug(`[API Client] Admin endpoint detected: ${config.url}`);
+        
+        // Double check we have a valid token for admin endpoints
+        if (!authState.token) {
+          const storedToken = localStorage.getItem('auth-token');
+          if (storedToken) {
+            config.headers['Authorization'] = `Bearer ${storedToken}`;
+            logDebug('[API Client] Using stored token for admin request');
+          } else {
+            logWarn('[API Client] No token available for admin request!');
+          }
+        }
+        
+        // Always add superuser headers for admin endpoints in development
+        if (process.env.NODE_ENV === 'development') {
+          config.headers['X-Superuser-Override'] = 'true';
+          config.headers['X-Admin-Access'] = 'true';
+          config.headers['X-Auth-Role'] = 'admin';
+          config.headers['X-Auth-Account-Type'] = 'superuser';
+          
+          // If we have a user object with superuser role, add that info
+          if (authState?.user?.account_type === 'superuser') {
+            config.headers['X-Auth-User-Role'] = 'superuser';
+          }
+          
+          logDebug('[API Client] Added superuser headers for admin endpoint');
+        }
       }
     }
     
-    // In development mode, add a bypass header for admin endpoints
+    // In development mode, add bypass headers for admin endpoints
     if (process.env.NODE_ENV === 'development' && config.url.includes('/admin/')) {
       config.headers = {
         ...config.headers,
-        'X-Bypass-Auth': 'true'
+        'X-Bypass-Auth': 'true',
+        'X-Superuser-Override': 'true',
+        'X-Admin-Access': 'true'
       };
-      logDebug(`[API Client] Adding bypass auth header for admin endpoint: ${config.url}`);
+      
+      // Set superuser flag in localStorage to ensure consistent admin access
+      if (localStorage) {
+        localStorage.setItem('bypass_auth_check', 'true');
+        localStorage.setItem('superuser_override', 'true');
+      }
+      
+      logDebug(`[API Client] Adding admin bypass headers for endpoint: ${config.url}`);
     }
     
     // Check if we should bypass API requests when in offline mode
@@ -454,6 +492,11 @@ apiClient.interceptors.response.use(
     return Promise.reject(handleApiError(error, 'API Client Response'));
   }
 );
+
+// Make apiClient available globally for debugging
+if (typeof window !== 'undefined') {
+  window.apiClient = apiClient;
+}
 
 // Export the enhanced API client
 export default apiClient;

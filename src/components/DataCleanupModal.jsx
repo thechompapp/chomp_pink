@@ -15,6 +15,15 @@ const DataCleanupModal = ({
   onRejectAll,  // Callback for mass reject: (allChangeObjects) => void
   resourceType 
 }) => {
+  console.log('[DataCleanupModal] Render called with props:', { 
+    isOpen, 
+    resourceType,
+    rawChangesLength: rawChanges?.length,
+    hasOnClose: !!onClose,
+    hasOnApprove: !!onApprove,
+    hasOnReject: !!onReject
+  });
+
   const [expandedSections, setExpandedSections] = useState({});
   const [selectedChangeIds, setSelectedChangeIds] = useState(new Set()); // Store unique change IDs
   const [isApproveAllLoading, setIsApproveAllLoading] = useState(false);
@@ -53,6 +62,7 @@ const DataCleanupModal = ({
   // Effect to reset selections when modal is closed or changes are new
   useEffect(() => {
     if (isOpen) {
+      console.log('[DataCleanupModal] Modal opened, isOpen=', isOpen);
       logDebug('[DataCleanupModal] Modal opened, resetting selections.');
       setSelectedChangeIds(new Set());
       // Expand first category by default if there are changes
@@ -62,6 +72,8 @@ const DataCleanupModal = ({
       } else {
         setExpandedSections({});
       }
+    } else {
+      console.log('[DataCleanupModal] Modal is closed, isOpen=', isOpen);
     }
   }, [isOpen, processedChanges]); // Re-run if processedChanges array reference changes (i.e. new analysis results)
 
@@ -157,7 +169,10 @@ const DataCleanupModal = ({
       }
       
       console.log('[DataCleanupModal] Calling onApproveAll with:', processedChanges);
+      console.log('[DataCleanupModal] Change IDs being approved:', processedChanges.map(c => c.changeId));
+      
       await onApproveAll(processedChanges);
+      console.log('[DataCleanupModal] onApproveAll completed successfully');
       // Don't automatically close - the parent component will handle this
     } catch (error) {
       logError(`[DataCleanupModal] Error approving all changes:`, error);
@@ -189,7 +204,12 @@ const DataCleanupModal = ({
   };
 
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    console.log('[DataCleanupModal] isOpen is false, returning null');
+    return null;
+  }
+
+  console.log('[DataCleanupModal] Rendering modal content, passing isOpen=', isOpen);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`Review Data Cleanup Changes for ${resourceType || 'Resources'}`} dialogClassName="max-w-5xl">
@@ -403,4 +423,6 @@ const DataCleanupModal = ({
   );
 };
 
+// Support both default and named exports
 export default DataCleanupModal;
+export { DataCleanupModal };

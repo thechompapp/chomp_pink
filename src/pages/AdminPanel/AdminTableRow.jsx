@@ -41,6 +41,7 @@ const AdminTableRow = ({
   isBulkEditing, // Flag from hook
   isAdding, // Flag from hook
   isDataCleanup = false, // Flag to indicate if this is part of data cleanup process
+  displayChanges = {}, // Added: Display changes for this row
   // editingRowIds // Can likely be derived from isEditing prop if needed locally
 }) => {
 
@@ -115,6 +116,13 @@ const AdminTableRow = ({
     }
   }, [isCurrentlyEditing]);
 
+  // Log display changes when they exist
+  useEffect(() => {
+    if (Object.keys(displayChanges).length > 0) {
+      console.log(`[AdminTableRow] Row ${currentRowId} has display changes:`, displayChanges);
+    }
+  }, [displayChanges, currentRowId]);
+
   return (
     <tr
       ref={rowRef}
@@ -165,6 +173,8 @@ const AdminTableRow = ({
               resourceType={resourceType}
               onStartEdit={onStartEdit}
               onSaveEdit={handleSaveEditForRow}
+              displayChanges={displayChanges}
+              isDataCleanup={isDataCleanup}
             />
           </td>
         );

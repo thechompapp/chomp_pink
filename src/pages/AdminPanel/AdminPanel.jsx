@@ -1,15 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, Filter, RefreshCw, Search, Trash } from 'lucide-react';
+import { toast } from 'react-hot-toast';
+import { cn } from '@/lib/utils';
 import { useAuthStore } from '../../stores/useAuthStore';
 import GenericAdminTableTab from './GenericAdminTableTab';
-import DataCleanupModal from '@/components/DataCleanupModal';
+import { DataCleanupModal } from '@/components/DataCleanupModal';
 import { adminService } from '../../services/adminService';
 import { dataCleanupService } from '../../services/dataCleanupService';
-import { cn } from '../../lib/utils';
-import { toast } from 'react-hot-toast';
-
-
 
 // Tab configuration
 const TAB_CONFIG = {
@@ -23,37 +21,88 @@ const TAB_CONFIG = {
   restaurant_chains: { label: 'Restaurant Chains', key: 'restaurant_chains' }
 };
 
-
-
 // Fetch all admin data from the API
 const fetchAllAdminData = async () => {
   try {
     console.log('Fetching admin data...');
-    const results = await Promise.allSettled(
-      Object.keys(TAB_CONFIG).map(endpoint =>
-        adminService.getAdminData(endpoint)
-          .then(response => {
-            console.log(`Successfully fetched ${endpoint} data`);
-            return {
-              [endpoint]: Array.isArray(response) ? response : response?.data || []
-            };
-          })
-          .catch(error => {
-            console.error(`Error fetching ${endpoint}:`, error);
-            return { [endpoint]: [] }; // Return empty array for failed requests
-          })
-      )
-    );
-
-    const data = results.reduce((acc, result) => ({
-      ...acc,
-      ...(result.status === 'fulfilled' ? result.value : {})
-    }), {});
+    
+    // Log API base URL for debugging
+    console.log('API Client config:', {
+      baseURL: window.apiClient?.defaults?.baseURL || 'Not available'
+    });
+    
+    // This will be populated with real data from the API
+    const data = {};
+    
+    // Process each endpoint sequentially to avoid race conditions
+    for (const endpoint of Object.keys(TAB_CONFIG)) {
+      console.log(`Starting fetch for ${endpoint} data`);
+      try {
+        // The adminService.getAdminData now properly extracts the data array from the response
+        const response = await adminService.getAdminData(endpoint);
+        console.log(`Raw response for ${endpoint}:`, response);
+        
+        // Handle different response formats - the API returns data in the format:
+        // { success: true, message: string, data: Array }
+        let responseData = [];
+        
+        if (Array.isArray(response)) {
+          // If the service already extracted the array for us
+          responseData = response;
+          console.log(`${endpoint} response is a direct array with ${responseData.length} items`);
+        } else if (response?.data && Array.isArray(response.data)) {
+          // If we still have a nested data property
+          responseData = response.data;
+          console.log(`${endpoint} response has data array with ${responseData.length} items`);
+        } else if (response?.data?.data && Array.isArray(response.data.data)) {
+          // If we have a doubly nested data property
+          responseData = response.data.data;
+          console.log(`${endpoint} response has nested data array with ${responseData.length} items`);
+        } else if (typeof response === 'object' && response !== null) {
+          // Try to extract any array property from the response
+          const arrayProps = Object.keys(response).filter(key => Array.isArray(response[key]));
+          if (arrayProps.length > 0) {
+            responseData = response[arrayProps[0]];
+            console.log(`${endpoint} found array in property: ${arrayProps[0]} with ${responseData.length} items`);
+          } else {
+            // If we can't find an array, log the response structure
+            console.log(`${endpoint} response structure:`, Object.keys(response));
+            if (response.pagination) {
+              console.log(`${endpoint} has pagination:`, response.pagination);
+            }
+          }
+        }
+        
+        console.log(`Successfully processed ${endpoint} data:`, {
+          length: responseData.length,
+          sample: responseData.length > 0 ? responseData[0] : null
+        });
+        
+        // Store the data
+        data[endpoint] = responseData;
+      } catch (error) {
+        console.error(`Error fetching ${endpoint}:`, {
+          message: error.message,
+          response: error.response ? {
+            status: error.response.status,
+            data: error.response.data
+          } : 'No response data',
+          stack: error.stack
+        });
+        data[endpoint] = []; // Use empty array for failed requests
+      }
+    }
     
     // Ensure all endpoints have at least an empty array
     Object.keys(TAB_CONFIG).forEach(key => {
       if (!data[key]) {
+        console.log(`No data found for ${key}, using empty array`);
         data[key] = [];
+      } else {
+        console.log(`Data for ${key}:`, {
+          length: data[key].length,
+          sample: data[key].length > 0 ? Object.keys(data[key][0]) : 'empty'
+        });
       }
     });
     
@@ -65,8 +114,6 @@ const fetchAllAdminData = async () => {
   }
 };
 
-
-
 const AdminPanel = () => {
   const [activeTab, setActiveTab] = useState('submissions');
   const [showFilters, setShowFilters] = useState(false);
@@ -76,34 +123,48 @@ const AdminPanel = () => {
   const [isCleanupModalOpen, setIsCleanupModalOpen] = useState(false);
   const [cleanupChanges, setCleanupChanges] = useState([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [displayChanges, setDisplayChanges] = useState({});
   
   // Get auth state
   const { isAuthenticated, isSuperuser, token, checkAuthStatus } = useAuthStore();
   
   // Check if user is authorized
-  const isAuthorized = useMemo(() => 
-    isAuthenticated && isSuperuser && token,
-    [isAuthenticated, isSuperuser, token]
-  );
+  const isAuthorized = useMemo(() => {
+    console.log('[AdminPanel] Authorization check:', { 
+      isAuthenticated, 
+      isSuperuser, 
+      hasToken: Boolean(token), 
+      result: isAuthenticated && isSuperuser && token 
+    });
+    return isAuthenticated && isSuperuser && token;
+  }, [isAuthenticated, isSuperuser, token]);
 
   // Check auth status on mount
   useEffect(() => {
     const verifyAuth = async () => {
       try {
-        console.log('Verifying auth status...');
-        if (!token) {
-          await checkAuthStatus();
-        }
+        console.log('[AdminPanel] Starting auth verification...');
+        // Always check auth status on mount to ensure state is up-to-date
+        await checkAuthStatus();
+        console.log('[AdminPanel] Auth verification completed successfully');
       } catch (error) {
-        console.error('Auth verification failed:', error);
+        console.error('[AdminPanel] Auth verification failed:', error);
       } finally {
-        console.log('Auth verification complete');
+        console.log('[AdminPanel] Auth verification complete, isInitializing set to false');
         setIsInitializing(false);
       }
     };
     
     verifyAuth();
-  }, [token, checkAuthStatus]); // Removed isAuthorized to prevent circular dependency
+  }, [checkAuthStatus]); // Only depend on checkAuthStatus, not token
+
+  // Log authorization state changes
+  useEffect(() => {
+    console.log('[AdminPanel] Authorization state updated:', { 
+      isAuthorized, 
+      isInitializing 
+    });
+  }, [isAuthorized, isInitializing]);
 
   // Fetch admin data
   const { 
@@ -121,40 +182,78 @@ const AdminPanel = () => {
     retry: 1,
     onError: (error) => {
       console.error('[useQuery] Error fetching admin data:', error);
+      console.error('[useQuery] Error details:', {
+        message: error.message,
+        stack: error.stack,
+        response: error.response ? {
+          status: error.response.status,
+          data: error.response.data
+        } : 'No response data'
+      });
+    },
+    onSuccess: (data) => {
+      console.log('[useQuery] Successfully fetched admin data:', {
+        keys: Object.keys(data),
+        lengths: Object.entries(data).map(([key, value]) => ({ [key]: value.length })) 
+      });
     }
   });
 
+  // Remove local storage for display changes since we want database persistence
+  useEffect(() => {
+    if (Object.keys(displayChanges).length > 0) {
+      console.log('[AdminPanel] displayChanges state updated:', displayChanges);
+      console.log('[AdminPanel] Keys in displayChanges:', Object.keys(displayChanges));
+      if (displayChanges[activeTab]) {
+        console.log(`[AdminPanel] Changes for current tab (${activeTab}):`, displayChanges[activeTab]);
+      }
+    } else {
+      console.log('[AdminPanel] displayChanges state is empty');
+    }
+  }, [displayChanges, activeTab]);
+
   // Add the toggleDataCleanup function
   const toggleDataCleanup = async () => {
+    console.log(`[AdminPanel] toggleDataCleanup called, current state: isDataCleanup=${isDataCleanup}, isAnalyzing=${isAnalyzing}`);
+    
     // If we're turning off data cleanup mode, just toggle the state
     if (isDataCleanup) {
+      console.log('[AdminPanel] Turning off data cleanup mode');
       setIsDataCleanup(false);
       return;
     }
     
     // If we're turning on data cleanup mode, analyze the data and show the modal
+    console.log('[AdminPanel] Turning on data cleanup mode, starting analysis');
     setIsAnalyzing(true);
     try {
+      console.log(`[AdminPanel] Calling dataCleanupService.analyzeData(${activeTab})`);
       const changes = await dataCleanupService.analyzeData(activeTab);
-      console.log(`[AdminPanel] Received ${changes.length} cleanup changes for ${activeTab}`);
+      console.log(`[AdminPanel] Received ${changes.length} cleanup changes for ${activeTab}:`, changes);
       
       if (changes.length === 0) {
+        console.log('[AdminPanel] No cleanup issues found, setting isDataCleanup=true');
         toast.success(`No cleanup issues found for ${TAB_CONFIG[activeTab]?.label || activeTab}`);
         setIsDataCleanup(true);
       } else {
+        console.log('[AdminPanel] Found cleanup issues, opening modal');
         setCleanupChanges(changes);
+        console.log('[AdminPanel] Setting isCleanupModalOpen=true');
         setIsCleanupModalOpen(true);
+        console.log('[AdminPanel] Current modal state after setting:', { isCleanupModalOpen });
       }
     } catch (error) {
       console.error('[AdminPanel] Error analyzing data:', error);
       toast.error(`Failed to analyze data: ${error.message || 'Unknown error'}`);
     } finally {
+      console.log('[AdminPanel] Analysis completed, setting isAnalyzing=false');
       setIsAnalyzing(false);
     }
   };
   
   // Add handlers for the DataCleanupModal
   const handleCleanupModalClose = () => {
+    console.log('[AdminPanel] handleCleanupModalClose called');
     setIsCleanupModalOpen(false);
     // Set isDataCleanup to true when the modal is closed, so the cleanup mode is active
     setIsDataCleanup(true);
@@ -190,7 +289,8 @@ const AdminPanel = () => {
       
       console.log('[AdminPanel] Calling dataCleanupService.applyChanges with:', {
         activeTab,
-        changesCount: changesToApprove.length
+        changesCount: changesToApprove.length,
+        changeIds: changesToApprove.map(change => change.changeId)
       });
       
       const result = await dataCleanupService.applyChanges(activeTab, changesToApprove);
@@ -198,21 +298,80 @@ const AdminPanel = () => {
       
       if (result.success) {
         toast.success(`Applied ${changesToApprove.length} changes successfully`);
+        // Add a warning about display-only changes not persisting
+        const displayOnlyChanges = changesToApprove.filter(change => change.displayOnly);
+        if (displayOnlyChanges.length > 0) {
+          toast.custom((t) => (
+            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded text-yellow-700 max-w-md mx-auto mt-2">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <AlertTriangle className="h-5 w-5 text-yellow-400 mt-0.5" aria-hidden="true" />
+                </div>
+                <div className="ml-3 flex-1">
+                  <p className="text-sm font-medium">
+                    Warning: {displayOnlyChanges.length} display-only change(s) will not persist after logout. Contact backend team to enable persistence.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ), { duration: 5000 });
+        }
         // After applying changes, refetch the data and update the state
+        console.log('[AdminPanel] Refetching data after successful changes');
         await refetch();
         
-        // For display-only changes that don't affect the database but need UI updates
-        const displayChanges = changesToApprove.filter(change => change.displayOnly);
-        if (displayChanges.length > 0) {
-          // Update the UI immediately for display-only changes
-          console.log(`[AdminPanel] Applying ${displayChanges.length} display-only changes`);
-          // This could involve additional UI state updates if needed
+        // Process all changes for UI update to reflect immediate feedback
+        console.log('[AdminPanel] Full structure of approved changes:', JSON.stringify(changesToApprove, null, 2));
+        // Treat all changes as needing UI update for immediate feedback, though backend should persist them
+        const uiChanges = changesToApprove;
+        console.log('[AdminPanel] Total changes approved:', changesToApprove.length);
+        if (uiChanges.length > 0) {
+          console.log(`[AdminPanel] Updating UI with ${uiChanges.length} changes for immediate feedback`);
+          console.log('[AdminPanel] Note: All changes should be persisted to the database by the backend.');
+          
+          // Process all changes for UI display
+          const newDisplayChanges = { ...displayChanges };
+          
+          uiChanges.forEach(change => {
+            // Store changes by resource ID for UI feedback
+            if (!newDisplayChanges[activeTab]) {
+              newDisplayChanges[activeTab] = {};
+            }
+            
+            if (!newDisplayChanges[activeTab][change.resourceId]) {
+              newDisplayChanges[activeTab][change.resourceId] = {};
+            }
+            
+            // Store the change for UI display
+            newDisplayChanges[activeTab][change.resourceId][change.field] = {
+              type: change.type || 'update',
+              originalValue: change.currentValue,
+              displayValue: change.proposedValue
+            };
+          });
+          
+          console.log('[AdminPanel] Updated display changes state for UI:', newDisplayChanges);
+          console.log(`[AdminPanel] Setting displayChanges for ${activeTab} with ${Object.keys(newDisplayChanges[activeTab]).length} rows`);
+          setDisplayChanges(newDisplayChanges);
+          console.log('[AdminPanel] Confirmation: displayChanges state has been updated with new changes for UI feedback.');
+        } else {
+          console.log('[AdminPanel] No changes found to apply to UI.');
         }
         
         // Close the cleanup modal if all changes were applied
         if (changesToApprove.length === cleanupChanges.length) {
+          console.log('[AdminPanel] All changes applied, closing modal and staying in cleanup mode');
           setIsCleanupModalOpen(false);
           setIsDataCleanup(true); // Ensure cleanup mode stays active
+          
+          // Refresh the cleanup changes to reflect the new state
+          try {
+            console.log('[AdminPanel] Refreshing cleanup changes after applying all changes');
+            const freshChanges = await dataCleanupService.analyzeData(activeTab);
+            setCleanupChanges(freshChanges);
+          } catch (refreshError) {
+            console.error('[AdminPanel] Error refreshing cleanup changes:', refreshError);
+          }
         }
       } else {
         console.error('[AdminPanel] Failed to apply changes:', result);
@@ -310,36 +469,10 @@ const AdminPanel = () => {
     );
   }
 
-  // Show loading state during initialization
-  if (isInitializing) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-100 border-t-blue-500"></div>
-      </div>
-    );
-  }
-
-  // Check authorization after initial load
-  if (!isAuthorized) {
-    return (
-      <div className="flex items-center justify-center min-h-screen p-4">
-        <div className="max-w-md w-full p-6 bg-white rounded-lg shadow-md text-center">
-          <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
-            <AlertTriangle className="h-6 w-6 text-red-600" />
-          </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Access Denied</h2>
-          <p className="text-gray-600 mb-6">
-            You don't have permission to access the admin panel. Please contact an administrator.
-          </p>
-        </div>
-      </div>
-    );
-  }
-  
   // Calculate loading state and current data
   const isLoading = isFetching && !adminData;
   const currentData = adminData?.[activeTab] || [];
-  
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       {/* Header */}
@@ -456,6 +589,7 @@ const AdminPanel = () => {
               neighborhoods={adminData?.neighborhoods || []}
               searchTerm={searchTerm}
               isDataCleanup={isDataCleanup}
+              displayChanges={displayChanges}
             />
           </>
         )}

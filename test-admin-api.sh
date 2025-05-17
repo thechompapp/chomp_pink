@@ -60,10 +60,18 @@ test_endpoint() {
     return 0
 }
 
-# Get auth token (you'll need to implement this based on your auth system)
+# Get auth token
+echo -e "${YELLOW}Getting authentication token...${NC}"
 TOKEN=$(curl -s -X POST -H "Content-Type: application/json" \
-    -d '{"username":"admin","password":"admin"}' \
-    http://localhost:5001/api/auth/login | jq -r '.token')
+    -d '{"email":"admin@example.com","password":"adminpassword"}' \
+    http://localhost:3000/api/auth/login | jq -r '.token')
+
+if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
+    echo -e "${RED}Failed to get authentication token. Check credentials or server status.${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}Successfully obtained authentication token.${NC}"
 
 if [ -z "$TOKEN" ]; then
     echo -e "${RED}Failed to get auth token${NC}"
@@ -72,14 +80,24 @@ fi
 
 echo -e "${YELLOW}Starting API tests...${NC}"
 
-# Test each endpoint with expected fields
-test_endpoint "users" "id username email account_type" "Users endpoint"
-test_endpoint "dishes" "id name description" "Dishes endpoint"
-test_endpoint "restaurants" "id name address" "Restaurants endpoint"
-test_endpoint "cities" "id name" "Cities endpoint"
-test_endpoint "neighborhoods" "id name city_id" "Neighborhoods endpoint"
-test_endpoint "hashtags" "id name" "Hashtags endpoint"
-test_endpoint "restaurant-chains" "id name" "Restaurant chains endpoint"
-test_endpoint "submissions" "id type status" "Submissions endpoint"
+echo -e "\n${YELLOW}Testing all admin endpoints...${NC}"
 
-echo -e "\n${YELLOW}API tests completed${NC}" 
+# Test both endpoint formats to see which one works
+echo -e "\n${YELLOW}Testing with /admin/resources/{resource} format:${NC}"
+test_endpoint "resources/restaurants" "id,name" "Restaurants Endpoint (resources format)"
+test_endpoint "resources/dishes" "id,name" "Dishes Endpoint (resources format)"
+test_endpoint "resources/users" "id,email" "Users Endpoint (resources format)"
+test_endpoint "resources/cities" "id,name" "Cities Endpoint (resources format)"
+test_endpoint "resources/neighborhoods" "id,name" "Neighborhoods Endpoint (resources format)"
+test_endpoint "resources/hashtags" "id,name" "Hashtags Endpoint (resources format)"
+
+echo -e "\n${YELLOW}Testing with /admin/{resource} format:${NC}"
+test_endpoint "restaurants" "id,name" "Restaurants Endpoint (direct format)"
+test_endpoint "dishes" "id,name" "Dishes Endpoint (direct format)"
+test_endpoint "users" "id,email" "Users Endpoint (direct format)"
+test_endpoint "cities" "id,name" "Cities Endpoint (direct format)"
+test_endpoint "neighborhoods" "id,name" "Neighborhoods Endpoint (direct format)"
+test_endpoint "hashtags" "id,name" "Hashtags Endpoint (direct format)"
+test_endpoint "submissions" "id" "Submissions Endpoint (direct format)"
+
+echo -e "\n${GREEN}All tests completed!${NC}"

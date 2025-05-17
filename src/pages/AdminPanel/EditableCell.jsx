@@ -45,12 +45,14 @@ const EditableCell = ({
   resourceType, // *** ADDED: Pass the resource type (e.g., 'dishes', 'restaurants') ***
   onStartEdit, // Added onStartEdit prop
   onSaveEdit, // Added onSaveEdit prop to enable auto-save
+  displayChanges = {}, // Added: Display changes from data cleanup
+  isDataCleanup = false, // Flag to indicate if this is part of data cleanup process
 }) => {
   // --- Hooks ---
   const { isAvailable: placesApiAvailable } = usePlacesApi();
   const currentRowId = useMemo(() => row?.id ?? '__NEW_ROW__', [row]);
   const columnKey = useMemo(() => col?.key || col?.accessor, [col]); // Ensure we have a valid key
-  const prevValueRef = useRef(null); // Store previous value to prevent unnecessary auto-saves
+  const prevValueRef = useRef(null); // Store previous value for auto-save comparison
 
   // --- Memos ---
   const cityId = useMemo(() => {
@@ -99,10 +101,100 @@ const EditableCell = ({
     return ''; // Default for editing mode if rowData is missing
   }, [isEditing, rowData, columnKey, row]);
 
+  // Check if we have display changes for this field
+  const hasDisplayChange = useMemo(() => {
+    return displayChanges && typeof displayChanges === 'object' && 
+           displayChanges[resourceType] && 
+           displayChanges[resourceType][currentRowId] && 
+           displayChanges[resourceType][currentRowId][columnKey] !== undefined;
+  }, [displayChanges, resourceType, currentRowId, columnKey]);
+
+  // Get formatted display value from cleanup changes
+  const formattedDisplayValue = useMemo(() => {
+    if (hasDisplayChange && displayChanges[resourceType] && 
+        displayChanges[resourceType][currentRowId] && 
+        displayChanges[resourceType][currentRowId][columnKey]) {
+      console.log(`[EditableCell] Using formatted value for ${columnKey}:`, displayChanges[resourceType][currentRowId][columnKey]);
+      return displayChanges[resourceType][currentRowId][columnKey].displayValue;
+    }
+    return null; // No formatted value available
+  }, [hasDisplayChange, resourceType, currentRowId, columnKey, displayChanges]);
 
   // --- FIXED: Simplified logic for displaying non-editable values ---
   const originalDisplayValue = useMemo(() => {
     if (!row || !columnKey) return <span className="text-gray-400 italic">N/A</span>;
+
+    // Check for formatted values directly in row data (from GenericAdminTableTab)
+    const formattedField = `${columnKey}_formatted`;
+    const displayField = `${columnKey}_display`;
+    const hiddenField = `${columnKey}_hidden`;
+    
+    if (row[hiddenField]) {
+      return <span className="text-gray-400 italic">[Hidden]</span>;
+    }
+    
+    if (row[formattedField] !== undefined) {
+      return (
+        <span className="flex items-center">
+          <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded mr-1">
+            Clean
+          </span>
+          {row[formattedField] || <span className="text-gray-400 italic">N/A</span>}
+        </span>
+      );
+    }
+    
+    if (row[displayField] !== undefined) {
+      return (
+        <span className="flex items-center">
+          <span className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded mr-1">
+            Formatted
+          </span>
+          {row[displayField] || <span className="text-gray-400 italic">N/A</span>}
+        </span>
+      );
+    }
+    
+    // Also check displayChanges object if no formatted fields in row
+    if (hasDisplayChange && displayChanges[resourceType] && 
+        displayChanges[resourceType][currentRowId] && 
+        displayChanges[resourceType][currentRowId][columnKey]) {
+      const changeType = displayChanges[resourceType][currentRowId][columnKey].type;
+      const changeValue = formattedDisplayValue;
+      
+      console.log(`[EditableCell] Rendering formatted value for ${columnKey}:`, {
+        changeType,
+        changeValue,
+        displayChanges: displayChanges[resourceType][currentRowId][columnKey]
+      });
+      
+      // Check if this field should be hidden
+      if (changeType === 'hideColumn') {
+        return <span className="text-gray-400 italic">[Hidden]</span>;
+      }
+      
+      // Apply special formatting based on change type
+      if (changeType === 'replaceIdWithName') {
+        return (
+          <span className="flex items-center">
+            <span className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded mr-1">
+              Formatted
+            </span>
+            {changeValue || <span className="text-gray-400 italic">N/A</span>}
+          </span>
+        );
+      }
+      
+      // For any other change type, just show the formatted value with an indicator
+      return (
+        <span className="flex items-center">
+          <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded mr-1">
+            Clean
+          </span>
+          {changeValue || <span className="text-gray-400 italic">N/A</span>}
+        </span>
+      );
+    }
 
     let value = row[columnKey]; // Access data using the column key/accessor
 
@@ -163,8 +255,7 @@ const EditableCell = ({
     // 5. Return the valid string value
     return stringValue;
 
-  }, [row, col, columnKey, resourceType]); // Added resourceType to dependencies
-
+  }, [row, col, columnKey, resourceType, isDataCleanup, hasDisplayChange, displayChanges, formattedDisplayValue]); 
 
   const relevantNeighborhoods = useMemo(() => {
     if (!cityId || !Array.isArray(neighborhoods)) return [];
@@ -199,301 +290,268 @@ const EditableCell = ({
     }
   }, [onSaveEdit, isEditing, isSaving, row, columnKey]);
 
-  const handlePlaceSelected = useCallback((placeData) => {
-    if (!placeData) return;
-    let zipcode;
-    if (placeData.zipcode) { zipcode = placeData.zipcode; }
-    else if (placeData.addressComponents) { const pc = placeData.addressComponents.find(c => c.types.includes('postal_code')); zipcode = pc?.short_name || pc?.long_name; }
-    else if (placeData.formattedAddress) { const m = placeData.formattedAddress.match(/\b\d{5}\b/); zipcode = m?.[0]; }
-
-    // Trigger update for multiple fields based on place selection
-    handleDataUpdate({
-        name: placeData.name || '', // Assuming 'name' is the key for restaurant name
-        address: placeData.formattedAddress || '',
-        google_place_id: placeData.placeId || null,
-        latitude: placeData.location?.lat || null,
-        longitude: placeData.location?.lng || null,
-        zipcode: zipcode || null // Pass zipcode to potentially trigger lookup in parent/hook
-    });
-  }, [handleDataUpdate]);
-
-  const handleRestaurantSelected = useCallback((selectedRestaurant) => {
-    if (selectedRestaurant?.id != null && selectedRestaurant?.name != null) {
-        handleDataUpdate({
-            restaurant_name: selectedRestaurant.name,
-            restaurant_id: selectedRestaurant.id
-        });
+  const handleEditClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (onStartEdit && row) {
+      onStartEdit(row);
     } else {
-         handleDataUpdate({ restaurant_name: '', restaurant_id: null });
+        console.error("[EditableCell] onStartEdit handler is missing or row is undefined!");
     }
-  }, [handleDataUpdate]);
-
-  const handleRestaurantNameInputChange = useCallback((newName) => {
-    handleDataUpdate({ restaurant_name: newName, restaurant_id: null });
-  }, [handleDataUpdate]);
-
-  const handleCityChange = useCallback((e) => {
-    const selectedCityId = e.target.value;
-    const selectedCity = cities?.find(c => String(c.id) === selectedCityId);
-    handleDataUpdate({
-        city_id: selectedCityId || null,
-        city_name: selectedCity?.name || null, // Update name too if possible
-        neighborhood_id: null, // Reset neighborhood when city changes
-        neighborhood_name: null
-    });
-  }, [cities, handleDataUpdate]);
-
-  const handleNeighborhoodChange = useCallback((e) => {
-    const selectedNbId = e.target.value;
-    const selectedNb = neighborhoods?.find(n => String(n.id) === selectedNbId);
-    handleDataUpdate({
-        neighborhood_id: selectedNbId || null,
-        neighborhood_name: selectedNb?.name || null // Update name too if possible
-    });
-  }, [neighborhoods, handleDataUpdate]);
-
-  const handleBooleanChange = useCallback((e) => { handleDataUpdate({ [columnKey]: e.target.value === 'true' }); }, [columnKey, handleDataUpdate]);
-  const handleInputChange = useCallback((e) => { handleDataUpdate({ [columnKey]: e.target.value }) }, [columnKey, handleDataUpdate]);
-  // --- End Callbacks ---
-
-
-  // --- Render Logic ---
-  if (!isEditing || !col.isEditable) {
-    // Render the calculated display value when not editing
-    
-    // Add onClick to toggle edit mode if the cell is editable
-    const handleEditClick = (e) => {
-      console.log('[EditableCell] Cell clicked!');
-      
-      // If this cell is editable and we have a valid onStartEdit function and row
-      if (col.isEditable && onStartEdit && row && typeof onStartEdit === 'function') {
-        console.log(`[EditableCell] Starting edit for row ${row.id}, column: ${columnKey}`);
-        onStartEdit(row);
-      }
-    };
-    
-    // Prepare class names based on whether the cell is editable
-    const editableCellClasses = col.isEditable 
-      ? 'cursor-pointer relative group border-0 hover:bg-muted/50 transition-all duration-150 ease-in-out rounded-sm p-2 flex items-center justify-between' 
-      : 'truncate';
-    
-    return (
-      <div 
-        className={editableCellClasses}
-        onClick={col.isEditable ? handleEditClick : undefined}
-        title={col.isEditable ? "Click to edit" : undefined}
-        style={col.isEditable ? { minHeight: '36px' } : undefined}
-        data-editable={col.isEditable}
-        data-column={columnKey}
-      >
-        <span className="truncate block pr-5 text-foreground">{originalDisplayValue}</span>
-        
-        {col.isEditable && (
-          <div className="absolute right-2 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-            <Edit size={16} strokeWidth={1.5} />
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // --- Editing Render ---
-  const inputProps = {
-    value: cellValue,
-    onChange: handleInputChange,
-    onBlur: handleBlur,
-    className: "block w-full p-1 border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-ring focus:border-border disabled:opacity-50 disabled:bg-muted bg-background text-foreground",
-    disabled: isSaving,
-    required: col.required,
-    'aria-label': typeof col.header === 'string' ? col.header : columnKey,
   };
 
-  // --- Specific Input Types ---
+  // --- Conditional Rendering ---
+  if (isEditing) {
+      // --- RENDERING FOR EDITING MODE ---
 
-  // Restaurant Name (Only for Dishes - Uses Autocomplete)
-  if (resourceType === 'dishes' && columnKey === 'restaurant_name') {
+      // *** Enhanced Input Selection Logic - Add more input types as needed ***
+      let inputElement;
+      
+      // Override cell format based on column key if needed
+      switch (columnKey) {
+          // Location fields with Google Places Autocomplete
+          case 'address':
+          case 'street_address':
+              inputElement = (
+                <PlacesAutocomplete
+                  value={cellValue || ''}
+                  onChange={(place) => {
+                    handleDataUpdate({
+                      [columnKey]: place.formatted_address || place.name || '',
+                      // Store coordinates if available
+                      latitude: place.geometry?.location?.lat ? String(place.geometry.location.lat()) : null,
+                      longitude: place.geometry?.location?.lng ? String(place.geometry.location.lng()) : null,
+                      // Also store place_id to avoid future lookups if needed
+                      place_id: place.place_id || null
+                    })
+                  }}
+                  onInputChange={(value) => handleDataUpdate({ [columnKey]: value })}
+                  placeholder="Enter address..."
+                  className="w-full bg-background"
+                  disabled={!placesApiAvailable || isSaving}
+                  onBlur={handleBlur}
+                  required={col.required}
+                />
+              );
+              break;
+          
+          // Neighborhood selection (with City context)
+          case 'neighborhood_id':
+              inputElement = (
+                  <NeighborhoodAutocomplete
+                    value={cellValue || ''}
+                    onChange={(newId) => {
+                      handleDataUpdate({ [columnKey]: newId });
+                    }}
+                    onInputChange={(value) => {
+                      // Only update if the input is manually cleared
+                      if (!value) handleDataUpdate({ [columnKey]: '' });
+                    }}
+                    neighborhoods={relevantNeighborhoods}
+                    cityId={cityId}
+                    placeholder="Select neighborhood..."
+                    className="w-full max-w-md"
+                    disabled={isSaving}
+                    onBlur={handleBlur}
+                  />
+              );
+              break;
+          
+          // City selection
+          case 'city_id':
+              inputElement = (
+                <CityAutocomplete
+                  value={cellValue || ''}
+                  onChange={(newId) => {
+                    handleDataUpdate({ [columnKey]: newId });
+                    
+                    // Reset neighborhood if changing city
+                    if (neighborhoodId && rowData?.neighborhood_id) {
+                      handleDataUpdate({ neighborhood_id: '' });
+                    }
+                  }}
+                  onInputChange={(value) => {
+                    // Only update if the input is manually cleared
+                    if (!value) {
+                      handleDataUpdate({ [columnKey]: '' });
+                      if (neighborhoodId) handleDataUpdate({ neighborhood_id: '' });
+                    }
+                  }}
+                  cities={cities || []}
+                  placeholder="Select city..."
+                  className="w-full max-w-md"
+                  disabled={isSaving}
+                  onBlur={handleBlur}
+                />
+              );
+              break;
+          
+          // Restaurant selection for dishes
+          case 'restaurant_id':
+              if (resourceType === 'dishes') {
+                inputElement = (
+                  <RestaurantAutocomplete
+                    value={cellValue || ''}
+                    onChange={(newId) => {
+                      handleDataUpdate({ [columnKey]: newId });
+                    }}
+                    onInputChange={(value) => {
+                      // Only update if the input is manually cleared
+                      if (!value) handleDataUpdate({ [columnKey]: '' });
+                    }}
+                    placeholder="Select restaurant..."
+                    className="w-full max-w-md"
+                    disabled={isSaving}
+                    onBlur={handleBlur}
+                  />
+                );
+              } else {
+                // Other resource types can use default input
+                inputElement = (
+                  <Input
+                    value={cellValue || ''}
+                    onChange={(e) => handleDataUpdate({ [columnKey]: e.target.value })}
+                    placeholder={`Enter ${col.header || columnKey}`}
+                    className="w-full max-w-md"
+                    disabled={isSaving}
+                    onBlur={handleBlur}
+                    type="number"
+                  />
+                );
+              }
+              break;
+          
+          case 'account_type':
+              inputElement = (
+                <Select
+                  value={cellValue || ''}
+                  onChange={(e) => handleDataUpdate({ [columnKey]: e.target.value })}
+                  className="w-full max-w-md"
+                  disabled={isSaving}
+                  onBlur={handleBlur}
+                >
+                  <option value="">Select account type</option>
+                  <option value="regular">Regular</option>
+                  <option value="user">User</option>
+                  <option value="administrator">Administrator</option>
+                  <option value="superuser">Superuser</option>
+                </Select>
+              );
+              break;
+          
+          case 'status':
+              inputElement = (
+                <Select
+                  value={cellValue || ''}
+                  onChange={(e) => handleDataUpdate({ [columnKey]: e.target.value })}
+                  className="w-full max-w-md"
+                  disabled={isSaving}
+                  onBlur={handleBlur}
+                >
+                  <option value="">Select status</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                  <option value="pending">Pending</option>
+                  <option value="rejected">Rejected</option>
+                </Select>
+              );
+              break;
+  
+          case 'is_active':
+          case 'is_verified':
+          case 'is_public':
+              inputElement = (
+                <Select
+                  value={String(cellValue || 'false')}
+                  onChange={(e) => {
+                    const val = e.target.value === 'true';
+                    handleDataUpdate({ [columnKey]: val })
+                  }}
+                  className="w-full max-w-md"
+                  disabled={isSaving}
+                  onBlur={handleBlur}
+                >
+                  <option value="true">Yes</option>
+                  <option value="false">No</option>
+                </Select>
+              );
+              break;
+          
+          // Fallback to appropriate input type for other fields
+          default:
+              // Default input type
+              let inputType = 'text';
+              
+              // Map column data type to appropriate input type
+              if (columnKey.includes('_id') && columnKey !== 'place_id') {
+                inputType = 'number';
+              } else if (columnKey === 'website' || columnKey === 'url') {
+                inputType = 'url';
+              } else if (columnKey === 'email') {
+                inputType = 'email';
+              } else if (columnKey === 'price' || columnKey.includes('_price')) {
+                inputType = 'number';
+                // Add step for decimal values
+                inputElement = (
+                  <Input
+                    value={cellValue || ''}
+                    onChange={(e) => handleDataUpdate({ [columnKey]: e.target.value })}
+                    placeholder={`Enter ${col.header || columnKey}`}
+                    className="w-full max-w-md"
+                    disabled={isSaving}
+                    onBlur={handleBlur}
+                    type={inputType}
+                    step="0.01"
+                  />
+                );
+                break;
+              }
+              
+              if (!inputElement) {
+                inputElement = (
+                  <Input
+                    value={cellValue || ''}
+                    onChange={(e) => handleDataUpdate({ [columnKey]: e.target.value })}
+                    placeholder={`Enter ${col.header || columnKey}`}
+                    className="w-full max-w-md"
+                    disabled={isSaving}
+                    onBlur={handleBlur}
+                    type={inputType}
+                  />
+                );
+              }
+              break;
+      }
+      
       return (
-          <RestaurantAutocomplete
-              inputValue={cellValue} // Use value from form state
-              onRestaurantSelected={handleRestaurantSelected}
-              onChange={handleRestaurantNameInputChange} // Handles typing without selecting
-              disabled={isSaving}
-              required={col.required}
-              useLocalSearch={true} // Assuming backend search
-              placeholder="Search Restaurant..."
-              onBlur={handleBlur} // Added onBlur to auto-save
-          />
+          <div className="relative">
+              {inputElement}
+              {isSaving && (
+                  <div className="absolute inset-0 bg-background/50 flex items-center justify-center">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                  </div>
+              )}
+              {/* *** REMOVED: Validation - We should either handle this at the row level or via toast messages *** */}
+          </div>
       );
   }
 
-  // Google Places Autocomplete (Only for Restaurant Name when resourceType is 'restaurants')
-  if (resourceType === 'restaurants' && col.cellType === 'google_places' && columnKey === 'name') {
-      return (
-          <PlacesAutocomplete
-              rowId={currentRowId}
-              initialValue={cellValue}
-              onPlaceSelected={handlePlaceSelected}
-              disabled={isSaving || !placesApiAvailable}
-              enableManualEntry={true} // Allows typing if needed
-              required={col.required}
-              onBlur={handleBlur} // Added onBlur to auto-save
-          />
-      );
-  }
-
-  // City Select with Autocomplete
-  if (col.cellType === 'city_select') { // Use cellType from column definition
-    // Add more detailed logging about cities data
-    const cityName = rowData?.city_name || row?.city_name || '';
-    const cityId = String(rowData?.city_id ?? row?.city_id ?? '');
-    
-    console.log('[EditableCell] Rendering CityAutocomplete, cities:', {
-      length: cities?.length || 0,
-      isArray: Array.isArray(cities),
-      sample: cities?.slice(0, 3),
-      rowData,
-      row,
-      cityId,
-      cityName,
-      // What we're going to send to CityAutocomplete
-      cellValueToUse: cityId || cityName
-    });
-    
-    return (
-      <CityAutocomplete
-        inputValue={cityId || cityName} // Use ID for lookup or name for display
-        onCitySelected={(selectedCity) => {
-          console.log('[EditableCell] City selected:', selectedCity);
-          if (selectedCity?.id) {
-            handleDataUpdate({
-              city_id: selectedCity.id,
-              city_name: selectedCity.name,
-              // Reset neighborhood when city changes
-              neighborhood_id: null,
-              neighborhood_name: null
-            });
-            // Auto-save after selection
-            setTimeout(() => handleBlur(), 100);
-          } else {
-            handleDataUpdate({ 
-              city_id: null,
-              city_name: null,
-              neighborhood_id: null,
-              neighborhood_name: null 
-            });
-          }
-        }}
-        onChange={(newName) => {
-          // Just update the display name when typing; ID will be updated on selection
-          handleDataUpdate({ city_name: newName });
-        }}
-        disabled={isSaving}
-        cities={cities || []}
-        placeholder="Search cities..."
-        onBlur={handleBlur} // Added onBlur to auto-save
-      />
-    );
-  }
-
-  // Neighborhood Select with Autocomplete
-  if (col.cellType === 'neighborhood_select') { // Use cellType from column definition
-    const neighborhoodName = rowData?.neighborhood_name || row?.neighborhood_name || '';
-    const neighborhoodId = String(rowData?.neighborhood_id ?? row?.neighborhood_id ?? '');
-    // Use city_id from rowData first, then from row as fallback
-    const effectiveCityId = String(rowData?.city_id ?? row?.city_id ?? '');
-    
-    console.log('[EditableCell] Rendering NeighborhoodAutocomplete:', {
-      neighborhoods: neighborhoods?.length || 0, 
-      effectiveCityId, // Log the city ID we're actually passing
-      cityId, // Original cityId memo
-      rowData_city_id: rowData?.city_id, // Log source of city_id
-      row_city_id: row?.city_id, // Log source of city_id
-      neighborhoodId,
-      neighborhoodName,
-      valueToUse: neighborhoodId || neighborhoodName
-    });
-    
-    return (
-      <NeighborhoodAutocomplete
-        inputValue={neighborhoodId || neighborhoodName} // Use ID for lookup or name for display
-        onNeighborhoodSelected={(selectedNeighborhood) => {
-          console.log('[EditableCell] Neighborhood selected:', selectedNeighborhood);
-          if (selectedNeighborhood?.id) {
-            handleDataUpdate({
-              neighborhood_id: selectedNeighborhood.id,
-              neighborhood_name: selectedNeighborhood.name,
-              // Optionally update city if the neighborhood has city information
-              ...(selectedNeighborhood.city_id && {
-                city_id: selectedNeighborhood.city_id,
-                city_name: selectedNeighborhood.city_name
-              })
-            });
-            // Auto-save after selection
-            setTimeout(() => handleBlur(), 100);
-          } else {
-            handleDataUpdate({ 
-              neighborhood_id: null,
-              neighborhood_name: null
-            });
-          }
-        }}
-        onChange={(newName) => {
-          // Just update the display name when typing; ID will be updated on selection
-          handleDataUpdate({ neighborhood_name: newName });
-        }}
-        disabled={isSaving || !effectiveCityId} // Use effectiveCityId instead of cityId
-        neighborhoods={neighborhoods || []}
-        cityId={effectiveCityId} // Use effectiveCityId instead of cityId
-        placeholder={effectiveCityId ? "Search neighborhoods..." : "Select a city first"}
-        onBlur={handleBlur} // Added onBlur to auto-save
-      />
-    );
-  }
-
-  // Generic Select based on col.options
-  if (col.cellType === 'select' && Array.isArray(col.options)) { // Use cellType and check options
-      return (
-          <Select {...inputProps}>
-               {/* Add a default empty option if not required */}
-               {!col.required && <option value="">Select...</option>}
-              {col.options.map(opt => {
-                  // Handle simple string options or object options { value, label }
-                  const value = typeof opt === 'object' ? opt.value : opt;
-                  const label = typeof opt === 'object' ? opt.label : opt;
-                  return <option key={value} value={value}>{label}</option>;
-              })}
-          </Select>
-      );
-  }
-
-  // Textarea
-  if (col.cellType === 'textarea') { // Use cellType from column definition
-      return <textarea {...inputProps} rows={2} />;
-  }
-
-  // Boolean Select
-  if (col.cellType === 'boolean') { // Use cellType from column definition
-      return (
-          <Select {...inputProps} onChange={handleBooleanChange} value={String(cellValue === true || cellValue === 'true')}>
-              {/* Optional: Add a default/empty option if the field is not required */}
-              {/* {!col.required && <option value="">Select...</option>} */}
-              <option value="true">Yes</option>
-              <option value="false">No</option>
-          </Select>
-      );
-  }
-
-  // Tags/Zipcodes (handled as comma-separated string input)
-  if (columnKey === 'tags' || columnKey === 'zipcode_ranges') {
-      // Convert array to string for editing, handle string input
-      const editValue = Array.isArray(cellValue) ? cellValue.join(', ') : cellValue;
-      return <Input {...inputProps} value={editValue} type="text" placeholder="Comma-separated values"/>;
-  }
-
-
-  // Default Text Input (handles text, number, email based on col.cellType)
-  const inputType = col.cellType === 'number' ? 'number' : col.cellType === 'email' ? 'email' : 'text';
-  return <Input {...inputProps} type={inputType} />;
+  // --- RENDERING FOR DISPLAY MODE ---
+  return (
+      <div 
+          className={`group relative ${col.isEditable ? 'cursor-pointer hover:bg-muted/30 p-1 -m-1 rounded' : ''}`}
+          onClick={col.isEditable ? handleEditClick : undefined}
+          title={col.isEditable ? `Click to edit ${col.header || columnKey}` : null}
+      >
+          {originalDisplayValue}
+          {col.isEditable && (
+              <div className="absolute -right-1 -top-1 p-1 rounded-full bg-gray-100 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Edit className="h-3 w-3 text-gray-600" />
+              </div>
+          )}
+      </div>
+  );
 };
 
 export default React.memo(EditableCell);
