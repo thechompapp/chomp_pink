@@ -20,6 +20,7 @@ const GenericAdminTableTab = ({
     cities = [],
     neighborhoods = [],
     isDataCleanup = false,
+    searchTerm = '',
 }) => {
     // Get columns for this resource type
     const columns = useMemo(() => COLUMN_CONFIG[resourceType] || [], [resourceType]);
@@ -47,7 +48,51 @@ const GenericAdminTableTab = ({
     }, [cities]);
 
     // Use the state hook internally for this specific tab instance
-    const { state, setState, handleSort, handleFilter, handlePageChange, handlePageSizeChange } = useAdminTableState({
+    const {
+        updatedData,
+        currentSort,
+        editingRowIds,
+        editFormData,
+        error: combinedError,
+        actionState,
+        confirmDeleteInfo,
+        isAdding,
+        newRowFormData,
+        isSavingNew,
+        selectedRows,
+        isBulkEditing,
+        bulkSaveError,
+        isSavingAll,
+        isListEditModalOpen,
+        listToEditData,
+        isSavingList,
+        clearError: clearCombinedError,
+        handleSort,
+        handleRowDataChange,
+        handleStartEdit,
+        handleOpenListEditModal,
+        handleCancelEdit,
+        handleSaveEdit,
+        handleStartAdd,
+        handleCancelAdd,
+        handleNewRowDataChange,
+        handleSaveNewRow,
+        handleDeleteClick,
+        handleDeleteConfirm,
+        setConfirmDeleteInfo,
+        handleApprove,
+        handleReject,
+        handleRowSelect,
+        handleSelectAll,
+        handleBulkEdit,
+        handleCancelBulkEdit,
+        handleSaveAllEdits,
+        handleCloseListEditModal,
+        handleSaveListEdit,
+        handleFilter,
+        handlePageChange,
+        handlePageSizeChange
+    } = useAdminTableState({
         initialData: initialData || [],
         type: resourceType,
         columns: columns || [],
@@ -57,48 +102,44 @@ const GenericAdminTableTab = ({
     });
 
     // State for search/filter input
-    const [searchTerm, setSearchTerm] = React.useState('');
+    const [localSearchTerm, setLocalSearchTerm] = React.useState(searchTerm);
+    
+    // Update searchTerm when prop changes
+    React.useEffect(() => {
+        setLocalSearchTerm(searchTerm);
+    }, [searchTerm]);
 
     // Filter data based on search term (simple client-side filtering)
     const filteredData = React.useMemo(() => {
-        if (!searchTerm || !state?.updatedData) return state?.updatedData || [];
-        console.log(`[GenericAdminTableTab] Filtering data with search term: "${searchTerm}"`);
-        const lowerSearch = searchTerm.toLowerCase();
-        const filtered = state.updatedData.filter(row => 
+        if (!localSearchTerm && !searchTerm) return updatedData || [];
+        const term = localSearchTerm || searchTerm;
+        console.log(`[GenericAdminTableTab] Filtering data with search term: "${term}"`);
+        const lowerSearch = term.toLowerCase();
+        const filtered = updatedData.filter(row => 
             Object.values(row).some(value => 
                 value && typeof value === 'string' && value.toLowerCase().includes(lowerSearch)
             )
         );
-        console.log(`[GenericAdminTableTab] Found ${filtered.length} results out of ${state.updatedData.length}`);
+        console.log(`[GenericAdminTableTab] Found ${filtered.length} results out of ${updatedData.length}`);
         return filtered;
-    }, [searchTerm, state?.updatedData]);
-
-    // For debugging: Create a wrapper for onStartEdit
-    const handleStartEdit = (row) => {
-        console.log(`[GenericAdminTableTab] handleStartEdit called for row ${row.id}, type: ${resourceType}`);
-        if (setState?.handleStartEdit) {
-            setState.handleStartEdit(row);
-        } else {
-            console.error('[GenericAdminTableTab] setState.handleStartEdit is undefined!');
-        }
-    };
+    }, [localSearchTerm, searchTerm, updatedData]);
 
     // Ensure data is always an array
     const safeData = useMemo(() => {
-        if (!state?.updatedData) return [];
+        if (!filteredData) return [];
         console.log(`[GenericAdminTableTab] safeData for ${resourceType}:`, {
-            length: state.updatedData.length || 0,
-            isArray: Array.isArray(state.updatedData),
-            sample: Array.isArray(state.updatedData) ? state.updatedData.slice(0, 2) : state.updatedData
+            length: filteredData.length || 0,
+            isArray: Array.isArray(filteredData),
+            sample: Array.isArray(filteredData) ? filteredData.slice(0, 2) : filteredData
         });
         console.log(`[GenericAdminTableTab] State props passed to AdminTable for ${resourceType}:`, {
-            editingRowIds: state?.editingRowIds,
-            editFormData: state?.editFormData,
-            isAdding: state?.isAdding,
-            selectedRows: state?.selectedRows
+            editingRowIds: editingRowIds,
+            editFormData: editFormData,
+            isAdding: isAdding,
+            selectedRows: selectedRows
         });
-        return Array.isArray(state.updatedData) ? state.updatedData : [state.updatedData];
-    }, [state?.updatedData, resourceType]);
+        return Array.isArray(filteredData) ? filteredData : [filteredData];
+    }, [filteredData, resourceType]);
 
     // Show loading state
     if (isLoading) {
@@ -132,47 +173,62 @@ const GenericAdminTableTab = ({
                 resourceType={resourceType}
                 columns={columns}
                 isLoading={isLoading}
-                currentSort={handleSort}
+                currentSort={currentSort}
                 onSort={handleSort}
-                isEditing={(rowId) => state?.editingRowIds?.has(rowId)}
-                editingRowIds={state?.editingRowIds}
-                editFormData={state?.editFormData}
+                isEditing={(rowId) => editingRowIds?.has(rowId)}
+                editingRowIds={editingRowIds}
+                editFormData={editFormData}
                 onStartEdit={handleStartEdit}
-                onCancelEdit={setState?.handleCancelEdit}
-                onSaveEdit={setState?.handleSaveEdit}
-                onDataChange={(changes) => setState?.handleRowDataChange(changes)}
-                editError={state?.editError}
-                isSaving={state?.isSaving}
-                actionState={state?.actionState}
-                onApprove={setState?.handleApprove}
-                onReject={setState?.handleReject}
-                onDelete={setState?.handleDeleteClick}
-                selectedRows={state?.selectedRows}
-                onRowSelect={setState?.handleRowSelect}
-                onSelectAll={setState?.handleSelectAll}
-                isAllSelected={state?.isAllSelected}
-                isAdding={state?.isAdding}
-                newRowFormData={state?.editFormData?.['__NEW_ROW__'] || {}}
-                onNewRowDataChange={(changes) => setState?.handleRowDataChange('__NEW_ROW__', changes)}
-                onCancelAdd={setState?.handleCancelAdd}
-                onSaveNewRow={setState?.handleSaveNewRow}
-                isSavingNew={state?.isSaving}
-                confirmDeleteInfo={state?.confirmDeleteInfo}
-                setConfirmDeleteInfo={setState?.setConfirmDeleteInfo}
-                handleDeleteConfirm={setState?.handleDeleteConfirm}
+                onCancelEdit={handleCancelEdit}
+                onSaveEdit={handleSaveEdit}
+                onDataChange={(changes) => handleRowDataChange(changes)}
+                editError={combinedError}
+                isSaving={isSavingNew || isSavingAll || isSavingList}
+                actionState={actionState}
+                onApprove={handleApprove}
+                onReject={handleReject}
+                onDelete={handleDeleteClick}
+                selectedRows={selectedRows}
+                onRowSelect={handleRowSelect}
+                onSelectAll={handleSelectAll}
+                isAllSelected={selectedRows?.size === updatedData?.length && updatedData?.length > 0}
+                isAdding={isAdding}
+                newRowFormData={editFormData?.['__NEW_ROW__'] || {}}
+                onNewRowDataChange={(changes) => handleRowDataChange('__NEW_ROW__', changes)}
+                onCancelAdd={handleCancelAdd}
+                onSaveNewRow={handleSaveNewRow}
+                isSavingNew={isSavingNew}
+                confirmDeleteInfo={confirmDeleteInfo}
+                setConfirmDeleteInfo={setConfirmDeleteInfo}
+                handleDeleteConfirm={handleDeleteConfirm}
                 cities={cities}
                 neighborhoods={neighborhoods}
                 showFilters={showFilters}
                 addRowEnabled={addRowEnabled}
                 deleteRowEnabled={deleteRowEnabled}
                 onRetry={onRetry}
-                onAddNew={() => setState?.setIsAdding(true)}
+                onAddNew={handleStartAdd}
                 isDataCleanup={isDataCleanup}
                 onFilter={handleFilter}
                 onPageChange={handlePageChange}
                 onPageSizeChange={handlePageSizeChange}
-                state={state}
-                setState={setState}
+                state={{ updatedData, editingRowIds, editFormData, isAdding, selectedRows }}
+                setState={{
+                    handleStartEdit,
+                    handleCancelEdit,
+                    handleSaveEdit,
+                    handleRowDataChange,
+                    handleStartAdd,
+                    handleCancelAdd,
+                    handleSaveNewRow,
+                    handleDeleteClick,
+                    setConfirmDeleteInfo,
+                    handleDeleteConfirm,
+                    handleApprove,
+                    handleReject,
+                    handleRowSelect,
+                    handleSelectAll
+                }}
             />
         </div>
     );

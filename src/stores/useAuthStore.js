@@ -189,8 +189,9 @@ const useAuthStore = create(
           }
           
           // Normal path - set a timeout to prevent hanging indefinitely
+          // Increased timeout for better reliability
           const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Authentication check timed out')), 8000)
+            setTimeout(() => reject(new Error('Authentication check timed out')), 15000)
           );
           
           // Race the API call against the timeout
@@ -306,7 +307,7 @@ const useAuthStore = create(
               isAuthenticated: true,
               user: userData,
               isLoading: false,
-              token: 'cookie_set',
+              token: response.data.token || userData.token || null,
               isSuperuser: userData.account_type === 'superuser',
               error: null,
             });
@@ -408,7 +409,7 @@ const useAuthStore = create(
           const response = await apiClient.post('/auth/register', userData);
           if (response.data && response.data.success && response.data.data) {
             const user = response.data.data;
-            set({ isAuthenticated: true, user: user, isLoading: false, token: 'cookie_set', isSuperuser: user.account_type === 'superuser', error: null });
+            set({ isAuthenticated: true, user: user, isLoading: false, token: response.data.token || user.token || null, isSuperuser: user.account_type === 'superuser', error: null });
             logger.info('[AuthStore register] Registration successful, user set:', user);
             return { success: true, data: user };
           } else {

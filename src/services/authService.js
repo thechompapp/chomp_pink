@@ -3,7 +3,7 @@ import apiClient from '@/services/apiClient.js';
 import { handleApiResponse } from '@/utils/serviceHelpers.js';
 import { logError, logDebug } from '@/utils/logger.js';
 
-const API_ENDPOINT = '/auth'; // Define base endpoint to avoid double '/api' prefix
+const API_ENDPOINT = '/auth'; // Use '/auth' since apiClient already has '/api' as baseURL
 
 export const authService = {
     /**

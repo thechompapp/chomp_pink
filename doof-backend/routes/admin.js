@@ -1,14 +1,32 @@
 // doof-backend/routes/admin.js
 import express from 'express';
-import { requireAuth, requireSuperuser } from '../middleware/auth.js'; // Correct named imports
-import * as adminController from '../controllers/adminController.js'; // Namespace import
+import { optionalAuth, requireSuperuser } from '../middleware/auth.js'; 
+import * as adminController from '../controllers/adminController.js';
 
 const router = express.Router();
 
-// Secure all admin routes
-router.use(requireAuth, requireSuperuser);
+// Apply optional auth to all routes (will set req.user if token is valid)
+router.use(optionalAuth);
+
+// Require superuser for all admin routes except health check
+router.use((req, res, next) => {
+  // Skip auth for health check endpoint
+  if (req.path === '/cleanup/health') {
+    return next();
+  }
+  
+  // Check if user is authenticated and is a superuser
+  if (!req.user || req.user.account_type !== 'superuser') {
+    return res.status(403).json({ 
+      success: false, 
+      message: 'Access denied: Superuser privileges required.' 
+    });
+  }
+  next();
+});
 
 // Data Cleanup Routes
+router.get('/cleanup/health', adminController.getCleanupApiHealth); // New health endpoint
 router.get('/cleanup/analyze/:resourceType', adminController.analyzeData);
 router.post('/cleanup/apply/:resourceType', adminController.applyChanges);
 router.post('/cleanup/reject/:resourceType', adminController.rejectChanges);
@@ -21,8 +39,9 @@ router.put('/resources/:resourceType/:id', adminController.updateResource);
 router.delete('/resources/:resourceType/:id', adminController.deleteResource);
 
 // Submission Management
+// Using the generic resource route for GET, but keeping specific POST for approve/reject
 router.get('/submissions', (req, res) => {
-    req.params.resourceType = 'submissions'; // Ensure resourceType is set for generic handler
+    req.params.resourceType = 'submissions';
     adminController.getAllResources(req, res);
 });
 router.post('/submissions/:submissionId/approve', adminController.approveSubmission);
@@ -31,69 +50,35 @@ router.post('/submissions/:submissionId/reject', adminController.rejectSubmissio
 // Bulk Operations
 router.post('/bulk/:resourceType', adminController.bulkAddResources);
 
-// Check for existing items before bulk add
-router.post('/check-existing/:resourceType', async (req, res) => {
-    try {
-        const { resourceType } = req.params;
-        const itemsToCheck = req.body.items || [];
-        
-        if (!itemsToCheck || !Array.isArray(itemsToCheck) || itemsToCheck.length === 0) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'No items provided to check.' 
-            });
-        }
-        
-        const results = await adminController.checkExistingItems(resourceType, itemsToCheck);
-        
-        return res.status(200).json({
-            success: true,
-            message: `Checked ${itemsToCheck.length} items for duplicates.`,
-            data: results
-        });
-    } catch (error) {
-        console.error('Error checking for existing items:', error);
-        return res.status(500).json({
-            success: false,
-            message: `Failed to check for existing items. Error: ${error.message}`
-        });
-    }
+// Check for existing items before bulk add (moved to use resourceType in path)
+router.post('/check-existing/:resourceType', adminController.checkExistingItems);
+
+
+// Optional: Direct routes for specific common resources (can be removed if /resources/:resourceType is always used)
+// These are helpful if frontend code has hardcoded paths.
+const directResourceRoutes = ['restaurants', 'dishes', 'users', 'cities', 'neighborhoods', 'hashtags', 'lists', 'restaurant_chains', 'listitems'];
+directResourceRoutes.forEach(resource => {
+    router.get(`/${resource}`, (req, res) => {
+        req.params.resourceType = resource;
+        adminController.getAllResources(req, res);
+    });
+     router.get(`/${resource}/:id`, (req, res) => {
+        req.params.resourceType = resource;
+        adminController.getResourceById(req, res);
+    });
+    router.post(`/${resource}`, (req, res) => {
+        req.params.resourceType = resource;
+        adminController.createResource(req, res);
+    });
+    router.put(`/${resource}/:id`, (req, res) => {
+        req.params.resourceType = resource;
+        adminController.updateResource(req, res);
+    });
+    router.delete(`/${resource}/:id`, (req, res) => {
+        req.params.resourceType = resource;
+        adminController.deleteResource(req, res);
+    });
 });
 
-// Direct routes for specific resources to match frontend API calls
-router.get('/restaurants', (req, res) => {
-    req.params.resourceType = 'restaurants';
-    adminController.getAllResources(req, res);
-});
-
-router.get('/dishes', (req, res) => {
-    req.params.resourceType = 'dishes';
-    adminController.getAllResources(req, res);
-});
-
-router.get('/users', (req, res) => {
-    req.params.resourceType = 'users';
-    adminController.getAllResources(req, res);
-});
-
-router.get('/cities', (req, res) => {
-    req.params.resourceType = 'cities';
-    adminController.getAllResources(req, res);
-});
-
-router.get('/neighborhoods', (req, res) => {
-    req.params.resourceType = 'neighborhoods';
-    adminController.getAllResources(req, res);
-});
-
-router.get('/hashtags', (req, res) => {
-    req.params.resourceType = 'hashtags';
-    adminController.getAllResources(req, res);
-});
-
-router.get('/restaurant_chains', (req, res) => {
-    req.params.resourceType = 'restaurant_chains';
-    adminController.getAllResources(req, res);
-});
 
 export default router;

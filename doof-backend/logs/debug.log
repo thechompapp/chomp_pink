@@ -1,0 +1,19 @@
+Starting server with debug logging
+.env file loaded successfully from config.js. Path: /Users/naf/Downloads/doof/doof-backend/.env
+[Config] JWT_SECRET loaded successfully.
+AdminModel exports: [
+  'analyzeData',
+  'applyChanges',
+  'approveSubmission',
+  'bulkAddResources',
+  'checkExistingItems',
+  'createResource',
+  'deleteResource',
+  'findAllResources',
+  'findResourceById',
+  'rejectChanges',
+  'rejectSubmission',
+  'updateResource'
+]
+[DB Pool] Client connected.
+[32m[DB] Successfully connected. DB Time: Sat May 17 2025 10:03:50 GMT-0400 (Eastern Daylight Time)[0m

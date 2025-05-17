@@ -2,7 +2,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 
-const Modal = ({ isOpen, onClose, title, children, className = '' }) => {
+const Modal = ({ isOpen, onClose, title, children, className = '', dialogClassName = '' }) => {
   if (!isOpen) return null;
 
   return (
@@ -10,7 +10,7 @@ const Modal = ({ isOpen, onClose, title, children, className = '' }) => {
       <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose} />
 
-        <div className={`relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg ${className}`}>
+        <div className={`relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full ${dialogClassName || 'sm:max-w-lg'} ${className}`}>
           <div className="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
             <div className="flex items-start justify-between">
               <h3 className="text-lg font-semibold leading-6 text-gray-900">
@@ -38,7 +38,8 @@ Modal.propTypes = {
   onClose: PropTypes.func.isRequired,
   title: PropTypes.string.isRequired,
   children: PropTypes.node.isRequired,
-  className: PropTypes.string
+  className: PropTypes.string,
+  dialogClassName: PropTypes.string
 };
 
 Modal.displayName = 'Modal';
