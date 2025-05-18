@@ -1,67 +1,166 @@
 // Filename: /root/doof-backend/db/index.js
-/* Updated: Ensure ESM export syntax and config import */
+/**
+ * Database connection manager with optimized connection pooling
+ * Provides centralized query execution, transaction support, and performance monitoring
+ */
 import pg from 'pg';
 const { Pool } = pg;
 import dotenv from 'dotenv';
 import config from '../config/config.js'; // Import centralized config
+import logger from '../utils/logger.js';
 
 dotenv.config(); // Ensure .env is loaded
 
-// Use config values directly
+/**
+ * Database connection configuration
+ */
 const poolConfig = {
-    user: process.env.DB_USER || config.DB_USER, // Use config as fallback
-    host: process.env.DB_HOST || config.DB_HOST,
-    database: process.env.DB_DATABASE || config.DB_DATABASE,
-    password: process.env.DB_PASSWORD || config.DB_PASSWORD, // Use config
-    port: parseInt(process.env.DB_PORT || String(config.DB_PORT), 10), // Ensure string conversion for parseInt
-    // Add other pool config options from previous versions if needed
-    connectionTimeoutMillis: 5000,
-    idleTimeoutMillis: 10000,
-    max: 20,
+    user: process.env.DB_USER || config.db.user,
+    host: process.env.DB_HOST || config.db.host,
+    database: process.env.DB_DATABASE || config.db.database,
+    password: process.env.DB_PASSWORD || config.db.password,
+    port: parseInt(process.env.DB_PORT || String(config.db.port), 10),
+    // Pool optimization settings
+    max: process.env.DB_POOL_MAX || 20, // Maximum clients in pool
+    idleTimeoutMillis: process.env.DB_IDLE_TIMEOUT || 30000, // Close idle clients after 30 seconds
+    connectionTimeoutMillis: process.env.DB_CONNECT_TIMEOUT || 5000, // Return an error after 5 seconds if a connection cannot be established
+    maxUses: process.env.DB_MAX_USES || 7500, // Return clients to the pool after 7500 queries
+    ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
 };
 
-// Password check remains important
+// Critical check
 if (!poolConfig.password && process.env.NODE_ENV !== 'test') {
-    console.error('\x1b[31m%s\x1b[0m', 'FATAL ERROR: Database password (DB_PASSWORD) is not set.');
-    // process.exit(1); // Consider exiting if critical
+    logger.error('Database password (DB_PASSWORD) is not set in environment variables or config!');
+    // We'll continue but log this critical error
 }
 
+/**
+ * Create and configure connection pool
+ */
 const pool = new Pool(poolConfig);
 
-// Simplified connection check and logging
+// Connection monitoring
 pool.on('connect', (client) => {
-  console.log('[DB Pool] Client connected.');
-  // Optional: Set properties on connected clients if needed
-  // client.query('SET search_path TO my_schema');
+    logger.debug('[DB Pool] New client connected to database');
+    client.lastUseTime = Date.now();
+});
+
+pool.on('acquire', (client) => {
+    logger.debug('[DB Pool] Client checked out from pool');
+    client.lastUseTime = Date.now();
+});
+
+pool.on('remove', () => {
+    logger.debug('[DB Pool] Client removed from pool');
 });
 
 pool.on('error', (err, client) => {
-    console.error('\x1b[31m%s\x1b[0m', '[DB Pool] Unexpected error on idle client', err);
-    process.exit(-1); // Exit if pool encounters critical error
+    logger.error('[DB Pool] Unexpected error on idle client', err);
+    // Don't exit - let the application handle recovery
 });
 
-// Export the query function and pool instance
-const db = {
-    query: (text, params) => pool.query(text, params),
-    getClient: () => pool.connect(), // Use pool.connect() for transactions
-    pool: pool, // Export the pool instance if needed directly
+/**
+ * Execute a query with performance tracking
+ * 
+ * @param {string} text - SQL query text
+ * @param {Array} params - Query parameters
+ * @param {Object} options - Additional options
+ * @returns {Promise} Query result
+ */
+const query = async (text, params, options = {}) => {
+    const start = Date.now();
+    
+    try {
+        // Execute the query
+        const result = await pool.query(text, params);
+        
+        // Log performance data for slow queries
+        const duration = Date.now() - start;
+        if (duration > 100) { // Log queries that take more than 100ms
+            logger.debug(`[DB] Slow query (${duration}ms): ${text.substring(0, 200)}${text.length > 200 ? '...' : ''}`);
+        }
+        
+        return result;
+    } catch (error) {
+        logger.error(`[DB] Query error: ${error.message}`, error);
+        // Add query information to the error for better debugging
+        error.query = text;
+        error.params = params;
+        throw error;
+    }
 };
 
-// Test connection on startup (optional but recommended)
-(async () => {
-  let client = null; // Declare client outside try
-  try {
-    client = await db.getClient();
-    const result = await client.query('SELECT NOW()');
-    console.log('\x1b[32m%s\x1b[0m', `[DB] Successfully connected. DB Time: ${result.rows[0].now}`);
-  } catch (err) {
-    console.error('\x1b[31m%s\x1b[0m', '[DB] Database Connection Failed on Startup!', err);
-  } finally {
-    if (client) {
-      client.release(); // Ensure client is always released
+/**
+ * Execute a transaction with automatic rollback on error
+ * 
+ * @param {Function} callback - Transaction callback function that receives a client
+ * @returns {Promise} Transaction result
+ */
+const transaction = async (callback) => {
+    const client = await pool.connect();
+    
+    try {
+        await client.query('BEGIN');
+        const result = await callback(client);
+        await client.query('COMMIT');
+        return result;
+    } catch (error) {
+        await client.query('ROLLBACK');
+        logger.error('[DB] Transaction rolled back due to error', error);
+        throw error;
+    } finally {
+        client.release();
     }
-  }
+};
+
+/**
+ * Database connection manager
+ */
+const db = {
+    query,
+    transaction,
+    getClient: () => pool.connect(),
+    pool,
+    
+    // Helper for transaction-safe batch operations
+    async batch(items, batchFn, batchSize = 100) {
+        if (!items || items.length === 0) return [];
+        
+        const results = [];
+        const batches = Math.ceil(items.length / batchSize);
+        
+        for (let i = 0; i < batches; i++) {
+            const batchItems = items.slice(i * batchSize, (i + 1) * batchSize);
+            const batchResults = await batchFn(batchItems);
+            results.push(...batchResults);
+        }
+        
+        return results;
+    },
+    
+    // Pool health check
+    getPoolStatus() {
+        return {
+            total: pool.totalCount,
+            idle: pool.idleCount,
+            waiting: pool.waitingCount,
+        };
+    }
+};
+
+// Test connection on startup
+(async () => {
+    let client = null;
+    try {
+        client = await db.getClient();
+        const result = await client.query('SELECT NOW() as now, current_user as user, current_database() as database');
+        const { now, user, database } = result.rows[0];
+        logger.info(`[DB] Connected to ${database} as ${user}. Server time: ${now}`);
+    } catch (err) {
+        logger.error('[DB] Database connection test failed!', err);
+    } finally {
+        if (client) client.release();
+    }
 })();
 
-
-export default db; // Use export default
+export default db;

@@ -1,7 +1,7 @@
 // File: src/services/listService.js
 import apiClient from './apiClient';
 import logger from '../utils/logger'; // frontend logger
-import { useFollowStore } from '../stores/useFollowStore'; // Zustand store
+import useFollowStore from '../stores/useFollowStore'; // Changed to default import
 import { logEngagement } from '../utils/logEngagement';
 import { parseApiError } from '../utils/parseApiError';
 // import { MOCK_LIST_DETAIL, MOCK_USER_LISTS, MOCK_LIST_ITEMS } from '../utils/mockData'; // For testing
@@ -11,21 +11,42 @@ const listService = {
   // Params can include: userId, cityId, page, limit, sortBy, sortOrder, listType, isPublic, isFollowedByUserId
   getLists: async function(params = {}) {
     try {
+      // Log the params for debugging
+      logger.debug('[listService] getLists called with params:', JSON.stringify(params));
+      
       const queryParams = new URLSearchParams();
-      if (params.userId) queryParams.append('userId', params.userId);
-      if (params.cityId) queryParams.append('cityId', params.cityId);
-      if (params.page) queryParams.append('page', params.page.toString());
-      if (params.limit) queryParams.append('limit', params.limit.toString());
-      if (params.sortBy) queryParams.append('sortBy', params.sortBy);
-      if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
-      if (params.listType) queryParams.append('listType', params.listType);
+      
+      // Ensure all parameters are properly converted to strings
+      if (params.userId) {
+        // Handle the case where userId might be an object
+        const userId = typeof params.userId === 'object' ? 
+          (params.userId.id || params.userId.userId || '') : String(params.userId);
+        queryParams.append('userId', userId);
+      }
+      
+      if (params.cityId) queryParams.append('cityId', String(params.cityId));
+      if (params.page) queryParams.append('page', String(params.page));
+      if (params.limit) queryParams.append('limit', String(params.limit));
+      if (params.sortBy) queryParams.append('sortBy', String(params.sortBy));
+      if (params.sortOrder) queryParams.append('sortOrder', String(params.sortOrder));
+      if (params.listType) queryParams.append('listType', String(params.listType));
       if (typeof params.isPublic !== 'undefined') queryParams.append('isPublic', String(params.isPublic));
-      if (params.isFollowedByUserId) queryParams.append('isFollowedByUserId', params.isFollowedByUserId);
-      if (params.searchTerm) queryParams.append('searchTerm', params.searchTerm);
-      if (params.excludeUserId) queryParams.append('excludeUserId', params.excludeUserId);
+      
+      if (params.isFollowedByUserId) {
+        // Handle the case where isFollowedByUserId might be an object
+        const followedByUserId = typeof params.isFollowedByUserId === 'object' ? 
+          (params.isFollowedByUserId.id || params.isFollowedByUserId.userId || '') : String(params.isFollowedByUserId);
+        queryParams.append('isFollowedByUserId', followedByUserId);
+      }
+      
+      if (params.searchTerm) queryParams.append('searchTerm', String(params.searchTerm));
+      if (params.excludeUserId) queryParams.append('excludeUserId', String(params.excludeUserId));
 
+      // Log the final query string for debugging
+      const queryString = queryParams.toString();
+      logger.debug(`[listService] Making request to /lists?${queryString}`);
 
-      const response = await apiClient.get(`/lists?${queryParams.toString()}`);
+      const response = await apiClient.get(`/lists?${queryString}`);
       return { success: true, data: response.data.data || response.data, pagination: response.data.pagination };
     } catch (error) {
       logger.error('Error fetching lists:', error);
@@ -195,18 +216,43 @@ const listService = {
   },
 
   // Fetch lists created by a specific user
-  getUserLists: async function(userId, { page = 1, limit = 10, listType = null, includePrivate = false } = {}) {
-    // This can be a specific implementation or use getLists with userId and appropriate privacy flags
-    // logger.debug(`Workspaceing lists for user ${userId} with page: ${page}, limit: ${limit}, type: ${listType}, private: ${includePrivate}`);
-    return this.getLists({ 
-      userId, 
-      page, 
-      limit, 
-      listType, 
-      isPublic: includePrivate ? undefined : true // If includePrivate is true, don't filter by isPublic. If false, only fetch public.
-                                                 // This logic might need adjustment based on how backend handles isPublic and ownership.
-                                                 // Assuming backend correctly filters by userId and respects privacy.
-    });
+  getUserLists: async function(userIdOrParams, options = {}) {
+    // Check if userIdOrParams is an object (params) or a string (userId)
+    if (typeof userIdOrParams === 'object' && userIdOrParams !== null) {
+      // It's a params object, extract userId from it if exists
+      const { userId, page = 1, limit = 10, listType = null, includePrivate = false, ...otherParams } = userIdOrParams;
+      
+      // Log the params for debugging
+      logger.debug(`[listService] getUserLists called with params object:`, userIdOrParams);
+      
+      // Ensure userId is a string if it exists
+      const safeUserId = userId ? String(userId) : undefined;
+      
+      return this.getLists({
+        ...otherParams,
+        userId: safeUserId,
+        page, 
+        limit,
+        listType,
+        isPublic: includePrivate ? undefined : true
+      });
+    } else {
+      // It's a userId string with separate options
+      const { page = 1, limit = 10, listType = null, includePrivate = false } = options;
+      
+      // Ensure userId is a string
+      const safeUserId = userIdOrParams ? String(userIdOrParams) : undefined;
+      
+      logger.debug(`[listService] getUserLists called with userId: ${safeUserId}`);
+      
+      return this.getLists({ 
+        userId: safeUserId, 
+        page, 
+        limit, 
+        listType, 
+        isPublic: includePrivate ? undefined : true
+      });
+    }
   },
 
   // Fetch lists followed by a specific user
@@ -254,27 +300,24 @@ const listService = {
     }
   },
 
-  // Toggle follow state for a list
+  // Toggle follow status for a list
   toggleFollowList: async function(listId) {
     try {
-      const response = await apiClient.post(`/lists/${listId}/toggle-follow`);
-      // Assuming the backend response contains the new follow state or list data
-      // logger.info(`Toggled follow for list ${listId}:`, response.data);
-      
-      const newFollowState = response.data?.data?.is_followed ?? !useFollowStore.getState().followedLists[listId]; // Prefer backend state
-      useFollowStore.getState().setFollowState(listId, newFollowState);
-      
-      logEngagement('list_follow_toggle', { 
-        list_id: listId, 
-        action: newFollowState ? 'follow' : 'unfollow',
-        location: 'listService_toggleFollowList'
-      });
-
-      return { success: true, data: response.data.data || response.data, newFollowState, message: response.data.message || 'Follow status updated.' };
+      // logger.debug(`Attempting to toggle follow for list ${listId}`);
+      const response = await apiClient.post(`/lists/${listId}/follow`);
+      // logger.info(`Follow status toggled for list ${listId}:`, response.data);
+      return { 
+        success: true, 
+        isFollowing: response.data.data?.is_following || false,
+        message: response.data.message || 'Follow status toggled.' 
+      };
     } catch (error) {
-      logger.error('Error toggling follow state for list:', listId, error);
-      // Consider if an optimistic update was made and needs reverting
-      return { success: false, error: parseApiError(error), message: 'Failed to toggle follow status' };
+      logger.error('Error toggling follow status:', listId, error);
+      return { 
+        success: false, 
+        error: parseApiError(error), 
+        message: `Failed to toggle follow status for list: ${listId}` 
+      };
     }
   },
 

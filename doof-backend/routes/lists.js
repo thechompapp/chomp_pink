@@ -10,58 +10,119 @@ import {
     deleteList,
     addItemToList,
     removeItemFromList,
-    toggleFollowList,
-    validateGetUserLists,
-    validateGetListPreviewItems,
-    validateAddItemToList
+    toggleFollowList
 } from '../controllers/listController.js';
 import {
     requireAuth,
     optionalAuth,
     verifyListOwnership,
-    verifyListAccess // Make sure this is exported from auth.js
+    verifyListAccess
 } from '../middleware/auth.js';
-import { check, param } from 'express-validator';
+import { validators, validate, validationRules } from '../utils/validationUtils.js';
+import { param } from 'express-validator';
 
 const router = express.Router();
 
-router.get('/', optionalAuth, validateGetUserLists, getUserLists);
+// Get lists with optional auth
+router.get(
+    '/',
+    optionalAuth,
+    validate(validators.list.getUserLists),
+    getUserLists
+);
 
-router.post('/', requireAuth, [
-    check('name').notEmpty().withMessage('List name is required.').trim().escape(),
-    check('description').optional().isString().trim().escape(),
-    check('list_type').isIn(['restaurant', 'dish', 'mixed']).withMessage("List type must be 'restaurant', 'dish', or 'mixed'."),
-    check('is_public').optional().isBoolean().toBoolean(),
-    check('tags').optional().isArray(),
-    check('tags.*').optional().isString().trim().escape(),
-    check('city_name').optional().isString().trim().escape()
-], createList);
+// Create a new list (requires authentication)
+router.post(
+    '/',
+    requireAuth,
+    validate(validators.list.create),
+    createList
+);
 
-// Use verifyListAccess for routes that show list details/items (public or owner)
-router.get('/:id', optionalAuth, verifyListAccess, getListDetails);
-router.get('/:id/items', optionalAuth, verifyListAccess, getListItems); // Added verifyListAccess
-router.get('/:id/preview-items', optionalAuth, validateGetListPreviewItems, verifyListAccess, getListPreviewItems); // Added verifyListAccess
+// Get list details with access check
+router.get(
+    '/:id',
+    optionalAuth,
+    validate([validationRules.id()]),
+    verifyListAccess,
+    getListDetails
+);
 
+// Get list items with access check
+router.get(
+    '/:id/items',
+    optionalAuth,
+    validate(validators.list.getListItems),
+    verifyListAccess,
+    getListItems
+);
 
-// Use verifyListOwnership for routes that modify list content or settings
-router.put('/:id', requireAuth, verifyListOwnership, [
-    check('name').optional().notEmpty().withMessage('List name cannot be empty if provided.').trim().escape(),
-    check('description').optional({ checkFalsy: true }).isString().trim().escape(),
-    check('list_type').optional().isIn(['restaurant', 'dish', 'mixed']).withMessage("List type must be 'restaurant', 'dish', or 'mixed'."),
-    check('is_public').optional().isBoolean().toBoolean(),
-    check('tags').optional().isArray(),
-    check('tags.*').optional().isString().trim().escape(),
-    check('city_name').optional({ checkFalsy: true }).isString().trim().escape()
-], updateList);
+// Get list preview items with access check
+router.get(
+    '/:id/preview-items',
+    optionalAuth,
+    validate([
+        validationRules.id(),
+        ...validators.list.getListItems
+    ]),
+    verifyListAccess,
+    getListPreviewItems
+);
 
-router.delete('/:id', requireAuth, verifyListOwnership, deleteList);
+// Update a list (requires ownership)
+router.put(
+    '/:id',
+    requireAuth,
+    validate([
+        validationRules.id(),
+        ...validators.list.create.map(rule => {
+            // Make all fields optional for updates
+            if (rule._context && rule._context.optional !== true) {
+                return { ...rule, optional: () => rule.optional() };
+            }
+            return rule;
+        })
+    ]),
+    verifyListOwnership,
+    updateList
+);
 
-router.post('/:id/items', requireAuth, verifyListOwnership, validateAddItemToList, addItemToList);
+// Delete a list (requires ownership)
+router.delete(
+    '/:id',
+    requireAuth,
+    validate([validationRules.id()]),
+    verifyListOwnership,
+    deleteList
+);
 
-router.delete('/:id/items/:listItemId', requireAuth, verifyListOwnership, [
-    param('listItemId').isInt({ gt: 0 }).withMessage('List item ID must be a positive integer.')
-], removeItemFromList);
+// Add an item to a list (requires ownership)
+router.post(
+    '/:id/items',
+    requireAuth,
+    validate(validators.list.addItemToList),
+    verifyListOwnership,
+    addItemToList
+);
 
-router.post('/:id/toggle-follow', requireAuth, toggleFollowList);
+// Remove an item from a list (requires ownership)
+router.delete(
+    '/:id/items/:listItemId',
+    requireAuth,
+    validate([
+        validationRules.id(),
+        param('listItemId').isInt({ gt: 0 }).withMessage('List item ID must be a positive integer')
+    ]),
+    verifyListOwnership,
+    removeItemFromList
+);
+
+// Toggle list follow status (requires authentication)
+router.post(
+    '/:id/toggle-follow',
+    requireAuth,
+    validate([validationRules.id()]),
+    toggleFollowList
+);
 
 export default router;

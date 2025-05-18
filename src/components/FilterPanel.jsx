@@ -57,43 +57,29 @@ const FilterPanel = ({
     select: (data) => Array.isArray(data) ? data : mockCities,
   });
 
-  // Implement a safer top cuisines/hashtags query with proper error handling
-  // We'll use a try-catch wrapper around the query function to ensure it never throws
-  const safeGetTopHashtags = async () => {
-    try {
-      // Use the standardized service
-      const result = await hashtagService.getTopHashtags();
-      // Ensure we always return an array
-      if (Array.isArray(result) && result.length > 0) {
-        return result;
-      }
-      
-      // If API returned empty or non-array, use mock data as a fallback
-      logger.logWarn('[FilterPanel] API returned invalid hashtag data, using mock data');
-      return mockTopHashtags;
-    } catch (error) {
-      // Log the error but use mock data as fallback to prevent UI crashes
-      logger.logError('[FilterPanel] Error in safeGetTopHashtags, using mock data:', error);
-      return mockTopHashtags;
-    }
-  };
-  
-  // Use our safe query function with robust error handling
+  // Use the improved hashtagService directly - it already handles errors and provides mock data
   const { 
     data: topHashtagsData = [], 
     isLoading: isLoadingCuisines,
     error: errorCuisines 
   } = useQuery({
     queryKey: ['topCuisines'],
-    queryFn: safeGetTopHashtags,
+    queryFn: () => hashtagService.getTopHashtags(15),
     staleTime: 60 * 60 * 1000, // 1 hour
     placeholderData: [], // Empty array placeholder
-    retry: 1,
+    retry: 2,
     // Prevent query from going to error state which can cause rendering issues
     useErrorBoundary: false,
     // This guarantees even on error we get a valid array
     select: (data) => Array.isArray(data) ? data : [],
   });
+  
+  // Log any errors for debugging but don't disrupt the UI
+  useEffect(() => {
+    if (errorCuisines) {
+      logger.logError('[FilterPanel] Error fetching cuisines:', errorCuisines);
+    }
+  }, [errorCuisines]);
   
   // Safely extract cuisine names with additional validation
   const topCuisineNames = useMemo(() => {

@@ -1,14 +1,14 @@
 // File: doof-backend/controllers/authController.js
 
-const bcrypt = require('bcryptjs');
-const UserModel = require('../models/userModel');
-const { validationResult } = require('express-validator');
-const { sendSuccess, sendError } = require('../utils/responseHandler');
-const { generateAuthToken } = require('../utils/tokenUtils');
-const logger = require('../utils/logger'); // For any specific logging not covered by sendError
+import bcrypt from 'bcryptjs';
+import UserModel from '../models/userModel.js';
+import { validationResult } from 'express-validator';
+import { sendSuccess, sendError } from '../utils/responseHandler.js';
+import { generateAuthToken } from '../utils/tokenUtils.js';
+import logger from '../utils/logger.js'; // For any specific logging not covered by sendError
 
 // User registration
-exports.register = async (req, res) => {
+export const register = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     // Concatenate error messages for a clearer response detail
@@ -69,7 +69,7 @@ exports.register = async (req, res) => {
 };
 
 // User login
-exports.login = async (req, res) => {
+export const login = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     const errorMessages = errors.array().map(err => err.msg).join(', ');
@@ -115,7 +115,7 @@ exports.login = async (req, res) => {
 // User logout (currently a simple success response as per original logic)
 // If token blocklisting or server-side session clearing were implemented,
 // this would be the place for that logic.
-exports.logout = (req, res) => {
+export const logout = (req, res) => {
   // Original logic: // res.clearCookie('token'); // Example if using cookies
   // Currently, token is client-side managed. Server acknowledges logout.
   try {
@@ -128,7 +128,7 @@ exports.logout = (req, res) => {
 };
 
 // Get current user profile (example of a protected route)
-exports.getMe = async (req, res) => {
+export const getMe = async (req, res) => {
   try {
     // req.user is attached by authMiddleware
     if (!req.user || !req.user.id) {
@@ -152,5 +152,41 @@ exports.getMe = async (req, res) => {
 
   } catch (error) {
     sendError(res, 'Error fetching user profile.', 500, 'PROFILE_FETCH_FAILED', error);
+  }
+};
+
+// Get authentication status
+// This endpoint will use the optionalAuth middleware to check if the user is authenticated
+export const getAuthStatus = async (req, res) => {
+  try {
+    // If the user is authenticated, the middleware will attach req.user
+    if (req.user) {
+      // User is authenticated, send back user info
+      const userProfile = {
+        id: req.user.id,
+        username: req.user.username,
+        email: req.user.email,
+        role: req.user.role || req.user.account_type,
+        isAuthenticated: true
+      };
+      
+      sendSuccess(res, userProfile, 'User is authenticated.');
+    } else {
+      // User is not authenticated
+      sendSuccess(res, { isAuthenticated: false }, 'User is not authenticated.');
+    }
+  } catch (error) {
+    sendError(res, 'Error checking authentication status.', 500, 'AUTH_STATUS_CHECK_FAILED', error);
+  }
+};
+
+// Add the refreshTokenController function that is imported in auth.js
+export const refreshTokenController = async (req, res) => {
+  try {
+    // Implement refresh token logic here
+    // This is a placeholder since the route exists but the function is missing
+    sendSuccess(res, { message: 'Token refresh endpoint (implementation pending)' });
+  } catch (error) {
+    sendError(res, 'Error refreshing token.', 500, 'TOKEN_REFRESH_FAILED', error);
   }
 };

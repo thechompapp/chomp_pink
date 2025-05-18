@@ -1,67 +1,126 @@
 /* src/hooks/useLazyCards.js */
-/* REMOVED: All TypeScript syntax */
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useInView } from 'react-intersection-observer';
 
-// REMOVED: interface LazyCards<T> { ... }
-
-export const useLazyCards = (items = [], batchSize = 12) => { // REMOVED: Generic <T = any>, return type hint
-    const [visibleItems, setVisibleItems] = useState([]); // REMOVED: <T[]>
-    const [isLoadingInitial, setIsLoadingInitial] = useState(true); // REMOVED: <boolean>
-    const itemsRef = useRef(items); // REMOVED: <T[]>
-    const prevItemsRef = useRef(null); // REMOVED: <T[] | null>
-
+/**
+ * Custom hook for lazy loading cards/items in batches as the user scrolls
+ * 
+ * @param {Array} items - The full array of items to be lazily loaded
+ * @param {number} [batchSize=12] - Number of items to load in each batch
+ * @param {Object} [options] - Additional configuration options
+ * @param {number} [options.threshold=0.1] - IntersectionObserver threshold (0-1)
+ * @param {boolean} [options.resetOnItemsChange=true] - Whether to reset when items change
+ * @param {number} [options.initialBatchMultiplier=1] - Multiplier for initial batch size
+ * @returns {Object} Lazy loading state and controls
+ */
+export const useLazyCards = (items = [], batchSize = 12, options = {}) => {
+    const {
+        threshold = 0.1,
+        resetOnItemsChange = true,
+        initialBatchMultiplier = 1
+    } = options;
+    
+    // State for visible items and loading status
+    const [visibleItems, setVisibleItems] = useState([]);
+    const [isLoadingInitial, setIsLoadingInitial] = useState(true);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
+    
+    // Refs to track items and prevent unnecessary re-renders
+    const itemsRef = useRef(items);
+    const itemsLengthRef = useRef(items.length);
+    const visibleItemsLengthRef = useRef(0);
+    
+    // Setup intersection observer with configurable threshold
     const { ref, inView } = useInView({
-        threshold: 0.1, // Trigger when 10% visible
-        triggerOnce: false, // Keep triggering as user scrolls up/down
+        threshold,
+        triggerOnce: false,
+        rootMargin: '100px', // Load slightly before element is in view for smoother experience
     });
 
-    // Function to load the next batch of items
+    /**
+     * Load the next batch of items
+     */
     const loadMore = useCallback(() => {
-        const currentItems = itemsRef.current || []; // Ensure it's an array
-        setVisibleItems(prev => {
-            // Check if all items are already visible
-            if (prev.length >= currentItems.length) {
-                return prev;
-            }
-            // Slice the next batch from the full item list
-            const nextBatch = currentItems.slice(prev.length, prev.length + batchSize);
-            return [...prev, ...nextBatch];
-        });
-    }, [batchSize]); // Dependency only on batchSize
+        // Prevent multiple simultaneous load operations
+        if (isLoadingMore) return;
+        
+        setIsLoadingMore(true);
+        
+        // Use setTimeout to avoid blocking the main thread
+        // This improves perceived performance especially with large data sets
+        setTimeout(() => {
+            setVisibleItems(prev => {
+                const currentItems = itemsRef.current || [];
+                
+                // Check if all items are already visible
+                if (prev.length >= currentItems.length) {
+                    setIsLoadingMore(false);
+                    return prev;
+                }
+                
+                // Slice the next batch from the full item list
+                const nextBatch = currentItems.slice(prev.length, prev.length + batchSize);
+                const newVisibleItems = [...prev, ...nextBatch];
+                
+                // Update ref for dependency checking
+                visibleItemsLengthRef.current = newVisibleItems.length;
+                setIsLoadingMore(false);
+                
+                return newVisibleItems;
+            });
+        }, 0);
+    }, [batchSize, isLoadingMore]);
 
-    // Effect to reset visible items when the input `items` array changes reference
+    /**
+     * Reset the visible items (used when items array changes)
+     */
+    const resetItems = useCallback(() => {
+        setIsLoadingInitial(true);
+        
+        // Update refs
+        itemsRef.current = items || [];
+        itemsLengthRef.current = items?.length || 0;
+        
+        // Calculate initial batch size (can be larger than subsequent batches)
+        const initialBatchSize = batchSize * initialBatchMultiplier;
+        const initialBatch = items?.slice(0, initialBatchSize) || [];
+        
+        setVisibleItems(initialBatch);
+        visibleItemsLengthRef.current = initialBatch.length;
+        setIsLoadingInitial(false);
+    }, [items, batchSize, initialBatchMultiplier]);
+
+    // Effect to reset visible items when the input items array changes
     useEffect(() => {
-        // Only reset if the items array *reference* is different from the previous one
-        if (items !== prevItemsRef.current) {
-            setIsLoadingInitial(true); // Indicate initial loading/reset
-            const currentItems = items || []; // Ensure items is an array
-            itemsRef.current = currentItems;
-            const initialBatch = currentItems.slice(0, batchSize);
-            setVisibleItems(initialBatch);
-            setIsLoadingInitial(false); // Done with initial load/reset
-            prevItemsRef.current = items; // Store the current reference for next comparison
+        // Only reset if resetOnItemsChange is true and items have changed
+        if (resetOnItemsChange && (
+            items !== itemsRef.current || 
+            items?.length !== itemsLengthRef.current
+        )) {
+            resetItems();
         }
-    }, [items, batchSize]); // Dependencies: run when items or batchSize changes
+    }, [items, resetItems, resetOnItemsChange]);
 
     // Effect to load more items when the ref element comes into view
     useEffect(() => {
-        const currentItems = itemsRef.current || [];
-        const hasMoreItems = visibleItems.length < currentItems.length;
+        const currentItemsLength = itemsLengthRef.current;
+        const visibleItemsLength = visibleItemsLengthRef.current;
+        const hasMoreItems = visibleItemsLength < currentItemsLength;
 
-        // Load more only if in view, more items exist, and initial load is complete
-        if (inView && hasMoreItems && !isLoadingInitial) {
+        // Load more only if in view, more items exist, and not currently loading
+        if (inView && hasMoreItems && !isLoadingInitial && !isLoadingMore) {
             loadMore();
         }
-    }, [inView, loadMore, visibleItems.length, isLoadingInitial]); // Dependencies
+    }, [inView, loadMore, isLoadingInitial, isLoadingMore]);
 
-    // Calculate if there are more items to load
-    const hasMore = visibleItems.length < (itemsRef.current?.length || 0); // Check length safely
-
-    return {
+    // Memoize the return value to prevent unnecessary re-renders
+    return useMemo(() => ({
         visibleItems,
-        loadMoreRef: ref, // The ref to attach to the trigger element
-        hasMore,
-        isLoadingInitial, // State indicating initial load/reset
-    };
+        loadMoreRef: ref,
+        hasMore: visibleItems.length < (itemsRef.current?.length || 0),
+        isLoadingInitial,
+        isLoadingMore,
+        loadMore, // Expose loadMore for manual triggering if needed
+        resetItems // Expose resetItems for manual reset if needed
+    }), [visibleItems, ref, isLoadingInitial, isLoadingMore, loadMore, resetItems]);
 };

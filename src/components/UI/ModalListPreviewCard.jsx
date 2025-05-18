@@ -103,7 +103,7 @@ const ModalListPreviewCard = ({ list, onAddToList, // Renamed onQuickAdd to onAd
     logDebug(`[ModalListPreviewCard] Toggling follow for list ${list.id}, current status: ${followStatus}`);
     setIsFollowProcessing(true);
     try {
-      const result = await toggleFollowStatus(list.id);
+      const result = await toggleFollowStatus(list.id, listService.toggleFollowList);
       if (result.success) {
         logDebug(`[ModalListPreviewCard] Successfully toggled follow status for list ${list.id} to: ${result.isFollowing}`);
         window.dispatchEvent(new CustomEvent('listFollowChanged', { detail: { listId: list.id, following: result.isFollowing } }));

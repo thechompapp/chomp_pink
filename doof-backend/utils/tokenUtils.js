@@ -1,13 +1,13 @@
 // File: doof-backend/utils/tokenUtils.js
-const jwt = require('jsonwebtoken');
-const config = require('../config/config'); // Use centralized config
+import jwt from 'jsonwebtoken';
+import config from '../config/config.js'; // Use centralized config
 
 /**
  * Generates a JWT token for a user.
  * @param {object} user - The user object, must contain id and role.
  * @returns {string} The generated JWT.
  */
-const generateAuthToken = (user) => {
+export const generateAuthToken = (user) => {
   if (!user || typeof user.id === 'undefined' || typeof user.role === 'undefined') {
     throw new Error('User ID and Role are required to generate a token.');
   }
@@ -21,6 +21,7 @@ const generateAuthToken = (user) => {
   });
 };
 
-module.exports = {
+// Default export for backward compatibility
+export default {
   generateAuthToken,
 };

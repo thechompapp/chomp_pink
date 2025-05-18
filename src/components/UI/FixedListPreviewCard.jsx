@@ -79,7 +79,7 @@ function FixedListPreviewCard({ list }) {
     setIsFollowProcessing(true);
     
     try {
-      const result = await toggleFollowStatus(listId);
+      const result = await toggleFollowStatus(listId, listService.toggleFollowList);
       logDebug(`[ListPreviewCard] Toggle follow result:`, result);
     } catch (error) {
       logError(`[ListPreviewCard] Error toggling follow status:`, error);

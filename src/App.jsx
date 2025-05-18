@@ -18,6 +18,8 @@ import useUserListStore from '@/stores/useUserListStore'; // Ensure this is used
 import { logError, logInfo, logDebug } from '@/utils/logger';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import httpInterceptor from '@/services/httpInterceptor';
+import { setupAdminAuthSync } from '@/utils/adminAuth.js';
+import '@/utils/auth-fix.js'; // Import auth-fix to ensure it's loaded and executed
 
 // Authentication constants
 const AUTH_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
@@ -167,7 +169,20 @@ function App() {
     initAuth();
     const authCheckInterval = setupPeriodicAuthCheck();
     
-    return () => clearInterval(authCheckInterval);
+    // Setup admin auth synchronization
+    const cleanupAdminAuthSync = setupAdminAuthSync();
+
+    // Import admin-refresh for development mode only
+    if (process.env.NODE_ENV === 'development') {
+      import('@/utils/admin-refresh.js')
+        .then(() => logDebug('[App] Admin refresh utility loaded'))
+        .catch(err => logError('[App] Failed to load admin refresh utility:', err));
+    }
+    
+    return () => {
+      clearInterval(authCheckInterval);
+      cleanupAdminAuthSync();
+    };
   }, [checkAuthStatus, user]);
 
   // Initialize global HTTP interceptors

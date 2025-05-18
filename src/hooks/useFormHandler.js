@@ -5,6 +5,36 @@
  */
 import { useState, useCallback, useEffect, useRef } from 'react';
 
+// Utility function to create a touched fields object from form data or field names
+const createTouchedFields = (fields) => {
+  if (!fields || typeof fields !== 'object') return {};
+  return Object.keys(fields).reduce((acc, key) => {
+    acc[key] = true;
+    return acc;
+  }, {});
+};
+
+// Utility function to safely compare objects without excessive stringification
+const shallowEqual = (obj1, obj2) => {
+  if (obj1 === obj2) return true;
+  if (!obj1 || !obj2) return false;
+  
+  const keys1 = Object.keys(obj1);
+  const keys2 = Object.keys(obj2);
+  
+  if (keys1.length !== keys2.length) return false;
+  
+  return keys1.every(key => {
+    const val1 = obj1[key];
+    const val2 = obj2[key];
+    const areObjects = typeof val1 === 'object' && typeof val2 === 'object';
+    
+    // For simple values, do direct comparison
+    // For objects, just check if they're the same reference (avoid deep comparison)
+    return areObjects ? val1 === val2 : val1 === val2;
+  });
+};
+
 /**
  * React hook for managing form state with validation
  * 
@@ -30,9 +60,10 @@ const useFormHandler = (initialValues, options = {}) => {
   const [errors, setErrors] = useState({});
   const [isValid, setIsValid] = useState(true);
   
-  // References for debouncing
+  // References for debouncing and memoization
   const validateTimerRef = useRef(null);
   const previousValuesRef = useRef(initialValues);
+  const isFirstRenderRef = useRef(true);
   
   /**
    * Validate form data and update errors state
@@ -46,14 +77,53 @@ const useFormHandler = (initialValues, options = {}) => {
     try {
       const validationErrors = validate(data) || {};
       setErrors(validationErrors);
-      setIsValid(Object.keys(validationErrors).length === 0);
+      
+      const hasErrors = Object.keys(validationErrors).length > 0;
+      setIsValid(!hasErrors);
+      
       return validationErrors;
     } catch (error) {
       console.error('Validation error:', error);
       setIsValid(false);
-      return { form: 'Validation failed' };
+      
+      const errorObj = { form: 'Validation failed' };
+      setErrors(errorObj);
+      return errorObj;
     }
   }, [validate]);
+  
+  /**
+   * Process form data changes and prepare for validation
+   * 
+   * @param {Object} newData - New form data
+   * @param {string|null} touchedField - Field that was touched, or null for multiple fields
+   * @param {boolean} shouldValidate - Whether to validate the form
+   */
+  const processFormChange = useCallback((newData, touchedField = null, shouldValidate = false) => {
+    // Update form data
+    setFormData(newData);
+    
+    // Update touched state
+    if (touchedField) {
+      setTouched(prev => ({ ...prev, [touchedField]: true }));
+    }
+    
+    // Clear submit error when form changes
+    if (submitError) {
+      setSubmitError(null);
+    }
+    
+    // Validate if requested
+    if (shouldValidate && validate) {
+      if (validateTimerRef.current) {
+        clearTimeout(validateTimerRef.current);
+      }
+      
+      validateTimerRef.current = setTimeout(() => {
+        validateForm(newData);
+      }, validateDebounce);
+    }
+  }, [submitError, validate, validateDebounce, validateForm]);
   
   /**
    * Handle input changes with validation
@@ -64,56 +134,28 @@ const useFormHandler = (initialValues, options = {}) => {
     // Handle both event objects and direct value objects
     const isEvent = event && event.target;
     
+    let newData;
+    let touchedField = null;
+    
     if (isEvent) {
       const { name, value, type } = event.target;
       const isCheckbox = type === 'checkbox';
-      const checked = isCheckbox ? event.target.checked : undefined;
+      const fieldValue = isCheckbox ? event.target.checked : value;
       
-      setFormData((prevData) => ({
-        ...prevData,
-        [name]: isCheckbox ? checked : value,
-      }));
-      
-      // Mark field as touched
-      setTouched(prev => ({ ...prev, [name]: true }));
+      newData = { ...formData, [name]: fieldValue };
+      touchedField = name;
     } else {
       // If direct object is passed instead of event
-      setFormData((prevData) => ({ ...prevData, ...event }));
+      newData = { ...formData, ...event };
+      // Multiple fields updated, touchedField remains null
       
-      // Mark fields as touched
-      const touchedFields = Object.keys(event).reduce((acc, key) => {
-        acc[key] = true;
-        return acc;
-      }, {});
-      
+      // Mark all changed fields as touched
+      const touchedFields = createTouchedFields(event);
       setTouched(prev => ({ ...prev, ...touchedFields }));
     }
 
-    // Clear submit error when form changes
-    if (submitError) {
-      setSubmitError(null);
-    }
-    
-    // Validate on change if enabled
-    if (validateOnChange && validate) {
-      if (validateTimerRef.current) {
-        clearTimeout(validateTimerRef.current);
-      }
-      
-      validateTimerRef.current = setTimeout(() => {
-        const newData = isEvent 
-          ? { 
-              ...formData, 
-              [event.target.name]: event.target.type === 'checkbox' 
-                ? event.target.checked 
-                : event.target.value 
-            }
-          : { ...formData, ...event };
-          
-        validateForm(newData);
-      }, validateDebounce);
-    }
-  }, [formData, submitError, validateOnChange, validate, validateDebounce, validateForm]);
+    processFormChange(newData, touchedField, validateOnChange);
+  }, [formData, processFormChange, validateOnChange]);
   
   /**
    * Handle form blur events
@@ -149,10 +191,7 @@ const useFormHandler = (initialValues, options = {}) => {
     }
     
     // Mark all fields as touched
-    const allTouched = Object.keys(formData).reduce((acc, key) => {
-      acc[key] = true;
-      return acc;
-    }, {});
+    const allTouched = createTouchedFields(formData);
     setTouched(allTouched);
     
     // Validate before submission if requested
@@ -195,9 +234,12 @@ const useFormHandler = (initialValues, options = {}) => {
     setTouched({});
     setErrors({});
     setIsValid(true);
+    
     if (validateTimerRef.current) {
       clearTimeout(validateTimerRef.current);
     }
+    
+    previousValuesRef.current = newValues;
   }, [initialValues]);
   
   /**
@@ -208,25 +250,21 @@ const useFormHandler = (initialValues, options = {}) => {
    * @param {boolean} [shouldValidate=false] - Whether to validate after setting
    */
   const setFieldValue = useCallback((name, value, shouldValidate = false) => {
-    setFormData(prev => {
-      const newData = { ...prev, [name]: value };
-      
-      if (shouldValidate && validate) {
-        validateForm(newData);
-      }
-      
-      return newData;
-    });
-    
-    setTouched(prev => ({ ...prev, [name]: true }));
-  }, [validate, validateForm]);
+    const newData = { ...formData, [name]: value };
+    processFormChange(newData, name, shouldValidate);
+  }, [formData, processFormChange]);
   
-  // Validate when dependencies change
+  // Validate when dependencies change, but avoid on first render
   useEffect(() => {
-    if (validate && 
-        JSON.stringify(previousValuesRef.current) !== JSON.stringify(formData)) {
+    // Skip validation on first render
+    if (isFirstRenderRef.current) {
+      isFirstRenderRef.current = false;
+      return;
+    }
+    
+    if (validate && !shallowEqual(previousValuesRef.current, formData)) {
       validateForm(formData);
-      previousValuesRef.current = formData;
+      previousValuesRef.current = { ...formData };
     }
   }, [validate, formData, validateForm]);
   

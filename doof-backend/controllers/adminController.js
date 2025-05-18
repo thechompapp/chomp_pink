@@ -248,321 +248,342 @@ export const deleteResource = async (req, res) => {
   }
 };
 
+// Specific admin route handlers mapping to generic resource handlers
 
-// --- Submission Management ---
-export const approveSubmission = async (req, res) => {
-  const { submissionId } = req.params;
-  const adminUserId = req.user.id; // Assuming req.user is populated by auth middleware
+// Submissions
+export const getSubmissions = async (req, res) => {
+  req.params.resourceType = 'submissions';
+  return getAllResources(req, res);
+};
+
+export const getSubmissionById = async (req, res) => {
+  req.params.resourceType = 'submissions';
+  return getResourceById(req, res);
+};
+
+// Restaurants
+export const getRestaurants = async (req, res) => {
+  req.params.resourceType = 'restaurants';
+  return getAllResources(req, res);
+};
+
+export const getRestaurantById = async (req, res) => {
+  req.params.resourceType = 'restaurants';
+  return getResourceById(req, res);
+};
+
+export const createRestaurant = async (req, res) => {
+  req.params.resourceType = 'restaurants';
+  return createResource(req, res);
+};
+
+export const updateRestaurant = async (req, res) => {
+  req.params.resourceType = 'restaurants';
+  return updateResource(req, res);
+};
+
+export const deleteRestaurant = async (req, res) => {
+  req.params.resourceType = 'restaurants';
+  return deleteResource(req, res);
+};
+
+// Dishes
+export const getDishes = async (req, res) => {
+  req.params.resourceType = 'dishes';
+  return getAllResources(req, res);
+};
+
+export const getDishById = async (req, res) => {
+  req.params.resourceType = 'dishes';
+  return getResourceById(req, res);
+};
+
+export const createDish = async (req, res) => {
+  req.params.resourceType = 'dishes';
+  return createResource(req, res);
+};
+
+export const updateDish = async (req, res) => {
+  req.params.resourceType = 'dishes';
+  return updateResource(req, res);
+};
+
+export const deleteDish = async (req, res) => {
+  req.params.resourceType = 'dishes';
+  return deleteResource(req, res);
+};
+
+// Users
+export const getUsers = async (req, res) => {
+  req.params.resourceType = 'users';
+  return getAllResources(req, res);
+};
+
+export const getUserById = async (req, res) => {
+  req.params.resourceType = 'users';
+  return getResourceById(req, res);
+};
+
+export const updateUser = async (req, res) => {
+  req.params.resourceType = 'users';
+  return updateResource(req, res);
+};
+
+export const deleteUser = async (req, res) => {
+  req.params.resourceType = 'users';
+  return deleteResource(req, res);
+};
+
+export const promoteUser = async (req, res) => {
+  const userId = parseInt(req.params.id, 10);
+  if (isNaN(userId)) {
+    return res.status(400).json({ success: false, message: 'Invalid user ID format.' });
+  }
+  
   try {
-    const submission = await SubmissionModel.getSubmissionById(parseInt(submissionId, 10));
+    const user = await UserModel.findUserById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+    
+    // Update user to superuser status
+    const updatedUser = await UserModel.updateUser(userId, { account_type: 'superuser' });
+    
+    if (!updatedUser) {
+      return res.status(500).json({ success: false, message: 'Failed to promote user.' });
+    }
+    
+    return res.status(200).json({
+      success: true,
+      message: 'User promoted to superuser successfully.',
+      data: formatUser(updatedUser)
+    });
+  } catch (error) {
+    console.error('Error promoting user:', error);
+    return res.status(500).json({ success: false, message: `Failed to promote user: ${error.message}` });
+  }
+};
+
+// Cities
+export const getCities = async (req, res) => {
+  req.params.resourceType = 'cities';
+  return getAllResources(req, res);
+};
+
+export const createCity = async (req, res) => {
+  req.params.resourceType = 'cities';
+  return createResource(req, res);
+};
+
+export const updateCity = async (req, res) => {
+  req.params.resourceType = 'cities';
+  return updateResource(req, res);
+};
+
+export const deleteCity = async (req, res) => {
+  req.params.resourceType = 'cities';
+  return deleteResource(req, res);
+};
+
+// Neighborhoods
+export const getNeighborhoods = async (req, res) => {
+  req.params.resourceType = 'neighborhoods';
+  return getAllResources(req, res);
+};
+
+export const createNeighborhood = async (req, res) => {
+  req.params.resourceType = 'neighborhoods';
+  return createResource(req, res);
+};
+
+export const updateNeighborhood = async (req, res) => {
+  req.params.resourceType = 'neighborhoods';
+  return updateResource(req, res);
+};
+
+export const deleteNeighborhood = async (req, res) => {
+  req.params.resourceType = 'neighborhoods';
+  return deleteResource(req, res);
+};
+
+// Hashtags
+export const getHashtags = async (req, res) => {
+  req.params.resourceType = 'hashtags';
+  return getAllResources(req, res);
+};
+
+export const createHashtag = async (req, res) => {
+  req.params.resourceType = 'hashtags';
+  return createResource(req, res);
+};
+
+export const updateHashtag = async (req, res) => {
+  req.params.resourceType = 'hashtags';
+  return updateResource(req, res);
+};
+
+export const deleteHashtag = async (req, res) => {
+  req.params.resourceType = 'hashtags';
+  return deleteResource(req, res);
+};
+
+// Restaurant Chains
+export const getRestaurantChains = async (req, res) => {
+  req.params.resourceType = 'restaurant_chains';
+  return getAllResources(req, res);
+};
+
+export const createRestaurantChain = async (req, res) => {
+  req.params.resourceType = 'restaurant_chains';
+  return createResource(req, res);
+};
+
+export const updateRestaurantChain = async (req, res) => {
+  req.params.resourceType = 'restaurant_chains';
+  return updateResource(req, res);
+};
+
+export const deleteRestaurantChain = async (req, res) => {
+  req.params.resourceType = 'restaurant_chains';
+  return deleteResource(req, res);
+};
+
+// System Admin Functions
+export const getSystemStatus = async (req, res) => {
+  try {
+    // Get basic server stats
+    const status = {
+      serverTime: new Date().toISOString(),
+      uptime: process.uptime(),
+      memoryUsage: process.memoryUsage(),
+      environment: process.env.NODE_ENV || 'development',
+      nodeVersion: process.version,
+    };
+    
+    // Get database stats if available
+    try {
+      const dbStats = await AdminModel.getDatabaseStats();
+      status.database = dbStats;
+    } catch (dbError) {
+      console.error('Error getting database stats:', dbError);
+      status.database = { error: 'Failed to retrieve database stats' };
+    }
+    
+    return res.status(200).json({
+      success: true,
+      message: 'System status retrieved successfully',
+      data: status
+    });
+  } catch (error) {
+    console.error('Error getting system status:', error);
+    return res.status(500).json({ success: false, message: `Failed to get system status: ${error.message}` });
+  }
+};
+
+export const getSystemLogs = async (req, res) => {
+  const { level = 'info', limit = 100, offset = 0, startDate, endDate } = req.query;
+  
+  try {
+    // Fetch logs from database or log storage mechanism
+    const logs = await AdminModel.getSystemLogs({
+      level,
+      limit: parseInt(limit, 10),
+      offset: parseInt(offset, 10),
+      startDate: startDate ? new Date(startDate) : undefined,
+      endDate: endDate ? new Date(endDate) : undefined
+    });
+    
+    return res.status(200).json({
+      success: true,
+      message: 'System logs retrieved successfully',
+      data: logs.items,
+      pagination: {
+        total: logs.total,
+        limit: parseInt(limit, 10),
+        offset: parseInt(offset, 10)
+      }
+    });
+  } catch (error) {
+    console.error('Error getting system logs:', error);
+    return res.status(500).json({ success: false, message: `Failed to get system logs: ${error.message}` });
+  }
+};
+
+export const clearSystemCache = async (req, res) => {
+  try {
+    // Clear any application caches
+    const result = await AdminModel.clearSystemCache();
+    
+    return res.status(200).json({
+      success: true,
+      message: 'System cache cleared successfully',
+      data: result
+    });
+  } catch (error) {
+    console.error('Error clearing system cache:', error);
+    return res.status(500).json({ success: false, message: `Failed to clear system cache: ${error.message}` });
+  }
+};
+
+// Health check endpoint (no auth required)
+export const healthCheck = (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Admin API is healthy',
+    timestamp: new Date().toISOString()
+  });
+};
+
+export const approveSubmission = async (req, res) => {
+  const submissionId = parseInt(req.params.id, 10);
+  if (isNaN(submissionId)) {
+    return res.status(400).json({ success: false, message: 'Invalid submission ID format.' });
+  }
+  
+  try {
+    const submission = await SubmissionModel.findSubmissionById(submissionId);
     if (!submission) {
       return res.status(404).json({ success: false, message: 'Submission not found.' });
     }
-    if (submission.status !== 'pending') {
-      return res.status(400).json({ success: false, message: `Submission is already ${submission.status}.` });
-    }
-
-    let cityId = submission.city_id;
-    let neighborhoodId = submission.neighborhood_id;
-
-    // Resolve city if provided as string
-    if (submission.city && !cityId && typeof submission.city === 'string' && submission.city.trim() !== '') {
-        const cityInstance = await CityModel.findByNameOrCreate(submission.city.trim());
-        if (cityInstance && cityInstance.id) cityId = cityInstance.id;
-    }
-
-    // Resolve neighborhood if provided as string and cityId is known
-    if (cityId && submission.neighborhood && !neighborhoodId && typeof submission.neighborhood === 'string' && submission.neighborhood.trim() !== '') {
-        const boroughName = submission.data?.borough || submission.borough || null;
-        const neighborhoodInstance = await NeighborhoodModel.findByNameAndCityIdOrCreate(submission.neighborhood.trim(), cityId, boroughName);
-        if (neighborhoodInstance && neighborhoodInstance.id) neighborhoodId = neighborhoodInstance.id;
-    }
     
-    // For restaurant submissions, city is mandatory.
-    if (submission.type === 'restaurant' && !cityId) {
-        console.warn(`Attempted to approve restaurant submission ${submissionId} without a resolvable city: ${submission.city}`);
-        return res.status(400).json({ success: false, message: `Cannot approve restaurant submission. City "${submission.city}" could not be resolved or created.` });
-    }
-
-    const itemData = {
-        name: submission.name,
-        description: submission.description || null, // Ensure description exists or is null
-        tags: submission.tags || [], // Ensure tags is an array
-        phone: submission.phone || null,
-        website: submission.website || null,
-        ...(submission.data || {}), // Spread additional data from submission.data
-    };
-
-    if (submission.type === 'restaurant') {
-        itemData.address = submission.location; // 'location' field from submission maps to 'address'
-        itemData.google_place_id = submission.place_id;
-    } else if (submission.type === 'dish') {
-        if (!submission.restaurant_id) {
-            return res.status(400).json({ success: false, message: 'Restaurant ID is required for dish submission.' });
-        }
-        itemData.restaurant_id = submission.restaurant_id;
-        itemData.restaurant_name = submission.restaurant_name; // Often denormalized
-    }
-
-    const approvedItem = await AdminModel.approveSubmission(
-        parseInt(submissionId, 10),
-        submission.type, // 'restaurant' or 'dish'
-        itemData,
-        cityId,
-        neighborhoodId,
-        submission.place_id, // Pass google_place_id
-        submission.user_id,
-        adminUserId
-    );
-
-    if (!approvedItem) { // approveSubmission in model should throw on failure
-        return res.status(500).json({ success: false, message: 'Approval process failed or no item was returned.' });
-    }
-    const formatter = getFormatterForResourceType(submission.type); // 'restaurant' or 'dish'
-    res.status(200).json({ success: true, message: 'Submission approved successfully.', data: (formatter || identityFormatter)(approvedItem) });
+    // Process the submission approval
+    const result = await AdminModel.approveSubmission(submissionId);
+    
+    return res.status(200).json({
+      success: true,
+      message: 'Submission approved successfully',
+      data: result
+    });
   } catch (error) {
-    console.error(`Error approving submission ${submissionId}:`, error);
-    res.status(500).json({ success: false, message: `Failed to approve submission. Error: ${error.message}` });
+    console.error(`Error approving submission ${req.params.id}:`, error);
+    return res.status(500).json({ success: false, message: `Failed to approve submission: ${error.message}` });
   }
 };
 
 export const rejectSubmission = async (req, res) => {
-  const { submissionId } = req.params;
-  const { rejection_reason } = req.body;
-  const adminUserId = req.user.id;
-  try {
-    const rejectedSubmission = await AdminModel.rejectSubmission(parseInt(submissionId, 10), rejection_reason, adminUserId);
-    if (!rejectedSubmission) {
-      const submission = await SubmissionModel.getSubmissionById(parseInt(submissionId, 10));
-      if (!submission) return res.status(404).json({ success: false, message: 'Submission not found.' });
-      return res.status(400).json({ success: false, message: 'Failed to reject submission, it might have been already processed or an unknown error occurred.' });
-    }
-    const formatter = getFormatterForResourceType('submissions');
-    res.status(200).json({ success: true, message: 'Submission rejected successfully.', data: (formatter || identityFormatter)(rejectedSubmission) });
-  } catch (error) {
-    console.error(`Error rejecting submission ${submissionId}:`, error);
-    res.status(500).json({ success: false, message: `Failed to reject submission. Error: ${error.message}` });
+  const submissionId = parseInt(req.params.id, 10);
+  if (isNaN(submissionId)) {
+    return res.status(400).json({ success: false, message: 'Invalid submission ID format.' });
   }
-};
-
-
-// --- Bulk Operations ---
-export const bulkAddResources = async (req, res) => {
-    const { resourceType } = req.params;
-     if (!resourceType) {
-        return res.status(400).json({ success: false, message: "Resource type is required." });
-    }
-    const { items } = req.body;
-    if (!items || !Array.isArray(items) || items.length === 0) {
-        return res.status(400).json({ success: false, message: 'No items provided for bulk addition.' });
-    }
-    try {
-        const results = await AdminModel.bulkAddResources(resourceType, items, req.user.id);
-        // Determine overall status based on results
-        const status = results.failureCount > 0 && results.successCount === 0 ? 400 : (results.failureCount > 0 ? 207 : 200); // 207 Multi-Status
-        res.status(status).json({ 
-            success: results.failureCount === 0, 
-            message: `Bulk add for ${resourceType} processed. Success: ${results.successCount}, Failures: ${results.failureCount}.`, 
-            data: results 
-        });
-    } catch (error) {
-        console.error(`Error bulk adding ${resourceType}:`, error);
-        if (error.message.startsWith('Unsupported resource type')) {
-            return res.status(400).json({ success: false, message: error.message });
-        }
-        res.status(500).json({ success: false, message: `Failed to bulk add ${resourceType}. Error: ${error.message}` });
-    }
-};
-
-export const checkExistingItems = async (req, res) => { // Changed from internal function to controller
-    const { resourceType } = req.params;
-    if (!resourceType) {
-        return res.status(400).json({ success: false, message: "Resource type is required." });
-    }
-    const itemsToCheck = req.body.items || [];
-    if (!itemsToCheck || !Array.isArray(itemsToCheck) || itemsToCheck.length === 0) {
-        return res.status(400).json({ success: false, message: 'No items provided to check.' });
-    }
-    try {
-        const results = await AdminModel.checkExistingItems(resourceType, itemsToCheck);
-        res.status(200).json({
-            success: true,
-            message: `Checked ${itemsToCheck.length} items for ${resourceType}.`,
-            data: results
-        });
-    } catch (error) {
-        console.error(`Error checking existing ${resourceType}:`, error);
-        if (error.message.startsWith('Unsupported resource type')) {
-            return res.status(400).json({ success: false, message: error.message });
-        }
-        res.status(500).json({ success: false, message: `Failed to check existing ${resourceType}. Error: ${error.message}` });
-    }
-};
-
-
-// --- DATA CLEANUP METHODS ---
-
-export const getCleanupApiHealth = (req, res) => {
-  res.status(200).json({ success: true, available: true, message: "Data Cleanup API is healthy." });
-};
-
-export const analyzeData = async (req, res) => {
-  const { resourceType } = req.params;
+  
+  const { reason } = req.body;
+  
   try {
-    console.log(`[adminController] Analyzing data for ${resourceType}`);
-    console.log(`[adminController] User from request: ${req.user ? JSON.stringify({id: req.user.id, type: req.user.account_type}) : 'No user'}`);
-    console.log(`[adminController] Auth header: ${req.headers.authorization ? 'Present' : 'Missing'}`);
-    
-    // Validation for resourceType happens in AdminModel.getResourceConfig now
-    const changes = await AdminModel.analyzeData(resourceType);
-    console.log(`[adminController] Found ${changes.length} changes for ${resourceType}`);
-    
-    // Log a few sample changeIds to help with debugging
-    if (changes.length > 0) {
-      const sampleSize = Math.min(changes.length, 5);
-      const sampleChanges = changes.slice(0, sampleSize);
-      console.log(`[adminController] Sample changeIds: ${sampleChanges.map(c => c.changeId).join(', ')}`);
+    const submission = await SubmissionModel.findSubmissionById(submissionId);
+    if (!submission) {
+      return res.status(404).json({ success: false, message: 'Submission not found.' });
     }
     
-    res.status(200).json({
+    // Process the submission rejection
+    const result = await AdminModel.rejectSubmission(submissionId, reason);
+    
+    return res.status(200).json({
       success: true,
-      message: `Data analysis completed for ${resourceType}. Found ${changes.length} potential changes.`,
-      changes: changes // Frontend expects 'changes' array
+      message: 'Submission rejected successfully',
+      data: result
     });
   } catch (error) {
-    console.error(`[adminController] Error analyzing data for ${resourceType}:`, error);
-    if (error.message.startsWith('Unsupported resource type')) {
-        return res.status(400).json({ success: false, message: error.message });
-    }
-    res.status(500).json({
-      success: false,
-      message: `Failed to analyze data for ${resourceType}. Error: ${error.message}`
-    });
-  }
-};
-
-export const applyChanges = async (req, res) => {
-  const { resourceType } = req.params;
-  // Log the request body to help with debugging
-  console.log(`[adminController] Apply changes for ${resourceType} request:`, {
-    bodyKeys: Object.keys(req.body),
-    changeIds: req.body.changeIds,
-    authHeader: req.headers.authorization ? 'Present' : 'Missing',
-    userInfo: req.user ? `ID: ${req.user.id}, Type: ${req.user.account_type}` : 'No user in request'
-  });
-  
-  // Expecting an array of changeIds
-  const changeIds = req.body.changeIds || [];
-  
-  if (!changeIds || !Array.isArray(changeIds)) {
-    return res.status(400).json({
-      success: false,
-      message: 'Invalid request. `changeIds` must be an array.'
-    });
-  }
-
-  try {
-    // Fetch the actual changes based on the changeIds
-    console.log(`[adminController] Fetching changes for IDs: ${changeIds.join(', ')}`);
-    const changes = await AdminModel.getChangesByIds(resourceType, changeIds);
-    
-    if (!changes || changes.length === 0) {
-      console.log(`[adminController] No changes found for IDs: ${changeIds.join(', ')}`);
-      return res.status(404).json({
-        success: false,
-        message: 'No valid changes found with the provided changeIds.'
-      });
-    }
-    
-    console.log(`[adminController] Found ${changes.length} changes to apply`);
-    
-    const results = await AdminModel.applyChanges(resourceType, changes);
-    const successfulChanges = results.filter(r => r.success).length;
-    const failedChanges = results.length - successfulChanges;
-
-    // Log the results for debugging
-    console.log(`[adminController] Apply changes for ${resourceType} completed:`, {
-      total: results.length,
-      successful: successfulChanges,
-      failed: failedChanges,
-      resultSummary: results.map(r => ({
-        changeId: r.changeId,
-        success: r.success,
-        message: r.message
-      }))
-    });
-
-    res.status(200).json({
-      success: failedChanges === 0, // Overall success if no failures
-      message: `Changes application process completed for ${resourceType}. ${successfulChanges} succeeded, ${failedChanges} failed.`,
-      data: results
-    });
-  } catch (error) {
-    console.error(`[adminController] Error applying changes for ${resourceType}:`, error);
-    console.error(`[adminController] Stack trace:`, error.stack);
-    
-    if (error.message.startsWith('Unsupported resource type')) {
-      return res.status(400).json({ success: false, message: error.message });
-    }
-    res.status(500).json({
-      success: false,
-      message: `Failed to apply changes for ${resourceType}. Error: ${error.message}`
-    });
-  }
-};
-
-export const rejectChanges = async (req, res) => {
-  const { resourceType } = req.params;
-  // Log the request body to help with debugging
-  console.log(`[adminController] Reject changes for ${resourceType} request:`, {
-    bodyKeys: Object.keys(req.body),
-    changeIds: req.body.changeIds
-  });
-  
-  // Expecting an array of changeIds
-  const changeIds = req.body.changeIds || [];
-  
-  if (!changeIds || !Array.isArray(changeIds)) {
-    return res.status(400).json({
-      success: false,
-      message: 'Invalid request. `changeIds` must be an array.'
-    });
-  }
-
-  try {
-    // Fetch the actual changes based on the changeIds
-    const changes = await AdminModel.getChangesByIds(resourceType, changeIds);
-    if (!changes || changes.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'No valid changes found with the provided changeIds.'
-      });
-    }
-    
-    const results = await AdminModel.rejectChanges(resourceType, changes);
-    const successfulRejections = results.filter(r => r.success).length;
-    const failedRejections = results.length - successfulRejections;
-
-    // Log the results for debugging
-    console.log(`[adminController] Reject changes for ${resourceType} completed:`, {
-      total: results.length,
-      successful: successfulRejections,
-      failed: failedRejections
-    });
-
-    res.status(200).json({
-      success: failedRejections === 0,
-      message: `Changes rejection process completed for ${resourceType}. ${successfulRejections} noted/processed, ${failedRejections} failed.`,
-      data: results
-    });
-  } catch (error) {
-    console.error(`Error rejecting changes for ${resourceType}:`, error);
-    if (error.message.startsWith('Unsupported resource type')) {
-      return res.status(400).json({ success: false, message: error.message });
-    }
-    res.status(500).json({
-      success: false,
-      message: `Failed to reject changes for ${resourceType}. Error: ${error.message}`
-    });
+    console.error(`Error rejecting submission ${req.params.id}:`, error);
+    return res.status(500).json({ success: false, message: `Failed to reject submission: ${error.message}` });
   }
 };

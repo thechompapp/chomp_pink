@@ -11,7 +11,7 @@ import { restaurantService } from '@/services/restaurantService.js';
 import { dishService } from '@/services/dishService.js';
 import { adminService } from '@/services/adminService';
 import './PlaceSelectionDialog.css'; // Import CSS for place selection dialog
-import { ApiError } from '@/utils/apiUtils.js';
+import { ApiError } from '@/utils/ApiError.js';
 import Button from '@/components/UI/Button.jsx';
 import { useAdminAddRow } from '@/hooks/useAdminAddRow'; // Updated import
 import ConfirmationModal from '@/components/UI/ConfirmationModal.jsx';

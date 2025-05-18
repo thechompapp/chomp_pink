@@ -1,6 +1,6 @@
 // File: doof-backend/utils/responseHandler.js
 
-const logger = require('./logger');
+import logger from './logger.js';
 
 /**
  * Sends a standardized success response.
@@ -9,7 +9,7 @@ const logger = require('./logger');
  * @param {string} [message='Operation successful.'] - Optional success message.
  * @param {number} [statusCode=200] - HTTP status code.
  */
-const sendSuccess = (res, data, message = 'Operation successful.', statusCode = 200) => {
+export const sendSuccess = (res, data, message = 'Operation successful.', statusCode = 200) => {
   res.status(statusCode).json({
     success: true,
     message,
@@ -25,7 +25,7 @@ const sendSuccess = (res, data, message = 'Operation successful.', statusCode = 
  * @param {string} [errorCode='INTERNAL_SERVER_ERROR'] - A specific error code string.
  * @param {Error|object|string} [originalError=null] - The original error object or details for logging.
  */
-const sendError = (res, message, statusCode = 500, errorCode = 'INTERNAL_SERVER_ERROR', originalError = null) => {
+export const sendError = (res, message, statusCode = 500, errorCode = 'INTERNAL_SERVER_ERROR', originalError = null) => {
   // Log the error internally
   // The logger itself will handle printing details of originalError
   logger.error(message, originalError, `(Code: ${errorCode}, Status: ${statusCode})`);
@@ -54,7 +54,7 @@ const sendError = (res, message, statusCode = 500, errorCode = 'INTERNAL_SERVER_
   res.status(statusCode).json(errorResponse);
 };
 
-module.exports = {
+export default {
   sendSuccess,
   sendError,
 };

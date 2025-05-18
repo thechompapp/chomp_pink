@@ -1,13 +1,21 @@
 /* src/layouts/Navbar.jsx */
-import React, { useState, useCallback, useMemo, memo } from 'react';
+import React, { useState, useCallback, useMemo, memo, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '@/stores/useAuthStore';
 import { Menu, X, User, CheckCircle } from 'lucide-react';
-import { logDebug } from '@/utils/logger';
+import { logDebug, logInfo } from '@/utils/logger';
+import { syncAdminAuthWithStore } from '@/utils/adminAuth';
 
-// Ensure auth bypass is enabled in development to fix flickering
+// Ensure auth bypass and admin access are enabled in development to fix flickering and admin features
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+  // Set all required flags for admin access
   window.localStorage.setItem('bypass_auth_check', 'true');
+  window.localStorage.setItem('admin_api_key', 'doof-admin-secret-key-dev');
+  window.localStorage.setItem('superuser_override', 'true');
+  window.localStorage.setItem('admin_access_enabled', 'true');
+  
+  // Clear the explicit logout flag to ensure admin features are available
+  window.localStorage.removeItem('user_explicitly_logged_out');
 }
 
 // Simple component that won't flicker
@@ -18,6 +26,107 @@ const Navbar = () => {
   
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [, forceUpdate] = useState({});
+  const initialSyncRef = useRef(false);
+
+  // Immediate sync on mount to ensure admin authentication is properly set
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && isAuthenticated) {
+      logInfo('[Navbar] Initial auth sync on mount');
+      // Sync and immediately update if changes were made
+      const syncResult = syncAdminAuthWithStore(useAuthStore);
+      
+      // Force update immediately to ensure UI reflects admin status
+      initialSyncRef.current = true;
+      forceUpdate({});
+      
+      // Log the result for debugging
+      logDebug(`[Navbar] Initial admin sync ${syncResult ? 'changed auth state' : 'no changes needed'}`);
+    }
+  }, [isAuthenticated]);
+
+  // Add effect to listen for auth state changes and force a re-render
+  useEffect(() => {
+    // Subscribe to auth store changes with a more specific selector
+    // This ensures we capture all relevant state changes
+    const unsubscribe = useAuthStore.subscribe(
+      (state) => ({
+        isAuthenticated: state.isAuthenticated,
+        user: state.user,
+        isSuperuser: state.isSuperuser,
+        accountType: state.user?.account_type,
+        role: state.user?.role,
+        permissions: state.user?.permissions
+      }),
+      (newState, oldState) => {
+        // Log the state change for debugging
+        logDebug('[Navbar] Auth state change detected:', {
+          oldState: {
+            isAuthenticated: oldState.isAuthenticated,
+            isSuperuser: oldState.isSuperuser,
+            accountType: oldState.accountType
+          },
+          newState: {
+            isAuthenticated: newState.isAuthenticated,
+            isSuperuser: newState.isSuperuser,
+            accountType: newState.accountType
+          }
+        });
+        
+        // Check if any relevant auth state has changed
+        if (newState.isAuthenticated !== oldState.isAuthenticated ||
+            newState.isSuperuser !== oldState.isSuperuser ||
+            newState.accountType !== oldState.accountType ||
+            newState.role !== oldState.role ||
+            JSON.stringify(newState.permissions) !== JSON.stringify(oldState.permissions)) {
+          
+          logInfo('[Navbar] Relevant auth state changed, forcing immediate re-render');
+          
+          // Sync admin auth after auth state changes (especially after login)
+          // but only if not already a superuser to prevent loops
+          if (newState.isAuthenticated && 
+              (!newState.isSuperuser && 
+               (newState.accountType === 'superuser' || 
+                newState.role === 'admin' || 
+                (newState.permissions && 
+                 (newState.permissions.includes('admin') || 
+                  newState.permissions.includes('superuser')))))) {
+            
+            logInfo('[Navbar] Admin user detected but isSuperuser flag not set, syncing admin authentication');
+            syncAdminAuthWithStore(useAuthStore);
+          }
+          
+          // Force an immediate re-render
+          forceUpdate({});
+        }
+      }
+    );
+    
+    // Listen for the custom adminLoginComplete event
+    const handleAdminLogin = (event) => {
+      logInfo('[Navbar] Received adminLoginComplete event, forcing update');
+      // Force sync admin auth and immediately update UI
+      syncAdminAuthWithStore(useAuthStore);
+      // Force an immediate re-render
+      forceUpdate({});
+    };
+    
+    // Listen for the custom adminLogoutComplete event
+    const handleAdminLogout = (event) => {
+      logInfo('[Navbar] Received adminLogoutComplete event, ensuring admin features are hidden');
+      // Force an immediate re-render
+      forceUpdate({});
+    };
+    
+    window.addEventListener('adminLoginComplete', handleAdminLogin);
+    window.addEventListener('adminLogoutComplete', handleAdminLogout);
+    
+    return () => {
+      unsubscribe();
+      window.removeEventListener('adminLoginComplete', handleAdminLogin);
+      window.removeEventListener('adminLogoutComplete', handleAdminLogout);
+    };
+  }, []);
 
   // Use useCallback to prevent function re-creation on every render
   const handleLogout = useCallback(() => {
@@ -32,9 +141,39 @@ const Navbar = () => {
 
   // Use useMemo to prevent recalculation on every render
   const isSuperuser = useMemo(() => {
-    // Check both the account_type and the isSuperuser flag from the auth store
-    return user?.account_type === 'superuser' || auth.isSuperuser;
-  }, [user, auth.isSuperuser]);
+    // Log the current auth state for debugging
+    logDebug('[Navbar] Checking superuser status:', { 
+      isAuthenticated, 
+      accountType: user?.account_type, 
+      isSuperuser: auth.isSuperuser,
+      isDev: process.env.NODE_ENV === 'development',
+      hasAdminAccess: localStorage.getItem('admin_access_enabled') === 'true'
+    });
+    
+    // In development mode, always enable superuser features if authenticated
+    if (process.env.NODE_ENV === 'development' && isAuthenticated) {
+      // Check localStorage flags as well to ensure consistency
+      if (localStorage.getItem('superuser_override') === 'true' || 
+          localStorage.getItem('admin_access_enabled') === 'true') {
+        return true;
+      }
+    }
+    
+    // Check all possible indicators of superuser status
+    return user?.account_type === 'superuser' || 
+           auth.isSuperuser || 
+           user?.role === 'admin' || 
+           (user?.permissions && 
+            (user.permissions.includes('admin') || user.permissions.includes('superuser')));
+  }, [user, auth.isSuperuser, isAuthenticated]);
+
+  // Force a re-check when isSuperuser changes
+  useEffect(() => {
+    if (isSuperuser && process.env.NODE_ENV === 'development') {
+      logInfo('[Navbar] Superuser status changed, syncing admin auth');
+      syncAdminAuthWithStore(useAuthStore);
+    }
+  }, [isSuperuser]);
 
   // Prevent extra work during loading
   if (isLoading && !isAuthenticated && !user) {

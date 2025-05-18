@@ -7,6 +7,16 @@ import './index.css'; // Keep relative for global CSS
 import { queryClient } from '@/queryClient'; // Use alias for consistency
 import { logError } from '@/utils/logger';
 
+// Import development tools utility - using dynamic import to avoid initialization issues
+if (process.env.NODE_ENV === 'development') {
+  // Use setTimeout to ensure the app loads first
+  setTimeout(() => {
+    import('@/utils/devTools')
+      .then(() => console.log('Development tools loaded successfully'))
+      .catch(err => console.error('Error loading development tools:', err));
+  }, 1000);
+}
+
 // Global error handler for uncaught JavaScript errors
 window.addEventListener('error', (event) => {
   logError('[Global Error]', event.error);

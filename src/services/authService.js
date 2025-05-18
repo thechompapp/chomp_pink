@@ -128,12 +128,19 @@ export const authService = {
             
             // Try to call the server logout endpoint but don't depend on its success
             try {
-                await apiClient.post(`${API_ENDPOINT}/logout`, {}, {
+                // Create a direct axios config object with explicit method
+                const axiosConfig = {
+                    url: `${API_ENDPOINT}/logout`,
+                    method: 'post', // Explicitly set method as a string
+                    data: {},
                     // Skip interceptors for logout requests to avoid token refresh attempts
                     _skipAuthRefresh: true,
                     // Prevent 401 errors from being thrown during logout
                     validateStatus: status => status < 500
-                });
+                };
+                
+                // Use the direct config approach to avoid method issues
+                await apiClient(axiosConfig);
                 logDebug('[AuthService] Logout API call successful');
             } catch (apiError) {
                 // Just log the error but continue with client-side logout
@@ -143,6 +150,11 @@ export const authService = {
             // Clear local storage regardless of API success
             try {
                 localStorage.removeItem('auth-storage');
+                localStorage.removeItem('auth-token');
+                // Also clear admin flags to ensure clean logout
+                if (process.env.NODE_ENV === 'development') {
+                    localStorage.setItem('user_explicitly_logged_out', 'true');
+                }
                 logDebug('[AuthService] Cleared auth storage');
             } catch (storageError) {
                 logError('[AuthService] Failed to clear localStorage:', storageError);

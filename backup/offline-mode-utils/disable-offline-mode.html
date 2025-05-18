@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Doof App - Offline Mode Manager</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 1.6;
+      color: #333;
+    }
+    h1 {
+      color: #e91e63;
+      border-bottom: 2px solid #f8bbd0;
+      padding-bottom: 10px;
+    }
+    h2 {
+      color: #c2185b;
+      margin-top: 30px;
+    }
+    button {
+      background-color: #e91e63;
+      border: none;
+      color: white;
+      padding: 12px 24px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+      margin: 10px 5px;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #c2185b;
+    }
+    button.secondary {
+      background-color: #9e9e9e;
+    }
+    button.secondary:hover {
+      background-color: #757575;
+    }
+    button.danger {
+      background-color: #f44336;
+    }
+    button.danger:hover {
+      background-color: #d32f2f;
+    }
+    .status {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 4px;
+      animation: fadeIn 0.5s;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .success {
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    .error {
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    .warning {
+      background-color: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeeba;
+    }
+    pre {
+      background-color: #f5f5f5;
+      padding: 15px;
+      border-radius: 4px;
+      overflow-x: auto;
+      border-left: 4px solid #e91e63;
+    }
+    .storage-item {
+      margin-bottom: 8px;
+    }
+    .storage-key {
+      font-weight: bold;
+      color: #333;
+    }
+    .storage-value-true {
+      color: #d32f2f;
+      font-weight: bold;
+    }
+    .storage-value-false {
+      color: #388e3c;
+    }
+    .effective-mode {
+      margin-top: 15px;
+      font-weight: bold;
+      font-size: 1.1em;
+    }
+    .offline {
+      color: #d32f2f;
+    }
+    .online {
+      color: #388e3c;
+    }
+    .actions-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Doof App - Offline Mode Manager</h1>
+  
+  <p>This utility helps you manage the offline mode settings for the Doof application. Use the buttons below to enable or disable offline mode and clear related settings.</p>
+  
+  <h2>Current Status:</h2>
+  <div id="currentStatus"></div>
+  
+  <h2>Actions:</h2>
+  <div class="actions-container">
+    <button id="disableOfflineMode">Disable Offline Mode</button>
+    <button id="enableOfflineMode" class="danger">Enable Offline Mode</button>
+    <button id="clearAllSettings" class="danger">Clear All Settings</button>
+    <button id="checkStatus" class="secondary">Refresh Status</button>
+  </div>
+  
+  <div id="statusMessage" class="status" style="display: none;"></div>
+  
+  <script>
+    // Constants for storage keys
+    const STORAGE_KEYS = {
+      // Old keys (for backward compatibility)
+      OLD_OFFLINE_MODE: 'offline_mode',
+      OLD_DEV_MODE_NO_BACKEND: 'dev_mode_no_backend',
+      OLD_BYPASS_AUTH_CHECK: 'bypass_auth_check',
+      OLD_FORCE_ONLINE: 'force_online',
+      
+      // New keys (from refactored implementation)
+      OFFLINE_MODE: 'offline-mode',
+      DEV_MODE_NO_BACKEND: 'dev-mode-no-backend',
+      AUTH_TOKEN: 'auth-token',
+      AUTH_STORAGE: 'auth-storage'
+    };
+    
+    // Function to check offline mode status
+    function checkOfflineStatus() {
+      // Check localStorage items
+      const oldOfflineMode = localStorage.getItem(STORAGE_KEYS.OLD_OFFLINE_MODE) === 'true';
+      const newOfflineMode = localStorage.getItem(STORAGE_KEYS.OFFLINE_MODE) === 'true';
+      const bypassAuthCheck = localStorage.getItem(STORAGE_KEYS.OLD_BYPASS_AUTH_CHECK) === 'true';
+      const forceOnline = localStorage.getItem(STORAGE_KEYS.OLD_FORCE_ONLINE) === 'true';
+      
+      // Check sessionStorage items
+      const oldDevModeNoBackend = sessionStorage.getItem(STORAGE_KEYS.OLD_DEV_MODE_NO_BACKEND) === 'true';
+      const newDevModeNoBackend = sessionStorage.getItem(STORAGE_KEYS.DEV_MODE_NO_BACKEND) === 'true';
+      const sessionOfflineMode = sessionStorage.getItem(STORAGE_KEYS.OFFLINE_MODE) === 'true';
+      
+      // Determine effective mode
+      const isOffline = oldOfflineMode || newOfflineMode || oldDevModeNoBackend || 
+                       newDevModeNoBackend || sessionOfflineMode;
+      
+      // Update UI
+      const statusDiv = document.getElementById('currentStatus');
+      statusDiv.innerHTML = `
+        <pre>
+<div class="storage-item"><span class="storage-key">localStorage.${STORAGE_KEYS.OLD_OFFLINE_MODE}</span> = <span class="storage-value-${oldOfflineMode ? 'true' : 'false'}">${oldOfflineMode ? 'true' : 'false'}</span></div>
+<div class="storage-item"><span class="storage-key">localStorage.${STORAGE_KEYS.OFFLINE_MODE}</span> = <span class="storage-value-${newOfflineMode ? 'true' : 'false'}">${newOfflineMode ? 'true' : 'false'}</span></div>
+<div class="storage-item"><span class="storage-key">sessionStorage.${STORAGE_KEYS.OFFLINE_MODE}</span> = <span class="storage-value-${sessionOfflineMode ? 'true' : 'false'}">${sessionOfflineMode ? 'true' : 'false'}</span></div>
+<div class="storage-item"><span class="storage-key">sessionStorage.${STORAGE_KEYS.OLD_DEV_MODE_NO_BACKEND}</span> = <span class="storage-value-${oldDevModeNoBackend ? 'true' : 'false'}">${oldDevModeNoBackend ? 'true' : 'false'}</span></div>
+<div class="storage-item"><span class="storage-key">sessionStorage.${STORAGE_KEYS.DEV_MODE_NO_BACKEND}</span> = <span class="storage-value-${newDevModeNoBackend ? 'true' : 'false'}">${newDevModeNoBackend ? 'true' : 'false'}</span></div>
+<div class="storage-item"><span class="storage-key">localStorage.${STORAGE_KEYS.OLD_BYPASS_AUTH_CHECK}</span> = <span class="storage-value-${bypassAuthCheck ? 'true' : 'false'}">${bypassAuthCheck ? 'true' : 'false'}</span></div>
+<div class="storage-item"><span class="storage-key">localStorage.${STORAGE_KEYS.OLD_FORCE_ONLINE}</span> = <span class="storage-value-${forceOnline ? 'true' : 'false'}">${forceOnline ? 'true' : 'false'}</span></div>
+
+<div class="effective-mode">Effective Mode: <span class="${isOffline ? 'offline' : 'online'}">${isOffline ? 'OFFLINE' : 'ONLINE'}</span></div>
+        </pre>
+      `;
+      
+      return { 
+        oldOfflineMode, 
+        newOfflineMode, 
+        oldDevModeNoBackend, 
+        newDevModeNoBackend,
+        sessionOfflineMode,
+        bypassAuthCheck, 
+        forceOnline, 
+        isOffline 
+      };
+    }
+    
+    // Function to disable offline mode
+    function disableOfflineMode() {
+      try {
+        // Remove all offline mode flags from localStorage
+        localStorage.removeItem(STORAGE_KEYS.OLD_OFFLINE_MODE);
+        localStorage.removeItem(STORAGE_KEYS.OFFLINE_MODE);
+        localStorage.removeItem(STORAGE_KEYS.OLD_BYPASS_AUTH_CHECK);
+        
+        // Remove all offline mode flags from sessionStorage
+        sessionStorage.removeItem(STORAGE_KEYS.OLD_DEV_MODE_NO_BACKEND);
+        sessionStorage.removeItem(STORAGE_KEYS.DEV_MODE_NO_BACKEND);
+        sessionStorage.removeItem(STORAGE_KEYS.OFFLINE_MODE);
+        
+        // Force online mode
+        localStorage.setItem(STORAGE_KEYS.OLD_FORCE_ONLINE, 'true');
+        
+        showStatus('Offline mode disabled successfully! The application will use real API requests now.', 'success');
+        checkOfflineStatus();
+      } catch (error) {
+        showStatus(`Error disabling offline mode: ${error.message}`, 'error');
+      }
+    }
+    
+    // Function to enable offline mode
+    function enableOfflineMode() {
+      try {
+        // Set offline mode flags in both localStorage and sessionStorage for maximum compatibility
+        // Old keys (for backward compatibility)
+        localStorage.setItem(STORAGE_KEYS.OLD_OFFLINE_MODE, 'true');
+        sessionStorage.setItem(STORAGE_KEYS.OLD_DEV_MODE_NO_BACKEND, 'true');
+        localStorage.setItem(STORAGE_KEYS.OLD_BYPASS_AUTH_CHECK, 'true');
+        
+        // New keys (from refactored implementation)
+        localStorage.setItem(STORAGE_KEYS.OFFLINE_MODE, 'true');
+        sessionStorage.setItem(STORAGE_KEYS.OFFLINE_MODE, 'true');
+        
+        // Remove force online flag
+        localStorage.removeItem(STORAGE_KEYS.OLD_FORCE_ONLINE);
+        
+        showStatus('Offline mode enabled successfully! The application will use mock data now.', 'warning');
+        checkOfflineStatus();
+      } catch (error) {
+        showStatus(`Error enabling offline mode: ${error.message}`, 'error');
+      }
+    }
+    
+    // Function to clear all settings
+    function clearAllSettings() {
+      try {
+        // Clear all relevant localStorage items
+        const localStorageKeys = [
+          STORAGE_KEYS.OLD_OFFLINE_MODE,
+          STORAGE_KEYS.OFFLINE_MODE,
+          STORAGE_KEYS.OLD_BYPASS_AUTH_CHECK,
+          STORAGE_KEYS.OLD_FORCE_ONLINE
+        ];
+        
+        localStorageKeys.forEach(key => localStorage.removeItem(key));
+        
+        // Clear all relevant sessionStorage items
+        const sessionStorageKeys = [
+          STORAGE_KEYS.OLD_DEV_MODE_NO_BACKEND,
+          STORAGE_KEYS.DEV_MODE_NO_BACKEND,
+          STORAGE_KEYS.OFFLINE_MODE
+        ];
+        
+        sessionStorageKeys.forEach(key => sessionStorage.removeItem(key));
+        
+        showStatus('All offline mode settings have been cleared successfully!', 'success');
+        checkOfflineStatus();
+      } catch (error) {
+        showStatus(`Error clearing settings: ${error.message}`, 'error');
+      }
+    }
+    
+    // Function to show status message
+    function showStatus(message, type) {
+      const statusDiv = document.getElementById('statusMessage');
+      statusDiv.textContent = message;
+      statusDiv.className = `status ${type}`;
+      statusDiv.style.display = 'block';
+      
+      // Auto-hide after 5 seconds
+      setTimeout(() => {
+        statusDiv.style.display = 'none';
+      }, 5000);
+    }
+    
+    // Function to initialize the page
+    function initializePage() {
+      // Check status on page load
+      const status = checkOfflineStatus();
+      
+      // Show appropriate message based on current status
+      if (status.isOffline) {
+        showStatus('The application is currently in OFFLINE mode. API requests will use mock data.', 'warning');
+      } else {
+        showStatus('The application is currently in ONLINE mode. API requests will go to the real backend.', 'success');
+      }
+    }
+    
+    // Add event listeners
+    document.getElementById('disableOfflineMode').addEventListener('click', disableOfflineMode);
+    document.getElementById('enableOfflineMode').addEventListener('click', enableOfflineMode);
+    document.getElementById('clearAllSettings').addEventListener('click', clearAllSettings);
+    document.getElementById('checkStatus').addEventListener('click', checkOfflineStatus);
+    
+    // Initialize the page
+    initializePage();
+  </script>
+</body>
+</html>

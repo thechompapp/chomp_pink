@@ -8,6 +8,8 @@ import GenericAdminTableTab from './GenericAdminTableTab';
 import { DataCleanupModal } from '@/components/DataCleanupModal';
 import { adminService } from '../../services/adminService';
 import { dataCleanupService } from '../../services/dataCleanupService';
+// Import admin auth utility to ensure it's initialized
+import '@/utils/adminAuth.js';
 
 /**
  * Tab configuration for admin panel

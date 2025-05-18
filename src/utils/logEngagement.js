@@ -1,7 +1,7 @@
 // Filename: root/src/utils/logEngagement.js
 /* src/utils/logEngagement.js */
 import apiClient from '@/services/apiClient.js'; // Use alias
-import { logToConsole } from '@/utils/logger.js'; // *** FIXED: Added .js extension ***
+import { logDebug, logWarn, logError, logInfo } from '@/utils/logger.js'; // Updated imports
 
 // Allowed types based on updated schema
 // Schema Check: ['restaurant', 'dish', 'list', 'page']
@@ -20,7 +20,7 @@ const ALLOWED_ENGAGEMENT_TYPES = ['view', 'click', 'add_to_list', 'share', 'page
 const logEngagement = async ({ engagement_type, item_type, item_id }) => {
     // Validate engagement_type first, as it dictates requirements for others
     if (!engagement_type || !ALLOWED_ENGAGEMENT_TYPES.includes(engagement_type)) {
-        logToConsole('warn', `[logEngagement] Invalid or missing engagementType: ${engagement_type}`);
+        logWarn(`[logEngagement] Invalid or missing engagementType: ${engagement_type}`);
         return;
     }
 
@@ -32,18 +32,18 @@ const logEngagement = async ({ engagement_type, item_type, item_id }) => {
     if (engagement_type !== 'page_view') {
         // For non-page_view events, item_type and item_id are generally expected
         if (!finalItemType || !ALLOWED_ITEM_TYPES.includes(finalItemType)) {
-            logToConsole('warn', `[logEngagement] Invalid or missing itemType for engagement "${engagement_type}": ${finalItemType}`);
+            logWarn(`[logEngagement] Invalid or missing itemType for engagement "${engagement_type}": ${finalItemType}`);
             // Avoid sending invalid data
             return;
         }
         // item_id is also expected for these types
         if (item_id == null) {
-             logToConsole('warn', `[logEngagement] Missing itemId for engagement "${engagement_type}"`);
+             logWarn(`[logEngagement] Missing itemId for engagement "${engagement_type}"`);
              return; // Avoid sending invalid data
         }
         const numericItemId = Number(item_id);
         if (isNaN(numericItemId) || numericItemId <= 0) {
-            logToConsole('warn', `[logEngagement] Invalid itemId for engagement "${engagement_type}": ${item_id}`);
+            logWarn(`[logEngagement] Invalid itemId for engagement "${engagement_type}": ${item_id}`);
             return; // Avoid sending invalid data
         }
         finalItemId = numericItemId;
@@ -51,7 +51,7 @@ const logEngagement = async ({ engagement_type, item_type, item_id }) => {
         // For 'page_view', set defaults if not provided
         // Default item_type to 'page' if not specified or invalid
         if (!finalItemType || !ALLOWED_ITEM_TYPES.includes(finalItemType)) {
-             logToConsole('debug', `[logEngagement] Defaulting itemType to 'page' for page_view.`);
+             logDebug(`[logEngagement] Defaulting itemType to 'page' for page_view.`);
              finalItemType = 'page';
         }
         // Ensure item_id is explicitly null for page_view
@@ -69,14 +69,14 @@ const logEngagement = async ({ engagement_type, item_type, item_id }) => {
 
     // Make the API call - fire and forget
     try {
-        logToConsole('info', `[logEngagement] Sending payload:`, payload); // Log payload being sent
+        logInfo(`[logEngagement] Sending payload:`, payload); // Log payload being sent
         // Use apiClient directly for a POST to /api/engage
         // Ensure your backend API route '/api/engage' exists and is handled by engageController
         await apiClient.post('/api/engage', payload);
 
     } catch (error) {
         const errorMessage = error.response?.data?.message || error.message;
-        logToConsole('error', `[logEngagement] Failed to log engagement`, { payload, error: errorMessage });
+        logError(`[logEngagement] Failed to log engagement`, { payload, error: errorMessage });
     }
 };
 

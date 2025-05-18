@@ -8,12 +8,14 @@ import Button from '@/components/UI/Button';
 import BaseCard from '@/components/UI/BaseCard';
 import { Label } from '@/components/UI/Label';
 import { logDebug, logInfo, logError } from '@/utils/logger';
+import { syncAdminAuthWithStore, initializeAdminAuth } from '@/utils/adminAuth';
 
 const LoginPage = () => {
   // Simple state and form setup to avoid any potential issues
   const navigate = useNavigate();
   const login = useAuthStore((state) => state.login);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isSuperuser = useAuthStore((state) => state.isSuperuser);
   const isLoading = useAuthStore((state) => state.isLoading);
   
   const { register, handleSubmit, formState: { errors } } = useForm();
@@ -22,6 +24,17 @@ const LoginPage = () => {
   // Simple redirect if authenticated
   useEffect(() => {
     if (isAuthenticated) {
+      // If already authenticated, sync admin auth and navigate
+      if (process.env.NODE_ENV === 'development') {
+        // More aggressive sync to ensure admin auth is properly set
+        syncAdminAuthWithStore(useAuthStore);
+        
+        // If the user is a superuser, explicitly set admin auth
+        if (isSuperuser || useAuthStore.getState().user?.account_type === 'superuser') {
+          logInfo('[Login Page] Superuser authenticated, initializing admin auth');
+          initializeAdminAuth();
+        }
+      }
       navigate('/');
     }
     
@@ -32,7 +45,7 @@ const LoginPage = () => {
     return () => {
       logInfo('[Login Page] Component unmounting');
     };
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, navigate, isSuperuser]);
   
   // Simplified submit handler
   const onSubmit = async (data) => {
@@ -44,6 +57,27 @@ const LoginPage = () => {
       
       if (success) {
         logInfo('[Login Page] Login successful');
+        
+        // Get fresh state after login
+        const currentState = useAuthStore.getState();
+        
+        // Sync admin auth after successful login with more aggressive approach
+        if (process.env.NODE_ENV === 'development') {
+          syncAdminAuthWithStore(useAuthStore);
+          
+          // If superuser, explicitly initialize admin auth
+          if (currentState.isSuperuser || currentState.user?.account_type === 'superuser') {
+            logInfo('[Login Page] Superuser logged in, initializing admin auth');
+            initializeAdminAuth();
+            
+            // Force a state update to trigger UI refresh
+            useAuthStore.setState({
+              isSuperuser: true,
+              isAuthenticated: true
+            });
+          }
+        }
+        
         navigate('/');
       } else {
         const errorMessage = useAuthStore.getState().error || 'Login failed';
@@ -97,6 +131,7 @@ const LoginPage = () => {
                 placeholder="••••••••"
                 className="bg-input text-foreground border-border"
                 {...register("password", { required: "Password is required" })}
+                autoComplete="current-password"
               />
               {errors.password && (
                 <p className="text-sm text-destructive">{errors.password.message}</p>

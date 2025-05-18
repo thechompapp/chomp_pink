@@ -5,7 +5,8 @@
  */
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import apiClient, { setAuthStoreRef } from '@/services/apiClient';
+// Remove the circular dependency by importing only the default export
+import apiClient from '@/services/apiClient';
 import { logInfo, logWarn, logError, logDebug } from '@/utils/logger.js';
 import ErrorHandler from '@/utils/ErrorHandler';
 
@@ -82,20 +83,34 @@ const useAuthStore = create(
         const currentState = get();
         logger.debug('[AuthStore checkAuthStatus] Initializing, current state:', currentState);
         
-        // EMERGENCY FIX: Force authentication in development mode
-        if (process.env.NODE_ENV === 'development' && window.location.hostname === 'localhost') {
+        // Check if the user has explicitly logged out
+        const hasExplicitlyLoggedOut = localStorage.getItem('user_explicitly_logged_out') === 'true';
+        
+        // EMERGENCY FIX: Force authentication in development mode, but only if not explicitly logged out
+        if (process.env.NODE_ENV === 'development' && 
+            window.location.hostname === 'localhost' && 
+            !hasExplicitlyLoggedOut) {
+          
           logger.info('[AuthStore] Development mode: Using mock authentication for localhost only');
           
           // Set localStorage flags to ensure consistent superuser access
           localStorage.setItem('bypass_auth_check', 'true');
           localStorage.setItem('superuser_override', 'true');
           localStorage.setItem('admin_access_enabled', 'true');
+          localStorage.setItem('admin_api_key', 'doof-admin-secret-key-dev');
           
           // Create a stronger token with admin privileges embedded
           const adminToken = 'admin-mock-token-with-superuser-privileges-' + Date.now();
           
           // Store the token in localStorage directly for API client access
           localStorage.setItem('auth-token', adminToken);
+          
+          // Dispatch a custom event to notify components of admin status
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('adminLoginComplete', { 
+              detail: { isSuperuser: true } 
+            }));
+          }
           
           set({
             isAuthenticated: true,
@@ -114,6 +129,8 @@ const useAuthStore = create(
             error: null
           });
           return true;
+        } else if (hasExplicitlyLoggedOut) {
+          logger.info('[AuthStore] User has explicitly logged out, not auto-authenticating');
         }
         
         // Start with default error state = null to clear any previous errors
@@ -344,12 +361,33 @@ const useAuthStore = create(
        * @returns {Promise<boolean>} Login success status
        */
       login: async (formData) => {
+        // Clear previous errors first
         set({ isLoading: true, error: null });
+        
         try {
           logger.debug('[AuthStore login] Attempting login with formData:', formData);
           
           if (!formData || typeof formData.email !== 'string' || typeof formData.password !== 'string') {
             throw new Error('Invalid formData format: Email and password must be strings.');
+          }
+
+          // Check if this is an admin login in development mode
+          const isAdminLogin = process.env.NODE_ENV === 'development' && 
+                              (formData.email === 'admin@example.com' || 
+                               formData.email.includes('admin'));
+          
+          // In development mode, always set admin flags immediately upon login attempt
+          if (process.env.NODE_ENV === 'development') {
+            logger.info('[AuthStore login] Development mode: Setting admin flags immediately');
+            
+            // Clear the explicit logout flag
+            localStorage.removeItem('user_explicitly_logged_out');
+            
+            // Set admin flags
+            localStorage.setItem('admin_api_key', 'doof-admin-secret-key-dev');
+            localStorage.setItem('bypass_auth_check', 'true');
+            localStorage.setItem('superuser_override', 'true');
+            localStorage.setItem('admin_access_enabled', 'true');
           }
 
           const response = await apiClient.post('/auth/login', formData);
@@ -359,15 +397,62 @@ const useAuthStore = create(
 
           if (response.data && response.data.success && response.data.data) {
             const userData = response.data.data;
+            
+            // Ensure admin status is set correctly
+            const isSuperuser = process.env.NODE_ENV === 'development' || 
+                               userData.account_type === 'superuser' || 
+                               userData.role === 'admin' || 
+                               isAdminLogin;
+            
+            // In development mode or for admin logins, enhance user data
+            if (process.env.NODE_ENV === 'development' || isAdminLogin) {
+              userData.account_type = 'superuser';
+              userData.role = 'admin';
+              userData.permissions = [...new Set([...(userData.permissions || []), 'admin', 'superuser'])];
+            }
+            
+            // Log the state we're about to set
+            logger.info('[AuthStore login] Setting auth state with superuser:', isSuperuser);
+            
+            // Update state synchronously
             set({
               isAuthenticated: true,
               user: userData,
               isLoading: false,
               token: response.data.token || userData.token || null,
-              isSuperuser: userData.account_type === 'superuser',
+              isSuperuser: isSuperuser, // Explicitly set based on our determination
               error: null,
+              lastAuthCheck: Date.now() // Update the last check time
             });
-            logger.info('[AuthStore login] Login successful, user set:', userData);
+            
+            // Update the persisted auth state directly to ensure consistency
+            try {
+              const authStorage = localStorage.getItem('auth-storage');
+              if (authStorage) {
+                const parsed = JSON.parse(authStorage);
+                if (parsed.state) {
+                  parsed.state.isAuthenticated = true;
+                  parsed.state.user = userData;
+                  parsed.state.isSuperuser = isSuperuser;
+                  parsed.state.token = response.data.token || userData.token || null;
+                  parsed.state.lastAuthCheck = Date.now();
+                  localStorage.setItem('auth-storage', JSON.stringify(parsed));
+                  logger.debug('[AuthStore login] Updated persisted auth state with superuser:', isSuperuser);
+                }
+              }
+            } catch (e) {
+              logger.warn('[AuthStore login] Failed to update persisted auth state:', e);
+            }
+            
+            // Dispatch a custom event to notify components of login with admin status
+            if (typeof window !== 'undefined') {
+              logger.info('[AuthStore login] Dispatching adminLoginComplete event');
+              window.dispatchEvent(new CustomEvent('adminLoginComplete', { 
+                detail: { isSuperuser: isSuperuser } 
+              }));
+            }
+            
+            logger.info('[AuthStore login] Login successful, user set with superuser status:', isSuperuser);
             return true;
           } else {
             throw new Error(response.data?.message || 'Login failed: Unexpected response from server.');
@@ -405,6 +490,23 @@ const useAuthStore = create(
         
         // Clear any stored credentials from localStorage and sessionStorage
         try {
+          // Set explicit logout flag to prevent auto-login on refresh
+          localStorage.setItem('user_explicitly_logged_out', 'true');
+          
+          // First, explicitly clear all admin-related flags
+          logger.info('[AuthStore logout] Clearing all admin-related flags');
+          localStorage.removeItem('admin_api_key');
+          localStorage.removeItem('bypass_auth_check');
+          localStorage.removeItem('superuser_override');
+          localStorage.removeItem('admin_access_enabled');
+          localStorage.removeItem('admin-access-enabled');
+          localStorage.removeItem('admin_access');
+          localStorage.removeItem('admin-access');
+          localStorage.removeItem('force_admin');
+          localStorage.removeItem('force-admin');
+          localStorage.removeItem('auth-token');
+          
+          // Clear auth storage
           localStorage.removeItem('auth-storage');
           sessionStorage.removeItem('auth-storage');
           
@@ -412,7 +514,8 @@ const useAuthStore = create(
           const authKeys = [];
           for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
-            if (key.includes('auth') || key.includes('token') || key.includes('user')) {
+            if (key.includes('auth') || key.includes('token') || key.includes('user') || 
+                key.includes('admin') || key.includes('super')) {
               authKeys.push(key);
             }
           }
@@ -425,13 +528,33 @@ const useAuthStore = create(
             } catch (err) {}
           });
           
+          // Same for sessionStorage
+          for (let i = 0; i < sessionStorage.length; i++) {
+            const key = sessionStorage.key(i);
+            if (key.includes('auth') || key.includes('token') || key.includes('user') || 
+                key.includes('admin') || key.includes('super')) {
+              try {
+                sessionStorage.removeItem(key);
+                logger.debug(`[AuthStore logout] Removed sessionStorage key: ${key}`);
+              } catch (err) {}
+            }
+          }
+          
           // Clear any auth cookies by setting them to expire
           document.cookie.split(';').forEach(cookie => {
             const cookieName = cookie.split('=')[0].trim();
-            if (cookieName.includes('auth') || cookieName.includes('token') || cookieName.includes('user')) {
+            if (cookieName.includes('auth') || cookieName.includes('token') || 
+                cookieName.includes('user') || cookieName.includes('admin')) {
               document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
             }
           });
+          
+          // Dispatch an event to notify components that admin status is cleared
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('adminLogoutComplete', { 
+              detail: { cleared: true } 
+            }));
+          }
           
           logger.debug('[AuthStore logout] All auth storage and cookies cleared');
         } catch (e) {
@@ -513,8 +636,21 @@ const useAuthStore = create(
   )
 );
 
-// Set the store reference in apiClient to avoid circular dependency
-setAuthStoreRef(useAuthStore);
+// Instead of setting the store reference immediately, do it after the store is created
+// This avoids the circular dependency
+setTimeout(() => {
+  try {
+    // Dynamically import to avoid circular dependency
+    import('@/services/apiClient').then(apiClientModule => {
+      if (apiClientModule.setAuthStoreRef) {
+        apiClientModule.setAuthStoreRef(useAuthStore);
+        console.debug('[AuthStore] Successfully registered with apiClient');
+      }
+    });
+  } catch (err) {
+    console.error('[AuthStore] Failed to register with apiClient:', err);
+  }
+}, 0);
 
 // Support both default and named exports for backward compatibility
 export default useAuthStore;

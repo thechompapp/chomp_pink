@@ -2,10 +2,12 @@
 /* REFACTORED: Accepts props based on new hook structure from AdminPanel */
 /* FIXED: Pass editingRowIds prop */
 /* FIXED: Pass isEditing function correctly to AdminTableRow */
+/* FIXED: Added null checks for currentSort to prevent TypeError */
 import React, { useEffect, useCallback, useMemo } from 'react';
 import AdminTableRow from './AdminTableRow';
 import TableHeader from './TableHeader';
 import AddRow from './AddRow'; // Assuming AddRow component exists
+import ActionCell from './ActionCell';
 import { AlertCircle, Edit, Trash2, Check, X, ChevronDown, ChevronUp, Search, RefreshCw } from 'lucide-react';
 import ErrorState from './ErrorState';
 import TableSkeleton from './TableSkeleton';
@@ -17,7 +19,7 @@ const AdminTable = ({
     columns = [],
     isLoading,
     error,
-    currentSort, // { column: string, direction: 'asc' | 'desc' } | null
+    currentSort = null, // { column: string, direction: 'asc' | 'desc' } | null - Provide default null
     onSort, // (type, columnKey, direction) => void
     // Row Editing Props
     isEditing, // (rowId) => boolean  <- This is the function itself
@@ -108,26 +110,39 @@ const AdminTable = ({
         }));
     }, [columns]);
 
-    // Memoize handler for sort column clicks
+    // Memoize handler for sort column clicks with better null handling
     const handleSortColumn = useCallback((column) => {
-        if (!column.isSortable) return;
+        if (!column?.isSortable) return;
         
-        const direction = currentSort?.column === column.sortKey && 
-            currentSort?.direction === 'asc' ? 'desc' : 'asc';
+        // Default to 'asc' if currentSort is null or if changing columns
+        let direction = 'asc';
         
-        onSort(resourceType, column.sortKey, direction);
+        // Only toggle direction if we're sorting the same column
+        if (currentSort && typeof currentSort === 'object' && 
+            currentSort.column === column.sortKey && 
+            currentSort.direction === 'asc') {
+            direction = 'desc';
+        }
+        
+        if (onSort && typeof onSort === 'function') {
+            onSort(resourceType, column.sortKey, direction);
+        }
     }, [currentSort, onSort, resourceType]);
 
     // Handle row selection when checkbox is clicked
     const handleRowCheckboxChange = useCallback((e, rowId) => {
         e.stopPropagation();
-        onRowSelect(rowId);
+        if (onRowSelect && typeof onRowSelect === 'function') {
+            onRowSelect(rowId);
+        }
     }, [onRowSelect]);
 
     // Handle header checkbox for select all
     const handleSelectAllChange = useCallback((e) => {
         e.stopPropagation();
-        onSelectAll(!isAllSelected);
+        if (onSelectAll && typeof onSelectAll === 'function') {
+            onSelectAll(!isAllSelected);
+        }
     }, [onSelectAll, isAllSelected]);
 
     if (error) {
@@ -145,94 +160,114 @@ const AdminTable = ({
     return (
         <div className="relative overflow-hidden rounded-lg border bg-background">
             {/* Table header with search and actions */}
-            <TableHeader
-                resourceType={resourceType}
-                columnsCount={columnConfig.length + 1} // +1 for actions
-                selectedCount={selectedRows?.size || 0}
-                totalCount={data.length}
-                isAllSelected={isAllSelected}
-                onSelectAll={handleSelectAllChange}
-                onBulkEdit={onBulkEdit}
-                isBulkEditing={isBulkEditing}
-                showFilters={showFilters}
-                onSaveAll={onSaveAllEdits}
-                onCancelBulkEdit={onCancelBulkEdit}
-                isSavingAll={isSavingAll}
-                isDataCleanup={isDataCleanup}
-            />
+            {/* Custom Table Header Controls - Not the same as the TableHeader component */}
+            <div className="p-4 border-b flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                    <h3 className="text-lg font-semibold">{resourceType}</h3>
+                    <span className="text-sm text-muted-foreground">
+                        {selectedRows?.size || 0} of {data.length} selected
+                    </span>
+                </div>
+                <div className="flex items-center space-x-2">
+                    {isBulkEditing ? (
+                        <>
+                            <button
+                                onClick={onSaveAllEdits}
+                                disabled={isSavingAll}
+                                className="px-3 py-1.5 text-sm bg-primary text-white rounded hover:bg-primary/90 disabled:opacity-50"
+                            >
+                                {isSavingAll ? 'Saving...' : 'Save All'}
+                            </button>
+                            <button
+                                onClick={onCancelBulkEdit}
+                                className="px-3 py-1.5 text-sm bg-muted text-foreground rounded hover:bg-muted/90"
+                            >
+                                Cancel
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            {selectedRows?.size > 0 && (
+                                <button
+                                    onClick={onBulkEdit}
+                                    className="px-3 py-1.5 text-sm bg-muted text-foreground rounded hover:bg-muted/90"
+                                >
+                                    Bulk Edit
+                                </button>
+                            )}
+                            {showFilters && (
+                                <button className="px-3 py-1.5 text-sm bg-muted text-foreground rounded hover:bg-muted/90">
+                                    <Search className="h-4 w-4 mr-1" />
+                                    Filters
+                                </button>
+                            )}
+                        </>
+                    )}
+                </div>
+            </div>
             
             {/* Main table */}
             <div className="overflow-auto max-h-[calc(100vh-210px)]">
                 <table className="w-full border-collapse">
-                    <thead className="bg-muted/50 sticky top-0 z-10">
-                        <tr>
-                            {/* Select all checkbox */}
-                            <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground w-10">
-                                <input
-                                    type="checkbox"
-                                    className="rounded border-gray-300 text-primary focus:ring-primary"
-                                    checked={isAllSelected}
-                                    onChange={handleSelectAllChange}
-                                    disabled={isBulkEditing || isLoading || !data.length}
-                                />
-                            </th>
-                            
-                            {/* Column headers */}
-                            {columnConfig.map((column) => (
-                                <th
-                                    key={column.key}
-                                    className={cn(
-                                        "px-4 py-3 text-left text-xs font-medium text-muted-foreground whitespace-nowrap",
-                                        column.className,
-                                        column.isSortable && "cursor-pointer hover:bg-muted"
-                                    )}
-                                    onClick={() => column.isSortable && handleSortColumn(column)}
-                                >
-                                    <div className="flex items-center space-x-1">
-                                        <span>{column.label}</span>
-                                        {column.isSortable && currentSort?.column === column.sortKey && (
-                                            <span className="inline-flex items-center">
-                                                {currentSort.direction === 'asc' ? (
-                                                    <ChevronUp className="h-4 w-4" />
-                                                ) : (
-                                                    <ChevronDown className="h-4 w-4" />
-                                                )}
-                                            </span>
-                                        )}
-                                    </div>
-                                </th>
-                            ))}
-                            
-                            {/* Actions column */}
-                            <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground w-32">
-                                Actions
-                            </th>
-                        </tr>
-                    </thead>
+                    {/* Use the TableHeader component properly */}
+                    <TableHeader
+                        columns={columnConfig || []}
+                        currentSortColumn={currentSort?.column}
+                        currentSortDirection={currentSort?.direction}
+                        onSortChange={onSort}
+                        type={resourceType}
+                        isAdding={isAdding}
+                        editingRowIds={editingRowIds || new Set()}
+                        isAllSelected={isAllSelected}
+                        onSelectAll={onSelectAll}
+                        showSelect={true}
+                        visibleColumns={visibleColumns}
+                        onToggleColumn={onToggleColumn}
+                    />
                     
                     <tbody className="divide-y">
                         {/* New row form */}
                         {isAdding && (
-                            <AdminTableRow
-                                row={{ id: '__NEW_ROW__' }}
-                                columns={columnConfig}
-                                isEditing={true}
-                                editFormData={newRowFormData}
-                                onDataChange={onNewRowDataChange}
-                                resourceType={resourceType}
-                                isNew={true}
-                            >
+                            <tr>
+                                {/* Checkbox column */}
                                 <td className="px-4 py-3 text-left text-xs font-medium w-10">
                                     <span className="text-xs text-muted-foreground">New</span>
                                 </td>
-                                <ActionCell
-                                    isEditing={true}
-                                    isNew={true}
-                                    onSave={onSaveNewRow}
-                                    onCancel={onCancelAdd}
-                                    isSaving={isSavingNew}
-                                />
-                            </AdminTableRow>
+                                
+                                {/* Form fields */}
+                                {columnConfig.map((column) => (
+                                    <td key={`new-${column.accessor}`} className="px-4 py-3">
+                                        {/* Render appropriate input field based on column type */}
+                                        <input
+                                            type="text"
+                                            className="w-full p-2 border rounded"
+                                            value={newRowFormData?.[column.accessor] || ''}
+                                            onChange={(e) => onNewRowDataChange({ 
+                                                [column.accessor]: e.target.value 
+                                            })}
+                                        />
+                                    </td>
+                                ))}
+                                
+                                {/* Actions */}
+                                <td className="px-4 py-3 text-right">
+                                    <div className="flex justify-end space-x-2">
+                                        <button
+                                            onClick={onSaveNewRow}
+                                            disabled={isSavingNew}
+                                            className="p-1 text-green-600 hover:text-green-800"
+                                        >
+                                            <Check className="h-4 w-4" />
+                                        </button>
+                                        <button
+                                            onClick={onCancelAdd}
+                                            className="p-1 text-red-600 hover:text-red-800"
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
                         )}
                         
                         {/* Data rows */}
@@ -241,42 +276,31 @@ const AdminTable = ({
                                 key={row.id || `row-${row._tempId || Math.random()}`}
                                 row={row}
                                 columns={columnConfig}
-                                isEditing={isEditing(row.id)}
-                                editFormData={editFormData?.[row.id]}
-                                onDataChange={(changes) => onDataChange(row.id, changes)}
+                                isEditing={(rowId) => typeof isEditing === 'function' ? isEditing(rowId) : false}
+                                editFormData={{[row.id]: editFormData?.[row.id] || {}}}
+                                onDataChange={onDataChange}
+                                onStartEdit={() => onStartEdit && onStartEdit(row)}
+                                onCancelEdit={onCancelEdit}
+                                onSaveEdit={onSaveEdit}
+                                editError={editError}
+                                isSaving={isSaving}
+                                actionState={actionState}
+                                onApprove={onApprove}
+                                onReject={onReject}
+                                onDelete={onDelete}
+                                selectedRows={selectedRows}
+                                onRowSelect={onRowSelect}
                                 resourceType={resourceType}
-                                isNew={false}
-                                isSelected={selectedRows?.has(row.id)}
-                            >
-                                {/* Selection checkbox */}
-                                <td className="px-4 py-3 text-left text-xs font-medium w-10">
-                                    <input
-                                        type="checkbox"
-                                        className="rounded border-gray-300 text-primary focus:ring-primary"
-                                        checked={selectedRows?.has(row.id) || false}
-                                        onChange={(e) => handleRowCheckboxChange(e, row.id)}
-                                        disabled={isBulkEditing || isEditing(row.id)}
-                                    />
-                                </td>
-                                
-                                {/* Actions */}
-                                <ActionCell
-                                    rowId={row.id}
-                                    isEditing={isEditing(row.id)}
-                                    onEdit={() => onStartEdit(row)}
-                                    onSave={() => onSaveEdit(row.id)}
-                                    onCancel={() => onCancelEdit(row.id)}
-                                    onDelete={() => onDelete(row.id)}
-                                    onApprove={() => onApprove(row.id)}
-                                    onReject={() => onReject(row.id)}
-                                    onOpenListModal={() => onOpenListEditModal(row)}
-                                    actionState={actionState?.[row.id]}
-                                    isDataCleanup={isDataCleanup}
-                                    deleteEnabled={deleteRowEnabled}
-                                    resourceType={resourceType}
-                                    isSaving={isSaving}
-                                />
-                            </AdminTableRow>
+                                cities={cities}
+                                neighborhoods={neighborhoods}
+                                confirmDeleteInfo={confirmDeleteInfo}
+                                setConfirmDeleteInfo={setConfirmDeleteInfo}
+                                handleDeleteConfirm={handleDeleteConfirm}
+                                isBulkEditing={isBulkEditing}
+                                isAdding={isAdding}
+                                isDataCleanup={isDataCleanup}
+                                displayChanges={displayChanges[row.id] || {}}
+                            />
                         ))}
                     </tbody>
                 </table>

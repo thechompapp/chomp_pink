@@ -110,7 +110,8 @@ const ModalListCard = ({ list, onQuickAdd }) => {
     try {
       setIsFollowProcessing(true);
       // Use the follow store's toggle function which handles all API interaction
-      const result = await toggleFollowStatus(list.id);
+      // Pass the listService.toggleFollowList function to handle the API call
+      const result = await toggleFollowStatus(list.id, listService.toggleFollowList);
       
       if (result.success) {
         logDebug(`[ListCard] Successfully toggled follow status for list ${list.id} to: ${result.isFollowing}`);

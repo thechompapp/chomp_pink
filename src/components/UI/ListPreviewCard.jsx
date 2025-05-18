@@ -1,22 +1,18 @@
 // src/components/UI/ListPreviewCard.jsx
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import PropTypes from 'prop-types';
-import { useQuery, useQueryClient } from '@tanstack/react-query'; // Added useQueryClient
-import { PlusIcon, ChevronDownIcon, ChevronUpIcon as ChevronUpSolidIcon } from '@heroicons/react/24/solid'; // Renamed ChevronUpIcon to avoid conflict
-import { Star, Loader2, ChevronUp, ChevronDown, ExternalLink, MessageSquare, Eye } from 'lucide-react'; // Added more icons
-
-import { listService } from '@/services/listService';
-import { logDebug, logError } from '@/utils/logger';
+import { PlusIcon } from '@heroicons/react/24/solid';
+import { Star, ChevronUp, ChevronDown, MessageSquare } from 'lucide-react';
+import { useListDetailModal } from '@/hooks/useListDetailModal';
 import { useQuickAdd } from '@/context/QuickAddContext';
-import { useListDetailModal } from '@/hooks/useListDetailModal'; // Corrected hook name
 import useAuthStore from '@/stores/useAuthStore';
-import useFollowStore from '@/stores/useFollowStore';
-import { formatRelativeDate } from '@/utils/formatting';
-import { engagementService } from '@/services/engagementService';
-import Button from '@/components/UI/Button'; // Assuming custom Button
-import ErrorMessage from '@/components/UI/ErrorMessage'; // Assuming custom ErrorMessage
-import LoadingSpinner from '@/components/UI/LoadingSpinner'; // Assuming custom LoadingSpinner
-import BaseCard from './BaseCard'; // Assuming BaseCard for consistent styling and click handling
+import { formatRelativeDate } from '@/utils/formatters';
+import Button from '@/components/UI/Button';
+import ErrorMessage from '@/components/UI/ErrorMessage';
+import LoadingSpinner from '@/components/UI/LoadingSpinner';
+import BaseCard from './BaseCard';
+import useListInteractions from '@/hooks/useListInteractions';
+import useListItems from '@/hooks/useListItems';
 
 // Sub-component for displaying a single item in the preview
 const PreviewListItem = ({ item }) => (
@@ -37,114 +33,47 @@ PreviewListItem.propTypes = {
   }).isRequired,
 };
 
-
 function ListPreviewCard({ list, className = '' }) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const { openQuickAddModal } = useQuickAdd(); // Assuming context provides openQuickAddModal
-  const { user, isAuthenticated } = useAuthStore();
-  const { openListDetailModal } = useListDetailModal(); // Using the hook
-  const queryClient = useQueryClient(); // Get query client
-
-  const listId = list?.id; // Handle potentially null list initially
-  
-  const { 
-    isFollowing, 
-    toggleFollowStatus, 
-    isTogglingFollow 
-  } = useFollowStore(state => ({
-    isFollowing: state.isFollowing,
-    toggleFollowStatus: state.toggleFollowStatus,
-    isTogglingFollow: state.isTogglingFollow[listId] || false, // Get specific loading state for this list
-  }));
-  
-  const followStatus = listId ? isFollowing(listId) : false;
+  const { openQuickAdd } = useQuickAdd();
+  const { isAuthenticated } = useAuthStore();
+  const { openListDetailModal } = useListDetailModal();
   const PREVIEW_LIMIT = 3;
-  
-  const isOwnList = useMemo(() => 
-    user && list && (
-      user.id === list.user_id || 
-      Number(user.id) === Number(list.user_id) || 
-      list.creator_username === user.username
-    ), 
-  [user, list]);
-  
-  const handleCardClick = useCallback(() => {
-    if (!listId) return;
-    engagementService.logEngagement({
-      item_id: parseInt(String(listId), 10), item_type: 'list', engagement_type: 'click',
-    });
-    openListDetailModal(listId);
-  }, [listId, openListDetailModal]);
 
-  const handleToggleFollow = async (e) => {
+  // Use the shared list interactions hook
+  const {
+    listId,
+    isOwnList,
+    followStatus,
+    isProcessingFollow,
+    handleListClick,
+    handleToggleFollow
+  } = useListInteractions(list, {
+    onListClick: (id) => openListDetailModal(id)
+  });
+
+  // Use the shared list items hook
+  const {
+    items: itemsToShow,
+    isLoading,
+    error,
+    isExpanded,
+    toggleExpand,
+    hasMoreThanPreview
+  } = useListItems(listId, {
+    previewLimit: PREVIEW_LIMIT
+  });
+
+  // Handler for quick add button
+  const handleQuickAddToListClick = (e) => {
     e.stopPropagation(); // Prevent card click
-    if (!listId || isOwnList || isTogglingFollow || !isAuthenticated) {
-      if (!isAuthenticated) alert('Please log in to follow lists.');
-      return;
-    }
-    try {
-      await toggleFollowStatus(listId);
-      // Optimistic update handles UI. Cache invalidation will ensure eventual consistency.
-      queryClient.invalidateQueries({ queryKey: ['lists', 'following', user?.id] }); // Invalidate user's followed lists
-      queryClient.invalidateQueries({ queryKey: ['listDetails', listId] }); // Invalidate this specific list's details
-    } catch (error) {
-      logError(`[ListPreviewCard] Error toggling follow for list ${listId}:`, error);
-      alert('Failed to update follow status. Please try again.');
-    }
+    if (!listId) return;
+    openQuickAdd({ defaultListId: listId, defaultListName: list?.name });
   };
-
-  // Query for preview items (not expanded)
-  const {
-    data: previewItemsData,
-    isLoading: isLoadingPreview,
-    error: previewError,
-  } = useQuery({
-    queryKey: ['listPreviewItems', listId],
-    queryFn: () => listService.getListItems(listId, { limit: PREVIEW_LIMIT }),
-    enabled: !!listId && !isExpanded, // Only fetch if listId exists and not expanded
-    staleTime: 5 * 60 * 1000,
-    select: (response) => response?.data || [],
-    placeholderData: [],
-  });
-  const previewItems = previewItemsData || [];
-
-
-  // Query for full list items (when expanded)
-  const {
-    data: fullListItemsData,
-    isLoading: isLoadingFullList,
-    error: fullListError,
-  } = useQuery({
-    queryKey: ['listFullItems', listId, 'expanded'], // More specific key
-    queryFn: () => listService.getListItems(listId, { limit: 50 }), // Fetch more when expanded
-    enabled: !!listId && isExpanded, // Only fetch if listId exists and expanded
-    staleTime: 2 * 60 * 1000,
-    select: (response) => response?.data || [],
-    placeholderData: [],
-  });
-  const expandedItems = fullListItemsData || [];
-
-  const toggleExpand = useCallback((e) => {
-    e.stopPropagation(); // Prevent card click
-    setIsExpanded(prev => !prev);
-    engagementService.logEngagement({
-      item_id: parseInt(String(listId), 10), item_type: 'list', 
-      engagement_type: !isExpanded ? 'expand_preview' : 'collapse_preview',
-    });
-  }, [listId, isExpanded]);
-
-  const handleQuickAddToListClick = useCallback((e) => {
-    e.stopPropagation(); // Prevent card click
-    if (!listId) return;
-    openQuickAddModal({ defaultListId: listId, defaultListName: list.name });
-  }, [listId, list?.name, openQuickAddModal]);
 
   // This is the CRITICAL part for display consistency:
   // Always use list.item_count from the prop for the main display.
   // The backend and cache invalidation are responsible for this prop being up-to-date.
   const displayedItemCount = list?.item_count ?? 0;
-  const itemsToShowInPreview = isExpanded ? expandedItems : previewItems;
-  const canShowMore = !isExpanded && displayedItemCount > PREVIEW_LIMIT;
   
   if (!list) {
     // Optional: Render a skeleton or a placeholder if list is null
@@ -153,7 +82,7 @@ function ListPreviewCard({ list, className = '' }) {
 
   return (
     <BaseCard
-      onClick={handleCardClick}
+      onClick={handleListClick}
       className={`flex flex-col bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow duration-200 rounded-xl overflow-hidden ${className}`}
       aria-label={`View details for list: ${list.name}`}
     >
@@ -170,7 +99,7 @@ function ListPreviewCard({ list, className = '' }) {
               onClick={handleToggleFollow}
               className={`flex-shrink-0 rounded-full p-1.5 ${followStatus ? 'bg-primary-500 text-white hover:bg-primary-600' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
               title={followStatus ? 'Unfollow list' : 'Follow list'}
-              isLoading={isTogglingFollow}
+              isLoading={isProcessingFollow}
               aria-pressed={followStatus}
             >
               <Star size={14} className={followStatus ? 'fill-current' : ''} />
@@ -190,19 +119,17 @@ function ListPreviewCard({ list, className = '' }) {
 
       {/* Items Preview/Expanded Section */}
       <div className="px-4 py-3 flex-grow min-h-[80px]"> {/* Ensure minimum height */}
-        {isExpanded && isLoadingFullList && <div className="flex justify-center items-center h-full"><LoadingSpinner /></div>}
-        {isExpanded && !isLoadingFullList && fullListError && <ErrorMessage message="Could not load items." />}
-        {!isExpanded && isLoadingPreview && <div className="flex justify-center items-center h-full"><LoadingSpinner /></div>}
-        {!isExpanded && !isLoadingPreview && previewError && <ErrorMessage message="Could not load preview." />}
+        {isLoading && <div className="flex justify-center items-center h-full"><LoadingSpinner /></div>}
+        {!isLoading && error && <ErrorMessage message="Could not load items." />}
         
-        {(itemsToShowInPreview.length > 0) ? (
+        {(itemsToShow.length > 0) ? (
           <ul className="space-y-1">
-            {itemsToShowInPreview.map((item) => (
+            {itemsToShow.map((item) => (
               <PreviewListItem key={item.list_item_id || item.id || `item-${Math.random()}`} item={item} />
             ))}
           </ul>
         ) : (
-          !isLoadingPreview && !isLoadingFullList && <p className="text-xs text-gray-400 dark:text-gray-500 italic text-center py-2">This list is currently empty.</p>
+          !isLoading && <p className="text-xs text-gray-400 dark:text-gray-500 italic text-center py-2">This list is currently empty.</p>
         )}
       </div>
 
@@ -220,7 +147,7 @@ function ListPreviewCard({ list, className = '' }) {
               <><ChevronUp size={14} className="mr-1" />Show Less</>
             ) : (
               <>
-                {canShowMore ? `Show All (${displayedItemCount})` : (itemsToShowInPreview.length > 0 ? 'View Items' : 'View List')}
+                {hasMoreThanPreview ? `Show All (${displayedItemCount})` : (itemsToShow.length > 0 ? 'View Items' : 'View List')}
                 <ChevronDown size={14} className="ml-1" />
               </>
             )}
@@ -244,16 +171,15 @@ function ListPreviewCard({ list, className = '' }) {
 
 ListPreviewCard.propTypes = {
   list: PropTypes.shape({
-    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-    name: PropTypes.string.isRequired,
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    name: PropTypes.string,
     description: PropTypes.string,
     updated_at: PropTypes.string,
-    item_count: PropTypes.number, // This is the key prop for item count consistency
+    creator_username: PropTypes.string,
     user_id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-    creator_username: PropTypes.string, // Assuming this might be available
-    is_public: PropTypes.bool,
-  }).isRequired,
-  className: PropTypes.string,
+    item_count: PropTypes.number
+  }),
+  className: PropTypes.string
 };
 
 export default React.memo(ListPreviewCard);

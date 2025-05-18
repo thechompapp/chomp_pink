@@ -1,5 +1,5 @@
 // src/pages/AdminPanel/AdminAnalyticsSummary.jsx
-import React from 'react';
+import React, { useMemo, useCallback, memo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/services/apiClient.js';
 import LoadingSpinner from '@/components/UI/LoadingSpinner.jsx';
@@ -8,6 +8,7 @@ import Button from '@/components/UI/Button.jsx';
 import { BarChart, Store, Utensils, List, Users, Loader2, CheckCircle, XCircle, FileText, PieChart, CheckSquare } from 'lucide-react';
 import useAuthStore from '@/stores/useAuthStore';
 import { useShallow } from 'zustand/react/shallow';
+import useComponentError from '@/hooks/useComponentError';
 
 // --- REMOVED: TypeScript interfaces ---
 
@@ -53,7 +54,69 @@ const fetchUserMetrics = async () => { // REMOVED: : Promise<UserMetrics>
   return response.data ?? { activeUsers: 0, newUsersLastPeriod: 0 };
 };
 
+// Memoized stat card component
+const StatCard = memo(({ label, value, IconComponent }) => {
+  const displayValue = typeof value === 'number' && !isNaN(value) ? value.toLocaleString() : value ?? 'N/A';
+  
+  return (
+    <div className="p-4 bg-white rounded-lg border border-gray-200 shadow-sm text-center transition hover:shadow-md">
+      <div className="flex justify-center items-center text-gray-500 mb-2">
+        {IconComponent && <IconComponent size={18} className="mr-2 flex-shrink-0" />}
+        <p className="text-sm font-medium truncate">{label}</p>
+      </div>
+      <p className="text-2xl font-bold text-[#A78B71]">{displayValue}</p>
+    </div>
+  );
+});
+
+StatCard.displayName = 'StatCard';
+
+// Memoized distribution table component
+const DistributionTable = memo(({ title, data = [], keyField, valueField }) => (
+  <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+    <h3 className="text-lg font-semibold mb-4 text-gray-800 border-b pb-2 flex items-center gap-2">
+      <PieChart size={20} className="text-[#A78B71]" />
+      {title}
+    </h3>
+    {data.length === 0 ? (
+      <p className="text-sm text-gray-500 text-center py-4">No data available.</p>
+    ) : (
+      <div className="overflow-x-auto max-h-60">
+        <table className="w-full text-sm text-gray-600 min-w-[250px]">
+          <thead>
+            <tr className="border-b sticky top-0 bg-gray-50">
+              <th className="text-left py-2 px-2 font-medium">{keyField}</th>
+              <th className="text-right py-2 px-2 font-medium">{valueField}</th>
+            </tr>
+          </thead>
+          {/* Ensure no whitespace directly inside tbody */}
+          <tbody>
+            {data.map((item, index) => (
+              <tr
+                key={`${keyField}-${item?.[keyField] || index}`} // Safer key access
+                className="border-b last:border-b-0 hover:bg-gray-100"
+              >
+                <td className="py-2 px-2 truncate">{item?.[keyField]}</td>
+                <td className="text-right py-2 px-2">{item?.[valueField]?.toLocaleString() ?? 'N/A'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </div>
+));
+
+DistributionTable.displayName = 'DistributionTable';
+
 const AdminAnalyticsSummary = () => { // Removed : React.FC
+  // Use error handling hook
+  const { handleError } = useComponentError({ 
+    componentName: 'AdminAnalyticsSummary',
+    showToast: true
+  });
+
+  // Extract only what we need from auth store
   const { isAuthenticated, isLoading: authLoading } = useAuthStore(
     useShallow((state) => ({
       isAuthenticated: state.isAuthenticated,
@@ -61,43 +124,93 @@ const AdminAnalyticsSummary = () => { // Removed : React.FC
     }))
   );
 
-  // UseQuery without generics
+  // UseQuery with memoized query keys
   const summaryQuery = useQuery({
     queryKey: ['adminAnalyticsSummary'],
     queryFn: fetchAnalyticsSummary,
     enabled: isAuthenticated && !authLoading,
+    onError: (error) => handleError(error, 'fetchAnalyticsSummary')
   });
 
   const submissionQuery = useQuery({
     queryKey: ['submissionStats'],
     queryFn: fetchSubmissionStats,
     enabled: isAuthenticated && !authLoading,
+    onError: (error) => handleError(error, 'fetchSubmissionStats')
   });
 
   const contentQuery = useQuery({
     queryKey: ['contentDistribution'],
     queryFn: fetchContentDistribution,
     enabled: isAuthenticated && !authLoading,
+    onError: (error) => handleError(error, 'fetchContentDistribution')
   });
 
   const usersQuery = useQuery({
     queryKey: ['userMetrics'],
     queryFn: fetchUserMetrics,
     enabled: isAuthenticated && !authLoading,
+    onError: (error) => handleError(error, 'fetchUserMetrics')
   });
 
-  const isLoadingInitial =
-    summaryQuery.isLoading || submissionQuery.isLoading || contentQuery.isLoading || usersQuery.isLoading || authLoading;
+  // Memoize derived state
+  const loadingAndErrorState = useMemo(() => {
+    const isLoadingInitial = 
+      summaryQuery.isLoading || 
+      submissionQuery.isLoading || 
+      contentQuery.isLoading || 
+      usersQuery.isLoading || 
+      authLoading;
 
-  const queryError = summaryQuery.error || submissionQuery.error || contentQuery.error || usersQuery.error;
-  const isFetching = summaryQuery.isFetching || submissionQuery.isFetching || contentQuery.isFetching || usersQuery.isFetching;
+    const queryError = 
+      summaryQuery.error || 
+      submissionQuery.error || 
+      contentQuery.error || 
+      usersQuery.error;
+      
+    const isFetching = 
+      summaryQuery.isFetching || 
+      submissionQuery.isFetching || 
+      contentQuery.isFetching || 
+      usersQuery.isFetching;
+      
+    return { isLoadingInitial, queryError, isFetching };
+  }, [
+    summaryQuery.isLoading, submissionQuery.isLoading,
+    contentQuery.isLoading, usersQuery.isLoading,
+    summaryQuery.error, submissionQuery.error,
+    contentQuery.error, usersQuery.error,
+    summaryQuery.isFetching, submissionQuery.isFetching,
+    contentQuery.isFetching, usersQuery.isFetching,
+    authLoading
+  ]);
 
-  const refetchAll = () => {
+  // Memoize data objects to prevent unnecessary re-rendering
+  const analyticsData = useMemo(() => {
+    return {
+      summaryData: summaryQuery.data ?? {},
+      submissionStats: submissionQuery.data ?? { pending: 0, approved: 0, rejected: 0 },
+      contentDistribution: contentQuery.data ?? { byCity: [], byCuisine: [] },
+      userMetrics: usersQuery.data ?? { activeUsers: 0, newUsersLastPeriod: 0 }
+    };
+  }, [
+    summaryQuery.data,
+    submissionQuery.data,
+    contentQuery.data,
+    usersQuery.data
+  ]);
+
+  // Memoize the refetch function
+  const refetchAll = useCallback(() => {
     summaryQuery.refetch();
     submissionQuery.refetch();
     contentQuery.refetch();
     usersQuery.refetch();
-  };
+  }, [summaryQuery, submissionQuery, contentQuery, usersQuery]);
+
+  // Destructure once from memoized objects
+  const { isLoadingInitial, queryError, isFetching } = loadingAndErrorState;
+  const { summaryData, submissionStats, contentDistribution, userMetrics } = analyticsData;
 
   if (isLoadingInitial) {
     return <LoadingSpinner message="Loading summary analytics..." />;
@@ -114,60 +227,6 @@ const AdminAnalyticsSummary = () => { // Removed : React.FC
     );
   }
 
-  // Use data with nullish coalescing for safety
-  const summaryData = summaryQuery.data ?? {};
-  const submissionStats = submissionQuery.data ?? { pending: 0, approved: 0, rejected: 0 };
-  const contentDistribution = contentQuery.data ?? { byCity: [], byCuisine: [] };
-  const userMetrics = usersQuery.data ?? { activeUsers: 0, newUsersLastPeriod: 0 };
-
-  const renderStatCard = (label, value, IconComponent) => { // Removed type annotations
-    const displayValue = typeof value === 'number' && !isNaN(value) ? value.toLocaleString() : value ?? 'N/A';
-    return (
-      <div className="p-4 bg-white rounded-lg border border-gray-200 shadow-sm text-center transition hover:shadow-md">
-        <div className="flex justify-center items-center text-gray-500 mb-2">
-          {IconComponent && <IconComponent size={18} className="mr-2 flex-shrink-0" />}
-          <p className="text-sm font-medium truncate">{label}</p>
-        </div>
-        <p className="text-2xl font-bold text-[#A78B71]">{displayValue}</p>
-      </div>
-    );
-  };
-
-  const renderDistributionTable = (title, data = [], keyField, valueField) => ( // Removed type annotations
-    <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-      <h3 className="text-lg font-semibold mb-4 text-gray-800 border-b pb-2 flex items-center gap-2">
-        <PieChart size={20} className="text-[#A78B71]" />
-        {title}
-      </h3>
-      {data.length === 0 ? (
-        <p className="text-sm text-gray-500 text-center py-4">No data available.</p>
-      ) : (
-        <div className="overflow-x-auto max-h-60">
-          <table className="w-full text-sm text-gray-600 min-w-[250px]">
-            <thead>
-              <tr className="border-b sticky top-0 bg-gray-50">
-                <th className="text-left py-2 px-2 font-medium">{keyField}</th>
-                <th className="text-right py-2 px-2 font-medium">{valueField}</th>
-              </tr>
-            </thead>
-            {/* Ensure no whitespace directly inside tbody */}
-            <tbody>
-              {data.map((item, index) => (
-                <tr
-                  key={`${keyField}-${item?.[keyField] || index}`} // Safer key access
-                  className="border-b last:border-b-0 hover:bg-gray-100"
-                >
-                  <td className="py-2 px-2 truncate">{item?.[keyField]}</td>
-                  <td className="text-right py-2 px-2">{item?.[valueField]?.toLocaleString() ?? 'N/A'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-
   return (
     <div className="space-y-6">
       {/* Site Summary Card */}
@@ -176,12 +235,12 @@ const AdminAnalyticsSummary = () => { // Removed : React.FC
           <BarChart size={20} className="text-[#A78B71]" /> Site Summary
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {renderStatCard('Total Restaurants', summaryData.restaurants, Store)}
-          {renderStatCard('Total Dishes', summaryData.dishes, Utensils)}
-          {renderStatCard('Total Lists', summaryData.lists, List)}
-          {renderStatCard('Total Users', summaryData.users, Users)}
-          {renderStatCard('Pending Submissions', summaryData.pendingSubmissions, Loader2)}
-          {renderStatCard('Total Engagements', summaryData.totalEngagements, CheckSquare)}
+          <StatCard label="Total Restaurants" value={summaryData.restaurants} IconComponent={Store} />
+          <StatCard label="Total Dishes" value={summaryData.dishes} IconComponent={Utensils} />
+          <StatCard label="Total Lists" value={summaryData.lists} IconComponent={List} />
+          <StatCard label="Total Users" value={summaryData.users} IconComponent={Users} />
+          <StatCard label="Pending Submissions" value={summaryData.pendingSubmissions} IconComponent={Loader2} />
+          <StatCard label="Total Engagements" value={summaryData.totalEngagements} IconComponent={CheckSquare} />
         </div>
       </div>
 
@@ -191,16 +250,26 @@ const AdminAnalyticsSummary = () => { // Removed : React.FC
           <FileText size={20} className="text-[#A78B71]" /> Submission Stats
         </h3>
         <div className="grid grid-cols-3 gap-4">
-          {renderStatCard('Pending', submissionStats.pending, Loader2)}
-          {renderStatCard('Approved', submissionStats.approved, CheckCircle)}
-          {renderStatCard('Rejected', submissionStats.rejected, XCircle)}
+          <StatCard label="Pending" value={submissionStats.pending} IconComponent={Loader2} />
+          <StatCard label="Approved" value={submissionStats.approved} IconComponent={CheckCircle} />
+          <StatCard label="Rejected" value={submissionStats.rejected} IconComponent={XCircle} />
         </div>
       </div>
 
       {/* Content Distribution Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {renderDistributionTable('Top Restaurants by City', contentDistribution.byCity, 'city', 'count')}
-        {renderDistributionTable('Top Restaurants by Cuisine', contentDistribution.byCuisine, 'cuisine', 'count')}
+        <DistributionTable 
+          title="Top Restaurants by City" 
+          data={contentDistribution.byCity} 
+          keyField="city" 
+          valueField="count"
+        />
+        <DistributionTable 
+          title="Top Restaurants by Cuisine" 
+          data={contentDistribution.byCuisine} 
+          keyField="cuisine" 
+          valueField="count"
+        />
       </div>
 
       {/* User Metrics Card */}
@@ -209,12 +278,13 @@ const AdminAnalyticsSummary = () => { // Removed : React.FC
           <Users size={20} className="text-[#A78B71]" /> User Metrics (Last {userMetrics.period || 'Period'})
         </h3>
         <div className="grid grid-cols-2 gap-4">
-          {renderStatCard('Active Users', userMetrics.activeUsers, Users)}
-          {renderStatCard('New Users', userMetrics.newUsersLastPeriod, Users)}
+          <StatCard label="Active Users" value={userMetrics.activeUsers} IconComponent={Users} />
+          <StatCard label="New Users" value={userMetrics.newUsersLastPeriod} IconComponent={Users} />
         </div>
       </div>
     </div>
   );
 };
 
-export default AdminAnalyticsSummary;
+// Export memoized component
+export default memo(AdminAnalyticsSummary);

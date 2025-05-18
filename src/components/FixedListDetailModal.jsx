@@ -82,7 +82,7 @@ export default function FixedListDetailModal({ listId, isOpen, onClose }) {
         for (const op of operationsToProcess) {
           try {
             if (op.type === 'follow' && op.listIdToToggle) { 
-              await toggleFollowStatus(op.listIdToToggle);
+              await toggleFollowStatus(op.listIdToToggle, listService.toggleFollowList);
             }
             // Add other operation types here if needed
           } catch (err) {
@@ -178,7 +178,7 @@ export default function FixedListDetailModal({ listId, isOpen, onClose }) {
       // Consider optimistic UI update here if useFollowStore doesn't handle it for offline
     } else {
       try {
-        await toggleFollowStatus(listId); 
+        await toggleFollowStatus(listId, listService.toggleFollowList); 
         logInfo(`[FixedListDetailModal] Successfully toggled follow for list ${listId}.`);
         // UI should update based on useFollowStore's optimistic update or cache invalidation
       } catch (err) {

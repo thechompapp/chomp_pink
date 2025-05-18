@@ -302,3 +302,240 @@ export const formatNeighborhood = (neighborhoodRow) => {
       return null;
   }
 };
+
+/**
+ * Data formatting utilities for consistent display across the application
+ */
+
+/**
+ * Format a number with k/m/b suffixes for larger values
+ * 
+ * @param {number} num - Number to format
+ * @param {boolean} [forcePrefix=false] - Whether to force show + prefix for positive numbers
+ * @returns {string} Formatted number
+ */
+export function formatNumber(num, forcePrefix = false) {
+  if (num === null || num === undefined || isNaN(num)) {
+    return '0';
+  }
+  
+  // Convert to number if it's a string
+  const value = typeof num === 'string' ? parseInt(num, 10) : num;
+  
+  // Handle negative numbers
+  const isNegative = value < 0;
+  const absValue = Math.abs(value);
+  
+  let result = '';
+  
+  // Format with suffixes
+  if (absValue >= 1000000000) {
+    result = (absValue / 1000000000).toFixed(1).replace(/\.0$/, '') + 'b';
+  } else if (absValue >= 1000000) {
+    result = (absValue / 1000000).toFixed(1).replace(/\.0$/, '') + 'm';
+  } else if (absValue >= 1000) {
+    result = (absValue / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+  } else {
+    result = absValue.toString();
+  }
+  
+  // Add prefix if needed
+  if (isNegative) {
+    return '-' + result;
+  } else if (forcePrefix) {
+    return '+' + result;
+  }
+  
+  return result;
+}
+
+/**
+ * Format a date relative to now (e.g., "2d ago", "just now")
+ * 
+ * @param {string|Date} date - Date to format
+ * @param {Object} options - Formatting options
+ * @param {boolean} options.includeTime - Whether to include the time
+ * @returns {string} Formatted date
+ */
+export function formatRelativeDate(date, { includeTime = false } = {}) {
+  if (!date) return '';
+  
+  const now = new Date();
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  
+  // If invalid date
+  if (isNaN(dateObj.getTime())) {
+    return '';
+  }
+  
+  const diff = Math.floor((now - dateObj) / 1000); // difference in seconds
+  
+  // Just now
+  if (diff < 60) {
+    return 'just now';
+  }
+  
+  // Minutes ago
+  if (diff < 3600) {
+    const minutes = Math.floor(diff / 60);
+    return `${minutes}m ago`;
+  }
+  
+  // Hours ago
+  if (diff < 86400) {
+    const hours = Math.floor(diff / 3600);
+    return `${hours}h ago`;
+  }
+  
+  // Days ago - for up to 6 days
+  if (diff < 518400) { // 6 days
+    const days = Math.floor(diff / 86400);
+    return `${days}d ago`;
+  }
+  
+  // For older dates, return the formatted date
+  const options = { 
+    year: 'numeric', 
+    month: 'short', 
+    day: 'numeric'
+  };
+  
+  if (includeTime) {
+    options.hour = '2-digit';
+    options.minute = '2-digit';
+  }
+  
+  return dateObj.toLocaleDateString('en-US', options);
+}
+
+/**
+ * Format a username/handle with @ prefix
+ * 
+ * @param {string} username - Username to format
+ * @returns {string} Formatted username
+ */
+export function formatUsername(username) {
+  if (!username) return '';
+  
+  // Ensure the username starts with @
+  return username.startsWith('@') ? username : `@${username}`;
+}
+
+/**
+ * Format a user's display name and username together
+ * 
+ * @param {Object} user - User object
+ * @param {string} user.name - Display name
+ * @param {string} user.username - Username
+ * @returns {string} Formatted user identification
+ */
+export function formatUserIdentity(user) {
+  if (!user) return '';
+  
+  const name = user.name || user.display_name || '';
+  const username = user.username || user.handle || '';
+  
+  if (name && username) {
+    return `${name} (${formatUsername(username)})`;
+  } else if (name) {
+    return name;
+  } else if (username) {
+    return formatUsername(username);
+  }
+  
+  return 'Anonymous User';
+}
+
+/**
+ * Truncate a string if it exceeds max length
+ * 
+ * @param {string} str - String to truncate
+ * @param {number} maxLength - Maximum allowed length
+ * @param {string} suffix - Suffix to add when truncated (default: '...')
+ * @returns {string} Truncated string
+ */
+export function truncateString(str, maxLength, suffix = '...') {
+  if (!str || str.length <= maxLength) {
+    return str || '';
+  }
+  
+  return str.substring(0, maxLength) + suffix;
+}
+
+/**
+ * Format text with linebreaks and links
+ * 
+ * @param {string} text - Text to format
+ * @returns {Array} Array of formatted text segments and link objects
+ */
+export function formatTextWithLinks(text) {
+  if (!text) return [];
+  
+  // Regular expression for URLs
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  
+  // Split by URLs
+  const parts = text.split(urlRegex);
+  
+  // Process each part
+  return parts.map((part, index) => {
+    // Check if this part is a URL
+    if (urlRegex.test(part)) {
+      return {
+        type: 'link',
+        url: part,
+        text: part,
+        key: `link-${index}`
+      };
+    }
+    
+    // Regular text with line breaks preserved
+    return {
+      type: 'text',
+      text: part,
+      key: `text-${index}`
+    };
+  });
+}
+
+/**
+ * Pluralize a word based on count
+ * 
+ * @param {number} count - Count to determine plurality
+ * @param {string} singular - Singular form of the word
+ * @param {string} plural - Plural form of the word
+ * @returns {string} Properly pluralized word
+ */
+export function pluralize(count, singular, plural) {
+  return count === 1 ? singular : plural;
+}
+
+/**
+ * Format a count with the appropriate plural form
+ * 
+ * @param {number} count - Count of items
+ * @param {string} singular - Singular form of the noun
+ * @param {string} plural - Plural form of the noun
+ * @returns {string} Formatted count with noun
+ */
+export function formatCount(count, singular, plural) {
+  return `${formatNumber(count)} ${pluralize(count, singular, plural)}`;
+}
+
+/**
+ * Get initials from a name (up to 2 characters)
+ * 
+ * @param {string} name - Name to get initials from
+ * @returns {string} Initials (1-2 characters)
+ */
+export function getInitials(name) {
+  if (!name) return '';
+  
+  const parts = name.trim().split(/\s+/);
+  
+  if (parts.length === 1) {
+    return parts[0].charAt(0).toUpperCase();
+  }
+  
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+}

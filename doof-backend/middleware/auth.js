@@ -9,14 +9,29 @@ export const requireAuth = async (req, res, next) => {
   // Check for development bypass headers
   const bypassAuth = req.headers['x-bypass-auth'] === 'true';
   const isPlacesApiRequest = req.headers['x-places-api-request'] === 'true';
-  const isAdminRoute = req.path.startsWith('/admin/');
-  
+  const isAdminRoute = req.path.startsWith('/admin');
+  const adminApiKey = req.headers['x-admin-api-key'];
+  const configuredAdminKey = process.env.ADMIN_API_KEY;
+
   // Check if we're running in development mode
   const isDevMode = process.env.NODE_ENV === 'development';
   const isLocalhost = req.headers.host?.includes('localhost') || req.headers.host?.includes('127.0.0.1');
   
-  // Allow bypass in development mode or for Places API requests with the right headers
-  if (isDevMode && isLocalhost && (bypassAuth || isPlacesApiRequest || isAdminRoute)) {
+  // If admin API key is provided and matches our configured key, allow access
+  if (adminApiKey && configuredAdminKey && adminApiKey === configuredAdminKey) {
+    console.log(`[Auth Middleware] Access granted via admin API key for ${req.path}`);
+    // Set a default admin user for development
+    req.user = {
+      id: 1,
+      username: 'admin',
+      email: 'admin@example.com',
+      account_type: 'superuser'
+    };
+    return next();
+  }
+
+  // Allow bypass in development mode with the right headers
+  if (isDevMode && isLocalhost && (bypassAuth || isPlacesApiRequest)) {
     console.log(`[Auth Middleware] Bypassing authentication for ${req.path} in development mode on localhost`);
     // Set a default admin user for development
     req.user = {
@@ -26,6 +41,20 @@ export const requireAuth = async (req, res, next) => {
       account_type: 'superuser'
     };
     return next();
+  }
+  
+  // Special handling for Places API requests
+  if (isPlacesApiRequest) {
+    console.log(`[Auth Middleware] Places API request detected for ${req.path}, checking authentication`);
+    // If we have a token, proceed with normal auth
+    // If not, we'll return a specific error for Places API to help debugging
+    if (!authHeader && (!req.cookies || !req.cookies.token)) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Authentication required for Places API access.', 
+        error: 'places_api_auth_required'
+      });
+    }
   }
   
   const authHeader = req.headers.authorization;
@@ -71,6 +100,22 @@ export const requireAuth = async (req, res, next) => {
 };
 
 export const requireSuperuser = (req, res, next) => {
+  // Handle development mode overrides
+  const isSuperuserOverride = req.headers['x-superuser-override'] === 'true';
+  const isDevMode = process.env.NODE_ENV === 'development';
+  const isLocalhost = req.headers.host?.includes('localhost') || req.headers.host?.includes('127.0.0.1');
+  
+  // Special check for admin API key
+  const adminApiKey = req.headers['x-admin-api-key'];
+  const configuredAdminKey = process.env.ADMIN_API_KEY;
+  const hasValidAdminKey = adminApiKey && configuredAdminKey && adminApiKey === configuredAdminKey;
+  
+  // If running in development mode and has override headers, permit access
+  if ((isDevMode && isLocalhost && isSuperuserOverride) || hasValidAdminKey) {
+    return next();
+  }
+  
+  // Standard superuser check
   if (!req.user || req.user.account_type !== 'superuser') {
     return res.status(403).json({ success: false, message: 'Access denied: Superuser privileges required.' });
   }
@@ -176,6 +221,24 @@ export const generateRefreshToken = async (userId) => {
 };
 
 export const optionalAuth = async (req, res, next) => {
+    // Development mode bypass check
+    const isDevMode = process.env.NODE_ENV === 'development';
+    const isLocalhost = req.headers.host?.includes('localhost') || req.headers.host?.includes('127.0.0.1');
+    const hasBypassHeader = req.headers['x-bypass-auth'] === 'true';
+  
+    // Allow access in development mode with bypass headers
+    if (isDevMode && isLocalhost && hasBypassHeader) {
+        console.log(`[OptionalAuth Middleware] Development mode bypass for ${req.path}`);
+        // Set a mock superuser
+        req.user = {
+            id: 1,
+            username: 'admin',
+            email: 'admin@example.com',
+            account_type: 'superuser'
+        };
+        return next();
+    }
+
     const authHeader = req.headers.authorization;
     let token;
 
@@ -191,22 +254,31 @@ export const optionalAuth = async (req, res, next) => {
 
     try {
         if (!config.jwtSecret) {
-            console.warn('[optionalAuth] JWT_SECRET is not configured. Proceeding without authentication.');
+            console.error('[optionalAuth] JWT_SECRET is not configured!');
             return next();
         }
-        const decoded = jwt.verify(token, config.jwtSecret);
-        const user = await UserModel.findUserById(decoded.user.id);
 
-        if (user) {
-            req.user = {
-                id: user.id,
-                username: user.username,
-                email: user.email,
-                account_type: user.account_type || 'user'
-            };
+        const decoded = jwt.verify(token, config.jwtSecret);
+        
+        // Fetch user from database
+        const user = await UserModel.findUserById(decoded.user.id);
+        
+        if (!user) {
+            return next();
         }
+        
+        // Set user object on request
+        req.user = {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            account_type: user.account_type || 'user'
+        };
+        
+        next();
     } catch (error) {
-        console.warn('[Optional Auth Middleware] Token present but invalid:', error.message);
+        // Don't fail on token errors in optional auth
+        console.warn(`[optionalAuth] Token verification failed: ${error.message}`);
+        next();
     }
-    next();
 };
