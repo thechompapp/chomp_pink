@@ -9,7 +9,10 @@ import { DataCleanupModal } from '@/components/DataCleanupModal';
 import { adminService } from '../../services/adminService';
 import { dataCleanupService } from '../../services/dataCleanupService';
 
-// Tab configuration
+/**
+ * Tab configuration for admin panel
+ * @type {Object}
+ */
 const TAB_CONFIG = {
   submissions: { label: 'Submissions', key: 'submissions' },
   restaurants: { label: 'Restaurants', key: 'restaurants' },
@@ -21,99 +24,175 @@ const TAB_CONFIG = {
   restaurant_chains: { label: 'Restaurant Chains', key: 'restaurant_chains' }
 };
 
-// Fetch all admin data from the API
-const fetchAllAdminData = async () => {
-  try {
-    console.log('Fetching admin data...');
+/**
+ * Data processing utilities for admin panel
+ */
+const DataProcessor = {
+  /**
+   * Process the response data consistently for each endpoint
+   * @param {Object|Array} response - API response data
+   * @param {string} endpoint - API endpoint name
+   * @returns {Array} Processed data array
+   */
+  processResponseData: (response, endpoint) => {
+    if (!response) {
+      console.warn(`Empty response for ${endpoint}`);
+      return [];
+    }
     
-    // Log API base URL for debugging
-    console.log('API Client config:', {
-      baseURL: window.apiClient?.defaults?.baseURL || 'Not available'
-    });
+    // Handle array response
+    if (Array.isArray(response)) {
+      return response;
+    }
     
-    // This will be populated with real data from the API
-    const data = {};
+    // Handle { data: [...] } response
+    if (response.data && Array.isArray(response.data)) {
+      return response.data;
+    }
     
-    // Process each endpoint sequentially to avoid race conditions
-    for (const endpoint of Object.keys(TAB_CONFIG)) {
-      console.log(`Starting fetch for ${endpoint} data`);
-      try {
-        // The adminService.getAdminData now properly extracts the data array from the response
-        const response = await adminService.getAdminData(endpoint);
-        console.log(`Raw response for ${endpoint}:`, response);
-        
-        // Handle different response formats - the API returns data in the format:
-        // { success: true, message: string, data: Array }
-        let responseData = [];
-        
-        if (Array.isArray(response)) {
-          // If the service already extracted the array for us
-          responseData = response;
-          console.log(`${endpoint} response is a direct array with ${responseData.length} items`);
-        } else if (response?.data && Array.isArray(response.data)) {
-          // If we still have a nested data property
-          responseData = response.data;
-          console.log(`${endpoint} response has data array with ${responseData.length} items`);
-        } else if (response?.data?.data && Array.isArray(response.data.data)) {
-          // If we have a doubly nested data property
-          responseData = response.data.data;
-          console.log(`${endpoint} response has nested data array with ${responseData.length} items`);
-        } else if (typeof response === 'object' && response !== null) {
-          // Try to extract any array property from the response
-          const arrayProps = Object.keys(response).filter(key => Array.isArray(response[key]));
-          if (arrayProps.length > 0) {
-            responseData = response[arrayProps[0]];
-            console.log(`${endpoint} found array in property: ${arrayProps[0]} with ${responseData.length} items`);
-          } else {
-            // If we can't find an array, log the response structure
-            console.log(`${endpoint} response structure:`, Object.keys(response));
-            if (response.pagination) {
-              console.log(`${endpoint} has pagination:`, response.pagination);
-            }
-          }
-        }
-        
-        console.log(`Successfully processed ${endpoint} data:`, {
-          length: responseData.length,
-          sample: responseData.length > 0 ? responseData[0] : null
-        });
-        
-        // Store the data
-        data[endpoint] = responseData;
-      } catch (error) {
-        console.error(`Error fetching ${endpoint}:`, {
-          message: error.message,
-          response: error.response ? {
-            status: error.response.status,
-            data: error.response.data
-          } : 'No response data',
-          stack: error.stack
-        });
-        data[endpoint] = []; // Use empty array for failed requests
+    // Handle { data: { data: [...] } } response
+    if (response.data?.data && Array.isArray(response.data.data)) {
+      return response.data.data;
+    }
+    
+    // Try to find any array property
+    if (typeof response === 'object' && response !== null) {
+      const arrayProps = Object.keys(response).filter(key => Array.isArray(response[key]));
+      if (arrayProps.length > 0) {
+        return response[arrayProps[0]];
       }
     }
     
-    // Ensure all endpoints have at least an empty array
-    Object.keys(TAB_CONFIG).forEach(key => {
-      if (!data[key]) {
-        console.log(`No data found for ${key}, using empty array`);
-        data[key] = [];
-      } else {
-        console.log(`Data for ${key}:`, {
-          length: data[key].length,
-          sample: data[key].length > 0 ? Object.keys(data[key][0]) : 'empty'
-        });
-      }
-    });
-    
-    console.log('All admin data fetched:', Object.keys(data));
-    return data;
-  } catch (error) {
-    console.error('Error in fetchAllAdminData:', error);
-    throw error; // Propagate the error for proper error handling
+    // Return empty array as fallback
+    console.warn(`Could not extract array data from ${endpoint} response:`, response);
+    return [];
+  },
+
+  /**
+   * Fetch data for a specific endpoint
+   * @param {string} endpoint - API endpoint name
+   * @returns {Promise<Object>} Object containing endpoint name and data
+   */
+  fetchEndpointData: async (endpoint) => {
+    try {
+      console.log(`Fetching data for ${endpoint}`);
+      const response = await adminService.getAdminData(endpoint);
+      const processedData = DataProcessor.processResponseData(response, endpoint);
+      
+      console.log(`Successfully processed ${endpoint} data:`, {
+        length: processedData.length
+      });
+      
+      return { endpoint, data: processedData };
+    } catch (error) {
+      console.error(`Error fetching ${endpoint}:`, {
+        message: error.message,
+        status: error.response?.status
+      });
+      
+      return { endpoint, data: [] };
+    }
+  },
+
+  /**
+   * Fetch all admin data from the API
+   * @returns {Promise<Object>} Object containing data for all endpoints
+   */
+  fetchAllAdminData: async () => {
+    try {
+      console.log('Fetching admin data...');
+      
+      // This will be populated with results from API
+      const data = {};
+      
+      // Get all endpoint names from TAB_CONFIG
+      const endpoints = Object.keys(TAB_CONFIG);
+      
+      // Use Promise.all for parallel requests to improve performance
+      const results = await Promise.all(
+        endpoints.map(endpoint => DataProcessor.fetchEndpointData(endpoint))
+      );
+      
+      // Populate the data object with results
+      results.forEach(({ endpoint, data: endpointData }) => {
+        data[endpoint] = endpointData;
+      });
+      
+      console.log('All admin data fetched:', 
+        Object.entries(data).map(([key, val]) => `${key}: ${val.length}`).join(', '));
+      
+      return data;
+    } catch (error) {
+      console.error('Error in fetchAllAdminData:', error);
+      throw error;
+    }
   }
 };
 
+/**
+ * Data cleanup utilities for admin panel
+ */
+const DataCleanupManager = {
+  /**
+   * Analyze data for cleanup and get changes
+   * @param {string} resourceType - Type of resource to analyze
+   * @returns {Promise<Array>} List of changes
+   */
+  analyzeData: async (resourceType) => {
+    console.log(`[AdminPanel] Calling dataCleanupService.analyzeData(${resourceType})`);
+    
+    try {
+      const changes = await dataCleanupService.analyzeData(resourceType);
+      console.log(`[AdminPanel] Received ${changes.length} cleanup changes for ${resourceType}:`, changes);
+      return changes;
+    } catch (error) {
+      console.error('[AdminPanel] Error analyzing data:', error);
+      throw error;
+    }
+  },
+  
+  /**
+   * Process and approve changes
+   * @param {Array} changes - Changes to approve
+   * @param {string} resourceType - Type of resource being changed
+   * @returns {Promise<Object>} Processing result
+   */
+  approveChanges: async (changes, resourceType) => {
+    console.log(`[AdminPanel] Approving ${changes.length} changes for ${resourceType}`);
+    
+    try {
+      const result = await dataCleanupService.applyChanges(changes, true);
+      console.log('[AdminPanel] Changes approved successfully:', result);
+      return result;
+    } catch (error) {
+      console.error('[AdminPanel] Error approving changes:', error);
+      throw error;
+    }
+  },
+  
+  /**
+   * Process and reject changes
+   * @param {Array} changes - Changes to reject
+   * @param {string} resourceType - Type of resource being changed
+   * @returns {Promise<Object>} Processing result
+   */
+  rejectChanges: async (changes, resourceType) => {
+    console.log(`[AdminPanel] Rejecting ${changes.length} changes for ${resourceType}`);
+    
+    try {
+      const result = await dataCleanupService.applyChanges(changes, false);
+      console.log('[AdminPanel] Changes rejected successfully:', result);
+      return result;
+    } catch (error) {
+      console.error('[AdminPanel] Error rejecting changes:', error);
+      throw error;
+    }
+  }
+};
+
+/**
+ * Main AdminPanel component
+ */
 const AdminPanel = () => {
   const [activeTab, setActiveTab] = useState('submissions');
   const [showFilters, setShowFilters] = useState(false);
@@ -139,22 +218,25 @@ const AdminPanel = () => {
     return isAuthenticated && isSuperuser && token;
   }, [isAuthenticated, isSuperuser, token]);
 
+  /**
+   * Verify authentication status
+   */
+  const verifyAuth = async () => {
+    try {
+      console.log('[AdminPanel] Starting auth verification...');
+      // Always check auth status on mount to ensure state is up-to-date
+      await checkAuthStatus();
+      console.log('[AdminPanel] Auth verification completed successfully');
+    } catch (error) {
+      console.error('[AdminPanel] Auth verification failed:', error);
+    } finally {
+      console.log('[AdminPanel] Auth verification complete, isInitializing set to false');
+      setIsInitializing(false);
+    }
+  };
+  
   // Check auth status on mount
   useEffect(() => {
-    const verifyAuth = async () => {
-      try {
-        console.log('[AdminPanel] Starting auth verification...');
-        // Always check auth status on mount to ensure state is up-to-date
-        await checkAuthStatus();
-        console.log('[AdminPanel] Auth verification completed successfully');
-      } catch (error) {
-        console.error('[AdminPanel] Auth verification failed:', error);
-      } finally {
-        console.log('[AdminPanel] Auth verification complete, isInitializing set to false');
-        setIsInitializing(false);
-      }
-    };
-    
     verifyAuth();
   }, [checkAuthStatus]); // Only depend on checkAuthStatus, not token
 
@@ -175,7 +257,7 @@ const AdminPanel = () => {
     isError
   } = useQuery({
     queryKey: ['adminData', token],
-    queryFn: fetchAllAdminData,
+    queryFn: DataProcessor.fetchAllAdminData,
     enabled: Boolean(isAuthorized), // Ensure this is a boolean value
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchOnWindowFocus: false,
@@ -199,7 +281,7 @@ const AdminPanel = () => {
     }
   });
 
-  // Remove local storage for display changes since we want database persistence
+  // Log display changes for debugging
   useEffect(() => {
     if (Object.keys(displayChanges).length > 0) {
       console.log('[AdminPanel] displayChanges state updated:', displayChanges);
@@ -212,24 +294,14 @@ const AdminPanel = () => {
     }
   }, [displayChanges, activeTab]);
 
-  // Add the toggleDataCleanup function
-  const toggleDataCleanup = async () => {
-    console.log(`[AdminPanel] toggleDataCleanup called, current state: isDataCleanup=${isDataCleanup}, isAnalyzing=${isAnalyzing}`);
-    
-    // If we're turning off data cleanup mode, just toggle the state
-    if (isDataCleanup) {
-      console.log('[AdminPanel] Turning off data cleanup mode');
-      setIsDataCleanup(false);
-      return;
-    }
-    
-    // If we're turning on data cleanup mode, analyze the data and show the modal
-    console.log('[AdminPanel] Turning on data cleanup mode, starting analysis');
+  /**
+   * Analyze data for cleanup and handle results
+   */
+  const analyzeDataForCleanup = async () => {
     setIsAnalyzing(true);
+    
     try {
-      console.log(`[AdminPanel] Calling dataCleanupService.analyzeData(${activeTab})`);
-      const changes = await dataCleanupService.analyzeData(activeTab);
-      console.log(`[AdminPanel] Received ${changes.length} cleanup changes for ${activeTab}:`, changes);
+      const changes = await DataCleanupManager.analyzeData(activeTab);
       
       if (changes.length === 0) {
         console.log('[AdminPanel] No cleanup issues found, setting isDataCleanup=true');
@@ -246,168 +318,87 @@ const AdminPanel = () => {
       console.error('[AdminPanel] Error analyzing data:', error);
       toast.error(`Failed to analyze data: ${error.message || 'Unknown error'}`);
     } finally {
-      console.log('[AdminPanel] Analysis completed, setting isAnalyzing=false');
       setIsAnalyzing(false);
     }
   };
-  
-  // Add handlers for the DataCleanupModal
-  const handleCleanupModalClose = () => {
-    console.log('[AdminPanel] handleCleanupModalClose called');
-    setIsCleanupModalOpen(false);
-    // Set isDataCleanup to true when the modal is closed, so the cleanup mode is active
-    setIsDataCleanup(true);
-    // Only reset changes array if we closed after applying/rejecting changes
-    // This keeps the changes available for the UI to show in cleanup mode
-  };
-  
-  const handleApproveChanges = async (changesToApprove) => {
-    try {
-      // Make sure we're sending the complete change objects
-      console.log(`[AdminPanel] Applying ${changesToApprove.length} changes:`, changesToApprove);
-      
-      // Ensure changesToApprove is an array
-      if (!Array.isArray(changesToApprove)) {
-        console.error('[AdminPanel] changesToApprove is not an array:', changesToApprove);
-        toast.error('Invalid changes data provided');
-        return;
-      }
-      
-      if (changesToApprove.length === 0) {
-        console.warn('[AdminPanel] No changes to apply');
-        toast.info('No changes to apply');
-        return;
-      }
-      
-      // Check for the presence of expected properties in the first item
-      const firstItem = changesToApprove[0];
-      if (!firstItem || !firstItem.changeId || !firstItem.resourceId) {
-        console.error('[AdminPanel] Change items are missing required properties:', firstItem);
-        toast.error('Changes are missing required information');
-        return;
-      }
-      
-      console.log('[AdminPanel] Calling dataCleanupService.applyChanges with:', {
-        activeTab,
-        changesCount: changesToApprove.length,
-        changeIds: changesToApprove.map(change => change.changeId)
-      });
-      
-      const result = await dataCleanupService.applyChanges(activeTab, changesToApprove);
-      console.log('[AdminPanel] Result from applyChanges:', result);
-      
-      if (result.success) {
-        toast.success(`Applied ${changesToApprove.length} changes successfully`);
-        // Add a warning about display-only changes not persisting
-        const displayOnlyChanges = changesToApprove.filter(change => change.displayOnly);
-        if (displayOnlyChanges.length > 0) {
-          toast.custom((t) => (
-            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded text-yellow-700 max-w-md mx-auto mt-2">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <AlertTriangle className="h-5 w-5 text-yellow-400 mt-0.5" aria-hidden="true" />
-                </div>
-                <div className="ml-3 flex-1">
-                  <p className="text-sm font-medium">
-                    Warning: {displayOnlyChanges.length} display-only change(s) will not persist after logout. Contact backend team to enable persistence.
-                  </p>
-                </div>
-              </div>
-            </div>
-          ), { duration: 5000 });
-        }
-        // After applying changes, refetch the data and update the state
-        console.log('[AdminPanel] Refetching data after successful changes');
-        await refetch();
-        
-        // Process all changes for UI update to reflect immediate feedback
-        console.log('[AdminPanel] Full structure of approved changes:', JSON.stringify(changesToApprove, null, 2));
-        // Treat all changes as needing UI update for immediate feedback, though backend should persist them
-        const uiChanges = changesToApprove;
-        console.log('[AdminPanel] Total changes approved:', changesToApprove.length);
-        if (uiChanges.length > 0) {
-          console.log(`[AdminPanel] Updating UI with ${uiChanges.length} changes for immediate feedback`);
-          console.log('[AdminPanel] Note: All changes should be persisted to the database by the backend.');
-          
-          // Process all changes for UI display
-          const newDisplayChanges = { ...displayChanges };
-          
-          uiChanges.forEach(change => {
-            // Store changes by resource ID for UI feedback
-            if (!newDisplayChanges[activeTab]) {
-              newDisplayChanges[activeTab] = {};
-            }
-            
-            if (!newDisplayChanges[activeTab][change.resourceId]) {
-              newDisplayChanges[activeTab][change.resourceId] = {};
-            }
-            
-            // Store the change for UI display
-            newDisplayChanges[activeTab][change.resourceId][change.field] = {
-              type: change.type || 'update',
-              originalValue: change.currentValue,
-              displayValue: change.proposedValue
-            };
-          });
-          
-          console.log('[AdminPanel] Updated display changes state for UI:', newDisplayChanges);
-          console.log(`[AdminPanel] Setting displayChanges for ${activeTab} with ${Object.keys(newDisplayChanges[activeTab]).length} rows`);
-          setDisplayChanges(newDisplayChanges);
-          console.log('[AdminPanel] Confirmation: displayChanges state has been updated with new changes for UI feedback.');
-        } else {
-          console.log('[AdminPanel] No changes found to apply to UI.');
-        }
-        
-        // Close the cleanup modal if all changes were applied
-        if (changesToApprove.length === cleanupChanges.length) {
-          console.log('[AdminPanel] All changes applied, closing modal and staying in cleanup mode');
-          setIsCleanupModalOpen(false);
-          setIsDataCleanup(true); // Ensure cleanup mode stays active
-          
-          // Refresh the cleanup changes to reflect the new state
-          try {
-            console.log('[AdminPanel] Refreshing cleanup changes after applying all changes');
-            const freshChanges = await dataCleanupService.analyzeData(activeTab);
-            setCleanupChanges(freshChanges);
-          } catch (refreshError) {
-            console.error('[AdminPanel] Error refreshing cleanup changes:', refreshError);
-          }
-        }
-      } else {
-        console.error('[AdminPanel] Failed to apply changes:', result);
-        toast.error(result.message || 'Failed to apply changes');
-      }
-    } catch (error) {
-      console.error('[AdminPanel] Error applying changes:', error);
-      toast.error(`Error applying changes: ${error.message || 'Unknown error'}`);
+
+  /**
+   * Toggle data cleanup mode
+   */
+  const toggleDataCleanup = async () => {
+    console.log(`[AdminPanel] Toggling data cleanup mode. Current mode: ${isDataCleanup}`);
+    
+    if (isDataCleanup) {
+      // Turn off data cleanup mode
+      console.log('[AdminPanel] Turning off data cleanup mode');
+      setIsDataCleanup(false);
+      // Clear any display changes
+      setDisplayChanges({});
+    } else {
+      // Turn on data cleanup mode
+      console.log('[AdminPanel] Turning on data cleanup mode, analyzing data');
+      await analyzeDataForCleanup();
     }
   };
-  
-  const handleRejectChanges = async (changesToReject) => {
+
+  /**
+   * Handle cleanup modal close
+   */
+  const handleCleanupModalClose = () => {
+    console.log('[AdminPanel] Closing cleanup modal');
+    setIsCleanupModalOpen(false);
+    // Keep cleanup mode on if modal is just closed
+    setIsDataCleanup(true);
+  };
+
+  /**
+   * Handle approving changes
+   * @param {Array} changesToApprove - Changes to approve
+   */
+  const handleApproveChanges = async (changesToApprove) => {
+    console.log(`[AdminPanel] Approving ${changesToApprove.length} changes`);
+    
     try {
-      console.log(`[AdminPanel] Rejecting ${changesToReject.length} changes:`, changesToReject);
+      // Process changes on server
+      await DataCleanupManager.approveChanges(changesToApprove, activeTab);
       
-      const result = await dataCleanupService.rejectChanges(activeTab, changesToReject);
-      if (result.success) {
-        toast.success(`Rejected ${changesToReject.length} changes`);
-        
-        // For display-only changes, no backend update is needed
-        const displayChanges = changesToReject.filter(change => change.displayOnly);
-        if (displayChanges.length > 0) {
-          console.log(`[AdminPanel] Skipping ${displayChanges.length} display-only changes - no backend update needed`);
-        }
-        
-        // If all changes have been rejected, close the modal
-        if (changesToReject.length === cleanupChanges.length) {
-          setIsCleanupModalOpen(false);
-          setIsDataCleanup(true); // Ensure cleanup mode stays active
-        }
+      // Update UI with success message
+      toast.success(`Approved ${changesToApprove.length} changes`);
+      
+      // Refetch data to get updated values
+      await refetch();
+      
+    } catch (error) {
+      console.error('[AdminPanel] Error approving changes:', error);
+      toast.error(`Failed to approve changes: ${error.message || 'Unknown error'}`);
+    }
+  };
+
+  /**
+   * Handle rejecting changes
+   * @param {Array} changesToReject - Changes to reject
+   */
+  const handleRejectChanges = async (changesToReject) => {
+    console.log(`[AdminPanel] Rejecting ${changesToReject.length} changes`);
+    
+    try {
+      // Process changes on server
+      await DataCleanupManager.rejectChanges(changesToReject, activeTab);
+      
+      // Update UI with success message
+      toast.success(`Rejected ${changesToReject.length} changes`);
+      
+      // If all changes are rejected, no need to refetch data
+      if (changesToReject.length === cleanupChanges.length) {
+        console.log('[AdminPanel] All changes rejected, no refetch needed');
       } else {
-        toast.error(result.message || 'Failed to reject changes');
+        // Refetch data to ensure we have correct state
+        await refetch();
       }
+      
     } catch (error) {
       console.error('[AdminPanel] Error rejecting changes:', error);
-      toast.error(`Error rejecting changes: ${error.message || 'Unknown error'}`);
+      toast.error(`Failed to reject changes: ${error.message || 'Unknown error'}`);
     }
   };
 

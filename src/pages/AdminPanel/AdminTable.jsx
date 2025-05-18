@@ -2,14 +2,15 @@
 /* REFACTORED: Accepts props based on new hook structure from AdminPanel */
 /* FIXED: Pass editingRowIds prop */
 /* FIXED: Pass isEditing function correctly to AdminTableRow */
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback, useMemo } from 'react';
 import AdminTableRow from './AdminTableRow';
 import TableHeader from './TableHeader';
 import AddRow from './AddRow'; // Assuming AddRow component exists
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Edit, Trash2, Check, X, ChevronDown, ChevronUp, Search, RefreshCw } from 'lucide-react';
 import ErrorState from './ErrorState';
 import TableSkeleton from './TableSkeleton';
 import EmptyState from './EmptyState';
+import { cn } from '@/lib/utils';
 
 const AdminTable = ({
     data = [],
@@ -59,6 +60,20 @@ const AdminTable = ({
     onToggleColumn,
     isDataCleanup = false, // Added: Flag for data cleanup mode
     displayChanges = {}, // Added: Display changes for data cleanup
+    addRowEnabled = true,
+    deleteRowEnabled = true,
+    isBulkEditing,
+    onBulkEdit,
+    onCancelBulkEdit,
+    onSaveAllEdits,
+    isSavingAll,
+    isListEditModalOpen,
+    listToEditData,
+    onCloseListEditModal,
+    onSaveListEdit,
+    isSavingList,
+    onOpenListEditModal,
+    showFilters,
 }) => {
 
     // Debug cities data
@@ -78,6 +93,43 @@ const AdminTable = ({
         }
     }, [displayChanges]);
 
+    // Memoize the column configuration to prevent unnecessary recalculations
+    const columnConfig = useMemo(() => {
+        return columns.map(col => ({
+            ...col,
+            isSortable: col.isSortable !== false, // Default to true if not specified
+            sortKey: col.sortKey || col.key,
+            className: cn(
+                col.className,
+                col.width ? `w-${col.width}` : '',
+                col.align === 'right' ? 'text-right' : 
+                col.align === 'center' ? 'text-center' : 'text-left'
+            )
+        }));
+    }, [columns]);
+
+    // Memoize handler for sort column clicks
+    const handleSortColumn = useCallback((column) => {
+        if (!column.isSortable) return;
+        
+        const direction = currentSort?.column === column.sortKey && 
+            currentSort?.direction === 'asc' ? 'desc' : 'asc';
+        
+        onSort(resourceType, column.sortKey, direction);
+    }, [currentSort, onSort, resourceType]);
+
+    // Handle row selection when checkbox is clicked
+    const handleRowCheckboxChange = useCallback((e, rowId) => {
+        e.stopPropagation();
+        onRowSelect(rowId);
+    }, [onRowSelect]);
+
+    // Handle header checkbox for select all
+    const handleSelectAllChange = useCallback((e) => {
+        e.stopPropagation();
+        onSelectAll(!isAllSelected);
+    }, [onSelectAll, isAllSelected]);
+
     if (error) {
         return <ErrorState error={error} onRetry={onRetry} />;
     }
@@ -91,76 +143,146 @@ const AdminTable = ({
     }
 
     return (
-        <div className="overflow-x-auto rounded-lg border border-border shadow-sm">
-            <table className="min-w-full divide-y divide-border">
-                <TableHeader
-                    columns={columns}
-                    currentSortColumn={currentSort?.column}
-                    currentSortDirection={currentSort?.direction}
-                    onSortChange={onSort}
-                    type={resourceType}
-                    isAdding={isAdding}
-                    editingRowIds={editingRowIds}
-                    isAllSelected={isAllSelected}
-                    onSelectAll={onSelectAll}
-                    showSelect={resourceType !== 'submissions'}
-                    visibleColumns={visibleColumns}
-                    onToggleColumn={onToggleColumn}
-                />
-                <tbody className="bg-background divide-y divide-border">
-                    {/* Add New Row UI */}
-                    {isAdding && (
-                        <AddRow
-                            columns={columns}
-                            newRowData={newRowFormData || {}}
-                            setNewRowData={(key, value) => onNewRowDataChange({ [key]: value })}
-                            isSaving={isSavingNew}
-                            setIsSaving={() => {}}
-                            setError={() => {}}
-                            onSave={onSaveNewRow}
-                            type={resourceType}
-                            cities={cities}
-                            neighborhoods={neighborhoods}
-                            setIsAdding={onCancelAdd}
-                        />
-                    )}
-                    {/* Existing Data Rows */}
-                    {data.map((row) => (
-                        <AdminTableRow
-                            key={row.id}
-                            row={row}
-                            columns={columns}
-                            isEditing={isEditing}
-                            editFormData={editFormData || {}}
-                            onStartEdit={onStartEdit}
-                            onCancelEdit={onCancelEdit}
-                            onSaveEdit={onSaveEdit}
-                            onDataChange={onDataChange}
-                            editError={editError}
-                            isSaving={isSaving}
-                            actionState={actionState}
-                            onApprove={onApprove}
-                            onReject={onReject}
-                            onDelete={onDelete}
-                            selectedRows={selectedRows || new Set()}
-                            onRowSelect={onRowSelect}
-                            resourceType={resourceType}
-                            cities={cities}
-                            neighborhoods={neighborhoods}
-                            confirmDeleteInfo={confirmDeleteInfo}
-                            setConfirmDeleteInfo={setConfirmDeleteInfo}
-                            handleDeleteConfirm={handleDeleteConfirm}
-                            editingRowIds={editingRowIds}
-                            isAdding={isAdding}
-                            isBulkEditing={selectedRows?.size > 1 && editingRowIds?.size > 0}
-                            isDataCleanup={isDataCleanup}
-                            displayChanges={displayChanges[row.id] || {}}
-                        />
-                    ))}
-                </tbody>
-            </table>
+        <div className="relative overflow-hidden rounded-lg border bg-background">
+            {/* Table header with search and actions */}
+            <TableHeader
+                resourceType={resourceType}
+                columnsCount={columnConfig.length + 1} // +1 for actions
+                selectedCount={selectedRows?.size || 0}
+                totalCount={data.length}
+                isAllSelected={isAllSelected}
+                onSelectAll={handleSelectAllChange}
+                onBulkEdit={onBulkEdit}
+                isBulkEditing={isBulkEditing}
+                showFilters={showFilters}
+                onSaveAll={onSaveAllEdits}
+                onCancelBulkEdit={onCancelBulkEdit}
+                isSavingAll={isSavingAll}
+                isDataCleanup={isDataCleanup}
+            />
+            
+            {/* Main table */}
+            <div className="overflow-auto max-h-[calc(100vh-210px)]">
+                <table className="w-full border-collapse">
+                    <thead className="bg-muted/50 sticky top-0 z-10">
+                        <tr>
+                            {/* Select all checkbox */}
+                            <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground w-10">
+                                <input
+                                    type="checkbox"
+                                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                                    checked={isAllSelected}
+                                    onChange={handleSelectAllChange}
+                                    disabled={isBulkEditing || isLoading || !data.length}
+                                />
+                            </th>
+                            
+                            {/* Column headers */}
+                            {columnConfig.map((column) => (
+                                <th
+                                    key={column.key}
+                                    className={cn(
+                                        "px-4 py-3 text-left text-xs font-medium text-muted-foreground whitespace-nowrap",
+                                        column.className,
+                                        column.isSortable && "cursor-pointer hover:bg-muted"
+                                    )}
+                                    onClick={() => column.isSortable && handleSortColumn(column)}
+                                >
+                                    <div className="flex items-center space-x-1">
+                                        <span>{column.label}</span>
+                                        {column.isSortable && currentSort?.column === column.sortKey && (
+                                            <span className="inline-flex items-center">
+                                                {currentSort.direction === 'asc' ? (
+                                                    <ChevronUp className="h-4 w-4" />
+                                                ) : (
+                                                    <ChevronDown className="h-4 w-4" />
+                                                )}
+                                            </span>
+                                        )}
+                                    </div>
+                                </th>
+                            ))}
+                            
+                            {/* Actions column */}
+                            <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground w-32">
+                                Actions
+                            </th>
+                        </tr>
+                    </thead>
+                    
+                    <tbody className="divide-y">
+                        {/* New row form */}
+                        {isAdding && (
+                            <AdminTableRow
+                                row={{ id: '__NEW_ROW__' }}
+                                columns={columnConfig}
+                                isEditing={true}
+                                editFormData={newRowFormData}
+                                onDataChange={onNewRowDataChange}
+                                resourceType={resourceType}
+                                isNew={true}
+                            >
+                                <td className="px-4 py-3 text-left text-xs font-medium w-10">
+                                    <span className="text-xs text-muted-foreground">New</span>
+                                </td>
+                                <ActionCell
+                                    isEditing={true}
+                                    isNew={true}
+                                    onSave={onSaveNewRow}
+                                    onCancel={onCancelAdd}
+                                    isSaving={isSavingNew}
+                                />
+                            </AdminTableRow>
+                        )}
+                        
+                        {/* Data rows */}
+                        {data.map((row) => (
+                            <AdminTableRow
+                                key={row.id || `row-${row._tempId || Math.random()}`}
+                                row={row}
+                                columns={columnConfig}
+                                isEditing={isEditing(row.id)}
+                                editFormData={editFormData?.[row.id]}
+                                onDataChange={(changes) => onDataChange(row.id, changes)}
+                                resourceType={resourceType}
+                                isNew={false}
+                                isSelected={selectedRows?.has(row.id)}
+                            >
+                                {/* Selection checkbox */}
+                                <td className="px-4 py-3 text-left text-xs font-medium w-10">
+                                    <input
+                                        type="checkbox"
+                                        className="rounded border-gray-300 text-primary focus:ring-primary"
+                                        checked={selectedRows?.has(row.id) || false}
+                                        onChange={(e) => handleRowCheckboxChange(e, row.id)}
+                                        disabled={isBulkEditing || isEditing(row.id)}
+                                    />
+                                </td>
+                                
+                                {/* Actions */}
+                                <ActionCell
+                                    rowId={row.id}
+                                    isEditing={isEditing(row.id)}
+                                    onEdit={() => onStartEdit(row)}
+                                    onSave={() => onSaveEdit(row.id)}
+                                    onCancel={() => onCancelEdit(row.id)}
+                                    onDelete={() => onDelete(row.id)}
+                                    onApprove={() => onApprove(row.id)}
+                                    onReject={() => onReject(row.id)}
+                                    onOpenListModal={() => onOpenListEditModal(row)}
+                                    actionState={actionState?.[row.id]}
+                                    isDataCleanup={isDataCleanup}
+                                    deleteEnabled={deleteRowEnabled}
+                                    resourceType={resourceType}
+                                    isSaving={isSaving}
+                                />
+                            </AdminTableRow>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
         </div>
     );
 };
 
-export default AdminTable;
+export default React.memo(AdminTable);

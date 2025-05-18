@@ -1,5 +1,5 @@
 /* src/App.jsx */
-import React, { Suspense, lazy, useEffect, useState } from 'react'; // Added useState
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { QuickAddProvider } from '@/context/QuickAddContext';
@@ -17,8 +17,18 @@ import useAuthStore from '@/stores/useAuthStore';
 import useUserListStore from '@/stores/useUserListStore'; // Ensure this is used or remove
 import { logError, logInfo, logDebug } from '@/utils/logger';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import httpInterceptor from '@/services/httpInterceptor';
 
-// Enhanced lazy loading with error handling
+// Authentication constants
+const AUTH_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
+const AUTH_CHECK_TIMEOUT = 3000; // 3 seconds
+
+/**
+ * Enhanced lazy loading with error handling
+ * @param {Function} importFn - Import function to lazily load a component
+ * @param {string} name - Component name for logging purposes
+ * @returns {React.LazyExoticComponent} Lazy loaded component
+ */
 const enhancedLazy = (importFn, name) => {
   return lazy(() => {
     logInfo(`[App] Starting lazy load for ${name}`);
@@ -48,87 +58,165 @@ const NewList = enhancedLazy(() => import('./pages/Lists/NewList'), 'NewList');
 const MySubmissions = enhancedLazy(() => import('./pages/MySubmissions'), 'MySubmissions');
 import AdminPanel from './pages/AdminPanel'; // Direct import for AdminPanel
 
-// Query Client setup
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 5 * 60 * 1000, 
-      retry: 1,
+/**
+ * Create and configure query client with default options
+ * @returns {QueryClient} Configured query client
+ */
+const createQueryClient = () => {
+  return new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 5 * 60 * 1000, 
+        retry: 1,
+      },
     },
-  },
-});
+  });
+};
 
+// Initialize query client
+const queryClient = createQueryClient();
+
+/**
+ * App component - main application container
+ */
 function App() {
   const { checkAuthStatus, isAuthenticated, user } = useAuthStore();
-  const [quickAddItem, setQuickAddItem] = useState(null); // Changed from React.useState
-  const [isModalOpen, setIsModalOpen] = useState(false); // Changed from React.useState
-  
-  // User list store (ensure it's used if imported)
-  // const fetchUserLists = useUserListStore(state => state.fetchUserLists);
-  // const userLists = useUserListStore(state => state.userLists);
-  // const isLoadingLists = useUserListStore(state => state.isLoading);
+  const [quickAddItem, setQuickAddItem] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
+  /**
+   * Handle opening the quick add modal
+   * @param {Object} item - Item to add
+   */
   const handleOpenQuickAdd = (item) => {
     setQuickAddItem(item);
     setIsModalOpen(true);
-    // if (isAuthenticated && user) {
-    //   logDebug('[App] Fetching user lists for quick add modal');
-    //   fetchUserLists({ createdByUser: true }, queryClient); // Example usage
-    // }
   };
 
+  /**
+   * Handle closing the quick add modal
+   */
   const handleCloseQuickAdd = () => {
     setIsModalOpen(false);
     setQuickAddItem(null);
   };
 
-  useEffect(() => {
-    let authInitialized = false;
-    const initializeAuth = async () => {
-      if (authInitialized) return;
-      authInitialized = true; // Set immediately to prevent multiple runs
-
-      const shouldForceCheck = !user; // Only force if no user in store
-      
-      try {
-        if (process.env.NODE_ENV === 'development' && localStorage.getItem('bypass_auth_check') === 'true') {
-          logDebug('[App] Auth bypass enabled, skipping auth check');
-          return;
-        }
-        
-        const authPromise = checkAuthStatus(shouldForceCheck);
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Auth check timed out')), 3000)
-        );
-        
-        await Promise.race([authPromise, timeoutPromise]);
-        logDebug('[App] Initial auth check completed.');
-
-      } catch (error) {
-        const errorInfo = {
-          message: error?.message || 'Unknown authentication error',
-          name: error?.name || 'Error',
-        };
-        logError('[App] Error during initial authentication check:', errorInfo);
-        if (process.env.NODE_ENV === 'development') {
-          localStorage.setItem('bypass_auth_check', 'true');
-          logDebug('[App] Enabled auth bypass due to initial auth errors.');
-        }
+  /**
+   * Initialize authentication by checking status
+   * @param {boolean} shouldForceCheck - Whether to force an auth check
+   * @returns {Promise<void>}
+   */
+  const initializeAuthentication = async (shouldForceCheck) => {
+    try {
+      if (process.env.NODE_ENV === 'development' && localStorage.getItem('bypass_auth_check') === 'true') {
+        logDebug('[App] Auth bypass enabled, skipping auth check');
+        return;
       }
-    };
-    initializeAuth();
+      
+      const authPromise = checkAuthStatus(shouldForceCheck);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Auth check timed out')), AUTH_CHECK_TIMEOUT)
+      );
+      
+      await Promise.race([authPromise, timeoutPromise]);
+      logDebug('[App] Initial auth check completed.');
+    } catch (error) {
+      const errorInfo = {
+        message: error?.message || 'Unknown authentication error',
+        name: error?.name || 'Error',
+      };
+      logError('[App] Error during initial authentication check:', errorInfo);
+      
+      if (process.env.NODE_ENV === 'development') {
+        localStorage.setItem('bypass_auth_check', 'true');
+        logDebug('[App] Enabled auth bypass due to initial auth errors.');
+      }
+    }
+  };
 
-    const authCheckInterval = setInterval(() => {
+  /**
+   * Setup periodic authentication check
+   * @returns {number} Interval ID for cleanup
+   */
+  const setupPeriodicAuthCheck = () => {
+    return setInterval(() => {
       if (useAuthStore.getState().isAuthenticated) { // Get fresh state
         logDebug('[App] Running scheduled auth check');
         checkAuthStatus(false).catch(err => 
           logError('[App] Scheduled auth check failed:', { message: err.message })
         );
       }
-    }, 5 * 60 * 1000); 
+    }, AUTH_CHECK_INTERVAL);
+  };
+
+  /**
+   * Initialize authentication and setup periodic auth checks
+   */
+  useEffect(() => {
+    let authInitialized = false;
+    
+    const initAuth = async () => {
+      if (authInitialized) return;
+      authInitialized = true; // Set immediately to prevent multiple runs
+
+      const shouldForceCheck = !user; // Only force if no user in store
+      await initializeAuthentication(shouldForceCheck);
+    };
+    
+    // Initialize auth and setup periodic check
+    initAuth();
+    const authCheckInterval = setupPeriodicAuthCheck();
     
     return () => clearInterval(authCheckInterval);
-  }, [checkAuthStatus, user]); // Added user to dependency array
+  }, [checkAuthStatus, user]);
+
+  // Initialize global HTTP interceptors
+  useEffect(() => {
+    // Setup global HTTP defaults and interceptors
+    httpInterceptor.setupGlobalDefaults();
+    
+    return () => {
+      // Any cleanup needed for interceptors
+      // (most cleanup is handled internally by the interceptor module)
+    };
+  }, []);
+
+  /**
+   * Render application routes
+   * @returns {JSX.Element} Routes component with all application routes
+   */
+  const renderRoutes = () => (
+    <Routes>
+      {/* Public routes */}
+      <Route path="/" element={<Home />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/trending/:type" element={<Trending />} />
+      <Route path="/search" element={<Search />} />
+      <Route path="/restaurants/:id" element={<RestaurantDetail />} />
+      <Route path="/dishes/:id" element={<DishDetail />} />
+      <Route path="/test-quickadd" element={<TestQuickAdd />} />
+      <Route path="/lists" element={<Lists />} />
+      
+      {/* Public list routes */}
+      <Route path="/lists/mylists" element={<MyLists />} />
+      <Route path="/lists/new" element={<NewList />} />
+      <Route path="/lists/:listId" element={<ListDetail />} />
+      
+      {/* User-specific routes */}
+      <Route path="/my-submissions" element={<MySubmissions />} />
+      
+      {/* Admin routes (protected) */}
+      <Route 
+        path="/admin" 
+        element={<ProtectedRoute requireSuperuser><AdminPanel /></ProtectedRoute>} 
+      />
+      <Route 
+        path="/bulk-add" 
+        element={<ProtectedRoute requireSuperuser><BulkAddPage /></ProtectedRoute>} 
+      />
+    </Routes>
+  );
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -141,35 +229,18 @@ function App() {
                   <Navbar />
                   <main className="flex-grow pt-16"> {/* Adjust pt if navbar height changes */}
                     <Suspense fallback={<EnhancedLoadingFallback componentName="Page" />}>
-                      <Routes>
-                        <Route path="/" element={<Home />} />
-                        <Route path="/login" element={<Login />} />
-                        <Route path="/register" element={<Register />} />
-                        <Route path="/trending/:type" element={<Trending />} />
-                        <Route path="/search" element={<Search />} />
-                        <Route path="/restaurants/:id" element={<RestaurantDetail />} />
-                        <Route path="/dishes/:id" element={<DishDetail />} />
-                        <Route path="/test-quickadd" element={<TestQuickAdd />} />
-                        <Route path="/lists" element={<Lists />} />
-                        <Route path="/lists/mylists" element={<MyLists />} />
-                        <Route path="/lists/new" element={<NewList />} />
-                        <Route path="/lists/:listId" element={<ListDetail />} />
-                        <Route path="/my-submissions" element={<MySubmissions />} />
-                        <Route path="/admin" element={<ProtectedRoute requireSuperuser><AdminPanel /></ProtectedRoute>} />
-                        <Route path="/bulk-add" element={<ProtectedRoute requireSuperuser><BulkAddPage /></ProtectedRoute>} />
-                      </Routes>
+                      {renderRoutes()}
                     </Suspense>
                   </main>
                   <FloatingQuickAdd />
                   <AddToListModal
                     isOpen={isModalOpen}
                     onClose={handleCloseQuickAdd}
-                    itemToAdd={quickAddItem} // Corrected prop name from item to itemToAdd
+                    itemToAdd={quickAddItem}
                   />
-                  {/* Diagnostic components - consider removing or conditionally rendering for production */}
                   {process.env.NODE_ENV === 'development' && (
                     <>
-                      {/* ListDataStatus component removed */}
+                      {/* Development-only components can be added here if needed */}
                     </>
                   )}
                   <DevModeToggle />

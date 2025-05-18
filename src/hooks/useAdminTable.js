@@ -1,5 +1,5 @@
 // src/hooks/useAdminTable.js
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { adminService } from '../services/adminService';
 import { logDebug, logError } from '../utils/logger';
 
@@ -21,29 +21,32 @@ export const useAdminTable = (tabKey, data, onRefetch) => {
   // State for related data (e.g., restaurant names for dishes)
   const [relatedData, setRelatedData] = useState({});
 
-  // Define relationship configurations
+  // Define relationship configurations - memoized
   const relationshipConfigs = useMemo(() => ({
     dishes: {
       fields: ['restaurant_id', 'restaurant'],
       directField: 'restaurant_name',
       mapKey: 'restaurants',
-      invalidValue: 'Unknown Restaurant'
+      invalidValue: 'Unknown Restaurant',
+      resource: 'restaurants'
     },
     restaurants: {
       fields: ['neighborhood_id', 'neighborhood'],
       directField: 'neighborhood_name',
       mapKey: 'neighborhoods',
-      invalidValue: 'Unknown Neighborhood'
+      invalidValue: 'Unknown Neighborhood',
+      resource: 'neighborhoods'
     },
     neighborhoods: {
       fields: ['city_id', 'city'],
       directField: 'city_name',
       mapKey: 'cities',
-      invalidValue: 'Unknown City'
+      invalidValue: 'Unknown City',
+      resource: 'cities'
     }
   }), []);
 
-  // Define column configurations
+  // Define column configurations - memoized
   const columnConfigurations = useMemo(() => ({
     dishes: ['restaurant_id', 'price', 'description'],
     restaurants: ['neighborhood_id', 'address', 'website', 'phone'],
@@ -55,27 +58,25 @@ export const useAdminTable = (tabKey, data, onRefetch) => {
   // Common columns that appear in all tables
   const commonColumns = useMemo(() => ['id', 'name', 'created_at', 'updated_at'], []);
   
-  // Determine which columns to show based on tabKey
+  // Determine which columns to show based on tabKey - memoized
   const columns = useMemo(() => {
     const specificColumns = columnConfigurations[tabKey] || [];
     return [...specificColumns, ...commonColumns];
   }, [tabKey, columnConfigurations, commonColumns]);
 
-  // Helper function to create ID-to-name mapping
-  const createEntityMap = useMemo(() => {
-    return (entities) => {
-      if (!entities || !Array.isArray(entities)) return {};
-      
-      return entities.reduce((map, entity) => {
-        if (entity && entity.id && entity.name) {
-          map[entity.id] = entity.name;
-        }
-        return map;
-      }, {});
-    };
+  // Helper function to create ID-to-name mapping - memoized
+  const createEntityMap = useCallback((entities) => {
+    if (!entities || !Array.isArray(entities)) return {};
+    
+    return entities.reduce((map, entity) => {
+      if (entity && entity.id && entity.name) {
+        map[entity.id] = entity.name;
+      }
+      return map;
+    }, {});
   }, []);
 
-  // Handle sorting with improved type handling
+  // Handle sorting with improved type handling - memoized
   const sortedData = useMemo(() => {
     if (!sortConfig.key || !data) return data || [];
     
@@ -87,6 +88,7 @@ export const useAdminTable = (tabKey, data, onRefetch) => {
       return value; // Numbers and other types
     };
     
+    // Create a new sorted array
     return [...data].sort((a, b) => {
       const valueA = sortValue(a, sortConfig.key);
       const valueB = sortValue(b, sortConfig.key);
@@ -105,26 +107,27 @@ export const useAdminTable = (tabKey, data, onRefetch) => {
   useEffect(() => {
     const fetchRelatedData = async () => {
       try {
-        logDebug(`[useAdminTable] Fetching related data for ${tabKey} tab`);
-        
         // Get config for current tab
         const config = relationshipConfigs[tabKey];
         
-        if (config) {
-          // Fetch related data
-          const relatedData = await adminService.getAdminData(config.resource);
-          logDebug(`[useAdminTable] Fetched ${config.resource} data:`, {
-            length: relatedData?.length || 0,
-            sample: relatedData?.length > 0 ? relatedData[0] : null
-          });
-          
-          // Create mapping
-          const mapping = createEntityMap(relatedData);
-          setRelatedData(prevMap => ({
-            ...prevMap,
-            [config.mapKey]: mapping
-          }));
-        }
+        if (!config) return;
+        
+        logDebug(`[useAdminTable] Fetching related data for ${tabKey} tab`);
+        
+        // Fetch related data
+        const response = await adminService.getAdminData(config.resource);
+        const relatedDataArray = Array.isArray(response) ? response : [];
+        
+        logDebug(`[useAdminTable] Fetched ${config.resource} data:`, {
+          length: relatedDataArray.length || 0
+        });
+        
+        // Create mapping and update state in one operation
+        const mapping = createEntityMap(relatedDataArray);
+        setRelatedData(prevMap => ({
+          ...prevMap,
+          [config.mapKey]: mapping
+        }));
       } catch (error) {
         logError(`[useAdminTable] Error fetching related data for ${tabKey}:`, error);
       }
@@ -133,8 +136,8 @@ export const useAdminTable = (tabKey, data, onRefetch) => {
     fetchRelatedData();
   }, [tabKey, relationshipConfigs, createEntityMap]);
 
-  // Handle sort request
-  const requestSort = (key) => {
+  // Handle sort request - memoized
+  const requestSort = useCallback((key) => {
     setSortConfig(prevConfig => {
       if (prevConfig.key === key) {
         return {
@@ -144,46 +147,57 @@ export const useAdminTable = (tabKey, data, onRefetch) => {
       }
       return { key, direction: 'asc' };
     });
-  };
+  }, []);
 
-  // Start editing an item
-  const startEditing = (item) => {
+  // Start editing an item - memoized
+  const startEditing = useCallback((item) => {
     setEditingId(item.id);
     setEditData({ ...item });
-  };
+  }, []);
 
-  // Cancel editing
-  const cancelEditing = () => {
+  // Cancel editing - memoized
+  const cancelEditing = useCallback(() => {
     setEditingId(null);
     setEditData({});
-  };
+  }, []);
 
-  // Save edited item
-  const saveEdit = async () => {
+  // Save edited item - memoized
+  const saveEdit = useCallback(async () => {
     try {
+      // Don't save if no editingId
+      if (!editingId) return;
+      
       await adminService.updateAdminItem(tabKey, editingId, editData);
       setEditingId(null);
       setEditData({});
-      onRefetch();
+      
+      if (typeof onRefetch === 'function') {
+        onRefetch();
+      }
     } catch (error) {
       logError(`[useAdminTable] Error updating ${tabKey} item:`, error);
     }
-  };
+  }, [editingId, editData, tabKey, onRefetch]);
 
-  // Delete an item
-  const deleteItem = async (id) => {
+  // Delete an item - memoized
+  const deleteItem = useCallback(async (id) => {
+    if (!id) return;
+    
     if (window.confirm(`Are you sure you want to delete this ${tabKey.slice(0, -1)}?`)) {
       try {
         await adminService.deleteAdminItem(tabKey, id);
-        onRefetch();
+        
+        if (typeof onRefetch === 'function') {
+          onRefetch();
+        }
       } catch (error) {
         logError('[useAdminTable] Error deleting item:', error);
       }
     }
-  };
+  }, [tabKey, onRefetch]);
 
-  // Get display value for a relationship field
-  const getRelationshipValue = (key, value, item) => {
+  // Get display value for a relationship field - memoized
+  const getRelationshipValue = useCallback((key, value, item) => {
     const config = relationshipConfigs[tabKey];
     if (!config || !config.fields.includes(key)) return value;
 
@@ -203,9 +217,10 @@ export const useAdminTable = (tabKey, data, onRefetch) => {
     }
     
     return value || config.invalidValue || 'Unknown';
-  };
+  }, [tabKey, relationshipConfigs, relatedData]);
 
-  return {
+  // Return memoized values and functions
+  return useMemo(() => ({
     sortConfig,
     editingId,
     editData,
@@ -219,5 +234,18 @@ export const useAdminTable = (tabKey, data, onRefetch) => {
     deleteItem,
     getRelationshipValue,
     setEditData
-  };
+  }), [
+    sortConfig,
+    editingId,
+    editData,
+    relatedData,
+    columns,
+    sortedData,
+    requestSort,
+    startEditing,
+    cancelEditing,
+    saveEdit,
+    deleteItem,
+    getRelationshipValue
+  ]);
 };

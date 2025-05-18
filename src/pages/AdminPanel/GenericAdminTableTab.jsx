@@ -1,64 +1,106 @@
 // src/pages/AdminPanel/GenericAdminTableTab.jsx
 // No major changes needed here if useAdminTableState handles type differences
 // We rely on AdminPanel passing the correct props (data, columns, type)
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useCallback } from 'react';
 import AdminTable from './AdminTable';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
 import { useAdminTableState } from '@/hooks/useAdminTableState.js';
 import useApiErrorHandler from '@/hooks/useApiErrorHandler.js';
 import { COLUMN_CONFIG } from './columnConfig.jsx';
 
+/**
+ * GenericAdminTableTab component for displaying and managing different resource types in admin panel
+ * 
+ * @param {Object} props - Component props
+ * @param {string} props.resourceType - Type of resource to display (e.g., 'users', 'restaurants')
+ * @param {Array} props.initialData - Initial data for the table
+ * @param {boolean} props.isLoading - Whether data is loading
+ * @param {string|null} props.error - Error message if any
+ * @param {Function} props.onRetry - Function to retry loading data
+ * @param {boolean} props.addRowEnabled - Whether adding rows is enabled
+ * @param {boolean} props.deleteRowEnabled - Whether deleting rows is enabled
+ * @param {boolean} props.showFilters - Whether to show filters
+ * @param {Array} props.cities - List of cities for dropdown options
+ * @param {Array} props.neighborhoods - List of neighborhoods for dropdown options
+ * @param {boolean} props.isDataCleanup - Whether data cleanup mode is active
+ * @param {string} props.searchTerm - Search term for filtering data
+ * @param {Object} props.displayChanges - Display changes for data cleanup
+ */
 const GenericAdminTableTab = ({
+    // Resource configuration
     resourceType,
     initialData,
     isLoading,
     error,
     onRetry,
+    
+    // Feature toggles
     addRowEnabled = true,
     deleteRowEnabled = true,
     showFilters = true,
+    isDataCleanup = false,
+    
+    // Reference data for dropdowns
     cities = [],
     neighborhoods = [],
-    isDataCleanup = false,
+    
+    // Search and display properties
     searchTerm = '',
     displayChanges = {},
 }) => {
-    // Get columns for this resource type
+    // Get columns for this resource type - memoized to prevent recalculation
     const columns = useMemo(() => COLUMN_CONFIG[resourceType] || [], [resourceType]);
 
-    // Debug data
+    // Debug logging in development environment
     useEffect(() => {
+        if (process.env.NODE_ENV === 'development') {
+            logResourceData();
+            logDisplayChanges();
+        }
+    }, [resourceType, initialData, columns, displayChanges]);
+    
+    /**
+     * Log resource data information (development only)
+     */
+    const logResourceData = () => {
         console.log(`[GenericAdminTableTab] Rendered with resourceType: ${resourceType}`);
         console.log(`[GenericAdminTableTab] Initial data:`, {
             resourceType,
             dataLength: initialData?.length || 0,
             isArray: Array.isArray(initialData),
-            sample: Array.isArray(initialData) ? initialData.slice(0, 3) : initialData,
             columnsLength: columns?.length || 0
         });
-    }, [resourceType, initialData, columns]);
-
-    // Log display changes when they update
-    useEffect(() => {
+    };
+    
+    /**
+     * Log display changes information (development only)
+     */
+    const logDisplayChanges = () => {
         if (Object.keys(displayChanges).length > 0) {
-            console.log(`[GenericAdminTableTab] Received display changes for ${resourceType}:`, displayChanges);
-            console.log(`[GenericAdminTableTab] Display changes keys:`, Object.keys(displayChanges));
-            if (displayChanges[resourceType]) {
-                console.log(`[GenericAdminTableTab] Specific changes for ${resourceType}:`, displayChanges[resourceType]);
-            } else {
-                console.log(`[GenericAdminTableTab] Display changes available but none specific to ${resourceType}`);
-            }
-        } else {
-            console.log(`[GenericAdminTableTab] No display changes received for ${resourceType}`);
+            console.log(`[GenericAdminTableTab] Received display changes for ${resourceType}:`, 
+                displayChanges[resourceType] ? Object.keys(displayChanges[resourceType]).length : 0);
         }
-    }, [displayChanges, resourceType]);
+    };
 
-    // Use the state hook internally for this specific tab instance
+    // Get admin table state from hook
+    const tableState = useAdminTableState({
+        initialData: initialData || [],
+        type: resourceType,
+        columns: columns || [],
+        onDataMutated: onRetry,
+        cities: cities || [],
+        neighborhoods: neighborhoods || [],
+    });
+    
+    // Destructure properties from table state
     const {
+        // Data state
         updatedData,
         currentSort,
         editingRowIds,
         editFormData,
+        
+        // UI state
         error: combinedError,
         actionState,
         confirmDeleteInfo,
@@ -72,6 +114,8 @@ const GenericAdminTableTab = ({
         isListEditModalOpen,
         listToEditData,
         isSavingList,
+        
+        // Handler functions
         clearError: clearCombinedError,
         handleSort,
         handleRowDataChange,
@@ -95,95 +139,95 @@ const GenericAdminTableTab = ({
         handleSaveAllEdits,
         handleCloseListEditModal,
         handleSaveListEdit,
-        handleFilter,
-        handlePageChange,
-        handlePageSizeChange
-    } = useAdminTableState({
-        initialData: initialData || [],
-        type: resourceType,
-        columns: columns || [],
-        onDataMutated: onRetry,
-        cities: cities || [],
-        neighborhoods: neighborhoods || [],
-    });
+    } = tableState;
 
-    // State for search/filter input
+    // Search term state management
     const [localSearchTerm, setLocalSearchTerm] = React.useState(searchTerm);
     
-    // Update searchTerm when prop changes
+    // Update localSearchTerm when prop changes
     React.useEffect(() => {
         setLocalSearchTerm(searchTerm);
     }, [searchTerm]);
 
-    // Apply display changes to the data
+    /**
+     * Apply display changes to the data
+     * @returns {Array} Data with display changes applied
+     */
     const dataWithDisplayChanges = useMemo(() => {
-        if (!updatedData || !Array.isArray(updatedData) || Object.keys(displayChanges).length === 0 || !displayChanges[resourceType]) {
+        // Return original data if no changes needed
+        if (!updatedData || !Array.isArray(updatedData) || 
+            Object.keys(displayChanges).length === 0 || 
+            !displayChanges[resourceType]) {
             return updatedData;
         }
         
-        console.log(`[GenericAdminTableTab] Applying display changes to ${updatedData.length} rows for ${resourceType}`);
-        
+        // Apply changes to rows
         return updatedData.map(row => {
-            // If we have display changes for this row, apply them
-            const rowChanges = displayChanges[resourceType] ? displayChanges[resourceType][row.id] : null;
+            // If no changes for this row, return it unchanged
+            const rowChanges = displayChanges[resourceType] ? 
+                displayChanges[resourceType][row.id] : null;
+                
             if (!rowChanges) {
                 return row;
             }
             
+            // Create a new object with changes applied
             const updatedRow = { ...row };
             
-            // Apply each field change
+            // Apply each field change based on type
             Object.entries(rowChanges).forEach(([field, change]) => {
-                if (change.type === 'replaceIdWithName') {
-                    // For ID replacements (foreign keys), we create a display value
-                    updatedRow[`${field}_display`] = change.displayValue;
-                } else if (change.type === 'hideColumn') {
-                    // For hidden columns, we'll handle this in the column config
-                    // But we can mark it here too
-                    updatedRow[`${field}_hidden`] = true;
-                } else {
-                    // For other changes, update the display value directly
-                    updatedRow[`${field}_formatted`] = change.displayValue;
-                }
+                applyFieldChange(updatedRow, field, change);
             });
             
             return updatedRow;
         });
     }, [updatedData, displayChanges, resourceType]);
+    
+    /**
+     * Apply a single field change to a row
+     * @param {Object} row - Row to modify
+     * @param {string} field - Field name
+     * @param {Object} change - Change to apply
+     */
+    const applyFieldChange = (row, field, change) => {
+        if (change.type === 'replaceIdWithName') {
+            row[`${field}_display`] = change.displayValue;
+        } else if (change.type === 'hideColumn') {
+            row[`${field}_hidden`] = true;
+        } else {
+            row[`${field}_formatted`] = change.displayValue;
+        }
+    };
 
-    // Filter data based on search term (simple client-side filtering)
-    const filteredData = React.useMemo(() => {
-        if (!localSearchTerm && !searchTerm) return dataWithDisplayChanges || [];
-        const term = localSearchTerm || searchTerm;
-        console.log(`[GenericAdminTableTab] Filtering data with search term: "${term}"`);
+    /**
+     * Filter data by search term
+     * @param {Array} data - Data to filter
+     * @param {string} term - Search term
+     * @returns {Array} Filtered data
+     */
+    const filterBySearchTerm = useCallback((data, term) => {
+        if (!term) return data;
+        
         const lowerSearch = term.toLowerCase();
-        const filtered = dataWithDisplayChanges.filter(row => 
+        return data.filter(row => 
             Object.values(row).some(value => 
-                value && typeof value === 'string' && value.toLowerCase().includes(lowerSearch)
+                value && typeof value === 'string' && 
+                value.toLowerCase().includes(lowerSearch)
             )
         );
-        console.log(`[GenericAdminTableTab] Found ${filtered.length} results out of ${dataWithDisplayChanges.length}`);
-        return filtered;
-    }, [localSearchTerm, searchTerm, dataWithDisplayChanges]);
+    }, []);
 
-    // Ensure data is always an array
-    const safeData = useMemo(() => {
-        if (!filteredData) return [];
-        console.log(`[GenericAdminTableTab] safeData for ${resourceType}:`, {
-            length: filteredData.length || 0,
-            isArray: Array.isArray(filteredData),
-            sample: Array.isArray(filteredData) ? filteredData.slice(0, 2) : filteredData
-        });
-        console.log(`[GenericAdminTableTab] State props passed to AdminTable for ${resourceType}:`, {
-            editingRowIds: editingRowIds,
-            editFormData: editFormData,
-            isAdding: isAdding,
-            selectedRows: selectedRows
-        });
-        return Array.isArray(filteredData) ? filteredData : [filteredData];
-    }, [filteredData, resourceType]);
+    /**
+     * Get filtered data based on search term
+     */
+    const filteredData = useMemo(() => {
+        const term = localSearchTerm || searchTerm;
+        if (!term) return dataWithDisplayChanges || [];
+        
+        return filterBySearchTerm(dataWithDisplayChanges, term);
+    }, [localSearchTerm, searchTerm, dataWithDisplayChanges, filterBySearchTerm]);
 
-    // Show loading state
+    // Render loading state
     if (isLoading) {
         return (
             <div className="flex justify-center items-center py-12">
@@ -192,7 +236,7 @@ const GenericAdminTableTab = ({
         );
     }
 
-    // Show error state
+    // Render error state
     if (error) {
         return (
             <div className="text-center py-12">
@@ -207,58 +251,68 @@ const GenericAdminTableTab = ({
         );
     }
 
-    // Render AdminTable with all props from the hook
+    // Calculate admin table props
+    const adminTableProps = {
+        // Data props
+        data: filteredData || [],
+        resourceType,
+        columns,
+        
+        // UI state props
+        isLoading,
+        currentSort,
+        isEditing: (rowId) => editingRowIds?.has(rowId),
+        editingRowIds,
+        editFormData,
+        editError: combinedError,
+        isSaving: isSavingNew || isSavingAll || isSavingList,
+        actionState,
+        selectedRows,
+        isAllSelected: selectedRows?.size === updatedData?.length && updatedData?.length > 0,
+        isAdding,
+        newRowFormData: editFormData?.['__NEW_ROW__'] || {},
+        isSavingNew,
+        isBulkEditing,
+        isSavingAll,
+        isListEditModalOpen,
+        listToEditData,
+        isSavingList,
+        isDataCleanup,
+        showFilters,
+        displayChanges,
+        
+        // Feature toggles
+        addRowEnabled,
+        deleteRowEnabled,
+        
+        // Handler functions
+        onSort: handleSort,
+        onStartEdit: handleStartEdit,
+        onCancelEdit: handleCancelEdit,
+        onSaveEdit: handleSaveEdit,
+        onDataChange: handleRowDataChange,
+        onApprove: handleApprove,
+        onReject: handleReject,
+        onDelete: handleDeleteClick,
+        onRowSelect: handleRowSelect,
+        onSelectAll: handleSelectAll,
+        onNewRowDataChange: (changes) => handleRowDataChange('__NEW_ROW__', changes),
+        onCancelAdd: handleCancelAdd,
+        onSaveNewRow: handleSaveNewRow,
+        onBulkEdit: handleBulkEdit,
+        onCancelBulkEdit: handleCancelBulkEdit,
+        onSaveAllEdits: handleSaveAllEdits,
+        onCloseListEditModal: handleCloseListEditModal,
+        onSaveListEdit: handleSaveListEdit,
+        onOpenListEditModal: handleOpenListEditModal,
+    };
+
+    // Render admin table
     return (
         <div className="space-y-4">
-            <AdminTable
-                data={dataWithDisplayChanges || []}
-                resourceType={resourceType}
-                columns={columns}
-                isLoading={isLoading}
-                currentSort={currentSort}
-                onSort={handleSort}
-                isEditing={(rowId) => editingRowIds?.has(rowId)}
-                editingRowIds={editingRowIds}
-                editFormData={editFormData}
-                onStartEdit={handleStartEdit}
-                onCancelEdit={handleCancelEdit}
-                onSaveEdit={handleSaveEdit}
-                onDataChange={(changes) => handleRowDataChange(changes)}
-                editError={combinedError}
-                isSaving={isSavingNew || isSavingAll || isSavingList}
-                actionState={actionState}
-                onApprove={handleApprove}
-                onReject={handleReject}
-                onDelete={handleDeleteClick}
-                selectedRows={selectedRows}
-                onRowSelect={handleRowSelect}
-                onSelectAll={handleSelectAll}
-                isAllSelected={selectedRows?.size === updatedData?.length && updatedData?.length > 0}
-                isAdding={isAdding}
-                newRowFormData={editFormData?.['__NEW_ROW__'] || {}}
-                onNewRowDataChange={(changes) => handleRowDataChange('__NEW_ROW__', changes)}
-                onCancelAdd={handleCancelAdd}
-                onSaveNewRow={handleSaveNewRow}
-                isSavingNew={isSavingNew}
-                addRowEnabled={addRowEnabled}
-                deleteRowEnabled={deleteRowEnabled}
-                isBulkEditing={isBulkEditing}
-                onBulkEdit={handleBulkEdit}
-                onCancelBulkEdit={handleCancelBulkEdit}
-                onSaveAllEdits={handleSaveAllEdits}
-                isSavingAll={isSavingAll}
-                isListEditModalOpen={isListEditModalOpen}
-                listToEditData={listToEditData}
-                onCloseListEditModal={handleCloseListEditModal}
-                onSaveListEdit={handleSaveListEdit}
-                isSavingList={isSavingList}
-                onOpenListEditModal={handleOpenListEditModal}
-                isDataCleanup={isDataCleanup}
-                showFilters={showFilters}
-                displayChanges={displayChanges}
-            />
+            <AdminTable {...adminTableProps} />
         </div>
     );
 };
 
-export default GenericAdminTableTab;
+export default React.memo(GenericAdminTableTab);

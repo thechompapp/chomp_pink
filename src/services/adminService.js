@@ -137,10 +137,10 @@ export const adminService = {
       
       // Make the API call to check for existing items
       return handleApiResponse(
-        () => apiClient.post(`/admin/check-existing/restaurants`, formattedItems),
-        `AdminService CheckExisting restaurants`,
+        () => apiClient.post(`/admin/check-existing/${resourceType}`, formattedItems),
+        `AdminService CheckExisting ${resourceType}`,
         (data) => {
-          logDebug(`AdminService CheckExisting restaurants response:`, data);
+          logDebug(`AdminService CheckExisting ${resourceType} response:`, data);
           return {
             success: true,
             message: data.message || 'Check completed',
@@ -150,7 +150,7 @@ export const adminService = {
           };
         }
       ).catch(error => {
-        logError(`Failed to check existing restaurants:`, error);
+        logError(`Failed to check existing ${resourceType}:`, error);
         
         // If API call fails, fall back to local duplicate detection
         const localDuplicates = adminService.findLocalDuplicates(formattedItems.items);
@@ -225,273 +225,68 @@ export const adminService = {
     return duplicates;
   },
 
-  checkExistingItems: async (payload, itemType = 'restaurants') => {
-    try {
-      // Validate the payload
-      if (!payload || !payload.items || !Array.isArray(payload.items) || payload.items.length === 0) {
-        logWarn('AdminService CheckExistingItems: No valid items provided in payload');
-        return {
-          success: false,
-          message: 'No valid items provided for duplicate check',
-          data: { results: [] }
-        };
-      }
-      
-      // Ensure all items have consistent city_id and other required fields
-      const normalizedItems = payload.items.map(item => ({
-        name: item.name,
-        type: item.type || 'restaurant',
-        city_id: item.city_id || 1, // Default to 1 (New York) if missing
-        _lineNumber: item._lineNumber,
-        // Include additional fields that might be needed for duplicate detection
-        place_id: item.place_id || item.placeId || '',
-        google_place_id: item.google_place_id || ''
-      }));
-      
-      // Create a new payload with normalized items
-      const normalizedPayload = { items: normalizedItems };
-      
-      // Log the request payload for debugging
-      logDebug('AdminService CheckExistingItems normalized payload:', normalizedPayload);
-      
-      // Make the real API call - no fallbacks, always use real data
-      try {
-        // Make the API call with the properly formatted request body
-        const response = await apiClient.post(
-          `/admin/check-existing/${itemType}`, 
-          normalizedPayload,
-          {
-            headers: {
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-        
-        // Process the response data
-        const data = response.data;
-        logDebug(`AdminService CheckExisting ${itemType} response:`, data);
-        
-        // Format the response in a consistent way
-        if (data && Array.isArray(data)) {
-          // If the API returns an array directly
-          return {
-            success: true,
-            message: `Checked ${normalizedItems.length} items for duplicates.`,
-            data: {
-              results: data
-            }
-          };
-        } else if (data && data.results && Array.isArray(data.results)) {
-          // If the API returns an object with a results array
-          return {
-            success: true,
-            message: data.message || `Checked ${normalizedItems.length} items for duplicates.`,
-            data: {
-              results: data.results
-            }
-          };
-        } else if (data && typeof data === 'object') {
-          // If the API returns some other object structure
-          return {
-            success: true,
-            message: data.message || `Checked ${normalizedItems.length} items for duplicates.`,
-            data: {
-              results: data.results || []
-            }
-          };
-        } else {
-          // Fallback for unexpected response format
-          logWarn(`AdminService CheckExisting ${itemType} unexpected response format:`, data);
-          return {
-            success: true,
-            message: `Checked ${normalizedItems.length} items with unexpected response format.`,
-            data: {
-              results: []
-            }
-          };
-        }
-      } catch (apiError) {
-        // Enhanced error logging
-        const errorDetails = {
-          message: apiError.message,
-          status: apiError.response?.status,
-          statusText: apiError.response?.statusText,
-          data: apiError.response?.data,
-          request: {
-            endpoint: `/admin/check-existing/${itemType}`,
-            itemCount: normalizedItems.length,
-            method: 'POST'
-          }
-        };
-        
-        logError(`AdminService CheckExisting ${itemType} API error:`, errorDetails);
-        
-        return {
-          success: false,
-          message: apiError.response?.data?.message || apiError.message || 'Error checking for duplicates',
-          data: { results: [] },
-          error: errorDetails
-        };
-      }
-    } catch (error) {
-      logError('Unexpected error in checkExistingItems:', error);
-      return {
-        success: false,
-        message: error.message || 'Error checking for duplicates',
-        data: { results: [] },
-        error: {
-          message: error.message,
-          stack: error.stack
-        }
-      };
-    }
-  },
-  
-  bulkAddItems: async (payload) => {
-    try {
-      if (!payload) {
-        const error = new Error('No payload provided for bulk add');
-        logError('Invalid payload for bulk add:', { error });
-        return {
-          success: false,
-          message: 'No payload provided for bulk add',
-          error: { message: 'No payload provided' }
-        };
-      }
-      
-      // Ensure payload has the correct format for the API
-      const formattedPayload = payload.items ? payload : { items: Array.isArray(payload) ? payload : [] };
-      
-      // Validate the payload before sending
-      if (!formattedPayload.items || !Array.isArray(formattedPayload.items) || formattedPayload.items.length === 0) {
-        return {
-          success: false,
-          message: 'Invalid items format for bulk add',
-          error: { message: 'Items must be a non-empty array' }
-        };
-      }
-      
-      // Ensure each item has the required fields
-      const validItems = formattedPayload.items.map(item => ({
-        name: item.name,
-        type: item.type || 'restaurant',
-        address: item.address || '',
-        city: item.city || '',
-        state: item.state || '',
-        zipcode: item.zipcode || '',
-        city_id: item.city_id || 1, // Default to 1 if missing
-        neighborhood_id: item.neighborhood_id || null,
-        latitude: item.latitude || 0,
-        longitude: item.longitude || 0,
-        tags: item.tags || [],
-        place_id: item.placeId || '',
-        _lineNumber: item._lineNumber // Keep for tracking
-      }));
-      
-      // Create a new payload with validated items
-      const validatedPayload = { items: validItems };
-      
-      // Log the request payload for debugging
-      logDebug('AdminService BulkAddItems request payload:', validatedPayload);
-      
-      // Make the real API call - no fallbacks, always use real data
-      try {
-        // Make the real API call with proper error handling and explicit content type
-        const response = await apiClient.post(
-          '/admin/bulk/restaurants', 
-          validatedPayload,
-          {
-            headers: {
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-        
-        // Process the response
-        const data = response.data;
-        logDebug('AdminService BulkAddItems response:', data);
-        
-        // Return standardized response with actual data from the API
-        return {
-          success: true,
-          message: data.message || 'Items added successfully',
-          data: {
-            successCount: data.successCount || 0,
-            failureCount: data.failureCount || 0,
-            createdItems: data.createdItems || [],
-            errors: data.errors || []
-          }
-        };
-      } catch (apiError) {
-        // Enhanced error logging with request details
-        const errorDetails = {
-          message: apiError.message,
-          status: apiError.response?.status,
-          statusText: apiError.response?.statusText,
-          data: apiError.response?.data,
-          request: {
-            endpoint: '/admin/bulk/restaurants',
-            itemCount: validItems.length,
-            method: 'POST'
-          }
-        };
-        
-        logError('Failed to bulk add items:', errorDetails);
-        
-        // Return a formatted error response
-        return {
-          success: false,
-          message: apiError.message || 'Error submitting items',
-          error: errorDetails
-        };
-      }
-    } catch (error) {
-      logError('Unexpected error in bulkAddItems:', error);
-      
-      // Return a formatted error response
-      return {
-        success: false,
-        message: error.message || 'Unexpected error in bulk add',
-        error: {
-          message: error.message,
-          stack: error.stack
-        }
-      };
-    }
+  // Other service methods (updateResource, deleteResource, etc.)
+  updateResource: async (type, id, payload) => {
+    logDebug(`[adminService] Updating ${type} with ID ${id}`, payload);
+    return handleApiResponse(
+      () => apiClient.put(`/admin/${type}/${id}`, payload),
+      `AdminService Update${type}`
+    ).catch(error => {
+      logError(`Failed to update ${type} ${id}:`, error);
+      throw error;
+    });
   },
 
+  deleteResource: async (type, id) => {
+    logDebug(`[adminService] Deleting ${type} with ID ${id}`);
+    return handleApiResponse(
+      () => apiClient.delete(`/admin/${type}/${id}`),
+      `AdminService Delete${type}`
+    ).catch(error => {
+      logError(`Failed to delete ${type} ${id}:`, error);
+      throw error;
+    });
+  },
+
+  // Alias methods for backward compatibility
+  updateAdminItem: async (type, id, data) => {
+    return adminService.updateResource(type, id, data);
+  },
+
+  deleteAdminItem: async (type, id) => {
+    return adminService.deleteResource(type, id);
+  },
+
+  // Data cleanup methods
   async analyzeData(resourceType) {
-    logDebug(`[adminService] Analyzing data for cleanup: ${resourceType}`);
     return handleApiResponse(
-      () => apiClient.get(`/api/admin/cleanup/analyze/${resourceType}`),
-      `AdminService AnalyzeData ${resourceType}`
+      () => apiClient.get(`/admin/data-cleanup/${resourceType}/analyze`),
+      `AdminService AnalyzeData for ${resourceType}`
     ).catch(error => {
-      logError(`[adminService] Error analyzing ${resourceType} data:`, error);
+      logError(`Failed to analyze data for ${resourceType}:`, error);
       throw error;
     });
   },
-  
+
   async applyChanges(resourceType, changeIds) {
-    logDebug(`[adminService] Applying changes for ${resourceType}:`, changeIds);
     return handleApiResponse(
-      () => apiClient.post(`/api/admin/cleanup/apply/${resourceType}`, { changeIds }),
-      `AdminService ApplyChanges ${resourceType}`
+      () => apiClient.post(`/admin/data-cleanup/${resourceType}/apply`, { changeIds }),
+      `AdminService ApplyChanges for ${resourceType}`
     ).catch(error => {
-      logError(`[adminService] Error applying changes to ${resourceType}:`, error);
+      logError(`Failed to apply changes for ${resourceType}:`, error);
       throw error;
     });
   },
-  
+
   async rejectChanges(resourceType, changeIds) {
-    logDebug(`[adminService] Rejecting changes for ${resourceType}:`, changeIds);
     return handleApiResponse(
-      () => apiClient.post(`/api/admin/cleanup/reject/${resourceType}`, { changeIds }),
-      `AdminService RejectChanges ${resourceType}`
+      () => apiClient.post(`/admin/data-cleanup/${resourceType}/reject`, { changeIds }),
+      `AdminService RejectChanges for ${resourceType}`
     ).catch(error => {
-      logError(`[adminService] Error rejecting changes to ${resourceType}:`, error);
+      logError(`Failed to reject changes for ${resourceType}:`, error);
       throw error;
     });
-  },
+  }
 };
 
 // Only use named export for consistency

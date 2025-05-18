@@ -1,158 +1,47 @@
-import React from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { Edit, Trash2, Check, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatDate } from '../../utils/dateUtils';
 import { useAdminTable } from '../../hooks/useAdminTable';
+import { adminService } from '../../services/adminService';
 
 export const AdminTable = ({ tabKey, data = [], onRefetch, isLoading }) => {
-  const [sortConfig, setSortConfig] = useState({ key: 'id', direction: 'asc' });
-  const [editingId, setEditingId] = useState(null);
-  const [editData, setEditData] = useState({});
-  const [relatedData, setRelatedData] = useState({
-    restaurants: {},
-    neighborhoods: {},
-    cities: {}
-  });
+  // Use the admin table hook to manage state and operations
+  const {
+    sortConfig,
+    sortedData,
+    editingId,
+    editData,
+    relatedData,
+    requestSort,
+    startEditing: handleEdit,
+    cancelEditing,
+    saveEdit: handleSave,
+    deleteItem: handleDelete,
+    getRelationshipValue
+  } = useAdminTable(tabKey, data, onRefetch);
 
-  // Helper function to extract data array from various response formats
-  const extractDataArray = (response) => {
-    if (Array.isArray(response)) {
-      return response;
-    } else if (Array.isArray(response?.data)) {
-      return response.data;
-    } else if (response?.data?.data && Array.isArray(response.data.data)) {
-      return response.data.data;
-    } else if (typeof response === 'object' && response !== null) {
-      // Try to extract any array property from the response
-      const arrayProps = Object.keys(response).filter(key => Array.isArray(response[key]));
-      if (arrayProps.length > 0) {
-        return response[arrayProps[0]];
-      }
+  // Define relationship configurations for rendering
+  const relationshipConfigs = useMemo(() => ({
+    dishes: {
+      fields: ['restaurant_id', 'restaurant'],
+      directField: 'restaurant_name',
+      mapKey: 'restaurants',
+      invalidValue: 'Unknown Restaurant'
+    },
+    restaurants: {
+      fields: ['neighborhood_id', 'neighborhood'],
+      directField: 'neighborhood_name',
+      mapKey: 'neighborhoods',
+      invalidValue: 'Unknown Neighborhood'
+    },
+    neighborhoods: {
+      fields: ['city_id', 'city'],
+      directField: 'city_name',
+      mapKey: 'cities',
+      invalidValue: 'Unknown City'
     }
-    return [];
-  };
-
-  // Helper function to create ID-to-name mapping - memoized for performance
-  const createEntityMap = useMemo(() => {
-    return (entities) => {
-      if (!entities || !Array.isArray(entities)) return {};
-      
-      return entities.reduce((map, entity) => {
-        if (entity && entity.id && entity.name) {
-          map[entity.id] = entity.name;
-        }
-        return map;
-      }, {});
-    };
-  }, []);
-
-  // Define related data configuration - memoized to prevent recreation on each render
-  const relatedDataConfig = useMemo(() => ({
-    dishes: { resource: 'restaurants', mapKey: 'restaurants' },
-    restaurants: { resource: 'neighborhoods', mapKey: 'neighborhoods' },
-    neighborhoods: { resource: 'cities', mapKey: 'cities' }
   }), []);
-
-  // Fetch related data when component mounts or tabKey changes
-  useEffect(() => {
-    const fetchRelatedData = async () => {
-      try {
-        console.log(`[AdminTable] Fetching related data for ${tabKey} tab`);
-        
-        // Log data prop for debugging
-        console.log(`[AdminTable] Current data for ${tabKey}:`, {
-          length: data?.length || 0,
-          sample: data?.length > 0 ? data[0] : null
-        });
-        
-        // Get config for current tab
-        const config = relatedDataConfig[tabKey];
-        
-        if (config) {
-          // Fetch related data
-          const relatedData = await adminService.getAdminData(config.resource);
-          console.log(`[AdminTable] Fetched ${config.resource} data:`, {
-            length: relatedData?.length || 0,
-            sample: relatedData?.length > 0 ? relatedData[0] : null
-          });
-          
-          // Create mapping
-          const mapping = createEntityMap(relatedData);
-          setRelatedData(prevMap => ({
-            ...prevMap,
-            [config.mapKey]: mapping
-          }));
-        }
-      } catch (error) {
-        console.error(`[AdminTable] Error fetching related data for ${tabKey}:`, error);
-      }
-    };
-    
-    fetchRelatedData();
-  }, [tabKey, relatedDataConfig, createEntityMap, data]);
-
-  // Handle sorting with improved type handling
-  const sortedData = useMemo(() => {
-    if (!sortConfig.key || !data) return data || [];
-    
-    const sortValue = (item, key) => {
-      const value = item[key];
-      // Handle different data types appropriately
-      if (value === null || value === undefined) return '';
-      if (typeof value === 'string') return value.toLowerCase(); // Case-insensitive string comparison
-      return value; // Numbers and other types
-    };
-    
-    return [...data].sort((a, b) => {
-      const valueA = sortValue(a, sortConfig.key);
-      const valueB = sortValue(b, sortConfig.key);
-      
-      if (valueA < valueB) {
-        return sortConfig.direction === 'asc' ? -1 : 1;
-      }
-      if (valueA > valueB) {
-        return sortConfig.direction === 'asc' ? 1 : -1;
-      }
-      return 0;
-    });
-  }, [data, sortConfig]);
-
-  const requestSort = (key) => {
-    let direction = 'asc';
-    if (sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
-    setSortConfig({ key, direction });
-  };
-
-  const handleEdit = (item) => {
-    setEditingId(item.id);
-    setEditData({ ...item });
-  };
-
-  const handleSave = async () => {
-    try {
-      // TODO: Implement save logic
-      console.log('Saving:', editData);
-      await onRefetch();
-      setEditingId(null);
-      setEditData({});
-    } catch (error) {
-      console.error('Error saving item:', error);
-    }
-  };
-
-  const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this item?')) {
-      try {
-        // TODO: Implement delete logic
-        console.log('Deleting:', id);
-        await onRefetch();
-      } catch (error) {
-        console.error('Error deleting item:', error);
-      }
-    }
-  };
 
   // Render input field for editing - extracted for better organization
   const renderEditInput = (key, value) => (
@@ -333,10 +222,7 @@ export const AdminTable = ({ tabKey, data = [], onRefetch, isLoading }) => {
                       <Check className="h-4 w-4" />
                     </button>
                     <button
-                      onClick={() => {
-                        setEditingId(null);
-                        setEditData({});
-                      }}
+                      onClick={cancelEditing}
                       className="text-gray-600 hover:text-gray-900"
                       title="Cancel"
                     >

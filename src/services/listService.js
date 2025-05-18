@@ -1,883 +1,596 @@
-/* src/services/listService.js */
-import apiClient from './apiClient.js';
-import { logDebug, logError, logWarn, logInfo } from '@/utils/logger.js';
-import { handleApiResponse, createQueryParams, validateId } from '@/utils/serviceHelpers.js';
-import { mockUserLists, getFilteredMockLists, getMockListItems } from '@/utils/mockData.js';
+// File: src/services/listService.js
+import apiClient from './apiClient';
+import logger from '../utils/logger'; // frontend logger
+import { useFollowStore } from '../stores/useFollowStore'; // Zustand store
+import { logEngagement } from '../utils/logEngagement';
+import { parseApiError } from '../utils/parseApiError';
+// import { MOCK_LIST_DETAIL, MOCK_USER_LISTS, MOCK_LIST_ITEMS } from '../utils/mockData'; // For testing
 
-// Constants for service configuration
-const API_TIMEOUT_MS = 1500;
-const UI_TIMEOUT_MS = 2000;
-const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 500;
-const LOCAL_STORAGE_KEYS = {
-  USE_MOCK_DATA: 'use_mock_data',
-  PENDING_OPERATIONS: 'pending_list_operations',
-  FOLLOW_STATE_PREFIX: 'follow_state_',
-  PENDING_LIST_ADDS: 'pending_list_adds',
-  OFFLINE_MODE: 'offline_mode'
-};
-
-/**
- * List service for managing user lists and list items
- * Provides methods for fetching, creating, updating, and deleting lists and list items
- * Includes offline support and retry logic for improved reliability
- */
-export const listService = {
-  /**
-   * Force ensure the following view works with a direct method
-   * This is a test method to validate our fix
-   * @returns {boolean} - Success indicator
-   */
-  forceEnsureFollowingView() {
-    localStorage.removeItem(LOCAL_STORAGE_KEYS.USE_MOCK_DATA);
-    logInfo('[listService] Forced clear of use_mock_data flag');
-    return true;
-  },
-
-  /**
-   * Get user lists with filtering options
-   * @param {Object} params - Parameters for filtering lists
-   * @param {string} [params.view] - View type ('all', 'following', 'created')
-   * @param {number} [params.page] - Page number for pagination
-   * @param {number} [params.limit] - Number of items per page
-   * @param {number} [params.cityId] - Filter by city ID
-   * @param {number} [params.boroughId] - Filter by borough ID
-   * @param {number} [params.neighborhoodId] - Filter by neighborhood ID
-   * @param {string} [params.query] - Search query
-   * @param {Array<string>} [params.hashtags] - Filter by hashtags
-   * @returns {Promise<Object>} - Response with list data
-   */
-  async getUserLists(params = {}) {
-    logDebug('[listService.getUserLists] Function called with params:', params);
-    
-    // Immediately load mock data as a fallback to have ready
-    const mockResult = getFilteredMockLists(params);
-    logDebug(`[listService.getUserLists] Prepared mock data for view '${params.view}'`);
-    
-    // CRITICAL: Always clear use_mock_data for following/lists views to fix toggle issue
-    if (params.view === 'following' || params.view === 'all') {
-      localStorage.removeItem(LOCAL_STORAGE_KEYS.USE_MOCK_DATA);
-      logDebug('[listService.getUserLists] Forcing real API call for view:', params.view);
-    } else if (localStorage.getItem(LOCAL_STORAGE_KEYS.USE_MOCK_DATA) === 'true') {
-      logDebug('[listService.getUserLists] Using mock data directly (server issues detected)');
-      return mockResult;
-    }
-    
-    return new Promise((resolve) => {
-      // Set a timeout to ensure the function returns relatively quickly
-      const timeoutId = setTimeout(() => {
-        logWarn('[listService.getUserLists] API call timed out, using mock data');
-        localStorage.setItem(LOCAL_STORAGE_KEYS.USE_MOCK_DATA, 'true'); // Remember to use mock data for future calls
-        resolve(mockResult);
-      }, UI_TIMEOUT_MS);
-      
-      // Try to get real data from API
-      (async () => {
-        try {
-          // Convert 'following' view parameter to 'followed' which is what the backend expects
-          const apiParams = { ...params };
-          if (apiParams.view === 'following') {
-            apiParams.view = 'followed'; // Backend expects 'followed' not 'following'
-          }
-          
-          // Create properly formatted query parameters
-          const queryParams = createQueryParams({
-            view: apiParams.view,
-            page: apiParams.page,
-            limit: apiParams.limit,
-            cityId: apiParams.cityId,
-            boroughId: apiParams.boroughId,
-            neighborhoodId: apiParams.neighborhoodId,
-            query: apiParams.query,
-            hashtags: apiParams.hashtags
-          });
-    
-          const endpoint = `/lists${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-          logDebug(`[listService.getUserLists] Fetching lists from endpoint: ${endpoint}`);
-          
-          // Try to get real data from API with a shorter timeout
-          const controller = new AbortController();
-          const signal = controller.signal;
-          
-          // Set a shorter timeout specific to the API call
-          const apiTimeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
-          
-          const response = await apiClient.get(endpoint, { signal });
-          clearTimeout(apiTimeoutId);
-          
-          // Process the API response
-          if (response && response.data) {
-            const result = response.data;
-            
-            // If we got a valid response, use it
-            if (result && (Array.isArray(result) || result.items || result.data)) {
-              // Extract the data array from the result
-              let listData = Array.isArray(result) ? result : (result.data || result.items || []);
-              
-              // Additional client-side filtering for "following" view
-              if (params.view === 'following') {
-                // Try both true and the string "true" for compatibility
-                listData = listData.filter(list => {
-                  return list.is_following === true || list.is_following === 'true' || 
-                         list.followed === true || list.followed === 'true';
-                });
-              }
-              
-              // Clear the timeout since we got real data
-              clearTimeout(timeoutId);
-              
-              // Use the real data
-              localStorage.setItem(LOCAL_STORAGE_KEYS.USE_MOCK_DATA, 'false');
-              resolve({
-                data: listData,
-                total: result.total || listData.length,
-                page: result.page || params.page || 1,
-                limit: result.limit || params.limit || listData.length,
-                success: true
-              });
-              return;
-            }
-          }
-          
-          // If we get here, the response wasn't in the expected format
-          throw new Error('Invalid response format');
-          
-        } catch (error) {
-          logWarn(`[listService.getUserLists] Error fetching lists: ${error.message}`);
-          
-          // Don't resolve here, let the timeout handle it to ensure consistent behavior
-          // The timeout will resolve with mock data
-        }
-      })();
-    });
-  },
-  
-  /**
-   * Get preview items for a list
-   * @param {string|number} listId - The ID of the list
-   * @param {number} [limit=3] - Maximum number of items to return
-   * @returns {Promise<Object>} - Response with list item data
-   */
-  async getListPreviewItems(listId, limit = 3) {
+const listService = {
+  // Fetch all lists with optional query parameters
+  // Params can include: userId, cityId, page, limit, sortBy, sortOrder, listType, isPublic, isFollowedByUserId
+  getLists: async function(params = {}) {
     try {
-      // Validate listId
-      const validatedId = validateId(listId);
-      if (!validatedId.valid) {
-        throw new Error(`Invalid list ID: ${listId}`);
-      }
-      
-      const id = validatedId.id;
-      logDebug(`[listService.getListPreviewItems] Fetching preview items for list ${id}`);
-      
-      // If we're using mock data, return mock list items
-      if (localStorage.getItem(LOCAL_STORAGE_KEYS.USE_MOCK_DATA) === 'true') {
-        logDebug('[listService.getListPreviewItems] Using mock data');
-        const mockItems = getMockListItems(id, limit);
-        return { data: mockItems, success: true };
-      }
-      
-      // Create query parameters
-      const queryParams = createQueryParams({ limit });
-      const endpoint = `/lists/${id}/items${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-      
-      return await this._performApiRequest(
-        () => apiClient.get(endpoint),
-        'getListPreviewItems'
-      );
+      const queryParams = new URLSearchParams();
+      if (params.userId) queryParams.append('userId', params.userId);
+      if (params.cityId) queryParams.append('cityId', params.cityId);
+      if (params.page) queryParams.append('page', params.page.toString());
+      if (params.limit) queryParams.append('limit', params.limit.toString());
+      if (params.sortBy) queryParams.append('sortBy', params.sortBy);
+      if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
+      if (params.listType) queryParams.append('listType', params.listType);
+      if (typeof params.isPublic !== 'undefined') queryParams.append('isPublic', String(params.isPublic));
+      if (params.isFollowedByUserId) queryParams.append('isFollowedByUserId', params.isFollowedByUserId);
+      if (params.searchTerm) queryParams.append('searchTerm', params.searchTerm);
+      if (params.excludeUserId) queryParams.append('excludeUserId', params.excludeUserId);
+
+
+      const response = await apiClient.get(`/lists?${queryParams.toString()}`);
+      return { success: true, data: response.data.data || response.data, pagination: response.data.pagination };
     } catch (error) {
-      logError(`[listService.getListPreviewItems] Error fetching preview items for list ${listId}:`, error);
-      throw error;
+      logger.error('Error fetching lists:', error);
+      return { success: false, error: parseApiError(error), message: 'Failed to fetch lists.' };
     }
   },
-  
-  /**
-   * Perform an API request with standardized error handling
-   * @private
-   * @param {Function} requestFn - Function that performs the API request
-   * @param {string} operationName - Name of the operation for logging
-   * @returns {Promise<Object>} - Response data
-   */
-  async _performApiRequest(requestFn, operationName) {
+
+  // Fetch a specific list by its ID
+  getList: async function(id, userId = null) {
     try {
-      const response = await requestFn();
-      
-      if (response && response.data) {
-        // Process the response data to ensure consistent format
-        const result = response.data;
-        
-        // Extract data array from various response formats
-        const data = Array.isArray(result) ? result : (result.data || result.items || []);
-        
-        return {
-          data,
-          total: result.total || data.length,
-          page: result.page || 1,
-          limit: result.limit || data.length,
-          success: true
-        };
+      let url = `/lists/${id}`;
+      if (userId) {
+        url += `?userId=${userId}`;
       }
-      
-      throw new Error('Invalid response format');
+      const response = await apiClient.get(url);
+      // logger.debug(`getList response for ID ${id}:`, response.data);
+      return { success: true, data: response.data.data || response.data };
     } catch (error) {
-      logError(`[listService._performApiRequest] Error in ${operationName}:`, error);
-      throw error;
+      logger.error('Error fetching list:', id, error);
+      return { success: false, error: parseApiError(error), message: `Failed to fetch list: ${id}` };
     }
-  }
-    
-    // The Promise will either resolve with real API data or mock data after timeout
-    return new Promise((resolve) => {
-      // Set a timeout to ensure the function returns relatively quickly
-      const timeoutId = setTimeout(() => {
-        logWarn('[listService.getUserLists] API call timed out, using mock data');
-        localStorage.setItem('use_mock_data', 'true'); // Remember to use mock data for future calls
-        resolve(mockResult);
-      }, 2000); // 2 second timeout for better UX
+  },
+
+  // Create a new list
+  createList: async function(listData) {
+    try {
+      // logger.debug('Attempting to create list with data:', listData);
+      const response = await apiClient.post('/lists', listData);
+      // logger.info('List created successfully:', response.data);
+      return { success: true, data: response.data.data || response.data, message: response.data.message || 'List created successfully.' };
+    } catch (error) {
+      logger.error('Error creating list:', listData, error);
+      return { success: false, error: parseApiError(error), message: 'Failed to create list.' };
+    }
+  },
+
+  // Update an existing list by its ID
+  updateList: async function(id, listData) {
+    try {
+      // logger.debug(`Attempting to update list ${id} with data:`, listData);
+      const response = await apiClient.put(`/lists/${id}`, listData);
+      // logger.info(`List ${id} updated successfully:`, response.data);
+      return { success: true, data: response.data.data || response.data, message: response.data.message || 'List updated successfully.' };
+    } catch (error) {
+      logger.error('Error updating list:', id, listData, error);
+      return { success: false, error: parseApiError(error), message: `Failed to update list: ${id}` };
+    }
+  },
+
+  // Delete a list by its ID
+  deleteList: async function(id) {
+    try {
+      // logger.debug(`Attempting to delete list ${id}`);
+      const response = await apiClient.delete(`/lists/${id}`);
+      // logger.info(`List ${id} deleted successfully:`, response.data);
+      return { success: true, message: response.data.message || 'List deleted successfully.' };
+    } catch (error) {
+      logger.error('Error deleting list:', id, error);
+      return { success: false, error: parseApiError(error), message: `Failed to delete list: ${id}` };
+    }
+  },
+
+  // Fetch items within a specific list
+  getListItems: async function(listId, params = {}) {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params.page) queryParams.append('page', params.page.toString());
+      if (params.limit) queryParams.append('limit', params.limit.toString());
+      if (params.sortBy) queryParams.append('sortBy', params.sortBy); // e.g., 'created_at', 'name'
+      if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder); // 'asc' or 'desc'
+
+      const response = await apiClient.get(`/lists/${listId}/items?${queryParams.toString()}`);
+      // logger.debug(`getListItems response for list ID ${listId}:`, response.data);
+      return { 
+        success: true, 
+        data: response.data.data || response.data, 
+        pagination: response.data.pagination 
+      };
+    } catch (error) {
+      logger.error('Error fetching items for list:', listId, error);
+      return { success: false, error: parseApiError(error), message: `Failed to fetch items for list: ${listId}` };
+    }
+  },
+
+  // Add an item to a specific list
+  // itemData can be { dish_id, restaurant_id, notes, custom_item_name, custom_item_description, type: 'dish' | 'restaurant' | 'custom' }
+  addItemToList: async function(listId, itemData) {
+    try {
+      // logger.debug(`Attempting to add item to list ${listId}:`, itemData);
+      const response = await apiClient.post(`/lists/${listId}/items`, itemData);
+      // logger.info(`Item added to list ${listId} successfully:`, response.data);
+      return { success: true, data: response.data.data || response.data, message: response.data.message || 'Item added successfully.' };
+    } catch (error) {
+      logger.error('Error adding item to list:', listId, itemData, error);
+      return { success: false, error: parseApiError(error), message: 'Failed to add item to list.' };
+    }
+  },
+
+  // Update an item within a list
+  updateListItem: async function(listId, itemId, itemData) {
+    try {
+      // logger.debug(`Attempting to update item ${itemId} in list ${listId}:`, itemData);
+      const response = await apiClient.put(`/lists/${listId}/items/${itemId}`, itemData);
+      // logger.info(`Item ${itemId} in list ${listId} updated successfully:`, response.data);
+      return { success: true, data: response.data.data || response.data, message: response.data.message || 'Item updated successfully.' };
+    } catch (error) {
+      logger.error('Error updating item in list:', listId, itemId, itemData, error);
+      return { success: false, error: parseApiError(error), message: `Failed to update item: ${itemId} in list.` };
+    }
+  },
+
+  // Remove an item from a list
+  deleteListItem: async function(listId, itemId) {
+    try {
+      // logger.debug(`Attempting to delete item ${itemId} from list ${listId}`);
+      const response = await apiClient.delete(`/lists/${listId}/items/${itemId}`);
+      // logger.info(`Item ${itemId} deleted from list ${listId} successfully:`, response.data);
+      return { success: true, message: response.data.message || 'Item removed successfully.' };
+    } catch (error) {
+      logger.error('Error deleting item from list:', listId, itemId, error);
+      return { success: false, error: parseApiError(error), message: `Failed to remove item: ${itemId} from list.` };
+    }
+  },
+
+  // Search lists by term and type (e.g., 'dish', 'restaurant', 'all')
+  // `options` can include { page, limit, userId, cityId, includePrivate }
+  searchLists: async function(searchTerm, searchType = 'all', { page = 1, limit = 20, userId = null, cityId = null, includePrivate = false } = {}) {
+    try {
+      const params = new URLSearchParams({
+        term: searchTerm,
+        type: searchType,
+        page: page.toString(),
+        limit: limit.toString(),
+      });
+      if (userId) params.append('userId', userId);
+      if (cityId) params.append('cityId', cityId.toString());
+      if (includePrivate) params.append('includePrivate', 'true');
       
-      // Try to get real data from API
-      (async () => {
-        try {
-          // Convert 'following' view parameter to 'followed' which is what the backend expects
-          const apiParams = { ...params };
-          if (apiParams.view === 'following') {
-            apiParams.view = 'followed'; // Backend expects 'followed' not 'following'
-          }
-          
-          // Create properly formatted query parameters
-          const queryParams = createQueryParams({
-            view: apiParams.view,
-            page: apiParams.page,
-            limit: apiParams.limit,
-            cityId: apiParams.cityId,
-            boroughId: apiParams.boroughId,
-            neighborhoodId: apiParams.neighborhoodId,
-            query: apiParams.query,
-            hashtags: apiParams.hashtags
-          });
-    
-          const endpoint = `/lists${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-          logDebug(`[listService.getUserLists] Fetching lists from endpoint: ${endpoint}`);
-          
-          // Try to get real data from API with a shorter timeout
-          const controller = new AbortController();
-          const signal = controller.signal;
-          
-          // Set a shorter timeout specific to the API call
-          const apiTimeoutId = setTimeout(() => controller.abort(), 1500);
-          
-          const response = await apiClient.get(endpoint, { signal });
-          clearTimeout(apiTimeoutId);
-          
-          // Process the API response
-          if (response && response.data) {
-            const result = response.data;
-            
-            // If we got a valid response, use it
-            if (result && (Array.isArray(result) || result.items || result.data)) {
-              // Extract the data array from the result
-              let listData = Array.isArray(result) ? result : (result.data || result.items || []);
-              
-              // Additional client-side filtering for "following" view
-              if (params.view === 'following') {
-                // Try both true and the string "true" for compatibility
-                listData = listData.filter(list => {
-                  return list.is_following === true || list.is_following === 'true' || 
-                         list.followed === true || list.followed === 'true';
-                });
-              }
-              
-              // Clear the timeout since we got real data
-              clearTimeout(timeoutId);
-              
-              // Use the real data
-              localStorage.setItem('use_mock_data', 'false');
-              resolve({
-                data: listData,
-                total: listData.length,
-                page: parseInt(params.page, 10) || 1,
-                limit: parseInt(params.limit, 10) || 25
-              });
-              return;
-            }
-          }
-          
-          // If we got here, the API returned invalid data
-          logWarn('[listService.getUserLists] API returned invalid data, using mock data');
-          clearTimeout(timeoutId);
-          resolve(mockResult);
-          
-        } catch (error) {
-          // If API call failed, log error and use mock data
-          if (error.name === 'AbortError') {
-            logWarn('[listService.getUserLists] API call aborted due to timeout');
-          } else {
-            logError('[listService.getUserLists] Error fetching lists, using mock data:', error);
-          }
-          
-          // Clear the main timeout since we're resolving now
-          clearTimeout(timeoutId);
-          resolve(mockResult);
-        }
-      })();
+      logger.debug(`Searching lists with term: "${searchTerm}", type: "${searchType}", params: ${params.toString()}`);
+      const response = await apiClient.get(`/lists/search?${params.toString()}`);
+      logger.debug('Search lists response:', response.data);
+      return { success: true, data: response.data.data || response.data, pagination: response.data.pagination }; // Adjusted to match typical structure
+    } catch (error) {
+      logger.error('Error searching lists:', error);
+      return { success: false, error: parseApiError(error), message: `Failed to search lists: ${searchTerm}` };
+    }
+  },
+
+  // Method to get list suggestions for autocomplete or quick search
+  getListSuggestions: async function(query, { limit = 5, listType = null, forUserId = null } = {}) {
+    try {
+      const params = new URLSearchParams({ q: query, limit: limit.toString() });
+      if (listType) {
+        params.append('listType', listType);
+      }
+      if (forUserId) {
+        params.append('userId', forUserId);
+      }
+      // logger.debug(`Workspaceing list suggestions for query "${query}" with params: ${params.toString()}`);
+      const response = await apiClient.get(`/lists/suggestions?${params.toString()}`);
+      // logger.debug('List suggestions response:', response.data);
+      return { success: true, data: response.data.data || response.data };
+    } catch (error) {
+      logger.error(`Error fetching list suggestions for query "${query}":`, error);
+      return { success: false, error: parseApiError(error), message: `Failed to fetch list suggestions for "${query}"` };
+    }
+  },
+
+  // Fetch lists created by a specific user
+  getUserLists: async function(userId, { page = 1, limit = 10, listType = null, includePrivate = false } = {}) {
+    // This can be a specific implementation or use getLists with userId and appropriate privacy flags
+    // logger.debug(`Workspaceing lists for user ${userId} with page: ${page}, limit: ${limit}, type: ${listType}, private: ${includePrivate}`);
+    return this.getLists({ 
+      userId, 
+      page, 
+      limit, 
+      listType, 
+      isPublic: includePrivate ? undefined : true // If includePrivate is true, don't filter by isPublic. If false, only fetch public.
+                                                 // This logic might need adjustment based on how backend handles isPublic and ownership.
+                                                 // Assuming backend correctly filters by userId and respects privacy.
     });
   },
 
-  async getListPreviewItems(listId, limit = 3) {
+  // Fetch lists followed by a specific user
+  getFollowedLists: async function(userId, { page = 1, limit = 10 } = {}) {
     try {
-      // Validate listId using the utility function
-      const numericListId = validateId(listId, 'listId');
-      
-      // Use createQueryParams for consistent parameter handling
-      const queryParams = createQueryParams({ limit });
-      const endpoint = `/lists/previewbyid/${numericListId}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-      
-      logDebug(`[listService.getListPreviewItems] Fetching preview items for list ID: ${numericListId}, Limit: ${limit}`);
-      
-      // Use handleApiResponse for standardized API handling
-      return handleApiResponse(
-        () => apiClient.get(endpoint),
-        'listService.getListPreviewItems',
-        (data) => Array.isArray(data) ? data : []
-      );
+      // logger.debug(`Workspaceing followed lists for user ${userId} with page: ${page}, limit: ${limit}`);
+      const response = await apiClient.get(`/users/${userId}/followed-lists?page=${page}&limit=${limit}`);
+      // logger.debug('Followed lists response:', response.data);
+      return { success: true, data: response.data.data || response.data, pagination: response.data.pagination };
     } catch (error) {
-      logError(`[listService.getListPreviewItems] Error fetching preview items for list ${listId}:`, error);
-      throw error;
+      logger.error(`Error fetching followed lists for user ${userId}:`, error);
+      return { success: false, error: parseApiError(error), message: `Failed to fetch followed lists for user ${userId}` };
     }
   },
 
-  async getListItems(listId, limit = 10) {
+  // User follows a list
+  followList: async function(listId) {
     try {
-      const id = validateId(listId, 'listId');
-      if (!id) {
-        logWarn('[listService.getListItems] Invalid list ID:', listId);
-        return [];
-      }
-      
-      const queryParams = limit ? createQueryParams({ limit }) : '';
-      const endpoint = `/lists/${id}/items${queryParams ? `?${queryParams}` : ''}`;
-      
-      // Try to get real data from API
-      const result = await handleApiResponse(
-        () => apiClient.get(endpoint),
-        `listService.getListItems (listId: ${id})`
-      );
-      
-      // If we got valid data, use it
-      if (Array.isArray(result)) {
-        return result;
-      }
-      
-      // If API returned invalid data, use mock data
-      logWarn(`[listService.getListItems] API returned invalid data for list items ${id}, using mock data`);
-      const mockItems = getMockListItems(parseInt(id, 10));
-      return limit ? mockItems.slice(0, limit) : mockItems;
+      // logger.debug(`User attempting to follow list ${listId}`);
+      const response = await apiClient.post(`/lists/${listId}/follow`);
+      // logger.info(`User successfully followed list ${listId}:`, response.data);
+      // Update Zustand store
+      useFollowStore.getState().setFollowState(listId, true);
+       logEngagement('list_follow', { list_id: listId, location: 'listService_followList' });
+      return { success: true, data: response.data.data || response.data, message: response.data.message || 'Successfully followed list.' };
     } catch (error) {
-      // If API call failed, log error and use mock data
-      logError(`[listService.getListItems] Error fetching list items for ${listId}, using mock data:`, error);
-      const mockItems = getMockListItems(parseInt(listId, 10));
-      return limit ? mockItems.slice(0, limit) : mockItems;
+      logger.error(`Error following list ${listId}:`, error);
+      return { success: false, error: parseApiError(error), message: `Failed to follow list ${listId}` };
     }
   },
 
-  async getListDetails(listId) {
+  // User unfollows a list
+  unfollowList: async function(listId) {
     try {
-      // Remove any mock data flags
-      localStorage.removeItem('use_mock_data');
-      
-      const id = validateId(listId, 'listId');
-      
-      if (!id) {
-        logWarn(`[listService.getListDetails] Invalid list ID: ${listId}`);
-        return {
-          success: false,
-          error: { message: `Invalid list ID: ${listId}`, status: 400 },
-          list: null,
-          items: []
-        };
-      }
-      
-      logInfo(`[listService.getListDetails] Forcing database fetch for list ${id}`);
-      // Use network API call only, no mock data fallback
-      
-      const url = `/lists/${id}`;
-      const listResponse = await handleApiResponse(
-        () => apiClient.get(url),
-        'listService.getListDetails (metadata)'
-      );
-      
-      // Handle case where list metadata couldn't be fetched
-      if (listResponse === null) {
-        logWarn(`[listService.getListDetails] Failed to fetch list metadata, will try mock data`);
-        // Rather than throw, let's try to recover with mock data
-        const mockList = mockUserLists.find(list => String(list.id) === String(id));
-        if (mockList) {
-          logInfo(`[listService.getListDetails] Successfully recovered with mock data for list ${id}`);
-          return {
-            success: true,
-            list: mockList,
-            items: getMockListItems(id)
-          };
-        }
-        // If mock data doesn't exist, then throw
-        throw new Error('Failed to fetch list metadata and no mock fallback available');
-      }
-      
-      // Then fetch the list items
-      const itemsResponse = await handleApiResponse(
-        () => apiClient.get(`/lists/${id}/items`),
-        'listService.getListDetails (items)'
-      );
-      
-      // Extract items from response - handle null itemsResponse gracefully
-      const items = Array.isArray(itemsResponse?.data) ? itemsResponse.data : 
-                    Array.isArray(itemsResponse) ? itemsResponse : [];
-      
-      // Extract list data
-      const list = listResponse?.data || listResponse;
-      
-      // Check for data inconsistency and log it
-      if (list && list.item_count !== items.length) {
-        logWarn(`[listService.getListDetails] DATA INCONSISTENCY DETECTED for list ${id}:`);
-        logWarn(`  → Database shows: ${list.item_count} items`); 
-        logWarn(`  → Actual items array has: ${items.length} items`);
-        logWarn(`  → Fixing inconsistency by using actual items count`);
-      }
-      
-      // Always update item_count to match actual number of items
-      const updatedList = {
-        ...list,
-        item_count: items.length,
-        // Force the items array to be included in the list object
-        items: items
-      };
-      
-      // Return fixed data
-      return {
-        success: true,
-        list: updatedList,
-        items: items
-      };
+      // logger.debug(`User attempting to unfollow list ${listId}`);
+      const response = await apiClient.post(`/lists/${listId}/unfollow`); // Or DELETE /lists/:listId/follow
+      // logger.info(`User successfully unfollowed list ${listId}:`, response.data);
+      // Update Zustand store
+      useFollowStore.getState().setFollowState(listId, false);
+      logEngagement('list_unfollow', { list_id: listId, location: 'listService_unfollowList' });
+      return { success: true, data: response.data.data || response.data, message: response.data.message || 'Successfully unfollowed list.' };
     } catch (error) {
-      // Enhanced error logging
-      const errorMsg = error?.message || 'Unknown error';
-      const statusCode = error?.response?.status;
-      const responseData = error?.response?.data;
+      logger.error(`Error unfollowing list ${listId}:`, error);
+      return { success: false, error: parseApiError(error), message: `Failed to unfollow list ${listId}` };
+    }
+  },
+
+  // Toggle follow state for a list
+  toggleFollowList: async function(listId) {
+    try {
+      const response = await apiClient.post(`/lists/${listId}/toggle-follow`);
+      // Assuming the backend response contains the new follow state or list data
+      // logger.info(`Toggled follow for list ${listId}:`, response.data);
       
-      logError(`[listService.getListDetails] Error fetching details for list ${listId}: ${errorMsg}`, {
-        statusCode,
-        responseData,
-        stack: error?.stack
+      const newFollowState = response.data?.data?.is_followed ?? !useFollowStore.getState().followedLists[listId]; // Prefer backend state
+      useFollowStore.getState().setFollowState(listId, newFollowState);
+      
+      logEngagement('list_follow_toggle', { 
+        list_id: listId, 
+        action: newFollowState ? 'follow' : 'unfollow',
+        location: 'listService_toggleFollowList'
       });
-      
-      // Try to use mock data on error
-      const mockList = mockUserLists.find(l => String(l.id) === String(listId));
-      if (mockList) {
-        logWarn(`[listService.getListDetails] Using mock data for list ${listId} after error`);
-        const mockItems = getMockListItems(listId);
-        
-        return {
-          success: true,
-          list: {
-            ...mockList,
-            item_count: mockItems.length
-          },
-          items: mockItems,
-        };
-      }
-      
-      return {
-        success: false,
-        error,
-        list: null,
-        items: [],
-      };
-    }
-  },
-  async createList(listData) { /* ... */ },
-  async updateList(listId, listData) { /* ... */ },
-  async deleteList(listId) { /* ... */ },
-  async addItemToList(listId, itemData) {
-    try {
-      // Validate listId
-      const validatedId = validateId(listId);
-      if (!validatedId.valid) {
-        throw new Error(`Invalid list ID: ${listId}`);
-      }
-      
-      // Format the ID consistently
-      const id = validatedId.id;
-      
-      // Validate required fields in itemData
-      if (!itemData || !itemData.item_id || !itemData.item_type) {
-        throw new Error('Missing required item data (item_id, item_type)');
-      }
-      
-      // IMMEDIATE FIX: Force mock data for all list operations to ensure functionality
-      localStorage.setItem(LOCAL_STORAGE_KEYS.USE_MOCK_DATA, 'true');
-      logInfo('[listService.addItemToList] EMERGENCY FIX: Forced mock data mode to ensure functionality');
-      
-      // Define a function to perform the add operation with retry logic
-      const performAddWithRetry = async () => {
-        let retries = 0;
-        const maxRetries = MAX_RETRIES;
-        
-        while (retries <= maxRetries) {
-          try {
-            // If we're using mock data or in offline mode, simulate a successful add
-            if (localStorage.getItem(LOCAL_STORAGE_KEYS.USE_MOCK_DATA) === 'true' || 
-                localStorage.getItem(LOCAL_STORAGE_KEYS.OFFLINE_MODE) === 'true') {
-              logDebug('[listService.addItemToList] Using mock data for adding item to list');
-              
-              // Store in local storage for persistence
-              try {
-                // Get existing pending operations
-                const pendingOpsKey = LOCAL_STORAGE_KEYS.PENDING_OPERATIONS;
-                let pendingOps = [];
-                
-                try {
-                  const storedOps = localStorage.getItem(pendingOpsKey);
-                  if (storedOps) {
-                    pendingOps = JSON.parse(storedOps);
-                  }
-                } catch (e) {
-                  logWarn('[listService.addItemToList] Error reading pending operations:', e);
-                  pendingOps = [];
-                }
-                
-                // Add this operation to pending operations
-                pendingOps.push({
-                  type: 'ADD_ITEM',
-                  listId: id,
-                  data: itemData,
-                  timestamp: Date.now()
-                });
-                
-                // Store updated pending operations
-                localStorage.setItem(pendingOpsKey, JSON.stringify(pendingOps));
-                
-                logInfo(`[listService.addItemToList] Stored pending operation for list ${id}`);
-                
-                // Return a mock success response for UI updates
-                return {
-                  success: true,
-                  data: {
-                    list_item_id: `pending-${Date.now()}`,
-                    item_id: itemData.item_id,
-                    item_type: itemData.item_type,
-                    list_id: id,
-                    added_at: new Date().toISOString(),
-                    pending: true
-                  },
-                  message: 'Item will be added to list when back online'
-                };
-              } catch (storageError) {
-                logWarn('[listService.addItemToList] Failed to store pending operation:', storageError);
-                throw new Error('Failed to store operation for offline processing');
-              }
-            }
-            
-            // Make the actual API call if not using mock data
-            const endpoint = `/lists/${id}/items`;
-            logDebug(`[listService.addItemToList] Adding item to list ${id} via endpoint: ${endpoint}`);
-            
-            const response = await apiClient.post(endpoint, itemData);
-            return response.data;
-          } catch (error) {
-            retries++;
-            
-            // If we've reached max retries, throw the error
-            if (retries > maxRetries) {
-              throw error;
-            }
-            
-            // Log the retry attempt
-            logWarn(`[listService.addItemToList] Retry ${retries}/${maxRetries}:`, error.message);
-            
-            // Wait before retrying with exponential backoff
-            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS * retries));
-          }
-        }
-      };
-      
-      // Execute with retry logic
-      return await performAddWithRetry();
+
+      return { success: true, data: response.data.data || response.data, newFollowState, message: response.data.message || 'Follow status updated.' };
     } catch (error) {
-      // Check if this is a network error
-      if (error.message?.includes('Network Error') || 
-          error.code === 'ECONNABORTED' || 
-          !navigator.onLine) {
-        // Try to store for offline processing
-        try {
-          return this._storeOfflineOperation('ADD_ITEM', listId, itemData);
-        } catch (storeError) {
-          logError('[listService.addItemToList] Failed to store for offline processing:', storeError);
-        }
-      }
-      
-      logError(`[listService.addItemToList] Error adding item to list ${listId}:`, error);
-      throw error;
+      logger.error('Error toggling follow state for list:', listId, error);
+      // Consider if an optimistic update was made and needs reverting
+      return { success: false, error: parseApiError(error), message: 'Failed to toggle follow status' };
     }
   },
-  
-  /**
-   * Perform an operation with retry logic
-   * @private
-   * @param {Function} operation - The operation to perform
-   * @param {string} operationName - Name of the operation for logging
-   * @param {number} [maxRetries=3] - Maximum number of retries
-   * @returns {Promise<any>} - Result of the operation
-   */
-  async _performOperationWithRetry(operation, operationName, maxRetries = MAX_RETRIES) {
-    let retries = 0;
-    
-    while (retries <= maxRetries) {
-      try {
-        // Attempt the operation
-        return await operation();
-      } catch (error) {
-        retries++;
-        
-        // If we've reached max retries, throw the error
-        if (retries > maxRetries) {
-          throw error;
-        }
-        
-        // Log the retry attempt
-        logWarn(`[listService._performOperationWithRetry] Retry ${retries}/${maxRetries} for ${operationName}:`, error.message);
-        
-        // Wait before retrying with exponential backoff
-        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS * retries));
-      }
-    }
-  },
-  
-  /**
-   * Check if an error is a network-related error
-   * @private
-   * @param {Error} error - The error to check
-   * @returns {boolean} - Whether the error is network-related
-   */
-  _isNetworkError(error) {
-    return error.message?.includes('Network Error') || 
-           error.code === 'ECONNABORTED' || 
-           !navigator.onLine;
-  },
-  
-  /**
-   * Store an operation for offline processing
-   * @private
-   * @param {string} operationType - The type of operation
-   * @param {string|number} listId - The ID of the list
-   * @param {Object} data - The data for the operation
-   * @returns {Object} - Mock success response for UI updates
-   */
-  _storeOfflineOperation(operationType, listId, data) {
+
+  // Check if a user follows a specific list
+  // This might often be derived from other data or a dedicated endpoint
+  checkFollowStatus: async function(listId, userId) { // userId might be implicit if auth token is used
     try {
-      // Get existing pending operations
-      const pendingOpsKey = LOCAL_STORAGE_KEYS.PENDING_OPERATIONS;
-      let pendingOps = [];
-      
-      try {
-        const storedOps = localStorage.getItem(pendingOpsKey);
-        if (storedOps) {
-          pendingOps = JSON.parse(storedOps);
-        }
-      } catch (e) {
-        logWarn('[listService._storeOfflineOperation] Error reading pending operations:', e);
-        // Continue with empty array if parse fails
-        pendingOps = [];
-      }
-      
-      // Add this operation to pending operations
-      pendingOps.push({
-        type: operationType,
-        listId,
-        data,
-        timestamp: Date.now()
-      });
-      
-      // Store updated pending operations
-      localStorage.setItem(pendingOpsKey, JSON.stringify(pendingOps));
-      
-      logInfo(`[listService._storeOfflineOperation] Stored pending ${operationType} for list ${listId}`);
-      
-      // Return a mock success response so UI can update
-      if (operationType === 'ADD_ITEM') {
-        return {
-          success: true,
-          data: {
-            list_item_id: `pending-${Date.now()}`,
-            item_id: data.item_id,
-            item_type: data.item_type,
-            list_id: listId,
-            added_at: new Date().toISOString(),
-            pending: true
-          },
-          message: 'Item will be added to list when back online'
-        };
-      }
-      
-      return {
-        success: true,
-        message: 'Operation will be completed when back online'
-      };
-    } catch (storageError) {
-      logWarn('[listService._storeOfflineOperation] Failed to store pending operation:', storageError);
-      throw new Error('Failed to store operation for offline processing');
+      // logger.debug(`Checking follow status for list ${listId} by user (conceptually) ${userId}`);
+      // This endpoint might not exist; often follow status is part of list data or user data.
+      // Forcing a re-fetch or relying on Zustand store might be more practical.
+      // Example: apiClient.get(`/lists/${listId}/is-followed`); 
+      // For now, we'll assume this information comes with the list details or is managed client-side.
+      const isFollowed = useFollowStore.getState().followedLists[listId] || false;
+      // logger.debug(`Client-side follow status for list ${listId}: ${isFollowed}`);
+      return { success: true, data: { is_followed: isFollowed } }; 
+    } catch (error) {
+      // This is unlikely to be an API error if we are checking client-side state.
+      logger.error(`Error checking follow status for list ${listId}:`, error);
+      return { success: false, error: parseApiError(error), message: `Failed to check follow status for list ${listId}` };
     }
   },
   
-  /**
-   * Remove an item from a list
-   * @param {string|number} listId - The ID of the list
-   * @param {string|number} listItemId - The ID of the list item to remove
-   * @returns {Promise<Object>} - Response with success status
-   */
-  async removeItemFromList(listId, listItemId) {
-    // Implementation will be added in a future update
-    logWarn('[listService.removeItemFromList] This method is not fully implemented yet');
-    return Promise.resolve({ success: true });
-  },
-
-  /**
-   * Remove an item from a list
-   * @param {string|number} listId - The ID of the list
-   * @param {string|number} listItemId - The ID of the list item to remove
-   * @returns {Promise<Object>} - Response with success status
-   */
-  async removeItemFromList(listId, listItemId) {
-    // Implementation will be added in a future update
-    logWarn('[listService.removeItemFromList] This method is not fully implemented yet');
-    return Promise.resolve({ success: true });
-  },
-
-  /**
-   * Update a list item
-   * @param {string|number} listId - The ID of the list
-   * @param {string|number} listItemId - The ID of the list item to update
-   * @param {Object} itemData - The updated item data
-   * @returns {Promise<Object>} - Response with success status
-   */
-  async updateListItem(listId, listItemId, itemData) {
-    // Implementation will be added in a future update
-    logWarn('[listService.updateListItem] This method is not fully implemented yet');
-    return Promise.resolve({ success: true });
-  },
-
-  /**
-   * Toggle follow status for a list - standardized implementation
-   * 
-   * This function has been rewritten to ensure consistent behavior
-   * between list detail pages and other pages where following is available.
-   * 
-   * @param {string|number} id - The ID of the list to follow/unfollow
-   * @returns {Promise<Object>} - Response with success status and updated follow state
-   */
-  toggleFollowList(id) {
-    // Validate ID
-    const validatedId = validateId(id);
-    if (!validatedId.valid) {
-      return Promise.reject(new Error(`Invalid list ID: ${id}`));
+  // Add multiple items to a list (bulk operation)
+  // items should be an array of itemData objects
+  addItemsToListBulk: async function(listId, items) {
+    try {
+      // logger.debug(`Attempting to bulk add ${items.length} items to list ${listId}:`, items);
+      const response = await apiClient.post(`/lists/${listId}/items/bulk`, { items });
+      // logger.info(`${items.length} items added to list ${listId} successfully:`, response.data);
+      return { 
+        success: true, 
+        data: response.data.data || response.data, 
+        results: response.data.results, // Individual results if backend provides them
+        message: response.data.message || 'Items added successfully in bulk.' 
+      };
+    } catch (error) {
+      logger.error('Error bulk adding items to list:', listId, items, error);
+      return { success: false, error: parseApiError(error), message: 'Failed to bulk add items to list.' };
     }
-    
-    // Format the ID consistently
-    const listId = validatedId.id;
-    
-    logDebug(`[listService.toggleFollowList] Toggling follow for list ${listId}`);
-    
-    // Get current follow state from localStorage
-    const currentFollowState = this._getLocalFollowState(listId);
-    
-    // Toggle the follow state
-    const newFollowState = !currentFollowState;
-    
-    // Save the new state to localStorage
-    this._saveLocalFollowState(listId, newFollowState);
-    
-    return new Promise((resolve) => {
-      // First immediately resolve with the local state for UI responsiveness
-      // and attempt the API call in the background
-      resolve({
-        success: true,
-        isFollowing: newFollowState,
-        message: 'Follow status updated (local)'  
-      });
-      
-      // Attempt the API call (result won't affect UI since we already resolved)
-      this._syncFollowStateWithServer(listId, newFollowState);
+  },
+
+  // Reorder items within a list
+  // orderedItemIds should be an array of item IDs in the desired new order
+  reorderListItems: async function(listId, orderedItemIds) {
+    try {
+      // logger.debug(`Attempting to reorder items in list ${listId}:`, orderedItemIds);
+      const response = await apiClient.put(`/lists/${listId}/items/reorder`, { orderedItemIds });
+      // logger.info(`Items in list ${listId} reordered successfully:`, response.data);
+      return { success: true, data: response.data.data || response.data, message: response.data.message || 'Items reordered successfully.' };
+    } catch (error) {
+      logger.error('Error reordering items in list:', listId, orderedItemIds, error);
+      return { success: false, error: parseApiError(error), message: 'Failed to reorder items.' };
+    }
+  },
+
+  // Get public lists, possibly with pagination, filtering by city, etc.
+  getPublicLists: async function({ cityId, page = 1, limit = 10, listType = null, searchTerm = null } = {}) {
+    // logger.debug(`Workspaceing public lists with cityId: ${cityId}, page: ${page}, limit: ${limit}, type: ${listType}, search: ${searchTerm}`);
+    return this.getLists({ 
+      cityId, 
+      page, 
+      limit, 
+      listType,
+      isPublic: true,
+      searchTerm
     });
   },
-  
-  /**
-   * Get the current follow state from localStorage
-   * @private
-   * @param {string|number} listId - The ID of the list
-   * @returns {boolean} - Current follow state
-   */
-  _getLocalFollowState(listId) {
-    const localStorageKey = `${LOCAL_STORAGE_KEYS.FOLLOW_STATE_PREFIX}${listId}`;
-    let currentFollowState = false;
-    
+
+  // Get lists curated by the "platform" or featured lists
+  getFeaturedLists: async function({ cityId, page = 1, limit = 5 } = {}) {
     try {
-      const savedState = localStorage.getItem(localStorageKey);
-      if (savedState) {
-        currentFollowState = JSON.parse(savedState).isFollowing;
-      }
-    } catch (e) {
-      logWarn('[listService._getLocalFollowState] Error reading from localStorage:', e);
-    }
-    
-    return currentFollowState;
-  },
-  
-  /**
-   * Save the follow state to localStorage
-   * @private
-   * @param {string|number} listId - The ID of the list
-   * @param {boolean} isFollowing - The follow state to save
-   */
-  _saveLocalFollowState(listId, isFollowing) {
-    const localStorageKey = `${LOCAL_STORAGE_KEYS.FOLLOW_STATE_PREFIX}${listId}`;
-    
-    try {
-      localStorage.setItem(localStorageKey, JSON.stringify({
-        isFollowing,
-        timestamp: Date.now()
-      }));
-      logDebug(`[listService._saveLocalFollowState] Saved offline state for list ${listId}:`, { isFollowing });
-    } catch (e) {
-      logWarn('[listService._saveLocalFollowState] Error saving to localStorage:', e);
-    }
-  },
-  
-  /**
-   * Sync the follow state with the server
-   * @private
-   * @param {string|number} listId - The ID of the list
-   * @param {boolean} isFollowing - The follow state to sync
-   */
-  _syncFollowStateWithServer(listId, isFollowing) {
-    apiClient.post(`/lists/${listId}/toggle-follow`)
-      .then(response => {
-        logDebug(`[listService._syncFollowStateWithServer] Success toggling list ${listId} on server:`, response.data);
-        // We could update localStorage here with the server response if needed
-      })
-      .catch(error => {
-        const errorMessage = `[listService._syncFollowStateWithServer (id: ${listId})] ${handleApiResponse(error).message}`;
-        logError(errorMessage, {
-          responseData: error.response?.data || "No response data"
-        });
-        // Log error but don't reject since we already resolved with local state
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+        featured: 'true' // Assuming a query param for featured
       });
+      if (cityId) {
+        params.append('cityId', cityId.toString());
+      }
+      // logger.debug(`Workspaceing featured lists with params: ${params.toString()}`);
+      const response = await apiClient.get(`/lists/featured?${params.toString()}`); // Or just /lists with a filter
+      // logger.debug('Featured lists response:', response.data);
+      return { success: true, data: response.data.data || response.data, pagination: response.data.pagination };
+    } catch (error) {
+      logger.error('Error fetching featured lists:', error);
+      return { success: false, error: parseApiError(error), message: 'Failed to fetch featured lists.' };
+    }
   },
   
-  /**
-   * Toggle follow status for a list (alias for toggleFollowList)
-   * This method is used by the FollowButton component
-   * @param {string|number} id - The ID of the list to follow/unfollow
-   * @returns {Promise<Object>} - Response with success status and updated follow state
-   */
-  async toggleFollow(id) {
+  // Add a dish to multiple lists
+  addDishToMultipleLists: async function(dishId, listIds, notes = null) {
+    try {
+      const payload = { dish_id: dishId, list_ids: listIds };
+      if (notes) payload.notes = notes; // Optional notes for each new list_item
+      // logger.debug(`Adding dish ${dishId} to lists ${listIds.join(', ')}:`, payload);
+      const response = await apiClient.post('/lists/items/add-to-multiple', payload);
+      // logger.info(`Dish ${dishId} added to multiple lists successfully:`, response.data);
+      return { 
+        success: true, 
+        data: response.data.data || response.data, 
+        results: response.data.results, // Backend might return status for each list
+        message: response.data.message || 'Dish added to selected lists.' 
+      };
+    } catch (error) {
+      logger.error(`Error adding dish ${dishId} to multiple lists:`, error);
+      return { success: false, error: parseApiError(error), message: 'Failed to add dish to multiple lists.' };
+    }
+  },
+  
+  // Add a restaurant to multiple lists
+  addRestaurantToMultipleLists: async function(restaurantId, listIds, notes = null) {
+    try {
+      const payload = { restaurant_id: restaurantId, list_ids: listIds };
+      if (notes) payload.notes = notes;
+      // logger.debug(`Adding restaurant ${restaurantId} to lists ${listIds.join(', ')}:`, payload);
+      const response = await apiClient.post('/lists/items/add-to-multiple', payload); // Same endpoint, type determined by payload
+      // logger.info(`Restaurant ${restaurantId} added to multiple lists successfully:`, response.data);
+      return { 
+        success: true, 
+        data: response.data.data || response.data, 
+        results: response.data.results,
+        message: response.data.message || 'Restaurant added to selected lists.' 
+      };
+    } catch (error) {
+      logger.error(`Error adding restaurant ${restaurantId} to multiple lists:`, error);
+      return { success: false, error: parseApiError(error), message: 'Failed to add restaurant to multiple lists.' };
+    }
+  },
+
+  // Fetch lists that contain a specific dish ID
+  getListsContainingDish: async function(dishId, { userId, page = 1, limit = 10 } = {}) {
+    try {
+      const params = new URLSearchParams({
+        dish_id: dishId,
+        page: page.toString(),
+        limit: limit.toString()
+      });
+      if (userId) { // To get user's lists (public or private if owner) that contain this dish
+        params.append('user_id', userId);
+      }
+      // logger.debug(`Workspaceing lists containing dish ${dishId} with params: ${params.toString()}`);
+      const response = await apiClient.get(`/lists/containing-item?${params.toString()}`);
+      // logger.debug(`Response for lists containing dish ${dishId}:`, response.data);
+      return { success: true, data: response.data.data || response.data, pagination: response.data.pagination };
+    } catch (error) {
+      logger.error(`Error fetching lists containing dish ${dishId}:`, error);
+      return { success: false, error: parseApiError(error), message: `Failed to fetch lists containing dish ${dishId}.` };
+    }
+  },
+
+  // Fetch lists that contain a specific restaurant ID
+  getListsContainingRestaurant: async function(restaurantId, { userId, page = 1, limit = 10 } = {}) {
+    try {
+      const params = new URLSearchParams({
+        restaurant_id: restaurantId,
+        page: page.toString(),
+        limit: limit.toString()
+      });
+      if (userId) {
+        params.append('user_id', userId);
+      }
+      // logger.debug(`Workspaceing lists containing restaurant ${restaurantId} with params: ${params.toString()}`);
+      const response = await apiClient.get(`/lists/containing-item?${params.toString()}`);
+      // logger.debug(`Response for lists containing restaurant ${restaurantId}:`, response.data);
+      return { success: true, data: response.data.data || response.data, pagination: response.data.pagination };
+    } catch (error) {
+      logger.error(`Error fetching lists containing restaurant ${restaurantId}:`, error);
+      return { success: false, error: parseApiError(error), message: `Failed to fetch lists containing restaurant ${restaurantId}.` };
+    }
+  },
+  
+  // Get metadata or summary for multiple lists by their IDs
+  getMultipleListSummary: async function(listIds) {
+    if (!listIds || listIds.length === 0) {
+      return { success: true, data: [] }; // Return empty if no IDs provided
+    }
+    try {
+      const params = new URLSearchParams();
+      listIds.forEach(id => params.append('ids[]', id)); // Or 'ids' with comma-separated string, depending on backend
+      // logger.debug(`Workspaceing summary for lists: ${listIds.join(', ')}`);
+      const response = await apiClient.get(`/lists/summary?${params.toString()}`);
+      // logger.debug('Multiple list summary response:', response.data);
+      return { success: true, data: response.data.data || response.data };
+    } catch (error) {
+      logger.error(`Error fetching summary for lists ${listIds.join(', ')}:`, error);
+      return { success: false, error: parseApiError(error), message: 'Failed to fetch list summaries.' };
+    }
+  },
+
+  // Duplicate an existing list
+  duplicateList: async function(listId, newName = null, makePublic = null) {
+    try {
+      const payload = {};
+      if (newName) payload.name = newName;
+      if (typeof makePublic === 'boolean') payload.is_public = makePublic;
+      // logger.debug(`Attempting to duplicate list ${listId} with payload:`, payload);
+      const response = await apiClient.post(`/lists/${listId}/duplicate`, payload);
+      // logger.info(`List ${listId} duplicated successfully:`, response.data);
+      return { success: true, data: response.data.data || response.data, message: response.data.message || 'List duplicated successfully.' };
+    } catch (error) {
+      logger.error(`Error duplicating list ${listId}:`, error);
+      return { success: false, error: parseApiError(error), message: `Failed to duplicate list ${listId}.` };
+    }
+  },
+
+  // Get a user's recently viewed or interacted lists
+  // This would require backend tracking of user activity
+  getRecentListsForUser: async function(userId, { limit = 5 } = {}) {
+    try {
+      // logger.debug(`Workspaceing recent lists for user ${userId}, limit ${limit}`);
+      const response = await apiClient.get(`/users/${userId}/recent-lists?limit=${limit}`);
+      // logger.debug('Recent lists response:', response.data);
+      return { success: true, data: response.data.data || response.data };
+    } catch (error) {
+      logger.error(`Error fetching recent lists for user ${userId}:`, error);
+      return { success: false, error: parseApiError(error), message: 'Failed to fetch recent lists.' };
+    }
+  },
+
+  // Merge two lists
+  // sourceListId: the list to merge from (will often be deleted or archived after)
+  // targetListId: the list to merge into
+  // options: e.g., { deleteSourceList: true, conflictResolution: 'keep_target' | 'keep_source' | 'keep_both' }
+  mergeLists: async function(sourceListId, targetListId, options = {}) {
+    try {
+      const payload = {
+        source_list_id: sourceListId,
+        target_list_id: targetListId,
+        options: options,
+      };
+      // logger.debug('Attempting to merge lists:', payload);
+      const response = await apiClient.post('/lists/merge', payload);
+      // logger.info('Lists merged successfully:', response.data);
+      return { success: true, data: response.data.data || response.data, message: response.data.message || 'Lists merged successfully.' };
+    } catch (error) {
+      logger.error('Error merging lists:', sourceListId, targetListId, error);
+      return { success: false, error: parseApiError(error), message: 'Failed to merge lists.' };
+    }
+  },
+
+  // Get list activity feed (e.g., recent additions, comments if implemented)
+  getListActivity: async function(listId, { page = 1, limit = 15 } = {}) {
+    try {
+      // logger.debug(`Workspaceing activity for list ${listId}, page ${page}, limit ${limit}`);
+      const response = await apiClient.get(`/lists/${listId}/activity?page=${page}&limit=${limit}`);
+      // logger.debug('List activity response:', response.data);
+      return { success: true, data: response.data.data || response.data, pagination: response.data.pagination };
+    } catch (error) {
+      logger.error(`Error fetching activity for list ${listId}:`, error);
+      return { success: false, error: parseApiError(error), message: `Failed to fetch activity for list ${listId}.` };
+    }
+  },
+  
+  // Fetch details for multiple list items by their global IDs (if list_items have unique IDs across all lists)
+  // This is more complex and depends heavily on backend schema.
+  // A simpler version might be fetching items from a *specific* list by their item IDs within that list.
+  getMultipleListItemsDetails: async function(listItemIds) {
+    if (!listItemIds || listItemIds.length === 0) {
+      return { success: true, data: [] };
+    }
+    try {
+      const params = new URLSearchParams();
+      listItemIds.forEach(id => params.append('ids[]', id));
+      // logger.debug(`Workspaceing details for list items: ${listItemIds.join(', ')}`);
+      const response = await apiClient.get(`/list-items/details?${params.toString()}`); // Example endpoint
+      // logger.debug('Multiple list items details response:', response.data);
+      return { success: true, data: response.data.data || response.data };
+    } catch (error) {
+      logger.error(`Error fetching details for list items ${listItemIds.join(', ')}:`, error);
+      return { success: false, error: parseApiError(error), message: 'Failed to fetch list item details.' };
+    }
+  },
+
+  // Get a shareable link or details for a list
+  getShareableListLink: async function(listId, shareOptions = {}) { // shareOptions for custom links if supported
+    try {
+      // logger.debug(`Generating shareable link for list ${listId} with options:`, shareOptions);
+      // This might just return list data from which a frontend link is constructed,
+      // or it could be an endpoint that generates a short URL or specific share token.
+      // For now, let's assume it returns the list data.
+      const listDetails = await this.getList(listId);
+      if (listDetails.success) {
+        // Construct a frontend URL. This logic might live more appropriately in a UI util.
+        const shareUrl = `${window.location.origin}/lists/${listDetails.data.id}`; // Basic example
+        return { success: true, data: { ...listDetails.data, share_url: shareUrl }, message: 'Shareable link information ready.' };
+      } else {
+        throw listDetails.error; // Or re-wrap
+      }
+    } catch (error) {
+      logger.error(`Error generating shareable link for list ${listId}:`, error);
+      return { success: false, error: parseApiError(error), message: `Failed to get shareable link for list ${listId}.` };
+    }
+  },
+  
+  // Fetch lists that a user has collaborated on (if collaboration is a feature)
+  getCollaboratingLists: async function(userId, { page = 1, limit = 10 } = {}) {
+    try {
+      // logger.debug(`Workspaceing lists user ${userId} collaborates on, page ${page}, limit ${limit}`);
+      const response = await apiClient.get(`/users/${userId}/collaborating-lists?page=${page}&limit=${limit}`);
+      // logger.debug('Collaborating lists response:', response.data);
+      return { success: true, data: response.data.data || response.data, pagination: response.data.pagination };
+    } catch (error) {
+      logger.error(`Error fetching collaborating lists for user ${userId}:`, error);
+      return { success: false, error: parseApiError(error), message: 'Failed to fetch collaborating lists.' };
+    }
+  },
+
+  // Manage collaborators (add, remove, update roles) - requires more specific endpoints
+  // Example: addCollaboratorToList(listId, collaboratorUserId, role)
+  // Example: removeCollaboratorFromList(listId, collaboratorUserId)
+
+  // Method to handle following/unfollowing a list, used by FollowButton
+  handleFollowList: async function(id) {
     // This is an alias method for toggleFollowList that the FollowButton component uses
     return this.toggleFollowList(id);
   }
 };
+
+export { listService };

@@ -1,106 +1,138 @@
-/* src/utils/apiUtils.js - Centralized API utilities */
+// File: src/utils/apiUtils.js
+import axios from 'axios';
+import * as config from '../config'; // Corrected: Namespace import for config
+import { logError, logDebug, logWarn, logInfo } from './logger';
+import { parseApiError } from './parseApiError';
+import { retryWithBackoff, isNetworkError } from './errorHandling';
 
 /**
- * Custom API Error class for standardized error handling
+ * Creates a delay for a given amount of milliseconds.
+ * @param {number} ms - The number of milliseconds to delay.
+ * @returns {Promise<void>}
  */
-export class ApiError extends Error {
-  constructor(message, status = 500, details = null) {
-    super(message);
-    this.name = 'ApiError';
-    this.status = status;
-    this.details = details;
-  }
-}
-import { logError, logWarn, logDebug } from './logger.js';
-import config from '../config.js';
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
- * Standardized error handler for API responses
- * @param {Object} error - The error object
- * @param {String} context - The context/location where the error occurred
- * @returns {Object} - Standardized error object with message and details
+ * Default configuration for API requests
  */
-export const handleApiError = (error, context = 'API') => {
-  // Axios error structure
-  const status = error.response?.status;
-  const data = error.response?.data;
+const DEFAULT_REQUEST_CONFIG = {
+  maxRetries: config.MAX_API_RETRIES || 3,
+  baseDelay: config.API_RETRY_DELAY_MS || 1000,
+  shouldRetry: (error) => isNetworkError(error) || (error.response && error.response.status >= 500)
+};
+
+/**
+ * Generic GET request helper with enhanced retry functionality.
+ * @param {string} url - The URL to fetch.
+ * @param {object} [params={}] - Query parameters.
+ * @param {object} [options={}] - Additional options for retries.
+ * @returns {Promise<object>} - API response data.
+ */
+export const get = async (url, params = {}, options = {}) => {
+  const requestName = options.requestName || `GET ${url}`;
   
-  // Get meaningful error message
-  let message = error.message || 'Unknown error occurred';
-  if (data?.message) {
-    message = data.message;
-  } else if (status) {
-    message = `Request failed with status ${status}`;
-  }
-  
-  // Log appropriate level based on status
-  if (status === 401 || status === 403) {
-    logWarn(`[${context}] Authorization error: ${message}`);
-  } else if (status === 404) {
-    logWarn(`[${context}] Resource not found: ${message}`);
-  } else {
-    logError(`[${context}] Error: ${message}`, error);
-  }
-  
-  // Return standardized error object
-  return {
-    message,
-    status,
-    details: data?.details || null,
-    code: data?.code || null,
-    originalError: error
+  const apiCall = async () => {
+    logDebug(`[apiUtils.get] Calling ${url} with params:`, params);
+    const response = await axios.get(`${config.API_BASE_URL}${url}`, { params });
+    return response.data;
   };
+  
+  return retryWithBackoff(apiCall, {
+    ...DEFAULT_REQUEST_CONFIG,
+    ...options,
+    shouldRetry: options.shouldRetry || DEFAULT_REQUEST_CONFIG.shouldRetry
+  });
 };
 
 /**
- * Enhanced logger for API requests
- * @param {String} endpoint - API endpoint
- * @param {Object} params - Request parameters
- * @param {String} method - HTTP method
- * @param {String} context - Context for logging
+ * Generic POST request helper with enhanced retry functionality.
+ * @param {string} url - The URL to post to.
+ * @param {object} data - The data to send in the request body.
+ * @param {object} [options={}] - Additional options for retries.
+ * @returns {Promise<object>} - API response data.
  */
-export const logApiRequest = (endpoint, params, method = 'GET', context = 'API') => {
-  logDebug(`[${context}] ${method.toUpperCase()} Request to "${endpoint}"`, 
-    params ? { parameters: params } : '');
+export const post = async (url, data, options = {}) => {
+  const requestName = options.requestName || `POST ${url}`;
+  
+  const apiCall = async () => {
+    logDebug(`[apiUtils.post] Calling ${url} with data:`, { dataKeys: Object.keys(data || {}) });
+    const response = await axios.post(`${config.API_BASE_URL}${url}`, data);
+    return response.data;
+  };
+  
+  return retryWithBackoff(apiCall, {
+    ...DEFAULT_REQUEST_CONFIG,
+    ...options,
+    shouldRetry: options.shouldRetry || DEFAULT_REQUEST_CONFIG.shouldRetry
+  });
 };
 
 /**
- * Enhanced logger for API responses
- * @param {Object} response - API response
- * @param {String} endpoint - API endpoint
- * @param {String} context - Context for logging
+ * Generic PUT request helper with enhanced retry functionality.
+ * @param {string} url - The URL to put to.
+ * @param {object} data - The data to send in the request body.
+ * @param {object} [options={}] - Additional options for retries.
+ * @returns {Promise<object>} - API response data.
  */
-export const logApiResponse = (response, endpoint, context = 'API') => {
-  const { status, data } = response;
-  logDebug(`[${context}] Response from "${endpoint}": Status ${status}`, data);
+export const put = async (url, data, options = {}) => {
+  const requestName = options.requestName || `PUT ${url}`;
+  
+  const apiCall = async () => {
+    logDebug(`[apiUtils.put] Calling ${url} with data:`, { dataKeys: Object.keys(data || {}) });
+    const response = await axios.put(`${config.API_BASE_URL}${url}`, data);
+    return response.data;
+  };
+  
+  return retryWithBackoff(apiCall, {
+    ...DEFAULT_REQUEST_CONFIG,
+    ...options,
+    shouldRetry: options.shouldRetry || DEFAULT_REQUEST_CONFIG.shouldRetry
+  });
 };
 
 /**
- * Helper to determine if we should use specific port for API calls
- * Used to resolve CORS issues between frontend and backend
- * @returns {Boolean} True if specific port should be enforced
+ * Generic DELETE request helper with enhanced retry functionality.
+ * @param {string} url - The URL to delete.
+ * @param {object} [options={}] - Additional options for retries.
+ * @returns {Promise<object>} - API response data.
  */
-export const shouldForceApiPort = () => {
-  return config.NODE_ENV === 'development' && 
-    config.VITE_API_BASE_URL.includes('localhost');
+export const del = async (url, options = {}) => { // 'delete' is a reserved keyword
+  const requestName = options.requestName || `DELETE ${url}`;
+  
+  const apiCall = async () => {
+    logDebug(`[apiUtils.del] Calling ${url}`);
+    const response = await axios.delete(`${config.API_BASE_URL}${url}`);
+    return response.data;
+  };
+  
+  return retryWithBackoff(apiCall, {
+    ...DEFAULT_REQUEST_CONFIG,
+    ...options,
+    shouldRetry: options.shouldRetry || DEFAULT_REQUEST_CONFIG.shouldRetry
+  });
 };
 
 /**
- * Get the appropriate API base URL based on environment
- * @returns {String} The API base URL to use
+ * Generic PATCH request helper with enhanced retry functionality.
+ * @param {string} url - The URL to patch.
+ * @param {object} data - The data to send in the request body.
+ * @param {object} [options={}] - Additional options for retries.
+ * @returns {Promise<object>} - API response data.
  */
-export const getApiBaseUrl = () => {
-  if (shouldForceApiPort()) {
-    // Ensure we're using port 5173 when needed
-    return config.VITE_API_BASE_URL.replace(/localhost:\d+/, 'localhost:5173');
-  }
-  return config.VITE_API_BASE_URL;
+export const patch = async (url, data, options = {}) => {
+  const requestName = options.requestName || `PATCH ${url}`;
+  
+  const apiCall = async () => {
+    logDebug(`[apiUtils.patch] Calling ${url} with data:`, { dataKeys: Object.keys(data || {}) });
+    const response = await axios.patch(`${config.API_BASE_URL}${url}`, data);
+    return response.data;
+  };
+  
+  return retryWithBackoff(apiCall, {
+    ...DEFAULT_REQUEST_CONFIG,
+    ...options,
+    shouldRetry: options.shouldRetry || DEFAULT_REQUEST_CONFIG.shouldRetry
+  });
 };
 
-export default {
-  handleApiError,
-  logApiRequest,
-  logApiResponse,
-  shouldForceApiPort,
-  getApiBaseUrl
-};
+// You can add other HTTP methods (HEAD, OPTIONS, etc.) if needed.

@@ -1,12 +1,13 @@
 // src/stores/useAuthStore.js
 /**
- * Authentication store using Zustand
+ * Authentication store using Zustand with enhanced error handling
  * Updated to support both default and named exports for API standardization
  */
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import apiClient, { setAuthStoreRef } from '@/services/apiClient';
 import { logInfo, logWarn, logError, logDebug } from '@/utils/logger.js';
+import ErrorHandler from '@/utils/ErrorHandler';
 
 const logger = {
   info: logInfo,
@@ -35,6 +36,29 @@ const throttledSet = (originalSet) => (newState) => {
   originalSet(newState);
 };
 
+/**
+ * Centralized error handler for auth operations
+ * 
+ * @param {Error} error - The error object
+ * @param {string} operation - Name of the operation (login, logout, etc.)
+ * @param {Function} setFn - State setter function
+ * @returns {string} - Error message for return value
+ */
+const handleAuthError = (error, operation, setFn) => {
+  const errorInfo = ErrorHandler.handle(error, `AuthStore.${operation}`, {
+    showToast: true,
+    includeStack: process.env.NODE_ENV === 'development'
+  });
+  
+  // Update store state with error
+  setFn({ 
+    isLoading: false, 
+    error: errorInfo.message
+  });
+  
+  return errorInfo.message;
+};
+
 const useAuthStore = create(
   persist(
     (set, get) => ({
@@ -51,6 +75,8 @@ const useAuthStore = create(
       /**
        * Checks the authentication status of the user
        * Now with emergency dev mode option for offline testing
+       * @param {boolean} forceCheck - Force a fresh check bypassing cache
+       * @returns {Promise<boolean>} Authentication success status
        */
       checkAuthStatus: async (forceCheck = false) => {
         const currentState = get();
@@ -102,7 +128,10 @@ const useAuthStore = create(
             localAuthData = JSON.parse(localStorageAuth);
           }
         } catch (err) {
-          logger.error('[AuthStore] Error parsing localStorage auth data:', err);
+          ErrorHandler.handle(err, 'AuthStore.parseLocalStorage', {
+            showToast: false,
+            logLevel: 'warn'
+          });
           // No need to set error state here as this is just a recovery mechanism
         }
         
@@ -127,7 +156,10 @@ const useAuthStore = create(
             
             logger.info('[AuthStore] Successfully restored session from localStorage');
           } catch (restoreErr) {
-            logger.error('[AuthStore] Error restoring session:', restoreErr);
+            ErrorHandler.handle(restoreErr, 'AuthStore.restoreSession', {
+              showToast: false,
+              logLevel: 'error'
+            });
           }
         }
         
@@ -158,7 +190,10 @@ const useAuthStore = create(
               parsedAuthData = JSON.parse(storedAuthData);
             }
           } catch (e) {
-            logger.warn('[AuthStore checkAuthStatus] Could not parse stored auth data', e);
+            ErrorHandler.handle(e, 'AuthStore.parseStoredAuth', {
+              showToast: false,
+              logLevel: 'warn'
+            });
           }
           
           // If server is unavailable and we have stored auth data, use it in dev mode
@@ -231,7 +266,15 @@ const useAuthStore = create(
           } else {
             // No user found or invalid response
             const errorMsg = response.data?.message || 'Authentication check failed: Invalid response';
-            logger.warn(`[AuthStore checkAuthStatus] Auth failed: ${errorMsg}`);
+            
+            ErrorHandler.handle({
+              message: errorMsg,
+              response: response
+            }, 'AuthStore.checkAuthStatus', {
+              showToast: false,
+              logLevel: 'warn'
+            });
+            
             set({
               isAuthenticated: false,
               user: null,
@@ -244,31 +287,17 @@ const useAuthStore = create(
             return false;
           }
         } catch (error) {
-          // Detailed error logging with structured error object
-          const errorMessage = error.response?.data?.message || error.message || 'Unknown authentication error';
-          const statusCode = error.response?.status || 'No status';
-          
-          // Create a structured error object that's guaranteed to be serializable
-          const errorDetails = {
-            message: errorMessage,
-            statusCode: statusCode,
-            url: '/auth/status',
-            response: error.response ? {
-              data: error.response.data || null,
-              status: error.response.status || null
-            } : null,
-            name: error.name || 'Error',
-            stack: error.stack ? error.stack.split('\n').slice(0, 3).join('\n') : null
-          };
-          
-          logger.error(`[AuthStore checkAuthStatus] Auth check failed (${statusCode}): ${errorMessage}`, errorDetails);
-          
           // If there's a network error but we have existing auth data, don't immediately log out
-          if ((error.message && (error.message.includes('Network Error') || 
-               error.message.includes('timeout'))) && 
-              currentState.isAuthenticated && currentState.user) {
-            
+          if (ErrorHandler.isNetworkError(error) && currentState.isAuthenticated && currentState.user) {
             logger.warn('[AuthStore checkAuthStatus] Network error but keeping existing session active');
+            
+            // Use standardized error handling but keep the user logged in
+            ErrorHandler.handle(error, 'AuthStore.checkAuthStatus', {
+              showToast: true,
+              logLevel: 'warn',
+              defaultMessage: 'Network error checking authentication status. Using cached session data.'
+            });
+            
             set({
               isLoading: false,
               error: 'Network error checking authentication status. Using cached session data.',
@@ -280,17 +309,28 @@ const useAuthStore = create(
           // If there's a network error but we were previously authenticated,
           // maintain auth state instead of immediately logging out
           if (!error.response && currentState.isAuthenticated) {
-            logger.info('[AuthStore checkAuthStatus] Network error but maintaining authenticated state');
+            // Log the error but maintain auth state
+            ErrorHandler.handle(error, 'AuthStore.checkAuthStatus', {
+              showToast: false,
+              logLevel: 'info'
+            });
+            
             set({ isLoading: false });
             return true;
           } else {
+            // Full error handling for auth failures
+            const errorInfo = ErrorHandler.handle(error, 'AuthStore.checkAuthStatus', {
+              showToast: true,
+              includeStack: process.env.NODE_ENV === 'development'
+            });
+            
             set({ 
               isAuthenticated: false, 
               user: null, 
               isLoading: false, 
               token: null, 
               isSuperuser: false, 
-              error: null,
+              error: errorInfo.message,
               lastAuthCheck: now, // Update timestamp even for errors
             });
             return false;
@@ -298,19 +338,21 @@ const useAuthStore = create(
         }
       },
 
-      login: async (formData) => { // formData is now directly from react-hook-form { email, password }
+      /**
+       * Log in a user with email and password
+       * @param {Object} formData - Login credentials {email, password}
+       * @returns {Promise<boolean>} Login success status
+       */
+      login: async (formData) => {
         set({ isLoading: true, error: null });
         try {
           logger.debug('[AuthStore login] Attempting login with formData:', formData);
           
           if (!formData || typeof formData.email !== 'string' || typeof formData.password !== 'string') {
-            const errMessage = 'Invalid formData format: Email and password must be strings.';
-            logger.error(errMessage, formData);
-            set({ isLoading: false, error: errMessage, isAuthenticated: false, user: null, token: null });
-            return false;
+            throw new Error('Invalid formData format: Email and password must be strings.');
           }
 
-          const response = await apiClient.post('/auth/login', formData); // Pass formData directly
+          const response = await apiClient.post('/auth/login', formData);
           
           logger.debug('[AuthStore login] Full API Response:', response);
           logger.debug('[AuthStore login] Response.data:', response.data);
@@ -328,19 +370,17 @@ const useAuthStore = create(
             logger.info('[AuthStore login] Login successful, user set:', userData);
             return true;
           } else {
-            const errorMessage = response.data?.message || 'Login failed: Unexpected response from server.';
-            logger.error('[AuthStore login] Login failed (unexpected response structure):', errorMessage, response.data);
-            set({ isAuthenticated: false, user: null, isLoading: false, token: null, isSuperuser: false, error: errorMessage });
-            return false;
+            throw new Error(response.data?.message || 'Login failed: Unexpected response from server.');
           }
         } catch (error) {
-          const errorMessage = error.response?.data?.message || error.message || 'Login failed due to an unknown error.';
-          logger.error('[AuthStore login] Login API error caught:', errorMessage, error.response?.data);
-          set({ isAuthenticated: false, user: null, isLoading: false, token: null, isSuperuser: false, error: errorMessage });
-          return false;
+          return handleAuthError(error, 'login', set);
         }
       },
 
+      /**
+       * Log out the current user
+       * @returns {Promise<void>}
+       */
       logout: async () => {
         set({ isLoading: true, error: null });
         try {
@@ -353,11 +393,14 @@ const useAuthStore = create(
           set({ token: null, isAuthenticated: false, user: null, isLoading: false, isSuperuser: false, error: null });
           logger.info('[AuthStore logout] Logout successful.');
         } catch (error) {
-          const errorMessage = error.response?.data?.message || 'Logout failed.';
-          logger.error('[AuthStore logout] Logout error:', errorMessage, error.response?.data);
-          
           // Even if the logout API fails, we should still clear client-side state
-          set({ token: null, isAuthenticated: false, user: null, isLoading: false, isSuperuser: false, error: errorMessage });
+          ErrorHandler.handle(error, 'AuthStore.logout', {
+            showToast: true,
+            logLevel: 'error',
+            defaultMessage: 'Logout API call failed, but your session has been cleared locally.'
+          });
+          
+          set({ token: null, isAuthenticated: false, user: null, isLoading: false, isSuperuser: false, error: null });
         }
         
         // Clear any stored credentials from localStorage and sessionStorage
@@ -392,7 +435,10 @@ const useAuthStore = create(
           
           logger.debug('[AuthStore logout] All auth storage and cookies cleared');
         } catch (e) {
-          logger.warn('[AuthStore logout] Could not clear storage:', e);
+          ErrorHandler.handle(e, 'AuthStore.clearStorage', {
+            showToast: false,
+            logLevel: 'warn'
+          });
         }
         
         // Force a small delay to ensure state updates propagate before redirect
@@ -417,29 +463,38 @@ const useAuthStore = create(
         });
       },
 
+      /**
+       * Register a new user
+       * @param {Object} userData - User registration data
+       * @returns {Promise<Object>} Registration result
+       */
       register: async (userData) => {
         set({ isLoading: true, error: null });
         try {
           const response = await apiClient.post('/auth/register', userData);
           if (response.data && response.data.success && response.data.data) {
             const user = response.data.data;
-            set({ isAuthenticated: true, user: user, isLoading: false, token: response.data.token || user.token || null, isSuperuser: user.account_type === 'superuser', error: null });
+            set({ 
+              isAuthenticated: true, 
+              user: user, 
+              isLoading: false, 
+              token: response.data.token || user.token || null, 
+              isSuperuser: user.account_type === 'superuser', 
+              error: null 
+            });
             logger.info('[AuthStore register] Registration successful, user set:', user);
             return { success: true, data: user };
           } else {
-            const errorMessage = response.data?.message || 'Registration failed: Unexpected response structure.';
-            logger.error('[AuthStore register] Registration failed (unexpected response):', errorMessage, response.data);
-            set({ isLoading: false, error: errorMessage });
-            return { success: false, message: errorMessage};
+            throw new Error(response.data?.message || 'Registration failed: Unexpected response structure.');
           }
         } catch (error) {
-          const errorMessage = error.response?.data?.message || error.message || 'Registration failed.';
-          logger.error('[AuthStore register] Registration API error caught:', errorMessage, error.response?.data);
-          set({ isLoading: false, error: errorMessage });
-          throw error;
+          // Handle the error but allow it to be caught by the calling component
+          const errorMessage = handleAuthError(error, 'register', set);
+          return { success: false, message: errorMessage };
         }
       },
 
+      // Getter methods
       getCurrentUser: () => get().user,
       getIsAuthenticated: () => get().isAuthenticated,
       getIsLoading: () => get().isLoading,

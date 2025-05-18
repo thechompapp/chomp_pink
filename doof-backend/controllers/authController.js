@@ -1,188 +1,156 @@
-// doof-backend/controllers/authController.js
-import UserModel from '../models/userModel.js';
-import { generateToken, generateRefreshToken as generateRefresh } from '../middleware/auth.js'; // generateToken is imported
-import config from '../config/config.js'; // Used for cookie expiration, not directly for JWT secret here
-import db from '../db/index.js';
+// File: doof-backend/controllers/authController.js
 
-export const register = async (req, res, next) => {
-    const { username, email, password } = req.body;
-    try {
-        const existingUserByEmail = await UserModel.findUserByEmail(email);
-        if (existingUserByEmail) {
-            return res.status(409).json({ success: false, message: 'Email already registered.' });
-        }
-        const newUser = await UserModel.createUser(username, email, password);
-        if (!newUser) {
-            return res.status(500).json({ success: false, message: 'User registration failed.' });
-        }
+const bcrypt = require('bcryptjs');
+const UserModel = require('../models/userModel');
+const { validationResult } = require('express-validator');
+const { sendSuccess, sendError } = require('../utils/responseHandler');
+const { generateAuthToken } = require('../utils/tokenUtils');
+const logger = require('../utils/logger'); // For any specific logging not covered by sendError
 
-        const token = generateToken(newUser); // This will throw if jwtSecret is missing in config
-        const refreshTokenVal = await generateRefresh(newUser.id);
+// User registration
+exports.register = async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    // Concatenate error messages for a clearer response detail
+    const errorMessages = errors.array().map(err => err.msg).join(', ');
+    return sendError(res, 'Validation failed.', 400, 'VALIDATION_ERROR', { message: errorMessages, errors: errors.array() });
+  }
 
-        res.cookie('token', token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-            maxAge: config.jwtCookieExpiration,
-        });
-         res.cookie('refreshToken', refreshTokenVal, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-            path: '/api/auth/refresh-token',
-            maxAge: config.refreshTokenCookieExpiration,
-        });
+  const { username, email, password, role } = req.body;
 
-        res.status(201).json({
-            success: true,
-            message: 'User registered successfully.',
-            data: {
-                id: newUser.id,
-                username: newUser.username,
-                email: newUser.email,
-                account_type: newUser.account_type
-            },
-        });
-    } catch (error) {
-        console.error('[AuthController Register] Error:', error);
-        // Check if it's the specific JWT secret error from generateToken
-        if (error.message === 'JWT secret is not configured.') {
-            return res.status(500).json({ success: false, message: 'Internal server error: Authentication system not configured.' });
-        }
-        if (error.message.includes('already exists')) {
-            return res.status(409).json({ success: false, message: error.message });
-        }
-        next(error);
+  try {
+    let user = await UserModel.findByEmail(email);
+    if (user) {
+      return sendError(res, 'User already exists with this email.', 409, 'USER_ALREADY_EXISTS');
     }
+
+    if (username) { // check if username is provided
+        let userByUsername = await UserModel.findByUsername(username);
+        if (userByUsername) {
+          return sendError(res, 'User already exists with this username.', 409, 'USERNAME_ALREADY_EXISTS');
+        }
+    }
+
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    const newUser = {
+      username,
+      email,
+      password: hashedPassword,
+      role: role || 'user', // Default role to 'user' if not provided
+    };
+
+    const createdUser = await UserModel.create(newUser);
+    
+    // Ensure createdUser contains id and role for token generation
+    if (!createdUser || typeof createdUser.id === 'undefined' || typeof createdUser.role === 'undefined') {
+        logger.error('User creation succeeded but id/role missing in returned object', createdUser);
+        return sendError(res, 'User registration failed due to an internal issue.', 500, 'REGISTRATION_INTERNAL_ERROR');
+    }
+
+    const token = generateAuthToken(createdUser);
+
+    // Do not send back password or other sensitive fields not needed by client
+    const userResponse = {
+      id: createdUser.id,
+      username: createdUser.username,
+      email: createdUser.email,
+      role: createdUser.role,
+    };
+
+    sendSuccess(res, { token, user: userResponse }, 'User registered successfully.', 201);
+
+  } catch (error) {
+    // The 'originalError' in sendError will be logged by the responseHandler's logger
+    sendError(res, 'Error registering user.', 500, 'REGISTRATION_FAILED', error);
+  }
 };
 
-export const login = async (req, res, next) => {
-    const { email, password } = req.body;
-    try {
-        const user = await UserModel.findUserByEmail(email);
-        if (!user) {
-            return res.status(401).json({ success: false, message: 'Invalid credentials: User not found.' });
-        }
+// User login
+exports.login = async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    const errorMessages = errors.array().map(err => err.msg).join(', ');
+    return sendError(res, 'Validation failed.', 400, 'VALIDATION_ERROR', { message: errorMessages, errors: errors.array() });
+  }
 
-        const isMatch = await UserModel.comparePassword(password, user.password_hash);
-        if (!isMatch) {
-            return res.status(401).json({ success: false, message: 'Invalid credentials: Password incorrect.' });
-        }
+  const { email, password } = req.body;
 
-        const token = generateToken(user); // This will throw if jwtSecret is missing in config
-        const refreshTokenVal = await generateRefresh(user.id);
-
-        res.cookie('token', token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-            maxAge: config.jwtCookieExpiration,
-        });
-         res.cookie('refreshToken', refreshTokenVal, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-            path: '/api/auth/refresh-token',
-            maxAge: config.refreshTokenCookieExpiration,
-        });
-
-        res.status(200).json({
-            success: true,
-            message: 'Logged in successfully.',
-            token,
-            data: {
-                id: user.id,
-                username: user.username,
-                email: user.email,
-                account_type: user.account_type
-            },
-        });
-    } catch (error) {
-        console.error('[AuthController Login] Error:', error);
-        if (error.message === 'JWT secret is not configured.') {
-            return res.status(500).json({ success: false, message: 'Internal server error: Authentication system not configured.' });
-        }
-        next(error);
+  try {
+    const user = await UserModel.findByEmail(email);
+    if (!user) {
+      return sendError(res, 'Invalid credentials: User not found.', 401, 'INVALID_CREDENTIALS');
     }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return sendError(res, 'Invalid credentials: Password incorrect.', 401, 'INVALID_CREDENTIALS');
+    }
+    
+    // Ensure user contains id and role for token generation
+    if (typeof user.id === 'undefined' || typeof user.role === 'undefined') {
+        logger.error('User login successful but id/role missing in user object from DB', user);
+        return sendError(res, 'Login failed due to an internal issue retrieving user details.', 500, 'LOGIN_INTERNAL_ERROR');
+    }
+
+    const token = generateAuthToken(user);
+
+    const userResponse = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      // Add other relevant, non-sensitive fields if needed
+    };
+    
+    sendSuccess(res, { token, user: userResponse }, 'Login successful.');
+
+  } catch (error) {
+    sendError(res, 'Error logging in.', 500, 'LOGIN_FAILED', error);
+  }
 };
 
-export const logout = (req, res) => {
-    res.cookie('token', '', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        expires: new Date(0),
-    });
-    res.cookie('refreshToken', '', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        path: '/api/auth/refresh-token',
-        expires: new Date(0),
-    });
-    res.status(200).json({ success: true, message: 'Logged out successfully.' });
+// User logout (currently a simple success response as per original logic)
+// If token blocklisting or server-side session clearing were implemented,
+// this would be the place for that logic.
+exports.logout = (req, res) => {
+  // Original logic: // res.clearCookie('token'); // Example if using cookies
+  // Currently, token is client-side managed. Server acknowledges logout.
+  try {
+    // Perform any server-side logout actions if necessary in the future
+    // For now, just acknowledge.
+    sendSuccess(res, {}, 'Logout successful. Please clear your token on the client-side.');
+  } catch (error) {
+    sendError(res, 'Error during logout.', 500, 'LOGOUT_FAILED', error);
+  }
 };
 
-export const refreshTokenController = async (req, res, next) => {
-    const incomingRefreshToken = req.cookies.refreshToken;
-    if (!incomingRefreshToken) {
-        return res.status(401).json({ success: false, message: 'Refresh token not found.' });
+// Get current user profile (example of a protected route)
+exports.getMe = async (req, res) => {
+  try {
+    // req.user is attached by authMiddleware
+    if (!req.user || !req.user.id) {
+      return sendError(res, 'User not authenticated or user ID missing.', 401, 'NOT_AUTHENTICATED');
+    }
+    
+    const user = await UserModel.findById(req.user.id);
+    if (!user) {
+      return sendError(res, 'User not found.', 404, 'USER_NOT_FOUND');
     }
 
-    try {
-        const tokenRecordQuery = 'SELECT user_id, expires_at FROM refresh_tokens WHERE token = $1';
-        const { rows } = await db.query(tokenRecordQuery, [incomingRefreshToken]);
+    // Send back a safe subset of user information
+    const userProfile = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      created_at: user.created_at,
+    };
+    sendSuccess(res, userProfile, 'User profile fetched successfully.');
 
-        if (rows.length === 0) {
-            return res.status(403).json({ success: false, message: 'Invalid refresh token.' });
-        }
-
-        const tokenRecord = rows[0];
-        if (new Date(tokenRecord.expires_at) < new Date()) {
-            await db.query('DELETE FROM refresh_tokens WHERE token = $1', [incomingRefreshToken]);
-            return res.status(403).json({ success: false, message: 'Refresh token expired.' });
-        }
-
-        const user = await UserModel.findUserById(tokenRecord.user_id);
-        if (!user) {
-            return res.status(403).json({ success: false, message: 'User associated with refresh token not found.' });
-        }
-
-        const newAccessToken = generateToken(user); // This will throw if jwtSecret is missing
-
-        res.cookie('token', newAccessToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-            maxAge: config.jwtCookieExpiration,
-        });
-
-        res.status(200).json({
-            success: true,
-            message: 'Token refreshed successfully.',
-        });
-    } catch (error) {
-        console.error('[AuthController RefreshToken] Error:', error);
-        if (error.message === 'JWT secret is not configured.') {
-            return res.status(500).json({ success: false, message: 'Internal server error: Authentication system not configured.' });
-        }
-        next(error);
-    }
-};
-
-export const getAuthStatus = (req, res) => {
-    if (req.user) {
-        res.status(200).json({
-            success: true,
-            message: 'User is authenticated.',
-            data: {
-                id: req.user.id,
-                username: req.user.username,
-                email: req.user.email,
-                account_type: req.user.account_type
-            }
-        });
-    } else {
-        res.status(401).json({ success: false, message: 'User is not authenticated.' });
-    }
+  } catch (error) {
+    sendError(res, 'Error fetching user profile.', 500, 'PROFILE_FETCH_FAILED', error);
+  }
 };

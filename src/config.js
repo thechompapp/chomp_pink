@@ -1,102 +1,67 @@
-// src/config.js
-import { logInfo, logDebug, logError } from './utils/logger.js';
+// File: src/config.js
+import logger from './utils/logger';
 
-// Get frontend port from current window URL
-const getCurrentPort = () => {
-  try {
-    return window.location.port || '5173'; // Default to 5173 if no port found
-  } catch (e) {
-    return '5173'; // Default if window is not available
+const APP_ENV = import.meta.env.VITE_APP_ENV || 'development';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
+const MOCK_API = import.meta.env.VITE_MOCK_API === 'true';
+
+const IS_DEVELOPMENT = APP_ENV === 'development';
+const IS_PRODUCTION = APP_ENV === 'production';
+const IS_TESTING = APP_ENV === 'test';
+
+const GOOGLE_PLACES_API_KEY = import.meta.env.VITE_GOOGLE_PLACES_API_KEY || "";
+
+const FEATURE_TRENDING_PAGE_ENABLED = import.meta.env.VITE_FEATURE_TRENDING_PAGE_ENABLED === 'true';
+const FEATURE_BULK_ADD_ENABLED = import.meta.env.VITE_FEATURE_BULK_ADD_ENABLED === 'true';
+const FEATURE_USER_PROFILE_ENHANCEMENTS = import.meta.env.VITE_FEATURE_USER_PROFILE_ENHANCEMENTS === 'true';
+
+const SEARCH_DEBOUNCE_MS = parseInt(import.meta.env.VITE_SEARCH_DEBOUNCE_MS, 10) || 300;
+const INPUT_DEBOUNCE_MS = parseInt(import.meta.env.VITE_INPUT_DEBOUNCE_MS, 10) || 250;
+
+const DEFAULT_PAGE_LIMIT = parseInt(import.meta.env.VITE_DEFAULT_PAGE_LIMIT, 10) || 10;
+const MAX_UPLOAD_SIZE_MB = parseInt(import.meta.env.VITE_MAX_UPLOAD_SIZE_MB, 10) || 5;
+
+// API Retry Policy Constants
+const MAX_API_RETRIES = parseInt(import.meta.env.VITE_MAX_API_RETRIES, 10) || 3;
+const API_RETRY_DELAY_MS = parseInt(import.meta.env.VITE_API_RETRY_DELAY_MS, 10) || 1000;
+
+if (IS_DEVELOPMENT) {
+  logger.debug('Application is running in development mode');
+  logger.debug('API Base URL:', API_BASE_URL);
+  logger.debug('Mock API Enabled:', MOCK_API);
+  if (!GOOGLE_PLACES_API_KEY) {
+    logger.warn('Google Places API Key (VITE_GOOGLE_PLACES_API_KEY) is not set. Maps and place features may not work.');
   }
-};
-
-// Access Vite environment variables using import.meta.env
-const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001';
-let viteApiBaseUrl = rawApiBaseUrl;
-
-// Extract host and protocol from API URL
-const getApiHostComponents = (url) => {
-  try {
-    // Check if it already has a protocol
-    if (url.startsWith('http')) {
-      const urlObj = new URL(url);
-      return {
-        protocol: urlObj.protocol,
-        host: urlObj.hostname
-      };
-    } else {
-      // Assume http if no protocol
-      return {
-        protocol: 'http:',
-        host: url.split('/')[0]
-      };
-    }
-  } catch (e) {
-    return { protocol: 'http:', host: 'localhost' };
-  }
-};
-
-// Use the backend port (5001) for API calls
-const adaptApiUrlToFrontendPort = (apiUrl) => {
-  // Extract protocol and host but always use backend port (5001)
-  const { protocol, host } = getApiHostComponents(apiUrl);
-  
-  // If it's a localhost URL, use the backend port
-  if (host === 'localhost' || host === '127.0.0.1') {
-    // Always use port 5001 for backend API calls
-    return `${protocol}//${host}:5001`;
-  }
-  
-  return apiUrl;
-};
-
-// Adapt API host to current frontend port to avoid CORS issues
-const adaptedApiHost = adaptApiUrlToFrontendPort(rawApiBaseUrl);
-
-// Ensure the /api path is present at the end
-if (adaptedApiHost.endsWith('/api')) {
-  // Already ends with /api, use as is
-  viteApiBaseUrl = adaptedApiHost;
-} else if (adaptedApiHost.endsWith('/')) {
-  // Ends with a slash, just append api
-  viteApiBaseUrl = `${adaptedApiHost}api`;
-} else {
-  // Doesn't end with /api or /, so append /api
-  viteApiBaseUrl = `${adaptedApiHost}/api`;
+  logger.debug('Feature Trending Page:', FEATURE_TRENDING_PAGE_ENABLED);
+  logger.debug('Feature Bulk Add:', FEATURE_BULK_ADD_ENABLED);
+  logger.debug('Max API Retries:', MAX_API_RETRIES);
+  logger.debug('API Retry Delay (ms):', API_RETRY_DELAY_MS);
 }
 
-// Log configuration for debugging
-try {
-  logDebug('[Config] API Base URL Configuration:', {
-    raw: rawApiBaseUrl,
-    adapted: adaptedApiHost,
-    processed: viteApiBaseUrl,
-    frontendPort: getCurrentPort(),
-    env: import.meta.env.MODE
-  });
-} catch (error) {
-  console.warn('[Config] Failed to log config info:', error);
-}
-
-
-const config = {
-  VITE_API_BASE_URL: viteApiBaseUrl,
-  VITE_GOOGLE_PLACES_API_KEY: import.meta.env.VITE_GOOGLE_PLACES_API_KEY,
-  NODE_ENV: import.meta.env.MODE,
-  DEV: import.meta.env.DEV,
-  PROD: import.meta.env.PROD,
-};
-
-if (config.DEV) {
-  console.log('[Frontend Config Loaded]', config);
-  if (!import.meta.env.VITE_API_BASE_URL) {
-    console.warn(`[Frontend Config] VITE_API_BASE_URL is not set in .env, defaulting. Final baseURL for API calls: ${config.VITE_API_BASE_URL}`);
-  } else {
-    console.log(`[Frontend Config] Original VITE_API_BASE_URL from .env: ${import.meta.env.VITE_API_BASE_URL}. Final baseURL for API calls: ${config.VITE_API_BASE_URL}`);
+if (IS_PRODUCTION) {
+  if (!GOOGLE_PLACES_API_KEY) {
+    logger.error('CRITICAL: Google Places API Key (VITE_GOOGLE_PLACES_API_KEY) is MISSING for production build.');
   }
-  if (!config.VITE_GOOGLE_PLACES_API_KEY) {
-    console.warn('[Frontend Config] VITE_GOOGLE_PLACES_API_KEY is not set in .env. Places search will not work.');
+  if (!API_BASE_URL.startsWith('https://') && !API_BASE_URL.includes('localhost')) {
+    logger.warn('Production API_BASE_URL does not appear to be HTTPS or localhost. Ensure this is intentional.');
   }
 }
 
-export default config;
+export {
+  APP_ENV,
+  API_BASE_URL,
+  MOCK_API,
+  IS_DEVELOPMENT,
+  IS_PRODUCTION,
+  IS_TESTING,
+  GOOGLE_PLACES_API_KEY,
+  FEATURE_TRENDING_PAGE_ENABLED,
+  FEATURE_BULK_ADD_ENABLED,
+  FEATURE_USER_PROFILE_ENHANCEMENTS,
+  SEARCH_DEBOUNCE_MS,
+  INPUT_DEBOUNCE_MS,
+  DEFAULT_PAGE_LIMIT,
+  MAX_UPLOAD_SIZE_MB,
+  MAX_API_RETRIES,      // Added export
+  API_RETRY_DELAY_MS,   // Added export
+};

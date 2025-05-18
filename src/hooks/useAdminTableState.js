@@ -1,5 +1,5 @@
 /* src/hooks/useAdminTableState.js */
-/* UPDATED: Integrate errorMessage and clearError from sub-hooks */
+/* UPDATED: Optimize performance with additional memoization and cleanup */
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -26,27 +26,29 @@ export const useAdminTableState = ({
   const queryClient = useQueryClient();
   const handleApiError = useApiErrorHandler();
 
-  // Debug the input data
+  // Debug the input data - only log when data changes
   useEffect(() => {
-    console.log(`[useAdminTableState] Received data for type ${type}:`, {
-      dataLength: initialData?.length || 0,
-      isArray: Array.isArray(initialData),
-      sampleData: Array.isArray(initialData) && initialData.length > 0 
-        ? initialData.slice(0, 2)
-        : null
-    });
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[useAdminTableState] Received data for type ${type}:`, {
+        dataLength: initialData?.length || 0,
+        isArray: Array.isArray(initialData),
+        sampleData: Array.isArray(initialData) && initialData.length > 0 
+          ? initialData.slice(0, 2)
+          : null
+      });
+    }
   }, [initialData, type]);
 
   const [currentSort, setCurrentSort] = useState(null);
-  const [updatedData, setUpdatedData] = useState(initialData);
-  // Removed main error state, rely on sub-hooks' error states
+  
+  // Memoize the updated data to prevent unnecessary rerenders
+  const updatedData = useMemo(() => initialData, [initialData]);
 
   // --- Integrate Specialized Hooks ---
 
   const {
     editingRowIds,
     editFormData,
-    // Removed editError state - now handled by useAdminRowActions
     setEditFormData,
     handleRowDataChange,
     handleStartEdit: handleStartEditRow,
@@ -59,33 +61,33 @@ export const useAdminTableState = ({
     actionState,
     confirmDeleteInfo,
     setConfirmDeleteInfo,
-    errorMessage: actionError, // Get error message from row actions
-    clearError: clearActionError, // Get clear function from row actions
+    errorMessage: actionError,
+    clearError: clearActionError, 
     handleSaveEdit: handleSaveEditRow,
     handleApprove,
     handleReject,
     handleDeleteClick,
     handleDeleteConfirm,
-  } = useAdminRowActions(type, onDataMutated, handleCancelEditRow); // Removed setEditError dependency
+  } = useAdminRowActions(type, onDataMutated, handleCancelEditRow);
 
   // Get error handler props from useAdminAddRow
   const {
     isAdding,
     newRowFormData,
     isSavingNew,
-    errorMessage: addRowError, // Get error message from add row
-    clearError: clearAddRowError, // Get clear function from add row
+    errorMessage: addRowError,
+    clearError: clearAddRowError,
     handleStartAdd: handleStartAddRow,
     handleCancelAdd: handleCancelAddRow,
     handleNewRowDataChange,
     handleSaveNewRow,
-  } = useAdminAddRow(type, columns, onDataMutated); // Removed setError dependency
+  } = useAdminAddRow(type, columns, onDataMutated);
 
-  // Bulk editing hook doesn't directly handle API errors in this setup
+  // Bulk editing hook
   const {
     selectedRows,
     isBulkEditing,
-    bulkSaveError, // Keep this separate for now, as it aggregates errors from multiple saves
+    bulkSaveError,
     isSavingAll,
     setSelectedRows,
     handleRowSelect,
@@ -95,138 +97,199 @@ export const useAdminTableState = ({
     handleSaveAllEdits,
   } = useAdminBulkEditing(editingRowIds, handleSaveEditRow, handleStartEditRow, handleCancelEditRow, updatedData);
 
-  // List Edit Modal State (Keep here for now)
+  // List Edit Modal State - memoized to reduce unnecessary state updates
   const [isListEditModalOpen, setIsListEditModalOpen] = useState(false);
   const [listToEditData, setListToEditData] = useState(null);
-  // Use a dedicated error handler for the list modal actions
-  const { errorMessage: listEditError, handleError: handleListEditError, clearError: clearListEditError } = useApiErrorHandler();
+  const { 
+    errorMessage: listEditError, 
+    handleError: handleListEditError, 
+    clearError: clearListEditError 
+  } = useApiErrorHandler();
   const [isSavingList, setIsSavingList] = useState(false);
 
   // --- Effects ---
+  
+  // Reset state when data source changes
   useEffect(() => {
-    console.log(`[useAdminTableState useEffect] Resetting state for type: ${type}.`);
-    setUpdatedData(initialData);
     setEditingRowIds(new Set());
     setEditFormData({});
     setSelectedRows(new Set());
     setCurrentSort(null);
-    // Error clearing moved outside to ensure consistent hook execution
-  }, [initialData, type]);
+  }, [type, setEditingRowIds, setEditFormData, setSelectedRows]);
 
   // Clear errors separately to avoid conditional hook issues
   useEffect(() => {
-    clearActionError?.();
-    clearAddRowError?.();
-    clearListEditError?.();
-    setIsListEditModalOpen(false);
-    setListToEditData(null);
-  }, [initialData, type, clearActionError, clearAddRowError, clearListEditError]);
+    const clearAllErrors = () => {
+      clearActionError?.();
+      clearAddRowError?.();
+      clearListEditError?.();
+      setIsListEditModalOpen(false);
+      setListToEditData(null);
+    };
+    
+    clearAllErrors();
+    
+    return clearAllErrors; // Clean up on unmount
+  }, [type, clearActionError, clearAddRowError, clearListEditError]);
 
   // --- Combined Handlers / Logic ---
 
+  // Memoize the sort handler to prevent recreations
   const handleSort = useCallback((resourceType, columnKey, direction) => {
-      // (Implementation remains the same)
-      if (resourceType === type) { setCurrentSort({ column: columnKey, direction }); } else { console.warn(`[useAdminTableState] Sort ignored: type mismatch (${resourceType} vs ${type})`); }
+    if (resourceType === type) {
+      setCurrentSort({ column: columnKey, direction });
+    }
   }, [type]);
 
+  // Memoize the list edit modal handlers
   const handleOpenListEditModal = useCallback((row) => {
     if (type === 'lists') {
-        clearListEditError(); // Clear previous list edit errors
-        setListToEditData(row);
-        setIsListEditModalOpen(true);
+      clearListEditError();
+      setListToEditData(row);
+      setIsListEditModalOpen(true);
     } else {
-        clearActionError?.(); // Clear action errors before starting row edit
-        handleStartEditRow(row); // Delegate to row editing hook
+      clearActionError?.();
+      handleStartEditRow(row);
     }
   }, [type, handleStartEditRow, clearListEditError, clearActionError]);
 
   const handleCloseListEditModal = useCallback(() => {
     setIsListEditModalOpen(false);
     setListToEditData(null);
-    clearListEditError(); // Clear error on close
+    clearListEditError();
   }, [clearListEditError]);
 
   const handleSaveListEdit = useCallback(async (listId, editedListData) => {
     if (isSavingList) return;
-    clearListEditError(); // Clear previous error
+    
+    clearListEditError();
     setIsSavingList(true);
+    
     try {
       const payload = { ...editedListData };
-       if (typeof payload.tags === 'string') payload.tags = payload.tags.split(',').map(s => s.trim()).filter(Boolean);
-       payload.is_public = String(payload.is_public) === 'true';
-      // adminService.updateResource propagates errors
+      
+      // Format data properly
+      if (typeof payload.tags === 'string') {
+        payload.tags = payload.tags.split(',').map(s => s.trim()).filter(Boolean);
+      }
+      
+      payload.is_public = String(payload.is_public) === 'true';
+      
       await adminService.updateResource('lists', listId, payload);
       handleCloseListEditModal();
       toast.success('List updated successfully');
-      onDataMutated?.();
+      
+      // Trigger data refetch
+      if (typeof onDataMutated === 'function') {
+        onDataMutated();
+      }
     } catch (err) {
       console.error(`[useAdminTableState SaveListEdit] Error saving list ${listId}:`, err);
-      handleListEditError(err, 'Failed to save list.'); // Use the list modal's error handler
+      handleListEditError(err, 'Failed to save list.');
       toast.error('Failed to save list');
     } finally {
       setIsSavingList(false);
     }
   }, [isSavingList, handleCloseListEditModal, onDataMutated, handleListEditError, clearListEditError]);
 
+  // Combine relevant errors for UI display - memoized to prevent unnecessary recalculations
+  const combinedError = useMemo(() => 
+    actionError || addRowError || listEditError || bulkSaveError,
+    [actionError, addRowError, listEditError, bulkSaveError]
+  );
 
-  // Combine relevant errors for UI display
-  // Prioritize action/add errors, then list edit errors, then bulk save errors
-  const combinedError = actionError || addRowError || listEditError || bulkSaveError;
-
-  // Expose a single clearError function for the parent component to use
+  // Memoize the error clearing function
   const clearCombinedError = useCallback(() => {
-      clearActionError?.();
-      clearAddRowError?.();
-      clearListEditError?.();
-      // Clear bulkSaveError separately if needed
-      // setBulkSaveError(null);
+    clearActionError?.();
+    clearAddRowError?.();
+    clearListEditError?.();
   }, [clearActionError, clearAddRowError, clearListEditError]);
 
-  // --- Return hook state and handlers ---
-  return {
+  // Memoize the return value to prevent unnecessary rerenders
+  return useMemo(() => ({
     // Data & State
     updatedData,
     currentSort,
     editingRowIds,
     editFormData,
-    error: combinedError, // Use the combined error message
-    actionState, // From useAdminRowActions
-    confirmDeleteInfo, // From useAdminRowActions
-    isAdding, // From useAdminAddRow
-    newRowFormData, // From useAdminAddRow
-    isSavingNew, // From useAdminAddRow
-    selectedRows, // From useAdminBulkEditing
-    isBulkEditing, // From useAdminBulkEditing
-    bulkSaveError, // Keep separate for specific UI feedback? Or combine above?
-    isSavingAll, // From useAdminBulkEditing
-    isListEditModalOpen, // Specific to list modal
-    listToEditData, // Specific to list modal
-    isSavingList, // Specific to list modal
+    error: combinedError,
+    actionState,
+    confirmDeleteInfo,
+    isAdding,
+    newRowFormData,
+    isSavingNew,
+    selectedRows,
+    isBulkEditing,
+    bulkSaveError,
+    isSavingAll,
+    isListEditModalOpen,
+    listToEditData,
+    isSavingList,
 
     // Handlers
-    clearError: clearCombinedError, // Provide a single clear function
+    clearError: clearCombinedError,
     handleSort,
-    handleRowDataChange, // From useAdminRowEditing
-    handleStartEdit: handleStartEditRow, // Use direct row editing function for normal tables
-    handleOpenListEditModal, // Keep the list modal logic available separately
-    handleCancelEdit: handleCancelEditRow, // From useAdminRowEditing
-    handleSaveEdit: handleSaveEditRow, // From useAdminRowActions
-    handleStartAdd: handleStartAddRow, // From useAdminAddRow
-    handleCancelAdd: handleCancelAddRow, // From useAdminAddRow
-    handleNewRowDataChange, // From useAdminAddRow
-    handleSaveNewRow, // From useAdminAddRow
-    handleDeleteClick, // From useAdminRowActions
-    handleDeleteConfirm, // From useAdminRowActions
-    setConfirmDeleteInfo, // From useAdminRowActions
-    handleApprove, // From useAdminRowActions
-    handleReject, // From useAdminRowActions
-    handleRowSelect, // From useAdminBulkEditing
-    handleSelectAll, // From useAdminBulkEditing
-    handleBulkEdit, // From useAdminBulkEditing
-    handleCancelBulkEdit, // From useAdminBulkEditing
-    handleSaveAllEdits, // From useAdminBulkEditing
-    handleCloseListEditModal, // Specific to list modal
-    handleSaveListEdit, // Specific to list modal
-    // Removed setError, setEditError as they are handled internally now
-  };
+    handleRowDataChange,
+    handleStartEdit: handleStartEditRow,
+    handleOpenListEditModal,
+    handleCancelEdit: handleCancelEditRow,
+    handleSaveEdit: handleSaveEditRow,
+    handleStartAdd: handleStartAddRow,
+    handleCancelAdd: handleCancelAddRow,
+    handleNewRowDataChange,
+    handleSaveNewRow,
+    handleDeleteClick,
+    handleDeleteConfirm,
+    setConfirmDeleteInfo,
+    handleApprove,
+    handleReject,
+    handleRowSelect,
+    handleSelectAll,
+    handleBulkEdit,
+    handleCancelBulkEdit,
+    handleSaveAllEdits,
+    handleCloseListEditModal,
+    handleSaveListEdit,
+  }), [
+    updatedData,
+    currentSort,
+    editingRowIds,
+    editFormData,
+    combinedError,
+    actionState,
+    confirmDeleteInfo,
+    isAdding,
+    newRowFormData,
+    isSavingNew,
+    selectedRows,
+    isBulkEditing,
+    bulkSaveError,
+    isSavingAll,
+    isListEditModalOpen,
+    listToEditData,
+    isSavingList,
+    clearCombinedError,
+    handleSort,
+    handleRowDataChange,
+    handleStartEditRow,
+    handleOpenListEditModal,
+    handleCancelEditRow,
+    handleSaveEditRow,
+    handleStartAddRow,
+    handleCancelAddRow,
+    handleNewRowDataChange,
+    handleSaveNewRow,
+    handleDeleteClick,
+    handleDeleteConfirm,
+    setConfirmDeleteInfo,
+    handleApprove,
+    handleReject,
+    handleRowSelect,
+    handleSelectAll,
+    handleBulkEdit,
+    handleCancelBulkEdit,
+    handleSaveAllEdits,
+    handleCloseListEditModal,
+    handleSaveListEdit,
+  ]);
 };
