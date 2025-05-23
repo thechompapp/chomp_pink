@@ -1,0 +1,38 @@
+{
+  "summary": {
+    "timestamp": "2025-05-23T17:01:12.045Z",
+    "duration": 1512,
+    "totalTests": 0,
+    "passedTests": 0,
+    "failedTests": 0,
+    "skippedTests": 0,
+    "successRate": 0
+  },
+  "suites": {
+    "Frontend Services": {
+      "status": "FAILED",
+      "duration": 1504,
+      "details": {
+        "tests": 0,
+        "passedTests": 0,
+        "failedTests": 0,
+        "assertions": 0,
+        "failures": []
+      },
+      "error": "Command failed: npx vitest run \"tests/service-integration-tests.js\" --config vitest.internal.config.js\n\n⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  tests/service-integration-tests.js [ tests/service-integration-tests.js ]\nReferenceError: expect is not defined\n ❯ node_modules/@testing-library/jest-dom/dist/index.mjs:10:1\n      8| import 'css.escape';\n      9| \n     10| expect.extend(extensions);\n       | ^\n     11| \n ❯ src/tests/setup.js:5:1\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n",
+      "tests": 0,
+      "assertions": 0
+    }
+  },
+  "configuration": {
+    "fastMode": false,
+    "coverage": false,
+    "section": "Frontend Services",
+    "parallel": false
+  },
+  "recommendations": [
+    "1 test suite(s) failed. Review error logs and fix failing tests.",
+    "Consider adding more integration tests to improve coverage of component interactions.",
+    "Test success rate is below 80%. Focus on stabilizing failing tests before adding new ones."
+  ]
+}

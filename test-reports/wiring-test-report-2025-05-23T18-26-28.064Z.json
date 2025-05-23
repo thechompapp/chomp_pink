@@ -1,0 +1,15 @@
+{
+  "total": 0,
+  "passed": 0,
+  "failed": 0,
+  "skipped": 0,
+  "sections": {
+    "Enhanced List Management": {
+      "total": 0,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "tests": {}
+    }
+  }
+}

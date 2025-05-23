@@ -1,0 +1,124 @@
+{
+  "issues": [
+    {
+      "category": "DATA_SERVICES",
+      "description": "No API calls found in src/services/dishService.js",
+      "file": "src/services/dishService.js",
+      "line": null,
+      "severity": "HIGH"
+    },
+    {
+      "category": "DATA_SERVICES",
+      "description": "No API calls found in src/services/searchService.js",
+      "file": "src/services/searchService.js",
+      "line": null,
+      "severity": "HIGH"
+    },
+    {
+      "category": "CONFIGURATION",
+      "description": "No API URL configured",
+      "file": "src/config.js",
+      "line": null,
+      "severity": "HIGH"
+    }
+  ],
+  "warnings": [
+    {
+      "category": "DATA_SERVICES",
+      "description": "Potential double data wrapping in src/services/listService.js",
+      "file": "src/services/listService.js",
+      "severity": "MEDIUM"
+    },
+    {
+      "category": "DATA_SERVICES",
+      "description": "No error handling in src/services/dishService.js",
+      "file": "src/services/dishService.js",
+      "severity": "MEDIUM"
+    },
+    {
+      "category": "COMPONENTS",
+      "description": "No data fetching found in src/pages/Home/index.jsx",
+      "file": "src/pages/Home/index.jsx",
+      "severity": "MEDIUM"
+    },
+    {
+      "category": "COMPONENTS",
+      "description": "No loading state handling in src/pages/Home/index.jsx",
+      "file": "src/pages/Home/index.jsx",
+      "severity": "MEDIUM"
+    },
+    {
+      "category": "COMPONENTS",
+      "description": "No error state handling in src/pages/Home/index.jsx",
+      "file": "src/pages/Home/index.jsx",
+      "severity": "MEDIUM"
+    },
+    {
+      "category": "COMPONENTS",
+      "description": "No empty data handling in src/pages/Home/index.jsx",
+      "file": "src/pages/Home/index.jsx",
+      "severity": "MEDIUM"
+    },
+    {
+      "category": "COMPONENTS",
+      "description": "No data fetching found in src/components/UI/DishCard.jsx",
+      "file": "src/components/UI/DishCard.jsx",
+      "severity": "MEDIUM"
+    },
+    {
+      "category": "COMPONENTS",
+      "description": "No loading state handling in src/components/UI/DishCard.jsx",
+      "file": "src/components/UI/DishCard.jsx",
+      "severity": "MEDIUM"
+    },
+    {
+      "category": "COMPONENTS",
+      "description": "No error state handling in src/components/UI/DishCard.jsx",
+      "file": "src/components/UI/DishCard.jsx",
+      "severity": "MEDIUM"
+    },
+    {
+      "category": "COMPONENTS",
+      "description": "No empty data handling in src/components/UI/DishCard.jsx",
+      "file": "src/components/UI/DishCard.jsx",
+      "severity": "MEDIUM"
+    },
+    {
+      "category": "COMPONENTS",
+      "description": "No data fetching found in src/components/UI/RestaurantCard.jsx",
+      "file": "src/components/UI/RestaurantCard.jsx",
+      "severity": "MEDIUM"
+    },
+    {
+      "category": "COMPONENTS",
+      "description": "No loading state handling in src/components/UI/RestaurantCard.jsx",
+      "file": "src/components/UI/RestaurantCard.jsx",
+      "severity": "MEDIUM"
+    },
+    {
+      "category": "COMPONENTS",
+      "description": "No error state handling in src/components/UI/RestaurantCard.jsx",
+      "file": "src/components/UI/RestaurantCard.jsx",
+      "severity": "MEDIUM"
+    },
+    {
+      "category": "STATE_MANAGEMENT",
+      "description": "No async actions in src/stores/useUIStateStore.js",
+      "file": "src/stores/useUIStateStore.js",
+      "severity": "MEDIUM"
+    },
+    {
+      "category": "CONFIGURATION",
+      "description": "No environment variable usage",
+      "file": "src/config.js",
+      "severity": "MEDIUM"
+    }
+  ],
+  "recommendations": [
+    "Review data service implementations - ensure API calls are made and responses are handled correctly",
+    "Set up proper configuration with API URLs and environment variables",
+    "Run the enhanced test suite with servers running to get detailed data flow verification",
+    "Check browser developer tools Network tab for failed API requests",
+    "Verify database has actual data by running direct SQL queries"
+  ]
+}

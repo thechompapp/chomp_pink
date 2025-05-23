@@ -82,28 +82,35 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
         logDebug(`[Results] List API response:`, listApiResponse);
         
         // Ensure we have a consistent structure
-        if (listApiResponse && listApiResponse.data) {
-          responseData.lists = listApiResponse.data;
-          responseData.totalLists = listApiResponse.total || 0;
-          
-          // Set general items and total for consistency
-          responseData.items = responseData.lists;
-          responseData.total = responseData.totalLists;
-        } else if (Array.isArray(listApiResponse)) {
-          responseData.lists = listApiResponse;
-          responseData.totalLists = listApiResponse.length;
-          
+        if (listApiResponse && listApiResponse.success) {
+          // Log the exact structure for debugging
+          logDebug(`[Results] listApiResponse.data structure:`, listApiResponse.data);
+          // Handle different possible structures
+          if (Array.isArray(listApiResponse.data)) {
+            responseData.lists = listApiResponse.data;
+            responseData.totalLists = listApiResponse.pagination?.total || listApiResponse.data.length;
+          } else if (listApiResponse.data && Array.isArray(listApiResponse.data.data)) {
+            responseData.lists = listApiResponse.data.data;
+            responseData.totalLists = listApiResponse.data.total || listApiResponse.pagination?.total || responseData.lists.length;
+          } else if (listApiResponse.data && Array.isArray(listApiResponse.data.lists)) {
+            responseData.lists = listApiResponse.data.lists;
+            responseData.totalLists = listApiResponse.data.total || listApiResponse.pagination?.total || responseData.lists.length;
+          } else {
+            responseData.lists = [];
+            responseData.totalLists = 0;
+            logWarn(`[Results] Unexpected listApiResponse structure:`, listApiResponse);
+          }
           // Set general items and total for consistency
           responseData.items = responseData.lists;
           responseData.total = responseData.totalLists;
         } else {
-          // Handle other response formats
-          responseData.lists = listApiResponse?.items || [];
-          responseData.totalLists = listApiResponse?.total || 0;
-          
+          // Handle errors or other formats
+          responseData.lists = [];
+          responseData.totalLists = 0;
           // Set general items and total for consistency
           responseData.items = responseData.lists;
           responseData.total = responseData.totalLists;
+          logWarn(`[Results] List API call unsuccessful:`, listApiResponse);
         }
       } 
       else if (contentType === 'restaurants' || contentType === 'dishes') {

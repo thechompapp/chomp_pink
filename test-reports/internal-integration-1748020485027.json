@@ -1,0 +1,38 @@
+{
+  "summary": {
+    "timestamp": "2025-05-23T17:14:45.025Z",
+    "duration": 1079,
+    "totalTests": 0,
+    "passedTests": 0,
+    "failedTests": 0,
+    "skippedTests": 0,
+    "successRate": 0
+  },
+  "suites": {
+    "React Hooks": {
+      "status": "FAILED",
+      "duration": 1072,
+      "details": {
+        "tests": 0,
+        "passedTests": 0,
+        "failedTests": 0,
+        "assertions": 0,
+        "failures": []
+      },
+      "error": "Command failed: npx vitest run \"tests/hook-integration-tests.jsx\" --config vitest.internal.config.js\nNo test files found, exiting with code 1\n\nfilter: tests/hook-integration-tests.jsx\ninclude: ./tests/*-integration-tests.js\nexclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*\n\n",
+      "tests": 0,
+      "assertions": 0
+    }
+  },
+  "configuration": {
+    "fastMode": false,
+    "coverage": false,
+    "section": "React Hooks",
+    "parallel": false
+  },
+  "recommendations": [
+    "1 test suite(s) failed. Review error logs and fix failing tests.",
+    "Consider adding more integration tests to improve coverage of component interactions.",
+    "Test success rate is below 80%. Focus on stabilizing failing tests before adding new ones."
+  ]
+}

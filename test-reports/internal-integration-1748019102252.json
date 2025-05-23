@@ -1,0 +1,36 @@
+{
+  "summary": {
+    "timestamp": "2025-05-23T16:51:42.250Z",
+    "duration": 1393,
+    "totalTests": 0,
+    "passedTests": 0,
+    "failedTests": 0,
+    "skippedTests": 0,
+    "successRate": 0
+  },
+  "suites": {
+    "Frontend Services": {
+      "status": "PASSED",
+      "duration": 1388,
+      "details": {
+        "tests": 0,
+        "passedTests": 0,
+        "failedTests": 0,
+        "assertions": 0,
+        "failures": []
+      },
+      "tests": 0,
+      "assertions": 0
+    }
+  },
+  "configuration": {
+    "fastMode": false,
+    "coverage": false,
+    "section": "Frontend Services",
+    "parallel": false
+  },
+  "recommendations": [
+    "Consider adding more integration tests to improve coverage of component interactions.",
+    "Test success rate is below 80%. Focus on stabilizing failing tests before adding new ones."
+  ]
+}

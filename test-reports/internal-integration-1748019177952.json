@@ -1,0 +1,77 @@
+{
+  "summary": {
+    "timestamp": "2025-05-23T16:52:57.951Z",
+    "duration": 5319,
+    "totalTests": 7,
+    "passedTests": 7,
+    "failedTests": 0,
+    "skippedTests": 0,
+    "successRate": 100
+  },
+  "suites": {
+    "Frontend Services": {
+      "status": "PASSED",
+      "duration": 1291,
+      "details": {
+        "tests": 7,
+        "passedTests": 7,
+        "failedTests": 0,
+        "assertions": 0,
+        "failures": []
+      },
+      "tests": 7,
+      "assertions": 0
+    },
+    "React Hooks": {
+      "status": "FAILED",
+      "duration": 1318,
+      "details": {
+        "tests": 0,
+        "passedTests": 0,
+        "failedTests": 0,
+        "assertions": 0,
+        "failures": []
+      },
+      "error": "Command failed: npx vitest run \"tests/hook-integration-tests.js\" --config vitest.internal.config.js\n\n⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  tests/hook-integration-tests.js [ tests/hook-integration-tests.js ]\nError: Failed to parse source for import analysis because the content contains invalid JS syntax. If you are using JSX, make sure to name the file with the .jsx or .tsx extension.\n  Plugin: vite:import-analysis\n  File: /Users/naf/Downloads/doof/tests/hook-integration-tests.js:46:29\n  44 |        <QueryClientProvider client={queryClient}>\n  45 |          {children}\n  46 |        </QueryClientProvider>\n     |                              ^\n  47 |      );\n  48 |  \n ❯ TransformPluginContext._formatLog node_modules/vitest/node_modules/vite/dist/node/chunks/dep-BMIURPaQ.js:42451:41\n ❯ TransformPluginContext.error node_modules/vitest/node_modules/vite/dist/node/chunks/dep-BMIURPaQ.js:42448:16\n ❯ TransformPluginContext.transform node_modules/vitest/node_modules/vite/dist/node/chunks/dep-BMIURPaQ.js:40378:14\n ❯ EnvironmentPluginContainer.transform node_modules/vitest/node_modules/vite/dist/node/chunks/dep-BMIURPaQ.js:42246:18\n ❯ loadAndTransform node_modules/vitest/node_modules/vite/dist/node/chunks/dep-BMIURPaQ.js:35698:27\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n",
+      "tests": 0,
+      "assertions": 0
+    },
+    "Component Integration": {
+      "status": "FAILED",
+      "duration": 1353,
+      "details": {
+        "tests": 0,
+        "passedTests": 0,
+        "failedTests": 0,
+        "assertions": 0,
+        "failures": []
+      },
+      "error": "Command failed: npx vitest run \"tests/component-integration-tests.js\" --config vitest.internal.config.js\n\n⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  tests/component-integration-tests.js [ tests/component-integration-tests.js ]\nError: Failed to parse source for import analysis because the content contains invalid JS syntax. If you are using JSX, make sure to name the file with the .jsx or .tsx extension.\n  Plugin: vite:import-analysis\n  File: /Users/naf/Downloads/doof/tests/component-integration-tests.js:55:36\n  53 |          }}>\n  54 |            {children}\n  55 |          </MockListContext.Provider>\n     |                                     ^\n  56 |        </MockAuthContext.Provider>\n  57 |      </QueryClientProvider>\n ❯ TransformPluginContext._formatLog node_modules/vitest/node_modules/vite/dist/node/chunks/dep-BMIURPaQ.js:42451:41\n ❯ TransformPluginContext.error node_modules/vitest/node_modules/vite/dist/node/chunks/dep-BMIURPaQ.js:42448:16\n ❯ TransformPluginContext.transform node_modules/vitest/node_modules/vite/dist/node/chunks/dep-BMIURPaQ.js:40378:14\n ❯ EnvironmentPluginContainer.transform node_modules/vitest/node_modules/vite/dist/node/chunks/dep-BMIURPaQ.js:42246:18\n ❯ loadAndTransform node_modules/vitest/node_modules/vite/dist/node/chunks/dep-BMIURPaQ.js:35698:27\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n",
+      "tests": 0,
+      "assertions": 0
+    },
+    "Backend Integration": {
+      "status": "FAILED",
+      "duration": 1350,
+      "details": {
+        "tests": 0,
+        "passedTests": 0,
+        "failedTests": 0,
+        "assertions": 0,
+        "failures": []
+      },
+      "error": "Command failed: npx vitest run \"tests/backend-integration-tests.js\" --config vitest.internal.config.js\n\n⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  tests/backend-integration-tests.js [ tests/backend-integration-tests.js ]\nError: Failed to resolve import \"supertest\" from \"tests/backend-integration-tests.js\". Does the file exist?\n  Plugin: vite:import-analysis\n  File: /Users/naf/Downloads/doof/tests/backend-integration-tests.js:9:22\n  7  |  \n  8  |  import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globals';\n  9  |  import request from 'supertest';\n     |                       ^\n  10 |  import express from 'express';\n  11 |  \n ❯ TransformPluginContext._formatLog node_modules/vitest/node_modules/vite/dist/node/chunks/dep-BMIURPaQ.js:42451:41\n ❯ TransformPluginContext.error node_modules/vitest/node_modules/vite/dist/node/chunks/dep-BMIURPaQ.js:42448:16\n ❯ normalizeUrl node_modules/vitest/node_modules/vite/dist/node/chunks/dep-BMIURPaQ.js:40427:23\n ❯ node_modules/vitest/node_modules/vite/dist/node/chunks/dep-BMIURPaQ.js:40546:37\n ❯ TransformPluginContext.transform node_modules/vitest/node_modules/vite/dist/node/chunks/dep-BMIURPaQ.js:40473:7\n ❯ EnvironmentPluginContainer.transform node_modules/vitest/node_modules/vite/dist/node/chunks/dep-BMIURPaQ.js:42246:18\n ❯ loadAndTransform node_modules/vitest/node_modules/vite/dist/node/chunks/dep-BMIURPaQ.js:35698:27\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n",
+      "tests": 0,
+      "assertions": 0
+    }
+  },
+  "configuration": {
+    "fastMode": false,
+    "coverage": false,
+    "parallel": false
+  },
+  "recommendations": [
+    "3 test suite(s) failed. Review error logs and fix failing tests.",
+    "Consider adding more integration tests to improve coverage of component interactions."
+  ]
+}

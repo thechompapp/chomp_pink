@@ -18,6 +18,7 @@ const __dirname = path.dirname(__filename);
 // Import test modules dynamically
 const authTests = await import('./tests/auth-integration-tests.js').then(m => m.default);
 const listTests = await import('./tests/list-integration-tests.js').then(m => m.default);
+const enhancedListTests = await import('./tests/enhanced-list-integration-tests.js').then(m => m.default);
 const itemTests = await import('./tests/item-integration-tests.js').then(m => m.default);
 const bulkAddTests = await import('./tests/bulk-add-integration-tests.js').then(m => m.default);
 const searchTests = await import('./tests/search-integration-tests.js').then(m => m.default);
@@ -40,6 +41,16 @@ const skipServerCheck = args.includes('--skip-server-check');
 const CONFIG = {
   BACKEND_URL: 'http://localhost:5001',
   FRONTEND_URL: 'http://localhost:5173',
+  AUTH: {
+    admin: {
+      email: 'admin@example.com',
+      password: 'doof123'
+    },
+    user: {
+      email: 'user@example.com', 
+      password: 'password123'
+    }
+  },
   ADMIN_EMAIL: 'admin@example.com',
   ADMIN_PASSWORD: 'doof123',
   USER_EMAIL: 'user@example.com',
@@ -338,6 +349,10 @@ async function runAllTests() {
     
     if (!CONFIG.SECTION || CONFIG.SECTION === 'neighborhoods') {
       testsToRun.push({ module: neighborhoodTests, name: 'neighborhoods' });
+    }
+    
+    if (!CONFIG.SECTION || CONFIG.SECTION === 'enhanced-lists') {
+      testsToRun.push({ module: enhancedListTests, name: 'enhanced-lists' });
     }
     
     // Run tests in parallel if in fast mode, otherwise sequentially

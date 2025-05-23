@@ -2,7 +2,9 @@
 import logger from './utils/logger';
 
 const APP_ENV = import.meta.env.VITE_APP_ENV || 'development';
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
+// Use relative URL in development to leverage Vite proxy, full URL in production
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
+  (APP_ENV === 'development' ? '/api' : 'http://localhost:5001/api');
 const MOCK_API = import.meta.env.VITE_MOCK_API === 'true';
 
 const IS_DEVELOPMENT = APP_ENV === 'development';

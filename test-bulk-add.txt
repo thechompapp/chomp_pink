@@ -1,5 +1,0 @@
-Shake Shack;restaurant;New York;burgers,fast food
-Momofuku;restaurant;New York;asian,fusion
-Chipotle;restaurant;New York;mexican,fast food
-Sweetgreen;restaurant;New York;salad,healthy
-Katz's Delicatessen;restaurant;New York;deli,sandwich
