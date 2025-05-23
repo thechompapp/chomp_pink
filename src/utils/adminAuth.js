@@ -24,7 +24,7 @@ export function syncAdminAuthWithStore(authStore) {
   if (state.isAuthenticated) {
     logInfo('[AdminAuth] Synchronizing admin access for user');
     
-    // Check if localStorage already has these values to prevent redundant updates
+    // Only update localStorage if needed to prevent redundant updates
     const needsLocalStorageUpdate = (
       localStorage.getItem('admin_api_key') !== 'doof-admin-secret-key-dev' ||
       localStorage.getItem('bypass_auth_check') !== 'true' ||
@@ -32,9 +32,7 @@ export function syncAdminAuthWithStore(authStore) {
       localStorage.getItem('admin_access_enabled') !== 'true'
     );
     
-    // Only update localStorage if needed to prevent unnecessary events
     if (needsLocalStorageUpdate) {
-      // Set all required flags in a single batch
       localStorage.setItem('admin_api_key', 'doof-admin-secret-key-dev');
       localStorage.setItem('bypass_auth_check', 'true');
       localStorage.setItem('superuser_override', 'true');
@@ -46,11 +44,10 @@ export function syncAdminAuthWithStore(authStore) {
     const needsStoreUpdate = (
       !state.isSuperuser || 
       state.user?.account_type !== 'superuser' ||
-      !state.user?.role?.includes('admin') ||
+      state.user?.role !== 'admin' || // Changed to strict equality
       !state.user?.permissions?.includes('superuser')
     );
     
-    // Only update store if needed
     if (needsStoreUpdate) {
       logInfo('[AdminAuth] Updating auth store to set superuser status');
       
@@ -66,14 +63,13 @@ export function syncAdminAuthWithStore(authStore) {
         ])]
       };
       
-      // Use the setState method directly to bypass throttling
-      // This ensures immediate synchronous state update
+      // Use setState to bypass throttling
       authStore.setState({
         isSuperuser: true,
         user: enhancedUser
       });
       
-      // Update the auth storage directly to ensure persistence
+      // Update persisted auth state
       try {
         const authStorage = localStorage.getItem('auth-storage');
         if (authStorage) {
@@ -86,47 +82,39 @@ export function syncAdminAuthWithStore(authStore) {
           }
         }
       } catch (e) {
-        logWarn('[AdminAuth] Failed to update persisted auth state:', e);
+        console.warn('[AdminAuth] Failed to update persisted auth state:', e);
       }
       
-      // Dispatch a custom event to notify components of admin login
+      // Dispatch adminLoginComplete event
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('adminLoginComplete', { 
           detail: { isSuperuser: true } 
         }));
       }
       
-      return true; // Sync resulted in state change
+      return true;
     }
-    return true; // Already synced
+    return true;
   }
-  return false; // Not authenticated
+  return false;
 }
 
 /**
  * Initializes admin authentication for development mode
- * - Sets localStorage values needed for admin authentication
- * - Only applies in development mode
  */
 export function initializeAdminAuth() {
-  // Only apply in development mode
   if (process.env.NODE_ENV !== 'development') {
     return false;
   }
   
-  // Set all required flags
   localStorage.setItem('admin_api_key', 'doof-admin-secret-key-dev');
   localStorage.setItem('bypass_auth_check', 'true');
   localStorage.setItem('superuser_override', 'true');
   localStorage.setItem('admin_access_enabled', 'true');
   
-  // Create a stronger token with admin privileges embedded
   const adminToken = 'admin-mock-token-with-superuser-privileges-' + Date.now();
-  
-  // Store the token in localStorage directly for API client access
   localStorage.setItem('auth-token', adminToken);
   
-  // Create a mock admin user for authentication store
   const mockUser = {
     id: 1,
     username: 'admin',
@@ -136,7 +124,6 @@ export function initializeAdminAuth() {
     permissions: ['admin', 'superuser']
   };
   
-  // Store auth state in localStorage for persistence
   const authState = {
     token: adminToken,
     isAuthenticated: true,
@@ -147,7 +134,6 @@ export function initializeAdminAuth() {
     error: null
   };
   
-  // Save the auth state to localStorage
   try {
     const authStorage = localStorage.getItem('auth-storage');
     if (authStorage) {
@@ -155,7 +141,6 @@ export function initializeAdminAuth() {
       parsed.state = authState;
       localStorage.setItem('auth-storage', JSON.stringify(parsed));
     } else {
-      // If no auth storage exists, create one
       localStorage.setItem('auth-storage', JSON.stringify({
         state: authState,
         version: 0
@@ -173,7 +158,6 @@ export function initializeAdminAuth() {
 
 /**
  * Checks if admin authentication is enabled
- * @returns {boolean} True if admin auth is enabled
  */
 export function isAdminAuthEnabled() {
   return localStorage.getItem('admin_access_enabled') === 'true';
@@ -192,68 +176,26 @@ export function clearAdminAuth() {
 
 // Auto-initialize on import in development mode
 if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
-  // Use setTimeout to ensure this runs after the DOM is loaded
   setTimeout(() => {
     initializeAdminAuth();
-    
-    // Also setup a mutation observer to watch for auth-storage changes
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        if (mutation.type === 'childList' || mutation.type === 'attributes') {
-          // Check if auth-storage has changed
-          try {
-            const authData = JSON.parse(localStorage.getItem('auth-storage'));
-            if (authData?.state?.isAuthenticated) {
-              logInfo('[AdminAuth] Auth storage changed, ensuring admin status');
-              // Ensure admin status is set
-              localStorage.setItem('admin_api_key', 'doof-admin-secret-key-dev');
-              localStorage.setItem('bypass_auth_check', 'true');
-              localStorage.setItem('superuser_override', 'true');
-              localStorage.setItem('admin_access_enabled', 'true');
-              
-              // Update the auth state to include superuser
-              if (!authData.state.isSuperuser) {
-                authData.state.isSuperuser = true;
-                if (authData.state.user) {
-                  authData.state.user.account_type = 'superuser';
-                  authData.state.user.role = 'admin';
-                  authData.state.user.permissions = [...(authData.state.user.permissions || []), 'admin', 'superuser'];
-                }
-                localStorage.setItem('auth-storage', JSON.stringify(authData));
-              }
-            }
-          } catch (e) {
-            // Ignore parsing errors
-          }
-        }
-      });
-    });
-    
-    // Start observing localStorage changes
-    observer.observe(document, { subtree: true, attributes: true, childList: true });
   }, 500);
 }
 
 /**
  * Setup synchronization with auth store
- * This should be called in the main app component
  */
 export function setupAdminAuthSync() {
   if (process.env.NODE_ENV !== 'development' || typeof window === 'undefined') {
-    return () => {}; // No-op cleanup function
+    return () => {};
   }
   
-  // Dynamically import to avoid circular dependencies
   const setupSync = async () => {
     try {
-      // Use dynamic import to avoid circular dependency
       const authStoreModule = await import('@/stores/useAuthStore');
       const authStore = authStoreModule.default;
       
-      // Initial sync
       syncAdminAuthWithStore(authStore);
       
-      // Setup subscription to auth store changes
       const unsubscribe = authStore.subscribe(
         (state) => ({ isAuthenticated: state.isAuthenticated, isSuperuser: state.isSuperuser }),
         () => {
@@ -264,17 +206,15 @@ export function setupAdminAuthSync() {
       return unsubscribe;
     } catch (error) {
       console.error('[AdminAuth] Failed to setup auth store sync:', error);
-      return () => {}; // No-op cleanup function
+      return () => {};
     }
   };
   
-  // Start the setup process
   let unsubscribe = () => {};
   setupSync().then(cleanup => {
     unsubscribe = cleanup;
   });
   
-  // Return cleanup function
   return () => unsubscribe();
 }
 
@@ -284,4 +224,4 @@ export default {
   clearAdminAuth,
   syncAdminAuthWithStore,
   setupAdminAuthSync
-}; 
+};

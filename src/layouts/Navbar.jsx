@@ -1,359 +1,463 @@
-/* src/layouts/Navbar.jsx */
-import React, { useState, useCallback, useMemo, memo, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import useAuthStore from '@/stores/useAuthStore';
-import { Menu, X, User, CheckCircle } from 'lucide-react';
-import { logDebug, logInfo } from '@/utils/logger';
-import { syncAdminAuthWithStore } from '@/utils/adminAuth';
+// src/layouts/Navbar.jsx
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/auth';
+import { useAdminAuth } from '../hooks/useAdminAuth';
+import Button from '../components/UI/Button';
+import { logDebug, logInfo } from '../utils/logger';
+import { debounce } from '../utils/helpers';
+import offlineModeGuard from '../utils/offlineModeGuard';
 
-// Ensure auth bypass and admin access are enabled in development to fix flickering and admin features
-if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-  // Set all required flags for admin access
-  window.localStorage.setItem('bypass_auth_check', 'true');
-  window.localStorage.setItem('admin_api_key', 'doof-admin-secret-key-dev');
-  window.localStorage.setItem('superuser_override', 'true');
-  window.localStorage.setItem('admin_access_enabled', 'true');
-  
-  // Clear the explicit logout flag to ensure admin features are available
-  window.localStorage.removeItem('user_explicitly_logged_out');
-}
+// Constants
+const SCROLL_THRESHOLD = 50;
+const DEBOUNCE_DELAY = 100;
 
-// Simple component that won't flicker
+/**
+ * Navbar Component
+ * Uses the new authentication context for user state and logout functionality
+ */
 const Navbar = () => {
-  // Get all auth values at once to prevent flickering
-  const auth = useAuthStore();
-  const { isAuthenticated, user, logout, isLoading } = auth;
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   
+  const location = useLocation();
   const navigate = useNavigate();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [, forceUpdate] = useState({});
-  const initialSyncRef = useRef(false);
-
-  // Immediate sync on mount to ensure admin authentication is properly set
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development' && isAuthenticated) {
-      logInfo('[Navbar] Initial auth sync on mount');
-      // Sync and immediately update if changes were made
-      const syncResult = syncAdminAuthWithStore(useAuthStore);
-      
-      // Force update immediately to ensure UI reflects admin status
-      initialSyncRef.current = true;
-      forceUpdate({});
-      
-      // Log the result for debugging
-      logDebug(`[Navbar] Initial admin sync ${syncResult ? 'changed auth state' : 'no changes needed'}`);
-    }
-  }, [isAuthenticated]);
-
-  // Add effect to listen for auth state changes and force a re-render
-  useEffect(() => {
-    // Subscribe to auth store changes with a more specific selector
-    // This ensures we capture all relevant state changes
-    const unsubscribe = useAuthStore.subscribe(
-      (state) => ({
-        isAuthenticated: state.isAuthenticated,
-        user: state.user,
-        isSuperuser: state.isSuperuser,
-        accountType: state.user?.account_type,
-        role: state.user?.role,
-        permissions: state.user?.permissions
-      }),
-      (newState, oldState) => {
-        // Log the state change for debugging
-        logDebug('[Navbar] Auth state change detected:', {
-          oldState: {
-            isAuthenticated: oldState.isAuthenticated,
-            isSuperuser: oldState.isSuperuser,
-            accountType: oldState.accountType
-          },
-          newState: {
-            isAuthenticated: newState.isAuthenticated,
-            isSuperuser: newState.isSuperuser,
-            accountType: newState.accountType
-          }
-        });
-        
-        // Check if any relevant auth state has changed
-        if (newState.isAuthenticated !== oldState.isAuthenticated ||
-            newState.isSuperuser !== oldState.isSuperuser ||
-            newState.accountType !== oldState.accountType ||
-            newState.role !== oldState.role ||
-            JSON.stringify(newState.permissions) !== JSON.stringify(oldState.permissions)) {
-          
-          logInfo('[Navbar] Relevant auth state changed, forcing immediate re-render');
-          
-          // Sync admin auth after auth state changes (especially after login)
-          // but only if not already a superuser to prevent loops
-          if (newState.isAuthenticated && 
-              (!newState.isSuperuser && 
-               (newState.accountType === 'superuser' || 
-                newState.role === 'admin' || 
-                (newState.permissions && 
-                 (newState.permissions.includes('admin') || 
-                  newState.permissions.includes('superuser')))))) {
-            
-            logInfo('[Navbar] Admin user detected but isSuperuser flag not set, syncing admin authentication');
-            syncAdminAuthWithStore(useAuthStore);
-          }
-          
-          // Force an immediate re-render
-          forceUpdate({});
-        }
+  
+  // Use the new authentication context
+  const { isAuthenticated, user, logout, isLoading } = useAuth();
+  
+  // Use the admin hook for permission checks
+  const adminAuth = useAdminAuth();
+  
+  // Check if user has admin access
+  const isAdmin = user && adminAuth.can('admin.access');
+  
+  /**
+   * Toggle mobile menu
+   */
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen);
+    // Close profile menu if open
+    if (isProfileMenuOpen) setIsProfileMenuOpen(false);
+  };
+  
+  /**
+   * Toggle profile menu
+   */
+  const toggleProfileMenu = () => {
+    setIsProfileMenuOpen(!isProfileMenuOpen);
+    // Close mobile menu if open
+    if (isMenuOpen) setIsMenuOpen(false);
+  };
+  
+  /**
+   * Close all menus
+   */
+  const closeMenus = useCallback(() => {
+    setIsMenuOpen(false);
+    setIsProfileMenuOpen(false);
+  }, []);
+  
+  /**
+   * Handle scroll events to update navbar styling
+   */
+  const handleScroll = useCallback(
+    debounce(() => {
+      if (window.scrollY > SCROLL_THRESHOLD) {
+        setIsScrolled(true);
+      } else {
+        setIsScrolled(false);
       }
-    );
+    }, DEBOUNCE_DELAY),
+    []
+  );
+  
+  /**
+   * Handle logout action
+   */
+  const handleLogout = async () => {
+    logInfo('[Navbar] Logout initiated');
     
-    // Listen for the custom adminLoginComplete event
-    const handleAdminLogin = (event) => {
-      logInfo('[Navbar] Received adminLoginComplete event, forcing update');
-      // Force sync admin auth and immediately update UI
-      syncAdminAuthWithStore(useAuthStore);
-      // Force an immediate re-render
-      forceUpdate({});
-    };
-    
-    // Listen for the custom adminLogoutComplete event
-    const handleAdminLogout = (event) => {
-      logInfo('[Navbar] Received adminLogoutComplete event, ensuring admin features are hidden');
-      // Force an immediate re-render
-      forceUpdate({});
-    };
-    
-    window.addEventListener('adminLoginComplete', handleAdminLogin);
-    window.addEventListener('adminLogoutComplete', handleAdminLogout);
-    
+    try {
+      await logout();
+      
+      // Clear offline mode flags after logout
+      if (offlineModeGuard && typeof offlineModeGuard.clearOfflineModeFlags === 'function') {
+        logDebug('[Navbar] Clearing offline mode flags after logout');
+        offlineModeGuard.clearOfflineModeFlags();
+      }
+      
+      // Close menus
+      closeMenus();
+      
+      // Navigate to home page
+      navigate('/');
+      
+      // Force UI refresh event
+      window.dispatchEvent(new CustomEvent('forceUiRefresh', {
+        detail: { timestamp: Date.now() }
+      }));
+    } catch (error) {
+      console.error('[Navbar] Error during logout:', error);
+    }
+  };
+  
+  // Setup scroll event listener
+  useEffect(() => {
+    window.addEventListener('scroll', handleScroll);
     return () => {
-      unsubscribe();
-      window.removeEventListener('adminLoginComplete', handleAdminLogin);
-      window.removeEventListener('adminLogoutComplete', handleAdminLogout);
+      window.removeEventListener('scroll', handleScroll);
     };
-  }, []);
-
-  // Use useCallback to prevent function re-creation on every render
-  const handleLogout = useCallback(() => {
-    logout();
-    setIsMobileMenuOpen(false);
-    navigate('/login');
-  }, [logout, navigate]);
-
-  const toggleMobileMenu = useCallback(() => {
-    setIsMobileMenuOpen(prev => !prev);
-  }, []);
-
-  // Use useMemo to prevent recalculation on every render
-  const isSuperuser = useMemo(() => {
-    // Log the current auth state for debugging
-    logDebug('[Navbar] Checking superuser status:', { 
-      isAuthenticated, 
-      accountType: user?.account_type, 
-      isSuperuser: auth.isSuperuser,
-      isDev: process.env.NODE_ENV === 'development',
-      hasAdminAccess: localStorage.getItem('admin_access_enabled') === 'true'
-    });
-    
-    // In development mode, always enable superuser features if authenticated
-    if (process.env.NODE_ENV === 'development' && isAuthenticated) {
-      // Check localStorage flags as well to ensure consistency
-      if (localStorage.getItem('superuser_override') === 'true' || 
-          localStorage.getItem('admin_access_enabled') === 'true') {
-        return true;
-      }
-    }
-    
-    // Check all possible indicators of superuser status
-    return user?.account_type === 'superuser' || 
-           auth.isSuperuser || 
-           user?.role === 'admin' || 
-           (user?.permissions && 
-            (user.permissions.includes('admin') || user.permissions.includes('superuser')));
-  }, [user, auth.isSuperuser, isAuthenticated]);
-
-  // Force a re-check when isSuperuser changes
+  }, [handleScroll]);
+  
+  // Close menus on route change
   useEffect(() => {
-    if (isSuperuser && process.env.NODE_ENV === 'development') {
-      logInfo('[Navbar] Superuser status changed, syncing admin auth');
-      syncAdminAuthWithStore(useAuthStore);
-    }
-  }, [isSuperuser]);
-
-  // Prevent extra work during loading
-  if (isLoading && !isAuthenticated && !user) {
+    closeMenus();
+  }, [location.pathname, closeMenus]);
+  
+  // Render loading state during authentication check
+  if (isLoading) {
     return (
-      <div className="bg-primary text-primary-foreground p-4 fixed w-full top-0 z-50">
-        Loading...
-      </div>
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-card shadow-md h-16 flex items-center justify-center">
+        <div className="animate-pulse">
+          <div className="h-6 w-24 bg-muted rounded"></div>
+        </div>
+      </nav>
     );
   }
-
+  
   return (
-    <nav className="bg-primary text-primary-foreground p-4 fixed w-full top-0 z-50 shadow-sm">
-      <div className="container mx-auto flex justify-between items-center">
-        <Link to="/" className="text-2xl font-bold text-primary-foreground hover:text-primary-foreground/90 transition-colors">
-          DOOF
-        </Link>
-
-        <button
-          className="md:hidden focus:outline-none text-primary-foreground hover:text-primary-foreground/90 transition-colors"
-          onClick={toggleMobileMenu}
-          aria-label="Toggle mobile menu"
-        >
-          {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-        </button>
-
-        <div className="hidden md:flex space-x-6 items-center">
-          <Link 
-            to="/trending/restaurants" 
-            className="text-primary-foreground hover:text-primary-foreground/90 transition-colors"
-          >
-            Trending
-          </Link>
-          <Link 
-            to="/search" 
-            className="text-primary-foreground hover:text-primary-foreground/90 transition-colors"
-          >
-            Search
-          </Link>
-          {isAuthenticated ? (
-            <>
-              <Link 
-                to="/lists" 
-                className="text-primary-foreground hover:text-primary-foreground/90 transition-colors"
+    <nav
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        isScrolled ? 'bg-card/95 backdrop-blur-sm shadow-md' : 'bg-card'
+      }`}
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between h-16">
+          {/* Logo and main nav links */}
+          <div className="flex">
+            <div className="flex-shrink-0 flex items-center">
+              <Link to="/" className="flex items-center">
+                <div className="h-8 w-8 bg-primary rounded-full flex items-center justify-center text-white font-bold">
+                  D
+                </div>
+                <span className="ml-2 text-lg font-bold text-primary">Doof</span>
+              </Link>
+            </div>
+            
+            {/* Desktop navigation links */}
+            <div className="hidden sm:ml-6 sm:flex sm:space-x-4 items-center">
+              <Link
+                to="/"
+                className={`px-3 py-2 text-sm font-medium rounded-md ${
+                  location.pathname === '/'
+                    ? 'text-primary bg-primary/10'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Home
+              </Link>
+              <Link
+                to="/search"
+                className={`px-3 py-2 text-sm font-medium rounded-md ${
+                  location.pathname === '/search'
+                    ? 'text-primary bg-primary/10'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Search
+              </Link>
+              <Link
+                to="/trending"
+                className={`px-3 py-2 text-sm font-medium rounded-md ${
+                  location.pathname === '/trending'
+                    ? 'text-primary bg-primary/10'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Trending
+              </Link>
+              <Link
+                to="/lists"
+                className={`px-3 py-2 text-sm font-medium rounded-md ${
+                  location.pathname === '/lists'
+                    ? 'text-primary bg-primary/10'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
               >
                 Lists
               </Link>
-              {isSuperuser && (
-                <>
-                  <Link 
-                    to="/admin" 
-                    className="text-primary-foreground hover:text-primary-foreground/90 transition-colors"
-                  >
-                    Admin
-                  </Link>
-                  <Link 
-                    to="/bulk-add" 
-                    className="text-primary-foreground hover:text-primary-foreground/90 transition-colors"
-                  >
-                    Bulk Add
-                  </Link>
-                </>
+              {isAuthenticated && (
+                <Link
+                  to="/my-lists"
+                  className={`px-3 py-2 text-sm font-medium rounded-md ${
+                    location.pathname === '/my-lists'
+                      ? 'text-primary bg-primary/10'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  My Lists
+                </Link>
               )}
-              <Link
-                to="/profile"
-                className="flex items-center text-primary-foreground hover:text-primary-foreground/90 transition-colors"
-              >
-                <User size={18} className="mr-2" />
-                @{user?.username || 'user'}
-                {isSuperuser && (
-                  <CheckCircle size={16} className="ml-1 text-green-400" title="Verified Superuser" />
+            </div>
+          </div>
+          
+          {/* Right side - auth buttons or profile */}
+          <div className="flex items-center">
+            {isAuthenticated ? (
+              <div className="ml-3 relative">
+                <div>
+                  <button
+                    onClick={toggleProfileMenu}
+                    className="flex text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                    id="user-menu-button"
+                    aria-expanded={isProfileMenuOpen}
+                    aria-haspopup="true"
+                  >
+                    <span className="sr-only">Open user menu</span>
+                    <div className="h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center">
+                      {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                    </div>
+                  </button>
+                </div>
+                
+                {/* Profile dropdown */}
+                {isProfileMenuOpen && (
+                  <div
+                    className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-card ring-1 ring-black ring-opacity-5 focus:outline-none"
+                    role="menu"
+                    aria-orientation="vertical"
+                    aria-labelledby="user-menu-button"
+                  >
+                    <div className="py-1" role="none">
+                      <div className="block px-4 py-2 text-sm text-muted-foreground border-b border-border">
+                        Signed in as <span className="font-medium text-foreground">{user?.name || 'User'}</span>
+                      </div>
+                      
+                      <Link
+                        to="/my-lists"
+                        className="block px-4 py-2 text-sm text-foreground hover:bg-muted"
+                        role="menuitem"
+                      >
+                        My Lists
+                      </Link>
+                      
+                      <Link
+                        to="/my-submissions"
+                        className="block px-4 py-2 text-sm text-foreground hover:bg-muted"
+                        role="menuitem"
+                      >
+                        My Submissions
+                      </Link>
+                      
+                      {isAdmin && (
+                        <>
+                          <Link
+                            to="/admin"
+                            className="block px-4 py-2 text-sm text-foreground hover:bg-muted"
+                            role="menuitem"
+                          >
+                            Admin Panel
+                          </Link>
+                          <Link
+                            to="/bulk-add"
+                            className="block px-4 py-2 text-sm text-foreground hover:bg-muted"
+                            role="menuitem"
+                          >
+                            Bulk Add
+                          </Link>
+                        </>
+                      )}
+                      
+                      {process.env.NODE_ENV === 'development' && (
+                        <Link
+                          to="/auth-test"
+                          className="block px-4 py-2 text-sm text-foreground hover:bg-muted"
+                          role="menuitem"
+                        >
+                          Auth Test
+                        </Link>
+                      )}
+                      
+                      <button
+                        onClick={handleLogout}
+                        className="block w-full text-left px-4 py-2 text-sm text-destructive hover:bg-destructive/10"
+                        role="menuitem"
+                      >
+                        Sign out
+                      </button>
+                    </div>
+                  </div>
                 )}
-              </Link>
+              </div>
+            ) : (
+              <div className="flex space-x-2">
+                <Link to="/login">
+                  <Button variant="outline" size="sm">
+                    Sign in
+                  </Button>
+                </Link>
+                <Link to="/register" className="hidden sm:block">
+                  <Button variant="primary" size="sm">
+                    Register
+                  </Button>
+                </Link>
+              </div>
+            )}
+            
+            {/* Mobile menu button */}
+            <div className="flex items-center sm:hidden ml-2">
               <button
-                onClick={handleLogout}
-                className="text-primary-foreground hover:text-primary-foreground/90 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-foreground/20 rounded-sm px-2 py-1"
+                onClick={toggleMenu}
+                className="inline-flex items-center justify-center p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary"
+                aria-expanded={isMenuOpen}
               >
-                Sign Out
+                <span className="sr-only">Open main menu</span>
+                {isMenuOpen ? (
+                  <svg
+                    className="block h-6 w-6"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                ) : (
+                  <svg
+                    className="block h-6 w-6"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M4 6h16M4 12h16M4 18h16"
+                    />
+                  </svg>
+                )}
               </button>
-            </>
-          ) : (
-            <>
-              <Link 
-                to="/login" 
-                className="text-primary-foreground hover:text-primary-foreground/90 transition-colors"
-              >
-                Login
-              </Link>
-              <Link 
-                to="/register" 
-                className="text-primary-foreground hover:text-primary-foreground/90 transition-colors"
-              >
-                Register
-              </Link>
-            </>
-          )}
+            </div>
+          </div>
         </div>
       </div>
-
+      
       {/* Mobile menu */}
-      {isMobileMenuOpen && (
-        <div className="md:hidden absolute top-full left-0 right-0 bg-primary border-t border-primary-foreground/10 shadow-lg">
-          <div className="container mx-auto py-2">
+      {isMenuOpen && (
+        <div className="sm:hidden">
+          <div className="pt-2 pb-3 space-y-1">
             <Link
-              to="/trending/restaurants"
-              className="block py-2 px-4 text-primary-foreground hover:bg-primary-foreground/10 transition-colors"
-              onClick={toggleMobileMenu}
+              to="/"
+              className={`block px-3 py-2 rounded-md text-base font-medium ${
+                location.pathname === '/'
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              }`}
+            >
+              Home
+            </Link>
+            <Link
+              to="/search"
+              className={`block px-3 py-2 rounded-md text-base font-medium ${
+                location.pathname === '/search'
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              }`}
+            >
+              Search
+            </Link>
+            <Link
+              to="/trending"
+              className={`block px-3 py-2 rounded-md text-base font-medium ${
+                location.pathname === '/trending'
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              }`}
             >
               Trending
             </Link>
             <Link
-              to="/search"
-              className="block py-2 px-4 text-primary-foreground hover:bg-primary-foreground/10 transition-colors"
-              onClick={toggleMobileMenu}
+              to="/lists"
+              className={`block px-3 py-2 rounded-md text-base font-medium ${
+                location.pathname === '/lists'
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              }`}
             >
-              Search
+              Lists
             </Link>
-            {isAuthenticated ? (
+            {isAuthenticated && (
               <>
                 <Link
-                  to="/lists"
-                  className="block py-2 px-4 text-primary-foreground hover:bg-primary-foreground/10 transition-colors"
-                  onClick={toggleMobileMenu}
+                  to="/my-lists"
+                  className={`block px-3 py-2 rounded-md text-base font-medium ${
+                    location.pathname === '/my-lists'
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  }`}
                 >
-                  Lists
+                  My Lists
                 </Link>
-                {isSuperuser && (
+                <Link
+                  to="/my-submissions"
+                  className={`block px-3 py-2 rounded-md text-base font-medium ${
+                    location.pathname === '/my-submissions'
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  }`}
+                >
+                  My Submissions
+                </Link>
+                {isAdmin && (
                   <>
                     <Link
                       to="/admin"
-                      className="block py-2 px-4 text-primary-foreground hover:bg-primary-foreground/10 transition-colors"
-                      onClick={toggleMobileMenu}
+                      className={`block px-3 py-2 rounded-md text-base font-medium ${
+                        location.pathname === '/admin'
+                          ? 'bg-primary/10 text-primary'
+                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                      }`}
                     >
-                      Admin
+                      Admin Panel
                     </Link>
                     <Link
                       to="/bulk-add"
-                      className="block py-2 px-4 text-primary-foreground hover:bg-primary-foreground/10 transition-colors"
-                      onClick={toggleMobileMenu}
+                      className={`block px-3 py-2 rounded-md text-base font-medium ${
+                        location.pathname === '/bulk-add'
+                          ? 'bg-primary/10 text-primary'
+                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                      }`}
                     >
                       Bulk Add
                     </Link>
                   </>
                 )}
-                <Link
-                  to="/profile"
-                  className="block py-2 px-4 text-primary-foreground hover:bg-primary-foreground/10 transition-colors"
-                  onClick={toggleMobileMenu}
-                >
-                  <div className="flex items-center">
-                    <User size={18} className="mr-2" />
-                    @{user?.username || 'user'}
-                    {isSuperuser && (
-                      <CheckCircle size={16} className="ml-1 text-green-400" title="Verified Superuser" />
-                    )}
-                  </div>
-                </Link>
                 <button
                   onClick={handleLogout}
-                  className="block w-full text-left py-2 px-4 text-primary-foreground hover:bg-primary-foreground/10 transition-colors focus:outline-none"
+                  className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-destructive hover:bg-destructive/10"
                 >
-                  Sign Out
+                  Sign out
                 </button>
               </>
-            ) : (
-              <>
-                <Link
-                  to="/login"
-                  className="block py-2 px-4 text-primary-foreground hover:bg-primary-foreground/10 transition-colors"
-                  onClick={toggleMobileMenu}
-                >
-                  Login
-                </Link>
-                <Link
-                  to="/register"
-                  className="block py-2 px-4 text-primary-foreground hover:bg-primary-foreground/10 transition-colors"
-                  onClick={toggleMobileMenu}
-                >
-                  Register
-                </Link>
-              </>
+            )}
+            {!isAuthenticated && (
+              <Link
+                to="/register"
+                className="block sm:hidden px-3 py-2 rounded-md text-base font-medium text-primary hover:bg-primary/10"
+              >
+                Register
+              </Link>
             )}
           </div>
         </div>
@@ -362,5 +466,4 @@ const Navbar = () => {
   );
 };
 
-// Export with memo to prevent rendering when parent re-renders
-export default memo(Navbar);
+export default Navbar;

@@ -1,11 +1,35 @@
 // src/main.jsx
+
+// Import the axios method fix first, before anything else
+import '@/services/axios-method-fix';
+
+// Also import the other fixes for additional protection
+import '@/services/monkey-patch-axios';
+import '@/services/axios-simple-fix';
+
+// Import the XHR fixer next
+import '@/services/axiosXhrFixer';
+
+import './utils/DevModeManager';
+import AuthManager from './utils/AuthManager';
+import offlineModeGuard from './utils/offlineModeGuard';
+
+// Import our patched axios early to ensure all API calls use it
+import '@/services/axios-init';
+
+// Initialize AuthManager early
+if (typeof window !== 'undefined' && !AuthManager.initialized) {
+  AuthManager.initialize();
+}
+
+// Core imports
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { QueryClientProvider } from '@tanstack/react-query';
 import App from './App.jsx'; // Keep relative for App root
 import './index.css'; // Keep relative for global CSS
 import { queryClient } from '@/queryClient'; // Use alias for consistency
-import { logError } from '@/utils/logger';
+import { logError, logInfo } from '@/utils/logger';
 
 // Import development tools utility - using dynamic import to avoid initialization issues
 if (process.env.NODE_ENV === 'development') {
@@ -21,6 +45,16 @@ if (process.env.NODE_ENV === 'development') {
 window.addEventListener('error', (event) => {
   logError('[Global Error]', event.error);
   console.error('Uncaught error:', event.error);
+});
+
+// Global error handler for specific axios errors
+window.addEventListener('unhandledrejection', (event) => {
+  if (event?.reason?.message?.includes('toUpperCase')) {
+    logError('[Global Error] Caught axios toUpperCase error:', event.reason);
+    console.error('Axios error:', event.reason);
+    // Prevent the error from propagating
+    event.preventDefault();
+  }
 });
 
 // Expose services globally for testing

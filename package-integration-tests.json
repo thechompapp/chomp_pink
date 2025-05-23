@@ -1,0 +1,16 @@
+{
+  "name": "chomp-integration-tests",
+  "version": "1.0.0",
+  "description": "Comprehensive integration tests for the Chomp application",
+  "main": "app-wiring-test-runner.js",
+  "scripts": {
+    "test": "node app-wiring-test-runner.js",
+    "test:auth": "node app-wiring-test-runner.js --section=auth",
+    "test:lists": "node app-wiring-test-runner.js --section=lists",
+    "test:bulkadd": "node app-wiring-test-runner.js --section=bulkadd",
+    "test:verbose": "node app-wiring-test-runner.js --verbose"
+  },
+  "dependencies": {
+    "axios": "^1.4.0"
+  }
+}

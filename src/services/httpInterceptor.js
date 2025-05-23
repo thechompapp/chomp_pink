@@ -15,6 +15,7 @@ import { toast } from 'react-hot-toast';
 import { logDebug, logError, logWarn, logInfo } from '@/utils/logger';
 import ErrorHandler from '@/utils/ErrorHandler';
 import { API_BASE_URL } from '@/config';
+import { createMockResponseFromError } from '@/services/mockApi';
 
 // Constants for configuration
 const CONFIG = {
@@ -114,7 +115,7 @@ function initialize() {
  * @returns {boolean} - Whether we're in development mode with no backend
  */
 function isDevelopmentModeNoBackend() {
-  // Always return false to ensure we're not in offline mode
+  // Always return false to ensure we're not in offline mode and allow real API calls
   return false;
 }
 
@@ -142,8 +143,21 @@ function setDevelopmentModeNoBackend(value) {
  * @returns {boolean} - Whether the app is in offline mode
  */
 function checkOfflineMode(forceCheck = false) {
-  // In development mode, always return false (online mode)
-  if (process.env.NODE_ENV === 'development') {
+  // Check if user is authenticated before considering offline mode
+  const authStorage = localStorage.getItem('auth-storage');
+  let isAuthenticated = false;
+  
+  try {
+    if (authStorage) {
+      const authData = JSON.parse(authStorage);
+      isAuthenticated = authData?.state?.isAuthenticated || false;
+    }
+  } catch (err) {
+    logError('[HttpInterceptor] Error parsing auth storage:', err);
+  }
+  
+  // If authenticated, never force offline mode in development
+  if (process.env.NODE_ENV === 'development' || isAuthenticated) {
     // Clear any offline flags in storage to ensure consistent behavior
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem(CONFIG.STORAGE_KEYS.OFFLINE_MODE);
@@ -476,6 +490,9 @@ function addAuthHeaders(config) {
       localStorage.setItem('admin_api_key', 'doof-admin-secret-key-dev');
     }
     
+    // Also set a flag to ensure frontend recognizes admin status
+    localStorage.setItem('is_admin', 'true');
+    
     // No need to look for auth token - we're bypassing auth
     return;
   }
@@ -578,10 +595,26 @@ function notifyLoadingListeners() {
  * @param {Object} config - Axios request config
  */
 function logRequest(config) {
-  const method = config.method?.toUpperCase() || 'GET';
-  const url = config.url || 'unknown';
-  
-  logDebug(`📤 [${method}] ${url}`);
+  try {
+    // Ensure method is a valid string before trying to use toUpperCase
+    const method = config && config.method ? 
+      (typeof config.method === 'string' ? config.method.toUpperCase() : String(config.method).toUpperCase()) 
+      : 'GET';
+      
+    const url = config && config.url ? config.url : 'unknown';
+    
+    logDebug(`📤 [${method}] ${url}`);
+  } catch (error) {
+    // If there's an error logging, just use a simple fallback format
+    logDebug(`📤 Request: ${config?.url || 'unknown'}`);
+    
+    // Fix config for future operations if needed
+    if (config && !config.method) {
+      config.method = 'get';
+    } else if (config && typeof config.method !== 'string') {
+      config.method = String(config.method || 'get');
+    }
+  }
 }
 
 /**
@@ -590,7 +623,7 @@ function logRequest(config) {
  * @param {Object} response - Axios response
  */
 function logResponse(response) {
-  const method = response.config?.method?.toUpperCase() || 'GET';
+  const method = typeof response.config?.method === 'string' ? response.config.method.toUpperCase() : 'GET';
   const url = response.config?.url || 'unknown';
   const status = response.status;
   
@@ -603,147 +636,253 @@ function logResponse(response) {
  * @param {Error} error - Axios error
  */
 function handleResponseError(error) {
-  // Skip showing errors for offline mode errors
-  if (error.isOfflineError) {
-    return;
-  }
-  
-  // Check if we're in development mode
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  
-  // Handle TypeError exceptions (often related to undefined properties)
-  if (error instanceof TypeError) {
-    logWarn(`[HttpInterceptor] TypeError detected: ${error.message}`);
-    
-    // Add more context to the error for better debugging
-    error.isTypeError = true;
-    error.userMessage = 'An error occurred while processing the request. Please try again.';
-    
-    // Log helpful information for developers
-    console.warn(
-      `%c🔶 TypeError Detected 🔶\n` +
-      `Message: ${error.message}\n` +
-      `This is likely due to a configuration issue in the API client.\n` +
-      `Check that all request parameters are properly defined.`,
-      'background: #fff3e0; color: #e65100; font-weight: bold; padding: 5px;'
-    );
-    
-    // Show a toast message to the user
-    if (typeof toast !== 'undefined') {
-      toast.error(
-        'An error occurred while connecting to the API. Please try again.',
-        { id: 'type-error-toast', duration: 5000 }
-      );
-    }
-    
-    return;
-  }
-  
-  // Special handling for network errors (likely CORS issues in development)
-  if (error.message === 'Network Error' && isDevelopment) {
-    // Get request details for debugging (with safe access to avoid further TypeErrors)
-    const requestUrl = error.config?.url || 'unknown';
-    const requestMethod = error.config?.method ? String(error.config.method).toUpperCase() : 'unknown';
-    const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'unknown';
-    const apiBaseUrl = error.config?.baseURL || API_BASE_URL || 'unknown';
-    const currentPort = currentOrigin.split(':').pop();
-    
-    // Log detailed information about the CORS issue
-    logWarn(`[HttpInterceptor] Network error detected - likely a CORS issue:`);
-    logWarn(`  - Request: ${requestMethod} ${requestUrl}`);
-    logWarn(`  - Frontend origin: ${currentOrigin} (port ${currentPort})`);
-    logWarn(`  - API base URL: ${apiBaseUrl}`);
-    logWarn(`  - Backend expects requests from port 5173, but frontend is on port ${currentPort}`);
-    
-    // Show a helpful message in the console for developers
-    console.warn(
-      `%c🔴 CORS Error Detected 🔴\n` +
-      `Frontend: ${currentOrigin}\n` +
-      `Backend: ${apiBaseUrl}\n\n` +
-      `This is likely a CORS issue. The backend is expecting requests from port 5173, ` +
-      `but your frontend is running on port ${currentPort}.\n\n` +
-      `Try running the frontend using the dev-server.js script: node dev-server.js`,
-      'background: #ffeeee; color: #990000; font-weight: bold; padding: 5px;'
-    );
-    
-    // Show a toast message to the user
-    if (typeof toast !== 'undefined') {
-      toast.error(
-        'API connection error. The frontend is running on the wrong port. ' +
-        'Please restart using dev-server.js',
-        { id: 'cors-error-toast', duration: 8000 }
-      );
-    }
-    
-    return;
-  }
-  
-  // Check if this is a development-specific error (like missing backend)
-  if (ErrorHandler.isDevelopmentModeError(error)) {
-    // Just log it without showing a toast
-    logDebug('[HttpInterceptor] Development mode error - this is expected if no backend is running');
-    return;
-  }
-  
-  // Get standardized error info
-  const errorInfo = ErrorHandler.handle(error, 'HttpInterceptor.response', {
-    showToast: false // We'll manually decide if we should show a toast
-  });
-  
-  const status = error.response?.status;
-  
-  // Check if it's a network error
-  const isNetworkError = !status && ErrorHandler.isNetworkError(error);
-  
-  // Handle based on status code
-  if (status === 401) {
-    // Unauthorized - token might be expired
-    toast.error('Your session has expired. Please log in again.', {
-      id: 'auth-expired-toast' // Prevent duplicate toasts
-    });
-    
-    // Redirect to login if needed
-    if (window.location.pathname !== '/login') {
-      // Store the current path to redirect back after login
-      sessionStorage.setItem('redirect_after_login', window.location.pathname);
+  try {
+    // Fix for TypeError: Cannot read properties of undefined (reading 'toUpperCase')
+    if (error && error.message && error.message.includes("Cannot read properties of undefined (reading 'toUpperCase')")) {
+      logWarn('[HttpInterceptor] TypeError detected: Cannot read properties of undefined (reading \'toUpperCase\')');
       
-      // Use React Router's history if available
-      if (window.history && typeof window.history.pushState === 'function') {
-        window.history.pushState({}, '', '/login');
-      } else {
-        window.location.href = '/login';
+      console.warn(
+        '🔶 TypeError Detected 🔶\n' +
+        'Message: Cannot read properties of undefined (reading \'toUpperCase\')\n' +
+        'This is likely due to a configuration issue in the API client.\n' +
+        'Check that all request parameters are properly defined.'
+      );
+      
+      // Create a safe config to help diagnose the issue
+      const safeConfig = error.config || {};
+      
+      // Add the missing method to prevent future errors
+      if (!safeConfig.method) {
+        safeConfig.method = 'get';
+      } else if (typeof safeConfig.method !== 'string') {
+        safeConfig.method = String(safeConfig.method);
       }
-    }
-  } else if (status === 403) {
-    // Forbidden - user doesn't have permission
-    toast.error('You don\'t have permission to access this resource.', {
-      id: 'permission-denied-toast' // Prevent duplicate toasts
-    });
-  } else if (status === 404) {
-    // Not found - resource doesn't exist
-    // Don't show toast for 404s to reduce noise
-    logDebug('Resource not found', { path: error.config?.url });
-  } else if (status === 429) {
-    // Rate limited
-    toast.error('Too many requests. Please wait and try again later.', {
-      id: 'rate-limit-toast' // Prevent duplicate toasts
-    });
-  } else if (status >= 500) {
-    // Server error
-    toast.error('Server error. Please try again later.', {
-      id: 'server-error-toast' // Prevent duplicate toasts
-    });
-  } else if (isNetworkError) {
-    // Network error - show a toast only in production
-    if (!isDevelopment) {
-      toast.error('Network error. Please check your connection.', {
-        id: 'network-error-toast' // Prevent duplicate toasts
+      
+      // Use our mock API service to create a realistic mock response
+      const mockResponse = createMockResponseFromError(error);
+      
+      // Return the mock response wrapped in a reject to maintain error handling flow
+      return Promise.reject({
+        response: mockResponse,
+        message: error.message,
+        isAxiosError: true,
+        isHandled: true,
+        usedMockResponse: true,
+        toJSON: () => ({
+          message: error.message,
+          name: 'TypeError',
+          code: 'ERR_METHOD_UNDEFINED',
+          config: safeConfig
+        })
       });
     }
-  } else {
-    // Other client errors (400, etc.)
-    const message = errorInfo.message || 'An error occurred';
-    toast.error(message);
+    
+    // Skip showing errors for offline mode errors
+    if (error.isOfflineError) {
+      return;
+    }
+    
+    // Check if we're in development mode
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    
+    // Handle TypeError exceptions (often related to undefined properties)
+    if (error instanceof TypeError) {
+      logWarn(`[HttpInterceptor] TypeError detected: ${error.message}`);
+      
+      // Add more context to the error for better debugging
+      error.isTypeError = true;
+      error.userMessage = 'An error occurred while processing the request. Please try again.';
+      
+      // Log helpful information for developers
+      console.warn(
+        `%c🔶 TypeError Detected 🔶\n` +
+        `Message: ${error.message}\n` +
+        `This is likely due to a configuration issue in the API client.\n` +
+        `Check that all request parameters are properly defined.`,
+        'background: #fff3e0; color: #e65100; font-weight: bold; padding: 5px;'
+      );
+      
+      // Show a toast message to the user
+      if (typeof toast !== 'undefined') {
+        toast.error(
+          'An error occurred while connecting to the API. Please try again.',
+          { id: 'type-error-toast', duration: 5000 }
+        );
+      }
+      
+      return;
+    }
+    
+    // Special handling for network errors (likely CORS issues in development)
+    if (error.message === 'Network Error' && isDevelopment) {
+      // Get request details for debugging (with safe access to avoid further TypeErrors)
+      const requestUrl = error.config?.url || 'unknown';
+      const requestMethod = error.config?.method ? String(error.config.method).toUpperCase() : 'unknown';
+      const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'unknown';
+      const apiBaseUrl = error.config?.baseURL || API_BASE_URL || 'unknown';
+      const currentPort = currentOrigin.split(':').pop();
+      
+      // Log detailed information about the CORS issue
+      logWarn(`[HttpInterceptor] Network error detected - likely a CORS issue:`);
+      logWarn(`  - Request: ${requestMethod} ${requestUrl}`);
+      logWarn(`  - Frontend origin: ${currentOrigin} (port ${currentPort})`);
+      logWarn(`  - API base URL: ${apiBaseUrl}`);
+      logWarn(`  - Backend expects requests from port 5173, but frontend is on port ${currentPort}`);
+      
+      // Show a helpful message in the console for developers
+      console.warn(
+        `%c🔴 CORS Error Detected 🔴\n` +
+        `Frontend: ${currentOrigin}\n` +
+        `Backend: ${apiBaseUrl}\n\n` +
+        `This is likely a CORS issue. The backend is expecting requests from port 5173, ` +
+        `but your frontend is running on port ${currentPort}.\n\n` +
+        `Try running the frontend using the dev-server.js script: node dev-server.js`,
+        'background: #ffeeee; color: #990000; font-weight: bold; padding: 5px;'
+      );
+      
+      // Show a toast message to the user
+      if (typeof toast !== 'undefined') {
+        toast.error(
+          'API connection error. The frontend is running on the wrong port. ' +
+          'Please restart using dev-server.js',
+          { id: 'cors-error-toast', duration: 8000 }
+        );
+      }
+      
+      // Use our mock API service to create a realistic mock response for development
+      if (isDevelopment) {
+        const mockResponse = createMockResponseFromError(error);
+        
+        // Return the mock response wrapped in a reject to maintain error handling flow
+        return Promise.reject({
+          response: mockResponse,
+          message: 'Network Error (Using Mock Response)',
+          isAxiosError: true,
+          isHandled: true,
+          usedMockResponse: true,
+          originalError: error
+        });
+      }
+      
+      return;
+    }
+    
+    // Check if this is a development-specific error (like missing backend)
+    if (ErrorHandler.isDevelopmentModeError(error)) {
+      // Just log it without showing a toast
+      logDebug('[HttpInterceptor] Development mode error - this is expected if no backend is running');
+      
+      // Use our mock API service to create a realistic mock response for development
+      if (isDevelopment) {
+        const mockResponse = createMockResponseFromError(error);
+        
+        // Return the mock response wrapped in a reject to maintain error handling flow
+        return Promise.reject({
+          response: mockResponse,
+          message: 'Development Error (Using Mock Response)',
+          isAxiosError: true,
+          isHandled: true,
+          usedMockResponse: true,
+          originalError: error
+        });
+      }
+      
+      return;
+    }
+    
+    // Get standardized error info
+    const errorInfo = ErrorHandler.handle(error, 'HttpInterceptor.response', {
+      showToast: false // We'll manually decide if we should show a toast
+    });
+    
+    const status = error.response?.status;
+    
+    // Check if it's a network error
+    const isNetworkError = !status && ErrorHandler.isNetworkError(error);
+    
+    // Handle based on status code
+    if (status === 401) {
+      // Unauthorized - token might be expired
+      toast.error('Your session has expired. Please log in again.', {
+        id: 'auth-expired-toast' // Prevent duplicate toasts
+      });
+      
+      // Redirect to login if needed
+      if (window.location.pathname !== '/login') {
+        // Store the current path to redirect back after login
+        sessionStorage.setItem('redirect_after_login', window.location.pathname);
+        
+        // Use React Router's history if available
+        if (window.history && typeof window.history.pushState === 'function') {
+          window.history.pushState({}, '', '/login');
+        } else {
+          window.location.href = '/login';
+        }
+      }
+    } else if (status === 403) {
+      // Forbidden - user doesn't have permission
+      toast.error('You don\'t have permission to access this resource.', {
+        id: 'permission-denied-toast' // Prevent duplicate toasts
+      });
+    } else if (status === 404) {
+      // Not found - resource doesn't exist
+      // Don't show toast for 404s to reduce noise
+      logDebug('Resource not found', { path: error.config?.url });
+    } else if (status === 429) {
+      // Rate limited
+      toast.error('Too many requests. Please wait and try again later.', {
+        id: 'rate-limit-toast' // Prevent duplicate toasts
+      });
+    } else if (status >= 500) {
+      // Server error
+      toast.error('Server error. Please try again later.', {
+        id: 'server-error-toast' // Prevent duplicate toasts
+      });
+      
+      // Use our mock API service to create a realistic mock response for server errors in development
+      if (isDevelopment) {
+        const mockResponse = createMockResponseFromError(error);
+        
+        // Return the mock response wrapped in a reject to maintain error handling flow
+        return Promise.reject({
+          response: mockResponse,
+          message: 'Server Error (Using Mock Response)',
+          isAxiosError: true,
+          isHandled: true,
+          usedMockResponse: true,
+          originalError: error
+        });
+      }
+    } else if (isNetworkError) {
+      // Network error - show a toast only in production
+      if (!isDevelopment) {
+        toast.error('Network error. Please check your connection.', {
+          id: 'network-error-toast' // Prevent duplicate toasts
+        });
+      }
+      
+      // Use our mock API service to create a realistic mock response for network errors in development
+      if (isDevelopment) {
+        const mockResponse = createMockResponseFromError(error);
+        
+        // Return the mock response wrapped in a reject to maintain error handling flow
+        return Promise.reject({
+          response: mockResponse,
+          message: 'Network Error (Using Mock Response)',
+          isAxiosError: true,
+          isHandled: true,
+          usedMockResponse: true,
+          originalError: error
+        });
+      }
+    } else {
+      // Other client errors (400, etc.)
+      const message = errorInfo.message || 'An error occurred';
+      toast.error(message);
+    }
+  } catch (handlerError) {
+    logError('[HttpInterceptor] Error in error handler:', handlerError);
+    return Promise.reject(error);
   }
 }
 

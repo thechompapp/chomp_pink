@@ -1,31 +1,11 @@
 /* src/services/hashtagService.js */
 /**
- * Service for fetching hashtag-related data.
+ * Enhanced service for fetching hashtag-related data with improved error handling
+ * and API client integration.
  */
-import apiClient from '@/services/apiClient';
+import apiClient, { get } from '@/services/apiClient';
 import { logDebug, logError, logWarn } from '@/utils/logger.js';
 import { createQueryParams } from '@/utils/serviceHelpers.js';
-
-/**
- * Mock data for development fallback when API returns unexpected format
- */
-const MOCK_HASHTAGS = [
-  { id: 1, name: 'pizza', usage_count: 120 },
-  { id: 2, name: 'burger', usage_count: 95 },
-  { id: 3, name: 'sushi', usage_count: 87 },
-  { id: 4, name: 'italian', usage_count: 76 },
-  { id: 5, name: 'mexican', usage_count: 68 },
-  { id: 6, name: 'vegan', usage_count: 62 },
-  { id: 7, name: 'dessert', usage_count: 55 },
-  { id: 8, name: 'healthy', usage_count: 49 },
-  { id: 9, name: 'breakfast', usage_count: 43 },
-  { id: 10, name: 'dinner', usage_count: 38 },
-  { id: 11, name: 'lunch', usage_count: 35 },
-  { id: 12, name: 'spicy', usage_count: 32 },
-  { id: 13, name: 'seafood', usage_count: 29 },
-  { id: 14, name: 'vegetarian', usage_count: 25 },
-  { id: 15, name: 'fastfood', usage_count: 22 }
-];
 
 /**
  * Normalize hashtag data to ensure consistent format
@@ -36,7 +16,6 @@ const normalizeHashtag = (item) => {
   if (!item || typeof item !== 'object') {
     return { name: '', usage_count: 0, id: null };
   }
-  
   return {
     name: item.name || '',
     usage_count: parseInt(item.usage_count, 10) || 0,
@@ -50,123 +29,166 @@ const normalizeHashtag = (item) => {
  * @returns {Array} - Extracted hashtag array
  */
 const extractHashtagsFromResponse = (response) => {
-  // Case 1: Direct array response
-  if (Array.isArray(response)) {
-    return response;
-  }
-  
-  // Case 2: { data: [...] } format
-  if (response && typeof response === 'object') {
-    if (Array.isArray(response.data)) {
-      return response.data;
-    }
-    
-    // Case 3: { success: true, data: [...] } format
-    if (response.success && Array.isArray(response.data)) {
-      return response.data;
-    }
-  }
-  
-  // No valid data found
+  if (Array.isArray(response)) return response;
+  if (response && typeof response === 'object' && Array.isArray(response.data)) return response.data;
   logWarn('[HashtagService] Could not extract hashtag array from response:', response);
   return [];
 };
 
+/**
+ * Simple in-memory cache for hashtag data
+ * @type {Map<string, {data: Array, timestamp: number}>}
+ */
+const hashtagCache = new Map();
+
+/**
+ * Cache time-to-live in milliseconds (5 minutes)
+ * @type {number}
+ */
+const CACHE_TTL = 5 * 60 * 1000;
+
 const hashtagService = {
   /**
-   * Fetches the top hashtags by usage count.
+   * Fetches the top hashtags by usage count with improved error handling.
    * @param {number|Object} [limitOrOptions=15] - Number of hashtags to fetch or options object.
+   * @param {boolean} [useCache=true] - Whether to use cached data if available.
    * @returns {Promise<Array<{name: string, usage_count: number, id: number}>>} Array of top hashtags.
    */
-  getTopHashtags: async (limitOrOptions = 15) => {
+  getTopHashtags: async (limitOrOptions = 15, useCache = true) => {
     try {
-      // Handle both number and object parameters
+      // Process parameters
       let safeLimit = 15;
       let additionalParams = {};
+      let refresh = false;
       
       if (typeof limitOrOptions === 'object' && limitOrOptions !== null) {
-        // It's an options object
-        const { limit, ...otherParams } = limitOrOptions;
+        const { limit, refresh: shouldRefresh, ...otherParams } = limitOrOptions;
         safeLimit = Math.max(1, parseInt(limit, 10) || 15);
         additionalParams = otherParams;
+        refresh = shouldRefresh === true;
       } else {
-        // It's a direct limit number
         safeLimit = Math.max(1, parseInt(limitOrOptions, 10) || 15);
       }
       
-      const endpoint = `/hashtags/top`;
+      // Generate cache key based on parameters
+      const cacheKey = `top-hashtags-${safeLimit}-${JSON.stringify(additionalParams)}`;
       
-      logDebug(`[HashtagService] Fetching top ${safeLimit} hashtags with params:`, additionalParams);
-      
-      // Create a direct config object to ensure method is properly set
-      const config = {
-        url: endpoint,
-        method: 'get',
-        params: {
-          limit: String(safeLimit),
-          ...Object.entries(additionalParams).reduce((acc, [key, value]) => {
-            // Ensure all parameters are strings
-            acc[key] = typeof value === 'object' ? JSON.stringify(value) : String(value);
-            return acc;
-          }, {})
+      // Check cache first unless refresh is requested
+      if (useCache && !refresh && hashtagCache.has(cacheKey)) {
+        const { data, timestamp } = hashtagCache.get(cacheKey);
+        if (Date.now() - timestamp < CACHE_TTL) {
+          logDebug('[HashtagService] Returning cached top hashtags');
+          return data;
         }
-      };
-      
-      // Make the API request using the direct config approach
-      logDebug('[HashtagService] Making request with config:', config);
-      const response = await apiClient(config);
-      
-      // Extract hashtags from the response
-      const hashtags = extractHashtagsFromResponse(response);
-      
-      // If we got a valid array with items, normalize and return it
-      if (Array.isArray(hashtags) && hashtags.length > 0) {
-        return hashtags.map(normalizeHashtag);
       }
       
-      // If we got an empty array or invalid response, log a warning and use mock data
-      logWarn('[HashtagService] API returned invalid hashtag data, using mock data');
-      return MOCK_HASHTAGS;
+      // Prepare API request
+      const endpoint = `/hashtags/top`;
+      logDebug(`[HashtagService] Fetching top ${safeLimit} hashtags with params:`, additionalParams);
+      
+      // Create params using helper function
+      const params = createQueryParams({
+        limit: String(safeLimit),
+        ...additionalParams
+      });
+      
+      // Make API request using the get function
+      const response = await get(endpoint, params);
+      const hashtags = extractHashtagsFromResponse(response);
+      
+      // Process and normalize response data
+      if (Array.isArray(hashtags) && hashtags.length > 0) {
+        const normalizedHashtags = hashtags.map(normalizeHashtag);
+        
+        // Update cache
+        if (useCache) {
+          hashtagCache.set(cacheKey, {
+            data: normalizedHashtags,
+            timestamp: Date.now()
+          });
+        }
+        
+        return normalizedHashtags;
+      }
+      
+      // Return empty array instead of mock data per user preference
+      logWarn('[HashtagService] API returned invalid hashtag data, returning empty array');
+      return [];
     } catch (error) {
-      // Log the error but return mock data instead of throwing
-      // This provides a more resilient UI experience
       logError('[HashtagService] Error fetching top hashtags:', error);
-      return MOCK_HASHTAGS;
+      // Return empty array instead of mock data per user preference
+      return [];
     }
   },
-  
+
   /**
-   * Searches for hashtags by partial name
+   * Searches for hashtags by partial name with improved error handling
    * @param {string} query - Search query
    * @param {number} [limit=10] - Maximum number of results
    * @returns {Promise<Array>} - Matching hashtags
    */
   searchHashtags: async (query, limit = 10) => {
     try {
-      if (!query || query.trim().length < 2) {
-        return [];
-      }
+      if (!query || query.trim().length < 2) return [];
       
       const safeQuery = query.trim();
       const safeLimit = Math.max(1, parseInt(limit, 10) || 10);
       
+      // Generate cache key
+      const cacheKey = `search-hashtags-${safeQuery}-${safeLimit}`;
+      
+      // Check cache first
+      if (hashtagCache.has(cacheKey)) {
+        const { data, timestamp } = hashtagCache.get(cacheKey);
+        if (Date.now() - timestamp < CACHE_TTL) {
+          logDebug('[HashtagService] Returning cached hashtag search results');
+          return data;
+        }
+      }
+      
       logDebug(`[HashtagService] Searching hashtags with query: ${safeQuery}`);
       
-      const response = await apiClient.get('/hashtags/search', {
-        query: safeQuery,
-        limit: safeLimit
+      // Use direct axios config object approach to prevent toUpperCase error
+      const axiosConfig = {
+        url: '/hashtags/search',
+        method: 'get',
+        params: {
+          query: safeQuery,
+          limit: String(safeLimit)
+        }
+      };
+      
+      // Make API request
+      const response = await apiClient(axiosConfig);
+      const hashtags = extractHashtagsFromResponse(response);
+      const normalizedHashtags = hashtags.map(normalizeHashtag);
+      
+      // Update cache
+      hashtagCache.set(cacheKey, {
+        data: normalizedHashtags,
+        timestamp: Date.now()
       });
       
-      const hashtags = extractHashtagsFromResponse(response);
-      return hashtags.map(normalizeHashtag);
+      return normalizedHashtags;
     } catch (error) {
       logError('[HashtagService] Error searching hashtags:', error);
       return [];
     }
+  },
+  
+  /**
+   * Clears the hashtag cache
+   * @param {string} [cacheKey] - Specific cache key to clear, or all if not provided
+   */
+  clearCache: (cacheKey = null) => {
+    if (cacheKey) {
+      hashtagCache.delete(cacheKey);
+      logDebug(`[HashtagService] Cleared cache for key: ${cacheKey}`);
+    } else {
+      hashtagCache.clear();
+      logDebug('[HashtagService] Cleared all hashtag cache');
+    }
   }
 };
 
-// Export the service object directly
 export { hashtagService };
-// Export mock data for testing
-export { MOCK_HASHTAGS };

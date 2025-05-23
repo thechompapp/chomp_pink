@@ -33,7 +33,7 @@ export const submissionService = {
     logDebug(`[SubmissionService] Fetching submissions for authenticated user with params:`, params);
     
     return handleApiResponse(
-      () => apiClient.get(`/api/submissions/user`, { params }), // Updated endpoint to match backend route
+      () => apiClient.get('/api/submissions/user', { params }), // Updated endpoint to match backend route
       'SubmissionService GetUserSubmissions'
     ).catch(error => {
       logError(`[SubmissionService] Failed to fetch submissions for authenticated user:`, error);

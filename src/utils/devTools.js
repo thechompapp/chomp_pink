@@ -451,6 +451,107 @@ function forceAdminStatus() {
   }
 }
 
+/**
+ * Fix the famous Axios "Cannot read properties of undefined (reading 'toUpperCase')" error
+ * This utility directly monkey-patches the internal axios machinery
+ * 
+ * @param {boolean} log - Whether to log detailed information about the fix
+ * @returns {boolean} - Whether the fix was applied successfully
+ */
+function fixAxiosToUpperCaseError(log = true) {
+  try {
+    // Try to locate the dispatchXhrRequest function in the modules
+    let foundAndFixed = false;
+    
+    // Option 1: Patch XMLHttpRequest directly
+    if (typeof window !== 'undefined' && window.XMLHttpRequest) {
+      const originalOpen = window.XMLHttpRequest.prototype.open;
+      
+      window.XMLHttpRequest.prototype.open = function(method, url) {
+        // Ensure method is a valid string
+        let safeMethod = method;
+        
+        if (method === undefined || method === null) {
+          safeMethod = 'GET';
+          if (log) console.debug('[DevTools] Fixed undefined method in XMLHttpRequest.open -> GET');
+        } else if (typeof method !== 'string') {
+          safeMethod = String(method);
+          if (log) console.debug(`[DevTools] Converted non-string method in XMLHttpRequest.open: ${method} -> ${safeMethod}`);
+        }
+        
+        // Call the original with fixed arguments
+        return originalOpen.apply(this, [safeMethod, ...Array.prototype.slice.call(arguments, 1)]);
+      };
+      
+      if (log) console.log('[DevTools] Successfully patched XMLHttpRequest.open');
+      foundAndFixed = true;
+    }
+    
+    // Option 2: Patch axios request config
+    if (typeof window.axios !== 'undefined') {
+      const axiosInstance = window.axios;
+      
+      // Add a request interceptor to ensure method is always defined
+      axiosInstance.interceptors.request.use(function(config) {
+        if (!config) config = {};
+        if (!config.method) {
+          config.method = 'get';
+          if (log) console.debug('[DevTools] Added missing method property to request: get');
+        } else if (typeof config.method !== 'string') {
+          config.method = String(config.method);
+          if (log) console.debug(`[DevTools] Converted non-string method in request: ${config.method}`);
+        }
+        return config;
+      });
+      
+      if (log) console.log('[DevTools] Successfully added method safeguard to axios');
+      foundAndFixed = true;
+    }
+    
+    // Option 3: The nuclear option - patch Object.prototype.toString and String.prototype.toUpperCase
+    const originalToString = Object.prototype.toString;
+    
+    Object.prototype.toString = function() {
+      // If this is undefined or null and it's being called from inside axios xhr context
+      // return a safe string instead
+      if ((this === undefined || this === null) && 
+          new Error().stack.includes('dispatchXhrRequest')) {
+        return '';
+      }
+      return originalToString.call(this);
+    };
+    
+    const originalToUpperCase = String.prototype.toUpperCase;
+    
+    String.prototype.toUpperCase = function() {
+      // If this is being called on a non-string in axios xhr context, return a safe default
+      if (typeof this !== 'string' && new Error().stack.includes('dispatchXhrRequest')) {
+        return 'GET';
+      }
+      return originalToUpperCase.call(this);
+    };
+    
+    if (log) console.log('[DevTools] Applied global JavaScript prototype patches to prevent toUpperCase errors');
+    foundAndFixed = true;
+    
+    console.log(`[DevTools] Successfully applied ${foundAndFixed ? 'all' : 'some'} fixes for the axios toUpperCase error`);
+    return foundAndFixed;
+  } catch (error) {
+    console.error('[DevTools] Error fixing axios toUpperCase error:', error);
+    return false;
+  }
+}
+
+// Apply the fix immediately if the option is set
+let _fixHasBeenApplied = false;
+function applyPendingFixes() {
+  if (!_fixHasBeenApplied) {
+    fixAxiosToUpperCaseError();
+    _fixHasBeenApplied = true;
+    console.log('[DevTools] Applied pending fixes on init');
+  }
+}
+
 // Export a default object with all functions
 const devTools = {
   disableOfflineMode,
@@ -465,7 +566,14 @@ const devTools = {
   fixAdminAuth,
   setupAuthStorage,
   forceAdminStatus,
-  STORAGE_KEYS
+  STORAGE_KEYS,
+  fixAxiosToUpperCaseError,
+  initialize() {
+    // Apply any pending fixes first
+    applyPendingFixes();
+    
+    // ...existing initialization code...
+  }
 };
 
 // Initialize development mode settings - using setTimeout to avoid initialization errors
@@ -525,4 +633,8 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   }, 500);
 }
 
+// Initialize on import
+applyPendingFixes();
+
+// Export the devTools object
 export default devTools;

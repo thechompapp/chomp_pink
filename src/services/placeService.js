@@ -5,6 +5,71 @@ import { logError, logDebug, logWarn } from '@/utils/logger.js';
 
 export const placeService = {
   /**
+   * Search for places using the Google Places API
+   * @param {string} query - Search query
+   * @param {string} [location] - Optional location context
+   * @returns {Promise<Object>} - Search results
+   */
+  async searchPlaces(query, location) {
+    if (!query) {
+      throw new Error('Search query is required');
+    }
+    
+    const searchTerm = location ? `${query}, ${location}` : query;
+    logDebug(`[PlaceService] Searching for places with query: ${searchTerm}`);
+    
+    // Track retry attempts
+    let attempts = 0;
+    const maxRetries = 3;
+    let lastError = null;
+    
+    while (attempts < maxRetries) {
+      try {
+        // Use the backend proxy for Google Places API
+        const response = await apiClient.get('/places/search', {
+          params: {
+            query: searchTerm
+          },
+          headers: {
+            'X-Places-Api-Request': 'true', // Signal that this is a places API request
+            'X-Bypass-Auth': 'true' // Enable auth bypass for development
+          }
+        });
+        
+        // Process the response
+        const result = await handleApiResponse(
+          () => Promise.resolve(response),
+          'PlaceService Search'
+        );
+        
+        if (!result || !result.results || result.results.length === 0) {
+          logWarn(`[PlaceService] No places found for query "${searchTerm}"`);
+          return { results: [] };
+        }
+        
+        // Return in a format compatible with the existing code
+        return { 
+          results: result.results
+        };
+      } catch (error) {
+        lastError = error;
+        attempts++;
+        logWarn(`[PlaceService] Attempt ${attempts}/${maxRetries} failed for query "${searchTerm}": ${error.message}`);
+        
+        // Wait before retrying
+        if (attempts < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+    }
+    
+    // All attempts failed, throw an error to ensure we don't use mock data
+    logError(`[PlaceService] All ${maxRetries} attempts failed for query "${searchTerm}".`, lastError);
+    throw new Error(`Failed to search for places after ${maxRetries} attempts: ${lastError?.message || 'Unknown error'}`);
+    
+  },
+  
+  /**
    * Fetches a Place ID using the backend autocomplete proxy.
    * @param {string} restaurantName - The name of the restaurant.
    * @param {string} cityName - The city context for the search.
@@ -28,7 +93,7 @@ export const placeService = {
       // First try with direct API call and custom headers
       let response;
       try {
-        response = await apiClient.get(`/places/autocomplete?input=${queryString}`, { headers });
+        response = await apiClient.get(`/places/autocomplete?input=${queryString}`);
       } catch (authError) {
         // If we get a 401, try with additional fallback headers
         if (authError.response && authError.response.status === 401) {
@@ -115,72 +180,68 @@ export const placeService = {
    * details is null on error or non-OK status.
    */
   async getPlaceDetails(placeId) {
-    const context = `PlaceService Details (${placeId})`;
-    const encodedPlaceId = encodeURIComponent(placeId);
+    // Validate place ID
+    if (!placeId || typeof placeId !== 'string') {
+      throw new Error('Invalid place ID provided');
+    }
     
     logDebug(`[PlaceService] Fetching details for placeId "${placeId}"`);
     
-    try {
-      // Add auth headers specifically for places API
-      const headers = {
-        'X-Bypass-Auth': 'true', // Enable auth bypass for development
-        'X-Places-Api-Request': 'true' // Signal that this is a places API request
-      };
-      
-      // Use a direct API call with custom headers instead of handleApiResponse
-      const response = await apiClient.get(`/places/details?placeId=${encodedPlaceId}`, { headers });
-      
-      // Safely access response data with null checks
-      if (!response || !response.data) {
-        logWarn(`[PlaceService] Empty or invalid response for place details (${placeId})`);
-        return { details: null, status: 'INVALID_RESPONSE', source: 'error' };
-      }
-      
-      // Backend succeeded, now check Google's status
-      const googleStatus = response.data.status || 'UNKNOWN_STATUS';
-
-      if (googleStatus === 'OK') {
-        // Safely access the data object
-        const data = response.data.data || response.data.result || response.data;
-        
-        if (!data || typeof data !== 'object') {
-          logError('[PlaceService] Invalid or missing data object in successful response:', response);
-          return { details: null, status: 'OK_BUT_INVALID_DATA', source: 'google' };
-        }
-
-        // Extract location data safely
-        const location = data.location || data.geometry?.location || {};
-        const formattedDetails = {
-          address: data.formattedAddress || data.formatted_address || '',
-          place_id: data.placeId || data.place_id || placeId,
-          latitude: location.lat ?? null, // Use null coalescing
-          longitude: location.lng ?? null,
-          phone: data.phone || data.formatted_phone_number || null,
-          website: data.website || null,
-          // Include additional useful fields
-          name: data.name || null,
-          types: data.types || [],
-          address_components: data.address_components || []
+    // Track retry attempts
+    let attempts = 0;
+    const maxRetries = 3;
+    let lastError = null;
+    
+    while (attempts < maxRetries) {
+      try {
+        // Add auth headers specifically for places API
+        const headers = {
+          'X-Bypass-Auth': 'true', // Enable auth bypass for development
+          'X-Places-Api-Request': 'true' // Signal that this is a places API request
         };
         
-        return { details: formattedDetails, status: 'OK', source: 'google' };
-      } else {
-        // Google returned non-OK status
-        logWarn(`[PlaceService] Google Places API returned status: ${googleStatus}`);
-        return { details: null, status: googleStatus, source: 'google' };
+        // Use a direct API call with custom headers
+        const response = await apiClient.get(`/places/details`, {
+          params: {
+            place_id: placeId
+          },
+          headers
+        });
+        
+        // Safely access response data with null checks
+        if (!response || !response.data) {
+          throw new Error('Empty or invalid response');
+        }
+        
+        // Backend succeeded, now check Google's status
+        const googleStatus = response.data.status || 'UNKNOWN_STATUS';
+
+        if (googleStatus === 'OK') {
+          // Safely access the data object
+          const result = response.data.result || {};
+          
+          logDebug(`[PlaceService] Successfully retrieved details for place ID: ${placeId}`);
+          return { details: result, status: 'OK', source: 'google' };
+        } else {
+          // Google returned a non-OK status (e.g., ZERO_RESULTS, REQUEST_DENIED)
+          throw new Error(`Google API returned status: ${googleStatus}`);
+        }
+      } catch (error) {
+        lastError = error;
+        attempts++;
+        logWarn(`[PlaceService] Attempt ${attempts}/${maxRetries} failed for place details (${placeId}): ${error.message}`);
+        
+        // Wait before retrying
+        if (attempts < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
       }
-    } catch (error) {
-      // Handle authentication errors specifically
-      if (error.response && error.response.status === 401) {
-        logError(`[PlaceService] Authentication error (401) for places details API. Please check API keys and authentication.`);
-        return { details: null, status: 'AUTH_ERROR', source: 'error' };
-      }
-      
-      // Handle other errors
-      logError(`[PlaceService] Error getting place details for placeId "${placeId}":`, error);
-      return { details: null, status: 'SERVICE_ERROR', source: 'error' };
     }
+    
+    // All attempts failed, throw an error to ensure we don't use mock data
+    logError(`[PlaceService] All ${maxRetries} attempts failed for place details (${placeId}).`, lastError);
+    throw new Error(`Failed to get place details after ${maxRetries} attempts: ${lastError?.message || 'Unknown error'}`);
   }
 };
 
-// Export is now handled via named export above
+export default placeService;

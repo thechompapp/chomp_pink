@@ -207,9 +207,7 @@ export const restaurantService = {
     try {
       logDebug(`[RestaurantService] Fetching featured restaurants, limit: ${limit}`);
       
-      const response = await apiClient.get('/restaurants/featured', { 
-        params: { limit }
-      });
+      const response = await apiClient.get('/restaurants/featured');
       const data = extractDataFromResponse(response, 'getFeaturedRestaurants');
       
       if (!data || !Array.isArray(data) || data.length === 0) {

@@ -1,0 +1,130 @@
+{
+  "total": 10,
+  "passed": 3,
+  "failed": 4,
+  "skipped": 3,
+  "sections": {
+    "Authentication": {
+      "total": 6,
+      "passed": 3,
+      "failed": 3,
+      "skipped": 0,
+      "tests": {
+        "Token persistence": {
+          "status": "PASSED",
+          "duration": 3
+        },
+        "Token refresh": {
+          "status": "PASSED",
+          "duration": 3
+        },
+        "Logout functionality": {
+          "status": "PASSED",
+          "duration": 3
+        },
+        "Admin login": {
+          "status": "FAILED",
+          "duration": 15020,
+          "message": "Admin login failed: timeout of 15000ms exceeded"
+        },
+        "User login": {
+          "status": "FAILED",
+          "duration": 15006,
+          "message": "User login failed: timeout of 15000ms exceeded"
+        },
+        "Protected routes": {
+          "status": "FAILED",
+          "duration": 15006,
+          "message": "Protected route test failed: timeout of 15000ms exceeded"
+        }
+      }
+    },
+    "List Management": {
+      "total": 0,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "tests": {}
+    },
+    "Item Management": {
+      "total": 1,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 1,
+      "tests": {
+        "Item management tests": {
+          "status": "SKIPPED",
+          "duration": 0,
+          "message": "Item management tests not yet implemented"
+        }
+      }
+    },
+    "Bulk Add": {
+      "total": 1,
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0,
+      "tests": {
+        "Login for bulk add tests": {
+          "status": "FAILED",
+          "duration": 2,
+          "message": "Login failed: Cannot read properties of null (reading 'post')"
+        }
+      }
+    },
+    "Search & Discovery": {
+      "total": 1,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 1,
+      "tests": {
+        "Search & discovery tests": {
+          "status": "SKIPPED",
+          "duration": 0,
+          "message": "Search & discovery tests not yet implemented"
+        }
+      }
+    },
+    "Offline Mode": {
+      "total": 0,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "tests": {}
+    },
+    "UI Components": {
+      "total": 1,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 1,
+      "tests": {
+        "UI component integration tests": {
+          "status": "SKIPPED",
+          "duration": 0,
+          "message": "UI component tests not yet implemented - requires browser automation"
+        }
+      }
+    },
+    "Hashtag Service": {
+      "total": 0,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "tests": {}
+    },
+    "Admin Panel": {
+      "total": 0,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "tests": {}
+    },
+    "Neighborhood Lookup": {
+      "total": 0,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "tests": {}
+    }
+  }
+}

@@ -1,97 +1,79 @@
 // src/pages/Login/index.jsx
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import useAuthStore from '@/stores/useAuthStore';
-import Input from '@/components/UI/Input';
-import Button from '@/components/UI/Button';
-import BaseCard from '@/components/UI/BaseCard';
-import { Label } from '@/components/UI/Label';
-import { logDebug, logInfo, logError } from '@/utils/logger';
-import { syncAdminAuthWithStore, initializeAdminAuth } from '@/utils/adminAuth';
+import { useAuth } from '../../contexts/auth';
+import Button from '../../components/UI/Button';
+import Input from '../../components/UI/Input';
+import { logDebug, logInfo, logError } from '../../utils/logger';
+import offlineModeGuard from '../../utils/offlineModeGuard';
 
+/**
+ * Login Page Component
+ * Uses the new authentication context for login functionality
+ */
 const LoginPage = () => {
-  // Simple state and form setup to avoid any potential issues
   const navigate = useNavigate();
-  const login = useAuthStore((state) => state.login);
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const isSuperuser = useAuthStore((state) => state.isSuperuser);
-  const isLoading = useAuthStore((state) => state.isLoading);
+  const location = useLocation();
+  const { login, isAuthenticated, isLoading, error } = useAuth();
   
   const { register, handleSubmit, formState: { errors } } = useForm();
   const [submitError, setSubmitError] = useState('');
   
-  // Simple redirect if authenticated
+  // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      // If already authenticated, sync admin auth and navigate
-      if (process.env.NODE_ENV === 'development') {
-        // More aggressive sync to ensure admin auth is properly set
-        syncAdminAuthWithStore(useAuthStore);
-        
-        // If the user is a superuser, explicitly set admin auth
-        if (isSuperuser || useAuthStore.getState().user?.account_type === 'superuser') {
-          logInfo('[Login Page] Superuser authenticated, initializing admin auth');
-          initializeAdminAuth();
-        }
-      }
-      navigate('/');
+      // Redirect to the page the user was trying to access, or home
+      const from = location.state?.from?.pathname || '/';
+      logInfo(`[Login Page] User already authenticated, redirecting to ${from}`);
+      navigate(from, { replace: true });
     }
-    
-    // Log on mount for debugging
-    logInfo('[Login Page] Component mounted');
-    
-    // Empty cleanup function that doesn't reference store
-    return () => {
-      logInfo('[Login Page] Component unmounting');
-    };
-  }, [isAuthenticated, navigate, isSuperuser]);
+  }, [isAuthenticated, navigate, location]);
   
-  // Simplified submit handler
+  // Form submission handler
   const onSubmit = async (data) => {
     setSubmitError('');
     
+    // Clear offline mode flags before login attempt
+    if (offlineModeGuard && typeof offlineModeGuard.clearOfflineModeFlags === 'function') {
+      logDebug('[Login Page] Clearing offline mode flags before login');
+      offlineModeGuard.clearOfflineModeFlags();
+    }
+    
     try {
-      logDebug('[Login Page] Login attempt with:', data);
-      const success = await login(data);
+      logDebug('[Login Page] Login attempt with:', { email: data.email });
       
-      if (success) {
-        logInfo('[Login Page] Login successful');
-        
-        // Get fresh state after login
-        const currentState = useAuthStore.getState();
-        
-        // Sync admin auth after successful login with more aggressive approach
-        if (process.env.NODE_ENV === 'development') {
-          syncAdminAuthWithStore(useAuthStore);
-          
-          // If superuser, explicitly initialize admin auth
-          if (currentState.isSuperuser || currentState.user?.account_type === 'superuser') {
-            logInfo('[Login Page] Superuser logged in, initializing admin auth');
-            initializeAdminAuth();
-            
-            // Force a state update to trigger UI refresh
-            useAuthStore.setState({
-              isSuperuser: true,
-              isAuthenticated: true
-            });
-          }
-        }
-        
-        navigate('/');
-      } else {
-        const errorMessage = useAuthStore.getState().error || 'Login failed';
-        setSubmitError(errorMessage);
+      // Attempt login with credentials
+      await login(data);
+      
+      // If we get here, login was successful (otherwise it would throw)
+      logInfo('[Login Page] Login successful');
+      
+      // Clear offline mode flags after successful login
+      if (offlineModeGuard && typeof offlineModeGuard.clearOfflineModeFlags === 'function') {
+        logDebug('[Login Page] Clearing offline mode flags after successful login');
+        offlineModeGuard.clearOfflineModeFlags();
       }
+      
+      // Force UI refresh event
+      window.dispatchEvent(new CustomEvent('forceUiRefresh', {
+        detail: { timestamp: Date.now() }
+      }));
+      
+      // Redirect to the page the user was trying to access, or home
+      const from = location.state?.from?.pathname || '/';
+      navigate(from, { replace: true });
     } catch (error) {
       logError('[Login Page] Error during login:', error);
-      setSubmitError('An unexpected error occurred');
+      
+      // Display user-friendly error message
+      setSubmitError(error.message || 'An unexpected error occurred');
     }
   };
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background p-4">
-      <BaseCard className="w-full max-w-md overflow-hidden shadow-lg">
+      <div className="w-full max-w-md overflow-hidden shadow-lg">
         {/* Header section */}
         <div className="p-6 text-center border-b border-border">
           <h3 className="text-2xl font-bold tracking-tight text-primary">
@@ -104,7 +86,7 @@ const LoginPage = () => {
         <div className="p-6 bg-card">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <label htmlFor="email" className="block text-sm font-medium text-muted-foreground">Email</label>
               <Input
                 id="email"
                 type="email"
@@ -124,7 +106,7 @@ const LoginPage = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <label htmlFor="password" className="block text-sm font-medium text-muted-foreground">Password</label>
               <Input
                 id="password"
                 type="password"
@@ -163,8 +145,15 @@ const LoginPage = () => {
               Sign up
             </Link>
           </p>
+          
+          {/* Development mode helper */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="mt-4 p-2 bg-yellow-100 text-yellow-800 text-xs rounded">
+              <p><strong>Dev Mode:</strong> Use admin@example.com / doof123 for admin access</p>
+            </div>
+          )}
         </div>
-      </BaseCard>
+      </div>
     </div>
   );
 };

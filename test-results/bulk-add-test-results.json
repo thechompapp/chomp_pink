@@ -1,0 +1,231 @@
+{
+  "startTime": "2025-05-21T16:13:28.213Z",
+  "endTime": "2025-05-21T16:14:27.652Z",
+  "summary": {
+    "total": 6,
+    "passed": 0,
+    "failed": 0,
+    "skipped": 0,
+    "partial": 6
+  },
+  "stages": [
+    {
+      "name": "Authentication",
+      "startTime": "2025-05-21T16:13:28.215Z",
+      "endTime": "2025-05-21T16:13:28.233Z",
+      "status": "warning",
+      "details": [
+        "Attempting to login with provided credentials"
+      ],
+      "message": "Authentication failed but using dev token: Request failed with status code 400"
+    },
+    {
+      "name": "Test Case: Valid Data (6 items)",
+      "startTime": "2025-05-21T16:13:28.233Z",
+      "endTime": null,
+      "status": "running",
+      "details": [
+        "Step 1: Parsing input data"
+      ]
+    },
+    {
+      "name": "Input Parsing",
+      "startTime": "2025-05-21T16:13:28.233Z",
+      "endTime": "2025-05-21T16:14:23.131Z",
+      "status": "passed",
+      "details": [
+        "Parsing 6 input lines",
+        "Successfully parsed 6 items with 0 errors",
+        "Parsing 6 input lines",
+        "Successfully parsed 6 items with 0 errors",
+        "Parsing 6 input lines",
+        "Successfully parsed 4 items with 2 errors",
+        "Parsing 4 input lines",
+        "Successfully parsed 4 items with 0 errors",
+        "Parsing 6 input lines",
+        "Successfully parsed 6 items with 0 errors",
+        "Parsing 2 input lines",
+        "Successfully parsed 2 items with 0 errors"
+      ]
+    },
+    {
+      "name": "Test Case: Formatting Issues (6 items)",
+      "startTime": "2025-05-21T16:13:40.844Z",
+      "endTime": null,
+      "status": "running",
+      "details": [
+        "Step 1: Parsing input data"
+      ]
+    },
+    {
+      "name": "Input Parsing",
+      "startTime": "2025-05-21T16:13:40.844Z",
+      "endTime": null,
+      "status": "running",
+      "details": []
+    },
+    {
+      "name": "Test Case: Missing Fields (6 items)",
+      "startTime": "2025-05-21T16:13:53.432Z",
+      "endTime": null,
+      "status": "running",
+      "details": [
+        "Step 1: Parsing input data"
+      ]
+    },
+    {
+      "name": "Input Parsing",
+      "startTime": "2025-05-21T16:13:53.433Z",
+      "endTime": null,
+      "status": "running",
+      "details": []
+    },
+    {
+      "name": "Test Case: Duplicates (4 items)",
+      "startTime": "2025-05-21T16:14:01.997Z",
+      "endTime": null,
+      "status": "running",
+      "details": [
+        "Step 1: Parsing input data"
+      ]
+    },
+    {
+      "name": "Input Parsing",
+      "startTime": "2025-05-21T16:14:01.997Z",
+      "endTime": null,
+      "status": "running",
+      "details": []
+    },
+    {
+      "name": "Test Case: Special Cases (6 items)",
+      "startTime": "2025-05-21T16:14:10.559Z",
+      "endTime": null,
+      "status": "running",
+      "details": [
+        "Step 1: Parsing input data"
+      ]
+    },
+    {
+      "name": "Input Parsing",
+      "startTime": "2025-05-21T16:14:10.559Z",
+      "endTime": null,
+      "status": "running",
+      "details": []
+    },
+    {
+      "name": "Test Case: Long Entries (2 items)",
+      "startTime": "2025-05-21T16:14:23.131Z",
+      "endTime": null,
+      "status": "running",
+      "details": [
+        "Step 1: Parsing input data"
+      ]
+    },
+    {
+      "name": "Input Parsing",
+      "startTime": "2025-05-21T16:14:23.131Z",
+      "endTime": null,
+      "status": "running",
+      "details": []
+    },
+    {
+      "name": "Test Summary",
+      "startTime": "2025-05-21T16:14:27.652Z",
+      "endTime": null,
+      "status": "running",
+      "details": [
+        "Test run completed in 59 seconds",
+        "Total test cases: 6",
+        "Passed: 0",
+        "Partial: 6",
+        "Failed: 0"
+      ]
+    }
+  ],
+  "items": [
+    {
+      "testCase": "Valid Data (6 items)",
+      "parseResult": {
+        "total": 6,
+        "parsed": 6,
+        "failed": 0
+      },
+      "processingResult": {
+        "total": 6,
+        "processed": 0,
+        "failed": 6
+      },
+      "status": "partial"
+    },
+    {
+      "testCase": "Formatting Issues (6 items)",
+      "parseResult": {
+        "total": 6,
+        "parsed": 6,
+        "failed": 0
+      },
+      "processingResult": {
+        "total": 6,
+        "processed": 0,
+        "failed": 6
+      },
+      "status": "partial"
+    },
+    {
+      "testCase": "Missing Fields (6 items)",
+      "parseResult": {
+        "total": 6,
+        "parsed": 4,
+        "failed": 2
+      },
+      "processingResult": {
+        "total": 4,
+        "processed": 0,
+        "failed": 4
+      },
+      "status": "partial"
+    },
+    {
+      "testCase": "Duplicates (4 items)",
+      "parseResult": {
+        "total": 4,
+        "parsed": 4,
+        "failed": 0
+      },
+      "processingResult": {
+        "total": 4,
+        "processed": 0,
+        "failed": 4
+      },
+      "status": "partial"
+    },
+    {
+      "testCase": "Special Cases (6 items)",
+      "parseResult": {
+        "total": 6,
+        "parsed": 6,
+        "failed": 0
+      },
+      "processingResult": {
+        "total": 6,
+        "processed": 0,
+        "failed": 6
+      },
+      "status": "partial"
+    },
+    {
+      "testCase": "Long Entries (2 items)",
+      "parseResult": {
+        "total": 2,
+        "parsed": 2,
+        "failed": 0
+      },
+      "processingResult": {
+        "total": 2,
+        "processed": 0,
+        "failed": 2
+      },
+      "status": "partial"
+    }
+  ]
+}

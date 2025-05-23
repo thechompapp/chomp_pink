@@ -8,8 +8,10 @@ import GenericAdminTableTab from './GenericAdminTableTab';
 import { DataCleanupModal } from '@/components/DataCleanupModal';
 import { adminService } from '../../services/adminService';
 import { dataCleanupService } from '../../services/dataCleanupService';
-// Import admin auth utility to ensure it's initialized
-import '@/utils/adminAuth.js';
+// Import AuthManager and useAdminAuth for improved auth handling
+import AuthManager from '@/utils/AuthManager';
+import { useAdminAuth } from '@/hooks/useAdminAuth';
+import { useNavigate } from 'react-router-dom';
 
 /**
  * Tab configuration for admin panel
@@ -144,7 +146,14 @@ const DataCleanupManager = {
     console.log(`[AdminPanel] Calling dataCleanupService.analyzeData(${resourceType})`);
     
     try {
-      const changes = await dataCleanupService.analyzeData(resourceType);
+      const response = await dataCleanupService.analyzeData(resourceType);
+      
+      if (!response.success) {
+        console.error(`[AdminPanel] Error analyzing data: ${response.message}`);
+        throw new Error(response.message || 'Error analyzing data');
+      }
+      
+      const changes = response.data || [];
       console.log(`[AdminPanel] Received ${changes.length} cleanup changes for ${resourceType}:`, changes);
       return changes;
     } catch (error) {
@@ -163,7 +172,13 @@ const DataCleanupManager = {
     console.log(`[AdminPanel] Approving ${changes.length} changes for ${resourceType}`);
     
     try {
-      const result = await dataCleanupService.applyChanges(changes, true);
+      const result = await dataCleanupService.applyChanges(resourceType, changes);
+      
+      if (!result.success) {
+        console.error(`[AdminPanel] Error approving changes: ${result.message}`);
+        throw new Error(result.message || 'Error approving changes');
+      }
+      
       console.log('[AdminPanel] Changes approved successfully:', result);
       return result;
     } catch (error) {
@@ -182,7 +197,13 @@ const DataCleanupManager = {
     console.log(`[AdminPanel] Rejecting ${changes.length} changes for ${resourceType}`);
     
     try {
-      const result = await dataCleanupService.applyChanges(changes, false);
+      const result = await dataCleanupService.rejectChanges(resourceType, changes);
+      
+      if (!result.success) {
+        console.error(`[AdminPanel] Error rejecting changes: ${result.message}`);
+        throw new Error(result.message || 'Error rejecting changes');
+      }
+      
       console.log('[AdminPanel] Changes rejected successfully:', result);
       return result;
     } catch (error) {
@@ -205,51 +226,63 @@ const AdminPanel = () => {
   const [cleanupChanges, setCleanupChanges] = useState([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [displayChanges, setDisplayChanges] = useState({});
+  const [isVerifyingAuth, setIsVerifyingAuth] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(false);
   
-  // Get auth state
-  const { isAuthenticated, isSuperuser, token, checkAuthStatus } = useAuthStore();
+  // Replace direct useAuthStore usage with useAdminAuth for admin-specific state
+  const { isSuperuser, isReady: isSuperuserStatusReady } = useAdminAuth();
+  const { user, isAuthenticated, isLoading } = useAuthStore();
   
-  // Check if user is authorized
-  const isAuthorized = useMemo(() => {
-    console.log('[AdminPanel] Authorization check:', { 
-      isAuthenticated, 
-      isSuperuser, 
-      hasToken: Boolean(token), 
-      result: isAuthenticated && isSuperuser && token 
-    });
-    return isAuthenticated && isSuperuser && token;
-  }, [isAuthenticated, isSuperuser, token]);
-
-  /**
-   * Verify authentication status
-   */
+  const navigate = useNavigate();
+  
+  // Verify authentication status
+  useEffect(() => {
+    verifyAuth();
+  }, [isAuthenticated, user]);
+  
+  // Update verifyAuth function to use the new auth system
   const verifyAuth = async () => {
+    if (isLoading) return;
+    
+    // Wait for superuser status to be ready before proceeding
+    if (!isSuperuserStatusReady) {
+      setIsVerifyingAuth(true);
+      return;
+    }
+    
+    setIsVerifyingAuth(true);
+    
     try {
-      console.log('[AdminPanel] Starting auth verification...');
-      // Always check auth status on mount to ensure state is up-to-date
-      await checkAuthStatus();
-      console.log('[AdminPanel] Auth verification completed successfully');
+      if (!isAuthenticated) {
+        navigate('/login', { 
+          state: { 
+            from: '/admin', 
+            message: 'You must be logged in to access the admin panel' 
+          } 
+        });
+        return;
+      }
+      
+      if (!isSuperuser) {
+        toast.error('You do not have permission to access the admin panel');
+        navigate('/');
+        return;
+      }
+      
+      // Ensure admin authentication is properly set up
+      if (process.env.NODE_ENV === 'development') {
+        AuthManager.syncAdminAuth();
+      }
+      
+      setIsVerifyingAuth(false);
+      setIsInitializing(true);
+      refetch(); // Use refetch directly instead of fetchData
     } catch (error) {
-      console.error('[AdminPanel] Auth verification failed:', error);
-    } finally {
-      console.log('[AdminPanel] Auth verification complete, isInitializing set to false');
-      setIsInitializing(false);
+      toast.error('Error verifying authentication: ' + error.message);
+      navigate('/');
     }
   };
   
-  // Check auth status on mount
-  useEffect(() => {
-    verifyAuth();
-  }, [checkAuthStatus]); // Only depend on checkAuthStatus, not token
-
-  // Log authorization state changes
-  useEffect(() => {
-    console.log('[AdminPanel] Authorization state updated:', { 
-      isAuthorized, 
-      isInitializing 
-    });
-  }, [isAuthorized, isInitializing]);
-
   // Fetch admin data
   const { 
     data: adminData, 
@@ -258,9 +291,9 @@ const AdminPanel = () => {
     isFetching,
     isError
   } = useQuery({
-    queryKey: ['adminData', token],
+    queryKey: ['adminData', user],
     queryFn: DataProcessor.fetchAllAdminData,
-    enabled: Boolean(isAuthorized), // Ensure this is a boolean value
+    enabled: Boolean(isAuthenticated), // Ensure this is a boolean value
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchOnWindowFocus: false,
     retry: 1,
@@ -295,6 +328,13 @@ const AdminPanel = () => {
       console.log('[AdminPanel] displayChanges state is empty');
     }
   }, [displayChanges, activeTab]);
+
+  // Reset isInitializing when data is loaded
+  useEffect(() => {
+    if (adminData && isInitializing) {
+      setIsInitializing(false);
+    }
+  }, [adminData, isInitializing]);
 
   /**
    * Analyze data for cleanup and handle results
@@ -404,27 +444,15 @@ const AdminPanel = () => {
     }
   };
 
-  // Show loading state during initialization
-  if (isInitializing) {
+  // Add a loading state while waiting for superuser status
+  if (isVerifyingAuth || !isSuperuserStatusReady) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-100 border-t-blue-500"></div>
-      </div>
-    );
-  }
-
-  // Check authorization after initial load
-  if (!isAuthorized) {
-    return (
-      <div className="flex items-center justify-center min-h-screen p-4">
-        <div className="max-w-md w-full p-6 bg-white rounded-lg shadow-md text-center">
-          <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
-            <AlertTriangle className="h-6 w-6 text-red-600" />
+      <div className="admin-panel-loading">
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold mb-4">Loading Admin Panel</h2>
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto"></div>
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Access Denied</h2>
-          <p className="text-gray-600 mb-6">
-            You don't have permission to access the admin panel. Please contact an administrator.
-          </p>
         </div>
       </div>
     );
@@ -463,7 +491,7 @@ const AdminPanel = () => {
   }
 
   // Calculate loading state and current data
-  const isLoading = isFetching && !adminData;
+  const dataIsLoading = isFetching && !adminData;
   const currentData = adminData?.[activeTab] || [];
 
   return (
@@ -472,7 +500,7 @@ const AdminPanel = () => {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-          {isFetching && !isLoading && (
+          {isFetching && !dataIsLoading && (
             <p className="text-sm text-gray-500 mt-1">Updating data...</p>
           )}
         </div>
@@ -481,14 +509,14 @@ const AdminPanel = () => {
             onClick={() => setShowFilters(prev => !prev)}
             className="px-3 py-1.5 bg-white border border-gray-300 hover:bg-gray-50 rounded-md text-sm flex items-center transition-colors duration-150"
             aria-label={showFilters ? 'Hide filters' : 'Show filters'}
-            disabled={isLoading}
+            disabled={dataIsLoading}
           >
             <Filter className="h-4 w-4 mr-1.5" />
             {showFilters ? 'Hide' : 'Show'} Filters
           </button>
           <button
             onClick={() => refetch()}
-            disabled={isLoading}
+            disabled={dataIsLoading}
             className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-md text-sm flex items-center disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150"
             aria-label="Refresh data"
           >
@@ -526,7 +554,7 @@ const AdminPanel = () => {
 
       {/* Main Content */}
       <div className="bg-white rounded-lg shadow overflow-hidden border border-gray-200">
-        {isLoading ? (
+        {dataIsLoading ? (
           <div className="flex flex-col items-center justify-center p-12">
             <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-100 border-t-blue-500 mb-4"></div>
             <p className="text-gray-600">Loading {TAB_CONFIG[activeTab]?.label.toLowerCase()} data...</p>
@@ -575,7 +603,7 @@ const AdminPanel = () => {
             <GenericAdminTableTab
               resourceType={activeTab}
               initialData={currentData}
-              isLoading={isLoading}
+              isLoading={dataIsLoading}
               error={error}
               onRetry={refetch}
               cities={adminData?.cities || []}

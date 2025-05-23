@@ -1,5 +1,5 @@
 // File: src/services/listService.js
-import apiClient from './apiClient';
+import apiClient, { get, post, put, del } from './apiClient';
 import logger from '../utils/logger'; // frontend logger
 import useFollowStore from '../stores/useFollowStore'; // Changed to default import
 import { logEngagement } from '../utils/logEngagement';
@@ -14,40 +14,42 @@ const listService = {
       // Log the params for debugging
       logger.debug('[listService] getLists called with params:', JSON.stringify(params));
       
-      const queryParams = new URLSearchParams();
-      
-      // Ensure all parameters are properly converted to strings
-      if (params.userId) {
-        // Handle the case where userId might be an object
-        const userId = typeof params.userId === 'object' ? 
-          (params.userId.id || params.userId.userId || '') : String(params.userId);
-        queryParams.append('userId', userId);
-      }
-      
-      if (params.cityId) queryParams.append('cityId', String(params.cityId));
-      if (params.page) queryParams.append('page', String(params.page));
-      if (params.limit) queryParams.append('limit', String(params.limit));
-      if (params.sortBy) queryParams.append('sortBy', String(params.sortBy));
-      if (params.sortOrder) queryParams.append('sortOrder', String(params.sortOrder));
-      if (params.listType) queryParams.append('listType', String(params.listType));
-      if (typeof params.isPublic !== 'undefined') queryParams.append('isPublic', String(params.isPublic));
-      
-      if (params.isFollowedByUserId) {
-        // Handle the case where isFollowedByUserId might be an object
-        const followedByUserId = typeof params.isFollowedByUserId === 'object' ? 
-          (params.isFollowedByUserId.id || params.isFollowedByUserId.userId || '') : String(params.isFollowedByUserId);
-        queryParams.append('isFollowedByUserId', followedByUserId);
-      }
-      
-      if (params.searchTerm) queryParams.append('searchTerm', String(params.searchTerm));
-      if (params.excludeUserId) queryParams.append('excludeUserId', String(params.excludeUserId));
+      // Build params as a plain object
+      const paramsObj = {};
+      if (params.userId) paramsObj.userId = typeof params.userId === 'object' ? (params.userId.id || params.userId.userId || '') : String(params.userId);
+      if (params.cityId) paramsObj.cityId = String(params.cityId);
+      if (params.page) paramsObj.page = String(params.page);
+      if (params.limit) paramsObj.limit = String(params.limit);
+      if (params.sortBy) paramsObj.sortBy = String(params.sortBy);
+      if (params.sortOrder) paramsObj.sortOrder = String(params.sortOrder);
+      if (params.listType) paramsObj.listType = String(params.listType);
+      if (typeof params.isPublic !== 'undefined') paramsObj.isPublic = String(params.isPublic);
+      if (params.isFollowedByUserId) paramsObj.isFollowedByUserId = typeof params.isFollowedByUserId === 'object' ? (params.isFollowedByUserId.id || params.isFollowedByUserId.userId || '') : String(params.isFollowedByUserId);
+      if (params.searchTerm) paramsObj.searchTerm = String(params.searchTerm);
+      if (params.excludeUserId) paramsObj.excludeUserId = String(params.excludeUserId);
 
       // Log the final query string for debugging
-      const queryString = queryParams.toString();
+      const queryString = JSON.stringify(paramsObj);
       logger.debug(`[listService] Making request to /lists?${queryString}`);
 
-      const response = await apiClient.get(`/lists?${queryString}`);
-      return { success: true, data: response.data.data || response.data, pagination: response.data.pagination };
+      logger.debug(`[listService] Calling get function with params:`, paramsObj);
+      const response = await get(`/lists`, paramsObj);
+      
+      // Log the response for debugging
+      logger.debug(`[listService] Response received:`, response);
+      
+      // Handle the response format - the get function may return the data directly
+      const responseData = response.data ? response : { data: response };
+      logger.debug(`[listService] Normalized response data:`, responseData);
+      
+      const result = { 
+        success: true, 
+        data: responseData.data.data || responseData.data, 
+        pagination: responseData.data.pagination 
+      };
+      
+      logger.debug(`[listService] Final result:`, result);
+      return result;
     } catch (error) {
       logger.error('Error fetching lists:', error);
       return { success: false, error: parseApiError(error), message: 'Failed to fetch lists.' };
@@ -112,13 +114,8 @@ const listService = {
   // Fetch items within a specific list
   getListItems: async function(listId, params = {}) {
     try {
-      const queryParams = new URLSearchParams();
-      if (params.page) queryParams.append('page', params.page.toString());
-      if (params.limit) queryParams.append('limit', params.limit.toString());
-      if (params.sortBy) queryParams.append('sortBy', params.sortBy); // e.g., 'created_at', 'name'
-      if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder); // 'asc' or 'desc'
-
-      const response = await apiClient.get(`/lists/${listId}/items?${queryParams.toString()}`);
+      // For getListItems, searchLists, getListSuggestions, getFollowedLists, getFeaturedLists, getListsContainingDish, getListsContainingRestaurant, getMultipleListSummary, getRecentListsForUser, getListActivity, getMultipleListItemsDetails, getCollaboratingLists, use plain objects for params
+      const response = await apiClient.get(`/lists/${listId}/items`, { params });
       // logger.debug(`getListItems response for list ID ${listId}:`, response.data);
       return { 
         success: true, 
@@ -175,20 +172,14 @@ const listService = {
   // `options` can include { page, limit, userId, cityId, includePrivate }
   searchLists: async function(searchTerm, searchType = 'all', { page = 1, limit = 20, userId = null, cityId = null, includePrivate = false } = {}) {
     try {
-      const params = new URLSearchParams({
-        term: searchTerm,
-        type: searchType,
-        page: page.toString(),
-        limit: limit.toString(),
-      });
-      if (userId) params.append('userId', userId);
-      if (cityId) params.append('cityId', cityId.toString());
-      if (includePrivate) params.append('includePrivate', 'true');
-      
-      logger.debug(`Searching lists with term: "${searchTerm}", type: "${searchType}", params: ${params.toString()}`);
-      const response = await apiClient.get(`/lists/search?${params.toString()}`);
+      const params = { term: searchTerm, type: searchType, page, limit };
+      if (userId) params.userId = userId;
+      if (cityId) params.cityId = cityId;
+      if (includePrivate) params.includePrivate = true;
+      logger.debug(`Searching lists with term: "${searchTerm}", type: "${searchType}", params:`, params);
+      const response = await apiClient.get(`/lists/search`, { params });
       logger.debug('Search lists response:', response.data);
-      return { success: true, data: response.data.data || response.data, pagination: response.data.pagination }; // Adjusted to match typical structure
+      return { success: true, data: response.data.data || response.data, pagination: response.data.pagination };
     } catch (error) {
       logger.error('Error searching lists:', error);
       return { success: false, error: parseApiError(error), message: `Failed to search lists: ${searchTerm}` };
@@ -198,16 +189,10 @@ const listService = {
   // Method to get list suggestions for autocomplete or quick search
   getListSuggestions: async function(query, { limit = 5, listType = null, forUserId = null } = {}) {
     try {
-      const params = new URLSearchParams({ q: query, limit: limit.toString() });
-      if (listType) {
-        params.append('listType', listType);
-      }
-      if (forUserId) {
-        params.append('userId', forUserId);
-      }
-      // logger.debug(`Workspaceing list suggestions for query "${query}" with params: ${params.toString()}`);
-      const response = await apiClient.get(`/lists/suggestions?${params.toString()}`);
-      // logger.debug('List suggestions response:', response.data);
+      const params = { q: query, limit };
+      if (listType) params.listType = listType;
+      if (forUserId) params.userId = forUserId;
+      const response = await apiClient.get(`/lists/suggestions`, { params });
       return { success: true, data: response.data.data || response.data };
     } catch (error) {
       logger.error(`Error fetching list suggestions for query "${query}":`, error);
@@ -259,7 +244,7 @@ const listService = {
   getFollowedLists: async function(userId, { page = 1, limit = 10 } = {}) {
     try {
       // logger.debug(`Workspaceing followed lists for user ${userId} with page: ${page}, limit: ${limit}`);
-      const response = await apiClient.get(`/users/${userId}/followed-lists?page=${page}&limit=${limit}`);
+      const response = await apiClient.get(`/users/${userId}/followed-lists`, { params: { page, limit } });
       // logger.debug('Followed lists response:', response.data);
       return { success: true, data: response.data.data || response.data, pagination: response.data.pagination };
     } catch (error) {
@@ -389,17 +374,9 @@ const listService = {
   // Get lists curated by the "platform" or featured lists
   getFeaturedLists: async function({ cityId, page = 1, limit = 5 } = {}) {
     try {
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: limit.toString(),
-        featured: 'true' // Assuming a query param for featured
-      });
-      if (cityId) {
-        params.append('cityId', cityId.toString());
-      }
-      // logger.debug(`Workspaceing featured lists with params: ${params.toString()}`);
-      const response = await apiClient.get(`/lists/featured?${params.toString()}`); // Or just /lists with a filter
-      // logger.debug('Featured lists response:', response.data);
+      const params = { page, limit, featured: true };
+      if (cityId) params.cityId = cityId;
+      const response = await apiClient.get(`/lists/featured`, { params });
       return { success: true, data: response.data.data || response.data, pagination: response.data.pagination };
     } catch (error) {
       logger.error('Error fetching featured lists:', error);
@@ -450,17 +427,9 @@ const listService = {
   // Fetch lists that contain a specific dish ID
   getListsContainingDish: async function(dishId, { userId, page = 1, limit = 10 } = {}) {
     try {
-      const params = new URLSearchParams({
-        dish_id: dishId,
-        page: page.toString(),
-        limit: limit.toString()
-      });
-      if (userId) { // To get user's lists (public or private if owner) that contain this dish
-        params.append('user_id', userId);
-      }
-      // logger.debug(`Workspaceing lists containing dish ${dishId} with params: ${params.toString()}`);
-      const response = await apiClient.get(`/lists/containing-item?${params.toString()}`);
-      // logger.debug(`Response for lists containing dish ${dishId}:`, response.data);
+      const params = { dish_id: dishId, page, limit };
+      if (userId) params.user_id = userId;
+      const response = await apiClient.get(`/lists/containing-item`, { params });
       return { success: true, data: response.data.data || response.data, pagination: response.data.pagination };
     } catch (error) {
       logger.error(`Error fetching lists containing dish ${dishId}:`, error);
@@ -471,17 +440,9 @@ const listService = {
   // Fetch lists that contain a specific restaurant ID
   getListsContainingRestaurant: async function(restaurantId, { userId, page = 1, limit = 10 } = {}) {
     try {
-      const params = new URLSearchParams({
-        restaurant_id: restaurantId,
-        page: page.toString(),
-        limit: limit.toString()
-      });
-      if (userId) {
-        params.append('user_id', userId);
-      }
-      // logger.debug(`Workspaceing lists containing restaurant ${restaurantId} with params: ${params.toString()}`);
-      const response = await apiClient.get(`/lists/containing-item?${params.toString()}`);
-      // logger.debug(`Response for lists containing restaurant ${restaurantId}:`, response.data);
+      const params = { restaurant_id: restaurantId, page, limit };
+      if (userId) params.user_id = userId;
+      const response = await apiClient.get(`/lists/containing-item`, { params });
       return { success: true, data: response.data.data || response.data, pagination: response.data.pagination };
     } catch (error) {
       logger.error(`Error fetching lists containing restaurant ${restaurantId}:`, error);
@@ -492,14 +453,11 @@ const listService = {
   // Get metadata or summary for multiple lists by their IDs
   getMultipleListSummary: async function(listIds) {
     if (!listIds || listIds.length === 0) {
-      return { success: true, data: [] }; // Return empty if no IDs provided
+      return { success: true, data: [] };
     }
     try {
-      const params = new URLSearchParams();
-      listIds.forEach(id => params.append('ids[]', id)); // Or 'ids' with comma-separated string, depending on backend
-      // logger.debug(`Workspaceing summary for lists: ${listIds.join(', ')}`);
-      const response = await apiClient.get(`/lists/summary?${params.toString()}`);
-      // logger.debug('Multiple list summary response:', response.data);
+      const params = { 'ids[]': listIds };
+      const response = await apiClient.get(`/lists/summary`, { params });
       return { success: true, data: response.data.data || response.data };
     } catch (error) {
       logger.error(`Error fetching summary for lists ${listIds.join(', ')}:`, error);
@@ -528,7 +486,7 @@ const listService = {
   getRecentListsForUser: async function(userId, { limit = 5 } = {}) {
     try {
       // logger.debug(`Workspaceing recent lists for user ${userId}, limit ${limit}`);
-      const response = await apiClient.get(`/users/${userId}/recent-lists?limit=${limit}`);
+      const response = await apiClient.get(`/users/${userId}/recent-lists`, { params: { limit } });
       // logger.debug('Recent lists response:', response.data);
       return { success: true, data: response.data.data || response.data };
     } catch (error) {
@@ -562,7 +520,7 @@ const listService = {
   getListActivity: async function(listId, { page = 1, limit = 15 } = {}) {
     try {
       // logger.debug(`Workspaceing activity for list ${listId}, page ${page}, limit ${limit}`);
-      const response = await apiClient.get(`/lists/${listId}/activity?page=${page}&limit=${limit}`);
+      const response = await apiClient.get(`/lists/${listId}/activity`, { params: { page, limit } });
       // logger.debug('List activity response:', response.data);
       return { success: true, data: response.data.data || response.data, pagination: response.data.pagination };
     } catch (error) {
@@ -572,18 +530,13 @@ const listService = {
   },
   
   // Fetch details for multiple list items by their global IDs (if list_items have unique IDs across all lists)
-  // This is more complex and depends heavily on backend schema.
-  // A simpler version might be fetching items from a *specific* list by their item IDs within that list.
   getMultipleListItemsDetails: async function(listItemIds) {
     if (!listItemIds || listItemIds.length === 0) {
       return { success: true, data: [] };
     }
     try {
-      const params = new URLSearchParams();
-      listItemIds.forEach(id => params.append('ids[]', id));
-      // logger.debug(`Workspaceing details for list items: ${listItemIds.join(', ')}`);
-      const response = await apiClient.get(`/list-items/details?${params.toString()}`); // Example endpoint
-      // logger.debug('Multiple list items details response:', response.data);
+      const params = { 'ids[]': listItemIds };
+      const response = await apiClient.get(`/list-items/details`, { params });
       return { success: true, data: response.data.data || response.data };
     } catch (error) {
       logger.error(`Error fetching details for list items ${listItemIds.join(', ')}:`, error);

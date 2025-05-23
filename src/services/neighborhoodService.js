@@ -24,6 +24,20 @@ const MOCK_NEIGHBORHOODS = [
   { id: 303, name: 'Flushing', city_id: 1, parent_id: 3, location_level: 2 }
 ];
 
+// Zipcode to neighborhood mapping for caching and quick lookups
+const ZIPCODE_TO_NEIGHBORHOOD_MAP = {
+  '10001': { id: 103, name: 'Midtown', city_id: 1, parent_id: 1, location_level: 2 },
+  '10002': { id: 104, name: 'Chelsea', city_id: 1, parent_id: 1, location_level: 2 },
+  '10003': { id: 101, name: 'Upper East Side', city_id: 1, parent_id: 1, location_level: 2 },
+  '10004': { id: 102, name: 'Upper West Side', city_id: 1, parent_id: 1, location_level: 2 },
+  '11201': { id: 201, name: 'Williamsburg', city_id: 1, parent_id: 2, location_level: 2 },
+  '11215': { id: 202, name: 'Park Slope', city_id: 1, parent_id: 2, location_level: 2 },
+  '11201': { id: 203, name: 'DUMBO', city_id: 1, parent_id: 2, location_level: 2 },
+  '11106': { id: 301, name: 'Astoria', city_id: 1, parent_id: 3, location_level: 2 },
+  '11101': { id: 302, name: 'Long Island City', city_id: 1, parent_id: 3, location_level: 2 },
+  '11355': { id: 303, name: 'Flushing', city_id: 1, parent_id: 3, location_level: 2 }
+};
+
 /**
  * Extract data from various API response formats
  * @param {Object|Array} response - API response
@@ -49,7 +63,7 @@ const extractDataFromResponse = (response, context) => {
   }
   
   // No valid data found
-  logWarn(`[NeighborhoodService] Could not extract data array from ${context} response:`, response);
+  logWarn(`[NeighborhoodService] Could not extract data from ${context} response:`, response);
   return [];
 };
 
@@ -59,18 +73,16 @@ const extractDataFromResponse = (response, context) => {
  * @returns {Object|null} - Formatted neighborhood object or null if invalid
  */
 const formatNeighborhood = (neighborhood) => {
-  if (!neighborhood || typeof neighborhood !== 'object') {
+  if (!neighborhood || !neighborhood.id) {
     return null;
   }
   
   return {
-    id: parseInt(neighborhood.id, 10) || 0,
-    name: neighborhood.name || '',
-    city_id: parseInt(neighborhood.city_id, 10) || 0,
-    parent_id: parseInt(neighborhood.parent_id, 10) || 0,
-    location_level: parseInt(neighborhood.location_level, 10) || 0,
-    borough_id: parseInt(neighborhood.parent_id, 10) || 0, // Alias for parent_id for compatibility
-    borough_name: neighborhood.parent_name || null
+    id: neighborhood.id,
+    name: neighborhood.name || 'Unknown Neighborhood',
+    cityId: neighborhood.city_id || neighborhood.cityId || 1,
+    parentId: neighborhood.parent_id || neighborhood.parentId || null,
+    locationLevel: neighborhood.location_level || neighborhood.locationLevel || 2
   };
 };
 
@@ -80,94 +92,69 @@ export const neighborhoodService = {
    * @param {number|string} cityId - The ID of the city
    * @returns {Promise<Array>} - List of boroughs
    */
-  async getBoroughs(cityId) {
+  getBoroughs: async (cityId = 1) => {
+    const safeId = parseInt(cityId, 10) || 1;
+    const context = `Boroughs for city ${safeId}`;
+    
+    logDebug(`[NeighborhoodService] Fetching boroughs for city ID: ${safeId}`);
+    
     try {
-      if (!cityId || isNaN(parseInt(cityId, 10))) {
-        logWarn('[NeighborhoodService] Invalid cityId:', cityId);
-        return []; // Return empty array for invalid input
-      }
+      const response = await apiClient.get(`/api/locations/boroughs?city_id=${safeId}`);
+      const data = extractDataFromResponse(response, context);
       
-      const safeId = parseInt(cityId, 10);
-      logDebug(`[NeighborhoodService] Fetching boroughs for city ID: ${safeId}`);
-      
-      const response = await apiClient.get('/neighborhoods', { 
-        params: { cityId: String(safeId), level: '1' }
-      });
-      
-      const boroughs = extractDataFromResponse(response, 'boroughs');
-      
-      if (boroughs.length === 0) {
-        logWarn(`[NeighborhoodService] No boroughs found for city ID: ${safeId}, using mock data`);
-        
-        // For New York City (ID 1), return mock boroughs as fallback
-        if (safeId === 1) {
-          return MOCK_BOROUGHS;
-        }
-        return [];
-      }
-      
-      // Transform the data using our formatter
-      const formattedBoroughs = boroughs.map(formatNeighborhood).filter(Boolean);
-      logDebug(`[NeighborhoodService] Found ${formattedBoroughs.length} boroughs for city ID: ${safeId}`);
-      return formattedBoroughs;
-    } catch (error) {
-      // Log but return mock data for better resilience
-      logError(`[NeighborhoodService] Error fetching boroughs:`, error);
-      
-      // For New York City (ID 1), return mock boroughs as fallback
-      if (parseInt(cityId, 10) === 1) {
+      if (!data || data.length === 0) {
+        logWarn(`[NeighborhoodService] No boroughs found for city ID: ${safeId}`);
         return MOCK_BOROUGHS;
       }
-      return [];
+      
+      return data.map(borough => ({
+        id: borough.id,
+        name: borough.name,
+        cityId: borough.city_id || safeId
+      }));
+    } catch (error) {
+      logError(`[NeighborhoodService] Error fetching boroughs for city ${safeId}:`, error);
+      return MOCK_BOROUGHS;
     }
   },
-
+  
   /**
    * Fetches neighborhoods (level 2 locations) for a given parent borough.
    * @param {number|string} boroughId - The ID of the parent borough
    * @returns {Promise<Array>} - List of neighborhoods
    */
-  async getNeighborhoods(boroughId) {
-    try {
-      if (!boroughId || isNaN(parseInt(boroughId, 10))) {
-        logWarn('[NeighborhoodService] Invalid boroughId:', boroughId);
-        return []; // Return empty array for invalid input
-      }
-      
-      const safeId = parseInt(boroughId, 10);
-      logDebug(`[NeighborhoodService] Fetching neighborhoods for borough ID: ${safeId}`);
-      
-      const response = await apiClient.get('/neighborhoods', { 
-        params: { parentId: String(safeId), level: '2' }
-      });
-      
-      const neighborhoods = extractDataFromResponse(response, 'neighborhoods');
-      
-      if (neighborhoods.length === 0) {
-        logWarn(`[NeighborhoodService] No neighborhoods found for borough ID: ${safeId}, using mock data`);
-        
-        // Return mock neighborhoods for this borough if available
-        const mockNeighborhoodsForBorough = MOCK_NEIGHBORHOODS.filter(n => n.parent_id === safeId);
-        if (mockNeighborhoodsForBorough.length > 0) {
-          return mockNeighborhoodsForBorough;
-        }
-        return [];
-      }
-      
-      // Transform the data using our formatter
-      const formattedNeighborhoods = neighborhoods.map(formatNeighborhood).filter(Boolean);
-      logDebug(`[NeighborhoodService] Found ${formattedNeighborhoods.length} neighborhoods for borough ID: ${safeId}`);
-      return formattedNeighborhoods;
-    } catch (error) {
-      logError(`[NeighborhoodService] Error fetching neighborhoods for boroughId ${boroughId}:`, error);
-      
-      // Return mock neighborhoods for this borough if available
-      const safeId = parseInt(boroughId, 10);
-      const mockNeighborhoodsForBorough = MOCK_NEIGHBORHOODS.filter(n => n.parent_id === safeId);
-      if (mockNeighborhoodsForBorough.length > 0) {
-        return mockNeighborhoodsForBorough;
-      }
+  getNeighborhoods: async (boroughId) => {
+    if (!boroughId) {
+      logError('[NeighborhoodService] getNeighborhoods called without boroughId');
       return [];
+    }
+    
+    const safeId = parseInt(boroughId, 10);
+    const context = `Neighborhoods for borough ${safeId}`;
+    
+    logDebug(`[NeighborhoodService] Fetching neighborhoods for borough ID: ${safeId}`);
+    
+    try {
+      const response = await apiClient.get(`/api/locations/neighborhoods?parent_id=${safeId}`);
+      const data = extractDataFromResponse(response, context);
+      
+      if (!data || data.length === 0) {
+        logWarn(`[NeighborhoodService] No neighborhoods found for borough ID: ${safeId}`);
+        
+        // Return mock neighborhoods filtered by parent ID
+        return MOCK_NEIGHBORHOODS.filter(n => n.parent_id === safeId)
+          .map(formatNeighborhood)
+          .filter(Boolean);
+      }
+      
+      return data.map(formatNeighborhood).filter(Boolean);
+    } catch (error) {
+      logError(`[NeighborhoodService] Error fetching neighborhoods for borough ${safeId}:`, error);
+      
+      // Return mock neighborhoods filtered by parent ID
+      return MOCK_NEIGHBORHOODS.filter(n => n.parent_id === safeId)
+        .map(formatNeighborhood)
+        .filter(Boolean);
     }
   },
   
@@ -176,18 +163,24 @@ export const neighborhoodService = {
    * @param {number|string} neighborhoodId - The ID of the neighborhood
    * @returns {Promise<Object|null>} - Neighborhood object or null if not found
    */
-  async getNeighborhoodById(neighborhoodId) {
+  getNeighborhoodById: async (neighborhoodId) => {
+    if (!neighborhoodId) {
+      logError('[NeighborhoodService] getNeighborhoodById called without neighborhoodId');
+      return null;
+    }
+    
+    const safeId = parseInt(neighborhoodId, 10);
+    
+    logDebug(`[NeighborhoodService] Fetching neighborhood with ID: ${safeId}`);
+    
     try {
-      if (!neighborhoodId || isNaN(parseInt(neighborhoodId, 10))) {
-        logWarn('[NeighborhoodService] Invalid neighborhoodId:', neighborhoodId);
-        return null;
+      const response = await apiClient.get(`/api/locations/neighborhood/${safeId}`);
+      const data = extractDataFromResponse(response, 'Neighborhood by ID');
+      
+      let neighborhood = null;
+      if (data && data.length > 0) {
+        neighborhood = data[0];
       }
-      
-      const safeId = parseInt(neighborhoodId, 10);
-      logDebug(`[NeighborhoodService] Fetching neighborhood with ID: ${safeId}`);
-      
-      const response = await apiClient.get(`/neighborhoods/${safeId}`);
-      const neighborhood = response?.data;
       
       if (!neighborhood) {
         logWarn(`[NeighborhoodService] No neighborhood found with ID: ${safeId}`);
@@ -206,11 +199,50 @@ export const neighborhoodService = {
       const mockNeighborhood = MOCK_NEIGHBORHOODS.find(n => n.id === safeId);
       return mockNeighborhood || null;
     }
+  },
+  
+  /**
+   * Fetches a neighborhood by zipcode
+   * @param {string} zipcode - The zipcode to look up
+   * @returns {Promise<Object|null>} - Neighborhood object or null if not found
+   */
+  getNeighborhoodByZipcode: async (zipcode) => {
+    if (!zipcode) {
+      logError('[NeighborhoodService] getNeighborhoodByZipcode called without zipcode');
+      return null;
+    }
+
+    logDebug(`[NeighborhoodService] Looking up neighborhood for zipcode: ${zipcode}`);
+    
+    try {
+      // First check our local mapping
+      if (ZIPCODE_TO_NEIGHBORHOOD_MAP[zipcode]) {
+        const neighborhood = ZIPCODE_TO_NEIGHBORHOOD_MAP[zipcode];
+        return formatNeighborhood(neighborhood);
+      }
+      
+      // If not in our local mapping, try to fetch from API
+      const response = await apiClient.get(`/api/locations/zipcode/${zipcode}`);
+      const data = extractDataFromResponse(response, 'Neighborhood by zipcode');
+      
+      if (data && data.length > 0) {
+        return formatNeighborhood(data[0]);
+      }
+      
+      // If we couldn't find a match, log a warning and return null
+      logWarn(`[NeighborhoodService] No neighborhood found for zipcode: ${zipcode}`);
+      return null;
+    } catch (error) {
+      logError(`[NeighborhoodService] Error fetching neighborhood for zipcode ${zipcode}:`, error);
+      
+      // Fallback to Manhattan as a default neighborhood if API call fails
+      return formatNeighborhood(MOCK_NEIGHBORHOODS[2]); // Midtown
+    }
   }
 };
 
 // Export mock data for testing and fallbacks
-export { MOCK_NEIGHBORHOODS };
+export { MOCK_NEIGHBORHOODS, ZIPCODE_TO_NEIGHBORHOOD_MAP };
 
 // Maintain backwards compatibility with both export styles
 export default neighborhoodService;

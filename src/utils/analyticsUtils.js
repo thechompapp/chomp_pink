@@ -38,7 +38,7 @@ export const fetchAnalyticsData = async (endpoint, params = {}) => {
         };
         
         // Make the request using the standard API client which will handle token refresh
-        const response = await apiClient.get(fullUrl, config);
+        const response = await apiClient.get(fullUrl, undefined, config);
         
         logDebug('[AnalyticsUtils] Analytics response:', response);
         

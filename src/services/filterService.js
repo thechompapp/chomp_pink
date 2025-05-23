@@ -65,26 +65,9 @@ export const filterService = {
   async getCities(options = {}) {
     logDebug('[FilterService] Fetching cities from API with options:', options);
     try {
-      // Create a direct config object to ensure method is properly set
-      const config = {
-        url: '/filters/cities',
-        method: 'get'
-      };
-      
-      // Add params if provided
-      if (options && Object.keys(options).length > 0) {
-        // Ensure all parameters are strings
-        const safeParams = {};
-        Object.entries(options).forEach(([key, value]) => {
-          if (value !== undefined && value !== null) {
-            safeParams[key] = typeof value === 'object' ? JSON.stringify(value) : String(value);
-          }
-        });
-        config.params = safeParams;
-      }
-      
-      logDebug('[FilterService] Making request with config:', config);
-      const response = await apiClient(config);
+      // Build params as a plain object
+      const params = options && Object.keys(options).length > 0 ? Object.fromEntries(Object.entries(options).map(([key, value]) => [key, typeof value === 'object' ? JSON.stringify(value) : String(value)])) : undefined;
+      const response = await apiClient.get('/filters/cities', params ? { params } : undefined);
       
       // Extract cities array from the response
       const citiesArray = extractDataFromResponse(response, 'cities');
@@ -238,6 +221,23 @@ export const filterService = {
   },
 
   /**
+   * Helper to find a city by partial name match
+   * @param {Array} cities - List of city objects
+   * @param {string} normalizedCityName - Normalized city name to match
+   * @returns {Object|null} - Matching city object or null
+   */
+  findCityByPartialMatch(cities, normalizedCityName) {
+    for (const city of cities) {
+      const cityNameNormalized = this.normalizeCityName(city.name);
+      if (cityNameNormalized.includes(normalizedCityName) ||
+        normalizedCityName.includes(cityNameNormalized)) {
+        return city;
+      }
+    }
+    return null;
+  },
+
+  /**
    * Find a city by name
    * @param {string} cityName - The name of the city to look up
    * @returns {Promise<Object|null>} The city object if found, null otherwise
@@ -282,13 +282,10 @@ export const filterService = {
       }
 
       // Try partial matching if exact match fails
-      for (const city of cities) {
-        const cityNameNormalized = this.normalizeCityName(city.name);
-        if (cityNameNormalized.includes(normalizedCityName) ||
-          normalizedCityName.includes(cityNameNormalized)) {
-          logDebug(`[FilterService] Found city by partial match: ${cityName} -> ${city.name} (ID: ${city.id})`);
-          return city;
-        }
+      const partialMatch = this.findCityByPartialMatch(cities, normalizedCityName);
+      if (partialMatch) {
+        logDebug(`[FilterService] Found city by partial match: ${cityName} -> ${partialMatch.name} (ID: ${partialMatch.id})`);
+        return partialMatch;
       }
 
       logWarn(`[FilterService] City not found by name: ${cityName}, using default`);

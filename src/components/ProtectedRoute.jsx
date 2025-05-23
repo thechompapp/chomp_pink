@@ -1,47 +1,60 @@
-/* src/components/ProtectedRoute.jsx */
-/* REMOVED: All TypeScript syntax */
-/* Patched: Added logic to check for requireSuperuser prop */
-
+// src/components/ProtectedRoute.jsx
 import React from 'react';
-import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import useAuthStore from '@/stores/useAuthStore.js'; // Use alias if configured
-import LoadingSpinner from '@/components/UI/LoadingSpinner.jsx'; // Assuming JS/JSX
+import { Navigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../contexts/auth';
+import { useAdminAuth } from '../hooks/useAdminAuth';
+import { logInfo, logDebug } from '../utils/logger';
 
-// Accept children and requireSuperuser props
-const ProtectedRoute = ({ children, requireSuperuser = false }) => {
-  // Select state primitives directly
-  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
-  const user = useAuthStore(state => state.user); // Get user object
-  const isLoading = useAuthStore(state => state.isLoading);
+/**
+ * ProtectedRoute Component
+ * 
+ * Protects routes that require authentication or specific permissions
+ * 
+ * @param {Object} props - Component props
+ * @param {boolean} props.adminOnly - Whether the route requires admin permissions
+ * @param {React.ReactNode} props.children - Child components to render if authenticated
+ * @param {string} props.redirectTo - Path to redirect to if not authenticated (defaults to /login)
+ * @returns {React.ReactNode} Protected route component
+ */
+const ProtectedRoute = ({ 
+  children, 
+  adminOnly = false, 
+  redirectTo = '/login' 
+}) => {
   const location = useLocation();
-
-  // Show loading indicator while checking auth status
+  const { isAuthenticated, isLoading, user } = useAuth();
+  const adminAuth = useAdminAuth();
+  
+  // Show loading state while checking authentication
   if (isLoading) {
     return (
-        <div className="flex justify-center items-center h-[calc(100vh-150px)]"> {/* Adjust height as needed */}
-            <LoadingSpinner message="Checking authentication..." />
-        </div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
     );
   }
-
-  // Redirect to login if not authenticated
+  
+  // If not authenticated, redirect to login
   if (!isAuthenticated) {
-    // Pass the current location so user can be redirected back after login
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    logInfo(`[ProtectedRoute] User not authenticated, redirecting to ${redirectTo} from ${location.pathname}`);
+    return <Navigate to={redirectTo} state={{ from: location }} replace />;
   }
-
-  // NEW: Check for superuser requirement if specified
-  if (requireSuperuser && user?.account_type !== 'superuser') {
-    console.warn('[ProtectedRoute] Access denied. Superuser required.');
-    // Redirect non-superusers trying to access superuser routes (e.g., back home)
-    // Alternatively, render an "Access Denied" component
-    return <Navigate to="/" state={{ from: location }} replace />;
+  
+  // If admin-only route, check for admin permissions
+  if (adminOnly) {
+    // Use the can method instead of hasPermission
+    const hasAdminAccess = useAdminAuth().can('admin.access');
+    
+    if (!hasAdminAccess) {
+      logInfo(`[ProtectedRoute] User lacks admin permissions, redirecting to home from ${location.pathname}`);
+      return <Navigate to="/" replace />;
+    }
+    
+    logDebug(`[ProtectedRoute] Admin access granted for ${location.pathname}`);
   }
-
-  // Render the child component passed via props OR the Outlet if no children are passed
-  // This allows wrapping specific components directly: <ProtectedRoute><MyComponent /></ProtectedRoute>
-  // Or using it for route layouts: <Route element={<ProtectedRoute />}><Route path="dashboard" element={<Dashboard />} /></Route>
-  return children ? <>{children}</> : <Outlet />;
+  
+  // User is authenticated and has required permissions
+  return children;
 };
 
 export default ProtectedRoute;

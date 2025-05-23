@@ -1,9 +1,31 @@
-import apiClient from '@/services/apiClient';
-import { logError, logDebug, logWarn } from '@/utils/logger';
-import { handleApiResponse } from '@/utils/serviceHelpers';
+/**
+ * DataCleanupService
+ * 
+ * A service for managing data cleanup operations in the admin panel.
+ * This service provides methods to analyze, apply, and reject data cleanup changes
+ * for various resource types like restaurants, dishes, etc.
+ * 
+ * Features:
+ * - Checking API availability to ensure backend support for cleanup operations
+ * - Analyzing resources to identify potential data quality issues
+ * - Applying approved changes to improve data quality
+ * - Rejecting changes that should not be applied
+ * - Formatting changes for consistent UI display
+ * 
+ * The service provides a standardized response format with:
+ * - success: boolean indicating if the operation succeeded
+ * - message: descriptive message about the operation result
+ * - data: array or object containing the operation data (e.g., changes)
+ * 
+ * @module services/dataCleanupService
+ */
 
-// Constants for API endpoints (can be moved to a config file if needed)
-const API_ENDPOINTS = {
+import apiClient from '@/services/apiClient';
+import { logError, logDebug, logWarn, logInfo } from '@/utils/logger';
+import { handleApiResponse, formatResponse, formatErrorResponse } from '@/utils/serviceHelpers';
+
+// Constants for API endpoints (moved to a dedicated configuration object)
+const DATA_CLEANUP_API = {
   health: '/admin/cleanup/health',
   analyze: (resourceType) => `/admin/cleanup/analyze/${resourceType}`,
   apply: (resourceType) => `/admin/cleanup/apply/${resourceType}`,
@@ -13,17 +35,59 @@ const API_ENDPOINTS = {
 // Disable mock mode
 const ENABLE_MOCK_MODE = false;
 
+/**
+ * Validates an array of changes
+ * @param {Array|null} changes - Changes to validate
+ * @param {string} context - Context for logging
+ * @returns {Object} Validation result with valid, message, and isEmpty properties
+ */
+const validateChanges = (changes, context = 'validateChanges') => {
+  if (!changes) {
+    logError(`[${context}] changes is undefined or null`);
+    return { valid: false, message: 'No changes provided', isEmpty: true };
+  }
+  
+  if (!Array.isArray(changes)) {
+    logError(`[${context}] changes is not an array:`, changes);
+    return { valid: false, message: 'Invalid changes format: expected an array', isEmpty: true };
+  }
+  
+  if (changes.length === 0) {
+    logWarn(`[${context}] Empty array of changes provided`);
+    return { valid: true, message: 'No changes to process', isEmpty: true };
+  }
+  
+  return { valid: true, message: 'Valid changes', isEmpty: false };
+};
+
+/**
+ * Validates a resource type parameter
+ * @param {string|null} resourceType - Resource type to validate
+ * @returns {Object} Validation result
+ */
+const validateResourceType = (resourceType) => {
+  if (!resourceType || typeof resourceType !== 'string') {
+    logError('[dataCleanupService] Invalid resourceType:', resourceType);
+    return { valid: false, message: 'Invalid resource type' };
+  }
+  return { valid: true, message: 'Valid resource type' };
+};
+
+/**
+ * DataCleanupService class for managing data cleanup operations
+ * This service provides methods to analyze, apply, and reject data cleanup changes
+ */
 class DataCleanupService {
+  /**
+   * Checks if the cleanup API endpoints are available
+   * @returns {Promise<boolean>} True if API is available, false otherwise
+   */
   async checkApiAvailability() {
     try {
       logDebug(`[dataCleanupService] Checking if cleanup API endpoints are available`);
       
-      // First check if the health endpoint exists
       try {
-        const response = await apiClient.get(
-          API_ENDPOINTS.health,
-          { description: 'Check Cleanup API Health' }
-        );
+        const response = await apiClient.get(DATA_CLEANUP_API.health);
         
         if (response?.data?.available) {
           logDebug(`[dataCleanupService] Cleanup API endpoints are available`);
@@ -48,91 +112,109 @@ class DataCleanupService {
     }
   }
 
+  /**
+   * Analyze data for a specific resource type to find potential cleanup changes
+   * @param {string} resourceType - Type of resource to analyze (e.g., 'restaurants', 'dishes')
+   * @returns {Promise<Object>} Formatted response with success, message, and data fields
+   */
   async analyzeData(resourceType) {
     try {
+      const resourceTypeValidation = validateResourceType(resourceType);
+      if (!resourceTypeValidation.valid) {
+        return formatResponse(false, [], resourceTypeValidation.message);
+      }
+      
       const isApiAvailable = await this.checkApiAvailability();
       if (!isApiAvailable) {
         logWarn(`[dataCleanupService] Data cleanup API is not available for resource: ${resourceType}`);
-        // Return a mock response with no changes when API is not available
-        return [];
+        
+        // Return mock data only if mock mode is enabled
+        if (ENABLE_MOCK_MODE) {
+          const mockChanges = this.getMockChanges(resourceType);
+          return formatResponse(true, mockChanges, `Using mock data for ${resourceType}`);
+        }
+        
+        return formatResponse(true, [], 'API not available, no changes detected');
       }
       
       logDebug(`[dataCleanupService] Analyzing data for ${resourceType}`);
       
       try {
-        const endpoint = API_ENDPOINTS.analyze(resourceType);
-        const response = await apiClient.get(
-          endpoint,
-          { description: `Analyze ${resourceType} Data` }
-        );
+        const endpoint = DATA_CLEANUP_API.analyze(resourceType);
+        const response = await apiClient.get(endpoint);
         
         logDebug(`[dataCleanupService] Received analysis for ${resourceType}:`, response?.data?.changes?.length || 0, "changes");
         
         // The backend should return { success: true, changes: [] }
         // Ensure 'changes' array exists and is returned.
         if (response?.data?.changes && Array.isArray(response.data.changes)) {
-          return this.formatChanges(response.data.changes, resourceType);
+          const formattedChanges = this.formatChanges(response.data.changes, resourceType);
+          return formatResponse(
+            true,
+            formattedChanges,
+            `Found ${formattedChanges.length} potential changes for ${resourceType}`
+          );
         } else {
           logWarn(`[dataCleanupService] API returned unexpected response structure for ${resourceType}. Expected 'changes' array.`, response);
-          return []; // Return empty array on unexpected structure
+          return formatResponse(false, [], `API returned unexpected response format for ${resourceType}`);
         }
       } catch (error) {
         // If the endpoint doesn't exist (404), log a warning and return empty array
         if (error.response?.status === 404) {
           logWarn(`[dataCleanupService] Cleanup analyze endpoint not found for ${resourceType}. Feature may not be implemented.`);
-          return [];
+          return formatResponse(true, [], `Cleanup analysis not implemented for ${resourceType}`);
         }
-        // For other errors, rethrow
-        throw error;
+        // For other errors, format error response
+        return formatErrorResponse(error, error.response?.status || 500, { resourceType });
       }
     } catch (error) {
       logError(`[dataCleanupService] Error analyzing data for ${resourceType}: ${error.message}`, { error, resourceType });
-      // Return empty array instead of throwing to prevent UI errors
-      return [];
+      return formatErrorResponse(error, 500, { resourceType });
     }
   }
 
+  /**
+   * Process and apply approved changes to the data
+   * @param {string} resourceType - Type of resource being changed
+   * @param {Array} approvedChanges - Array of approved change objects
+   * @param {Object} options - Additional options for processing
+   * @returns {Promise<Object>} Result of the operation
+   */
   async applyChanges(resourceType, approvedChanges, options = {}) {
-    // approvedChanges should be an array of full change objects from the modal
+    const context = `dataCleanupService.applyChanges(${resourceType})`;
     try {
-      console.log('[dataCleanupService] applyChanges called with:', {
-        resourceType,
+      logDebug(`[${context}] Called with:`, {
+        resourceTypeProvided: Boolean(resourceType),
         approvedChangesLength: approvedChanges?.length,
         firstChangeId: approvedChanges?.[0]?.changeId,
         options
       });
       
-      // Validate input
-      if (!approvedChanges) {
-        logError('[dataCleanupService] approvedChanges is undefined or null');
-        return { success: false, message: 'No changes provided to apply', data: [] };
+      // Validate resource type
+      const resourceTypeValidation = validateResourceType(resourceType);
+      if (!resourceTypeValidation.valid) {
+        return formatResponse(false, [], resourceTypeValidation.message);
       }
       
-      if (!Array.isArray(approvedChanges)) {
-        logError('[dataCleanupService] approvedChanges is not an array:', approvedChanges);
-        return { success: false, message: 'Invalid changes format: expected an array', data: [] };
+      // Validate changes
+      const changesValidation = validateChanges(approvedChanges, context);
+      if (!changesValidation.valid) {
+        return formatResponse(false, [], changesValidation.message);
       }
       
-      if (approvedChanges.length === 0) {
-        logWarn('[dataCleanupService] Empty array of changes provided');
-        return { success: true, message: 'No changes to apply', data: [] };
-      }
-      
-      // Validate resourceType
-      if (!resourceType || typeof resourceType !== 'string') {
-        logError('[dataCleanupService] Invalid resourceType:', resourceType);
-        return { success: false, message: 'Invalid resource type', data: [] };
+      if (changesValidation.isEmpty) {
+        return formatResponse(true, [], 'No changes to apply');
       }
       
       const isApiAvailable = await this.checkApiAvailability();
-      console.log('[dataCleanupService] API availability check result:', isApiAvailable);
+      logDebug(`[${context}] API availability check result:`, isApiAvailable);
       
       if (!isApiAvailable) {
-        logWarn(`[dataCleanupService] Cannot apply changes - API is not available for resource: ${resourceType}`);
-        return { success: false, message: 'Data cleanup API is not available', data: [] };
+        logWarn(`[${context}] Cannot apply changes - API is not available for resource: ${resourceType}`);
+        return formatResponse(false, [], 'Data cleanup API is not available');
       }
       
-      logDebug(`[dataCleanupService] Applying ${approvedChanges.length} changes for ${resourceType}`, { approvedChanges, options });
+      logDebug(`[${context}] Applying ${approvedChanges.length} changes for ${resourceType}`, options);
       
       // Verify each change has the minimum required properties
       const invalidChanges = approvedChanges.filter(change => 
@@ -140,23 +222,23 @@ class DataCleanupService {
       );
       
       if (invalidChanges.length > 0) {
-        logError('[dataCleanupService] Some changes are missing required properties:', invalidChanges);
-        return { 
-          success: false, 
-          message: `${invalidChanges.length} changes are missing required properties`,
-          data: []
-        };
+        logError(`[${context}] Some changes are missing required properties:`, invalidChanges);
+        return formatResponse(
+          false,
+          [],
+          `${invalidChanges.length} changes are missing required properties`
+        );
       }
       
       try {
-        const endpoint = API_ENDPOINTS.apply(resourceType);
+        const endpoint = DATA_CLEANUP_API.apply(resourceType);
         // Extract changeIds from the change objects
         const changeIds = approvedChanges.map(change => change.changeId);
         const payload = { changeIds };
         
         // Log what we're sending to help with debugging
-        console.log(`[dataCleanupService] Sending payload to ${endpoint}:`, JSON.stringify(payload));
-        console.log('[dataCleanupService] Change IDs being sent:', changeIds);
+        logDebug(`[${context}] Sending payload to ${endpoint}:`, JSON.stringify(payload));
+        logDebug(`[${context}] Change IDs being sent:`, changeIds);
         
         const response = await apiClient.post(
           endpoint,
@@ -167,13 +249,13 @@ class DataCleanupService {
         // Parse the response
         const result = response?.data || { success: false, message: 'No response from server', data: [] };
         
-        console.log(`[dataCleanupService] Server response for applying ${approvedChanges.length} changes:`, result);
+        logDebug(`[${context}] Server response for applying ${approvedChanges.length} changes:`, result);
         
         // Check if any non-display changes were actually applied
         const nonDisplayChanges = approvedChanges.filter(change => !change.displayOnly);
         const displayOnlyChanges = approvedChanges.filter(change => change.displayOnly);
         
-        console.log(`[dataCleanupService] Changes breakdown:`, {
+        logDebug(`[${context}] Changes breakdown:`, {
           total: approvedChanges.length,
           nonDisplayChanges: nonDisplayChanges.length,
           displayOnlyChanges: displayOnlyChanges.length
@@ -181,81 +263,84 @@ class DataCleanupService {
         
         // For display-only changes, consider the operation successful even if backend changes weren't applied
         if (nonDisplayChanges.length === 0 && displayOnlyChanges.length > 0) {
-          console.log('[dataCleanupService] All changes were display-only, marking as successful');
-          return { 
-            success: true,
-            message: `Successfully applied ${displayOnlyChanges.length} display-only changes`,
-            data: result.data || []
-          };
+          logDebug(`[${context}] All changes were display-only, marking as successful`);
+          return formatResponse(
+            true,
+            result.data || [],
+            `Successfully applied ${displayOnlyChanges.length} display-only changes`
+          );
         }
         
-        return { 
-          success: result.success,
-          message: result.message || `Processed ${approvedChanges.length} changes`,
-          data: result.data || []
-        };
+        return formatResponse(
+          result.success,
+          result.data || [],
+          result.message || `Processed ${approvedChanges.length} changes`
+        );
       } catch (error) {
-        console.error('[dataCleanupService] Error during API call:', error);
-        console.error('[dataCleanupService] Error response:', error.response?.data);
+        logError(`[${context}] Error during API call:`, error);
+        logError(`[${context}] Error response:`, error.response?.data);
         
         if (error.response?.status === 404) {
-          logWarn(`[dataCleanupService] Cleanup apply endpoint not found for ${resourceType}. Full error:`, error);
-          return { 
-            success: false, 
-            message: 'Data cleanup feature is not implemented on the server',
-            error: error.toString(),
-            data: []
-          };
+          logWarn(`[${context}] Cleanup apply endpoint not found for ${resourceType}.`);
+          return formatResponse(
+            false,
+            [],
+            'Data cleanup feature is not implemented on the server'
+          );
         }
         throw error;
       }
     } catch (error) {
-      logError(`[dataCleanupService] Error applying changes for ${resourceType}: ${error.message}`, { error, resourceType });
-      // Return a consistent error response
-      return { 
-        success: false, 
-        message: error.response?.data?.message || `Failed to apply changes: ${error.message}`,
-        error: error.toString(),
-        data: []
-      };
+      logError(`[${context}] Error applying changes: ${error.message}`, { error, resourceType });
+      return formatErrorResponse(
+        error,
+        error.response?.status || 500,
+        { resourceType, changeCount: approvedChanges?.length }
+      );
     }
   }
 
+  /**
+   * Process and reject changes that should not be applied
+   * @param {string} resourceType - Type of resource
+   * @param {Array} rejectedChanges - Array of change objects to reject
+   * @returns {Promise<Object>} Result of the operation
+   */
   async rejectChanges(resourceType, rejectedChanges) {
-    // rejectedChanges should be an array of full change objects from the modal
+    const context = `dataCleanupService.rejectChanges(${resourceType})`;
     try {
-      // Validate input
-      if (!rejectedChanges) {
-        logError('[dataCleanupService] rejectedChanges is undefined or null');
-        return { success: false, message: 'No changes provided to reject', data: [] };
+      // Validate resource type
+      const resourceTypeValidation = validateResourceType(resourceType);
+      if (!resourceTypeValidation.valid) {
+        return formatResponse(false, [], resourceTypeValidation.message);
       }
       
-      if (!Array.isArray(rejectedChanges)) {
-        logError('[dataCleanupService] rejectedChanges is not an array:', rejectedChanges);
-        return { success: false, message: 'Invalid changes format: expected an array', data: [] };
+      // Validate changes
+      const changesValidation = validateChanges(rejectedChanges, context);
+      if (!changesValidation.valid) {
+        return formatResponse(false, [], changesValidation.message);
       }
       
-      if (rejectedChanges.length === 0) {
-        logWarn('[dataCleanupService] Empty array of changes provided for rejection');
-        return { success: true, message: 'No changes to reject', data: [] };
+      if (changesValidation.isEmpty) {
+        return formatResponse(true, [], 'No changes to reject');
       }
     
       const isApiAvailable = await this.checkApiAvailability();
       if (!isApiAvailable) {
-        logWarn(`[dataCleanupService] Cannot reject changes - API is not available for resource: ${resourceType}`);
-        return { success: false, message: 'Data cleanup API is not available', data: [] };
+        logWarn(`[${context}] Cannot reject changes - API is not available for resource: ${resourceType}`);
+        return formatResponse(false, [], 'Data cleanup API is not available');
       }
       
-      logDebug(`[dataCleanupService] Rejecting ${rejectedChanges.length} changes for ${resourceType}`);
+      logDebug(`[${context}] Rejecting ${rejectedChanges.length} changes for ${resourceType}`);
       
       try {
-        const endpoint = API_ENDPOINTS.reject(resourceType);
+        const endpoint = DATA_CLEANUP_API.reject(resourceType);
         // Extract changeIds from the change objects
         const changeIds = rejectedChanges.map(change => change.changeId);
         const payload = { changeIds };
         
         // Log what we're sending to help with debugging
-        logDebug(`[dataCleanupService] Sending payload to ${endpoint}:`, JSON.stringify(payload));
+        logDebug(`[${context}] Sending payload to ${endpoint}:`, JSON.stringify(payload));
         
         const response = await apiClient.post(
           endpoint,
@@ -266,103 +351,160 @@ class DataCleanupService {
         // Parse the response
         const result = response?.data || { success: false, message: 'No response from server', data: [] };
         
-        logDebug(`[dataCleanupService] Server response for rejecting ${rejectedChanges.length} changes:`, result);
+        logDebug(`[${context}] Server response for rejecting ${rejectedChanges.length} changes:`, result);
         
-        return { 
-          success: result.success,
-          message: result.message || `Processed ${rejectedChanges.length} rejections`,
-          data: result.data || []
-        };
+        return formatResponse(
+          result.success,
+          result.data || [],
+          result.message || `Processed ${rejectedChanges.length} rejections`
+        );
       } catch (error) {
         if (error.response?.status === 404) {
-          logWarn(`[dataCleanupService] Cleanup reject endpoint not found for ${resourceType}.`);
-          return { 
-            success: false, 
-            message: 'Data cleanup feature is not implemented on the server',
-            data: []
-          };
+          logWarn(`[${context}] Cleanup reject endpoint not found for ${resourceType}.`);
+          return formatResponse(
+            false,
+            [],
+            'Data cleanup feature is not implemented on the server'
+          );
         }
         throw error;
       }
     } catch (error) {
-      logError(`[dataCleanupService] Error rejecting changes for ${resourceType}: ${error.message}`, { error, resourceType });
-      // Return a consistent error response
-      return { 
-        success: false, 
-        message: error.response?.data?.message || `Failed to reject changes: ${error.message}`,
-        error: error.toString(),
-        data: []
-      };
+      logError(`[${context}] Error rejecting changes: ${error.message}`, { error, resourceType });
+      return formatErrorResponse(
+        error,
+        error.response?.status || 500,
+        { resourceType, changeCount: rejectedChanges?.length }
+      );
     }
   }
 
-  // Helper function to format changes for the UI, ensuring consistent structure
-  // and generating necessary fields if missing (though backend should provide them now)
+  /**
+   * Helper function to format changes for the UI, ensuring consistent structure
+   * @param {Array} changes - Raw changes from API
+   * @param {string} resourceType - Type of resource
+   * @returns {Array} Formatted changes for UI display
+   */
   formatChanges(changes, resourceType = 'Unknown') {
+    const context = 'dataCleanupService.formatChanges';
+    
     if (!changes || !Array.isArray(changes)) {
-      logError('[dataCleanupService] Invalid changes data passed to formatChanges:', { changes });
+      logError(`[${context}] Invalid changes data passed:`, { changes });
       return [];
     }
     
-    logDebug(`[dataCleanupService] Formatting ${changes.length} changes for UI, resource: ${resourceType}`);
+    logDebug(`[${context}] Formatting ${changes.length} changes for UI, resource: ${resourceType}`);
     
     return changes.map((change, index) => {
       if (!change || typeof change !== 'object') {
-        logWarn(`[dataCleanupService] Invalid change item at index ${index}:`, change);
-        return {
-          changeId: `invalid-item-${index}`,
-          resourceId: 'unknown',
-          resourceType: resourceType,
-          title: 'Invalid Change Data',
-          category: 'Error',
-          field: 'unknown',
-          type: 'error',
-          currentValue: JSON.stringify(change),
-          proposedValue: 'Error in data',
-          impact: 'High',
-          confidence: 0
-        };
+        logWarn(`[${context}] Invalid change item at index ${index}:`, change);
+        return this.createErrorPlaceholderChange(index, resourceType, change);
       }
 
-      // Backend should provide a unique changeId. If not, generate one (less ideal).
-      const changeId = change.changeId || `${resourceType}-${change.resourceId || `idx-${index}`}-${change.field || 'field'}-${change.type || 'type'}`;
-      
-      const title = change.title || 
-        `${(change.type?.charAt(0).toUpperCase() + change.type?.slice(1)) || 'Update'} ${change.field || 'field'}`;
-      
-      const category = change.category || 
-        (change.type === 'trim' || change.type === 'titleCase' || change.type === 'toLowerCase' ? 'Text Formatting' : 
-         change.type === 'truncate' ? 'Content Length' :
-         change.type === 'prefixHttp' ? 'URL Formatting' :
-         change.type === 'formatUSPhone' ? 'Contact Information' :
-         'General');
-      
-      // Ensure currentValue and proposedValue are strings for display
-      const currentValueStr = typeof change.currentValue === 'string' 
-        ? change.currentValue 
-        : (change.currentValue === null || typeof change.currentValue === 'undefined') ? 'N/A' : String(change.currentValue);
-      
-      const proposedValueStr = typeof change.proposedValue === 'string'
-        ? change.proposedValue
-        : (change.proposedValue === null || typeof change.proposedValue === 'undefined') ? 'N/A' : String(change.proposedValue);
-      
-      return {
-        changeId: changeId, // Unique ID for the change suggestion itself
-        resourceId: change.resourceId, // ID of the resource (e.g., restaurant_id)
-        resourceType: change.resourceType || resourceType,
-        title: title,
-        category: category,
-        field: change.field || 'unknown',
-        type: change.type || 'unknown',
-        currentValue: currentValueStr,
-        proposedValue: proposedValueStr,
-        impact: change.impact || 'Data quality improvement',
-        confidence: typeof change.confidence === 'number' ? change.confidence : 0.7
-      };
+      return this.formatSingleChange(change, index, resourceType);
     });
   }
+  
+  /**
+   * Creates a placeholder change object for invalid change data
+   * @param {number} index - Index in the array
+   * @param {string} resourceType - Resource type
+   * @param {any} originalChange - The original invalid change
+   * @returns {Object} Formatted error placeholder
+   */
+  createErrorPlaceholderChange(index, resourceType, originalChange) {
+    return {
+      changeId: `invalid-item-${index}`,
+      resourceId: 'unknown',
+      resourceType: resourceType,
+      title: 'Invalid Change Data',
+      category: 'Error',
+      field: 'unknown',
+      type: 'error',
+      currentValue: JSON.stringify(originalChange),
+      proposedValue: 'Error in data',
+      impact: 'High',
+      confidence: 0
+    };
+  }
+  
+  /**
+   * Format a single change object for UI display
+   * @param {Object} change - Raw change from API
+   * @param {number} index - Index in the array
+   * @param {string} resourceType - Resource type
+   * @returns {Object} Formatted change
+   */
+  formatSingleChange(change, index, resourceType) {
+    // Backend should provide a unique changeId. If not, generate one.
+    const changeId = change.changeId || 
+      `${resourceType}-${change.resourceId || `idx-${index}`}-${change.field || 'field'}-${change.type || 'type'}`;
+    
+    const title = change.title || 
+      `${(change.type?.charAt(0).toUpperCase() + change.type?.slice(1)) || 'Update'} ${change.field || 'field'}`;
+    
+    const category = this.determineChangeCategory(change);
+    
+    // Ensure currentValue and proposedValue are strings for display
+    const currentValueStr = this.formatValueForDisplay(change.currentValue);
+    const proposedValueStr = this.formatValueForDisplay(change.proposedValue);
+    
+    return {
+      changeId: changeId,
+      resourceId: change.resourceId,
+      resourceType: change.resourceType || resourceType,
+      title: title,
+      category: category,
+      field: change.field || 'unknown',
+      type: change.type || 'unknown',
+      currentValue: currentValueStr,
+      proposedValue: proposedValueStr,
+      impact: change.impact || 'Data quality improvement',
+      confidence: typeof change.confidence === 'number' ? change.confidence : 0.7
+    };
+  }
+  
+  /**
+   * Determines the category of a change based on its type
+   * @param {Object} change - Change object
+   * @returns {string} Category label
+   */
+  determineChangeCategory(change) {
+    if (change.category) return change.category;
+    
+    if (change.type === 'trim' || change.type === 'titleCase' || change.type === 'toLowerCase') {
+      return 'Text Formatting';
+    } else if (change.type === 'truncate') {
+      return 'Content Length';
+    } else if (change.type === 'prefixHttp') {
+      return 'URL Formatting';
+    } else if (change.type === 'formatUSPhone') {
+      return 'Contact Information';
+    } else {
+      return 'General';
+    }
+  }
+  
+  /**
+   * Formats a value for display in the UI
+   * @param {any} value - Value to format
+   * @returns {string} Formatted string value
+   */
+  formatValueForDisplay(value) {
+    if (typeof value === 'string') {
+      return value;
+    } else if (value === null || typeof value === 'undefined') {
+      return 'N/A';
+    } else {
+      return String(value);
+    }
+  }
 
-  // Helper method to generate mock changes for demo purposes
+  /**
+   * Helper method to generate mock changes for demo purposes
+   * @param {string} resourceType - Type of resource
+   * @returns {Array} Array of mock changes
+   */
   getMockChanges(resourceType) {
     const mockChanges = [];
     if (resourceType === 'restaurants') {

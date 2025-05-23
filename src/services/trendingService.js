@@ -55,7 +55,7 @@ const getTrendingRestaurants = async (options = {}) => {
         const endpoint = `/trending/restaurants${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
         
         const data = await handleApiResponse(
-            () => apiClient.get(endpoint),
+            () => apiClient.get(endpoint, { params: queryParams }),
             'TrendingService GetRestaurants'
         );
         
@@ -96,7 +96,7 @@ const getTrendingDishes = async (options = {}) => {
         const endpoint = `/trending/dishes${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
         
         const data = await handleApiResponse(
-            () => apiClient.get(endpoint),
+            () => apiClient.get(endpoint, { params: queryParams }),
             'TrendingService GetDishes'
         );
         
@@ -146,7 +146,7 @@ const getTrendingLists = async (options = {}) => {
         const endpoint = `/trending/lists${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
         
         const data = await handleApiResponse(
-            () => apiClient.get(endpoint),
+            () => apiClient.get(endpoint, { params: queryParams }),
             'TrendingService GetLists'
         );
         

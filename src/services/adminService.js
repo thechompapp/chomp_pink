@@ -108,7 +108,7 @@ export const adminService = {
     };
     
     return handleApiResponse(
-      () => apiClient.get(`/admin/${endpoint}`, requestConfig),
+      () => apiClient.get(`/admin/${endpoint}`, undefined, requestConfig),
       `AdminService Get${endpoint}`
     );
   },

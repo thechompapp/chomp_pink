@@ -395,121 +395,7 @@ function useBulkAddProcessor(itemType = 'restaurants') {
       
       // Process each item
       for (let i = 0; i < initialItems.length; i++) {
-        const item = initialItems[i];
-        
-        try {
-          // Update status
-          initialItems[i].status = 'processing';
-          initialItems[i].message = 'Processing...';
-          setProcessedItems([...initialItems]);
-          
-          if (itemType === 'restaurants') {
-            // For restaurants, use real Google Places API for lookup
-            const searchQuery = `${item.name}, ${item.city_name}`;
-            logDebug(`[BulkAddProcessor] Looking up place: ${searchQuery}`);
-            
-            try {
-              // Get place ID from Google Places API
-              const placeResult = await placeService.getPlaceId(item.name, item.city_name);
-              logDebug(`[BulkAddProcessor] Place lookup result:`, placeResult);
-              
-              if (!placeResult || !placeResult.placeId) {
-                // No place found or error
-                initialItems[i].status = 'error';
-                initialItems[i].message = `Unable to find place: ${placeResult?.status || 'Unknown error'}`;
-                continue;
-              }
-              
-              // Get place details using the place ID
-              const placeDetailsResult = await placeService.getPlaceDetails(placeResult.placeId);
-              logDebug(`[BulkAddProcessor] Place details result:`, placeDetailsResult);
-              
-              if (!placeDetailsResult || !placeDetailsResult.details) {
-                // No place details found or error
-                initialItems[i].status = 'error';
-                initialItems[i].message = `Unable to get place details: ${placeDetailsResult?.status || 'Unknown error'}`;
-                continue;
-              }
-              
-              // Set the place ID on the item
-              initialItems[i].placeId = placeResult.placeId;
-              
-              // Process place details
-              const placeDetails = placeDetailsResult.details;
-              
-              // Create a properly formatted place details object for our processor
-              const formattedPlaceDetails = {
-                placeId: placeResult.placeId,
-                name: item.name,
-                formatted_address: placeDetails.address || '',
-                geometry: {
-                  location: {
-                    lat: placeDetails.latitude || 0,
-                    lng: placeDetails.longitude || 0
-                  }
-                },
-                address_components: [] // Will be populated from the address if available
-              };
-              
-              // Extract address components from the formatted address if available
-              if (placeDetails.address) {
-                // Simple address parsing - in a real implementation, you'd get this from the API
-                const addressParts = placeDetails.address.split(',').map(part => part.trim());
-                
-                // Try to extract street number and route
-                if (addressParts.length > 0) {
-                  const streetParts = addressParts[0].split(' ');
-                  const streetNumber = streetParts[0];
-                  const route = streetParts.slice(1).join(' ');
-                  
-                  formattedPlaceDetails.address_components.push(
-                    { long_name: streetNumber, short_name: streetNumber, types: ['street_number'] },
-                    { long_name: route, short_name: route, types: ['route'] }
-                  );
-                }
-                
-                // Try to extract city, state, and zip
-                if (addressParts.length > 1) {
-                  const cityPart = addressParts[1];
-                  formattedPlaceDetails.address_components.push(
-                    { long_name: cityPart, short_name: cityPart, types: ['locality', 'political'] }
-                  );
-                }
-                
-                if (addressParts.length > 2) {
-                  const stateParts = addressParts[2].split(' ');
-                  if (stateParts.length >= 2) {
-                    const state = stateParts[0];
-                    const zipcode = stateParts[1];
-                    
-                    formattedPlaceDetails.address_components.push(
-                      { long_name: state, short_name: state, types: ['administrative_area_level_1', 'political'] },
-                      { long_name: zipcode, short_name: zipcode, types: ['postal_code'] }
-                    );
-                  }
-                }
-              }
-              
-              // Process the place details
-              await processPlaceDetails(formattedPlaceDetails, i, initialItems);
-            } catch (error) {
-              logError(`[BulkAddProcessor] Error during place lookup:`, error);
-              initialItems[i].status = 'error';
-              initialItems[i].message = `Error during place lookup: ${error.message}`;
-            }
-          } else {
-            // For dishes or other item types
-            initialItems[i].status = 'ready';
-            initialItems[i].message = 'Ready for submission';
-          }
-        } catch (error) {
-          console.error(`[BulkAddProcessor] Error processing item ${i}:`, error);
-          initialItems[i].status = 'error';
-          initialItems[i].message = `Error: ${error.message}`;
-        }
-        
-        // Update items after each processing
-        setProcessedItems([...initialItems]);
+        await processBulkAddItem(initialItems[i], i, initialItems, itemType, placeService, processPlaceDetails, setProcessedItems);
       }
       
       console.log(`[BulkAddProcessor] Processing complete. Items:`, initialItems);
@@ -836,7 +722,107 @@ function useBulkAddProcessor(itemType = 'restaurants') {
     }
   }, [currentProcessingIndex, placeSelections, processedItems]);
   
-  // We already have a processPlaceDetails function defined earlier in the file
+  // Helper to process a single item in the bulk add flow
+  const processBulkAddItem = async (item, i, initialItems, itemType, placeService, processPlaceDetails, setProcessedItems) => {
+    try {
+      // Update status
+      initialItems[i].status = 'processing';
+      initialItems[i].message = 'Processing...';
+      setProcessedItems([...initialItems]);
+
+      if (itemType === 'restaurants') {
+        // For restaurants, use real Google Places API for lookup
+        const searchQuery = `${item.name}, ${item.city_name}`;
+        logDebug(`[BulkAddProcessor] Looking up place: ${searchQuery}`);
+
+        try {
+          // Get place ID from Google Places API
+          const placeResult = await placeService.getPlaceId(item.name, item.city_name);
+          logDebug(`[BulkAddProcessor] Place lookup result:`, placeResult);
+
+          if (!placeResult || !placeResult.placeId) {
+            // No place found or error
+            initialItems[i].status = 'error';
+            initialItems[i].message = `Unable to find place: ${placeResult?.status || 'Unknown error'}`;
+            return;
+          }
+
+          // Get place details using the place ID
+          const placeDetailsResult = await placeService.getPlaceDetails(placeResult.placeId);
+          logDebug(`[BulkAddProcessor] Place details result:`, placeDetailsResult);
+
+          if (!placeDetailsResult || !placeDetailsResult.details) {
+            // No place details found or error
+            initialItems[i].status = 'error';
+            initialItems[i].message = `Unable to get place details: ${placeDetailsResult?.status || 'Unknown error'}`;
+            return;
+          }
+
+          // Set the place ID on the item
+          initialItems[i].placeId = placeResult.placeId;
+
+          // Process place details
+          const placeDetails = placeDetailsResult.details;
+          const formattedPlaceDetails = {
+            placeId: placeResult.placeId,
+            name: item.name,
+            formatted_address: placeDetails.address || '',
+            geometry: {
+              location: {
+                lat: placeDetails.latitude || 0,
+                lng: placeDetails.longitude || 0
+              }
+            },
+            address_components: []
+          };
+
+          if (placeDetails.address) {
+            const addressParts = placeDetails.address.split(',').map(part => part.trim());
+            if (addressParts.length > 0) {
+              const streetParts = addressParts[0].split(' ');
+              const streetNumber = streetParts[0];
+              const route = streetParts.slice(1).join(' ');
+              formattedPlaceDetails.address_components.push(
+                { long_name: streetNumber, short_name: streetNumber, types: ['street_number'] },
+                { long_name: route, short_name: route, types: ['route'] }
+              );
+            }
+            if (addressParts.length > 1) {
+              const cityPart = addressParts[1];
+              formattedPlaceDetails.address_components.push(
+                { long_name: cityPart, short_name: cityPart, types: ['locality', 'political'] }
+              );
+            }
+            if (addressParts.length > 2) {
+              const stateParts = addressParts[2].split(' ');
+              if (stateParts.length >= 2) {
+                const state = stateParts[0];
+                const zipcode = stateParts[1];
+                formattedPlaceDetails.address_components.push(
+                  { long_name: state, short_name: state, types: ['administrative_area_level_1', 'political'] },
+                  { long_name: zipcode, short_name: zipcode, types: ['postal_code'] }
+                );
+              }
+            }
+          }
+          await processPlaceDetails(formattedPlaceDetails, i, initialItems);
+        } catch (error) {
+          logError(`[BulkAddProcessor] Error during place lookup:`, error);
+          initialItems[i].status = 'error';
+          initialItems[i].message = `Error during place lookup: ${error.message}`;
+        }
+      } else {
+        // For dishes or other item types
+        initialItems[i].status = 'ready';
+        initialItems[i].message = 'Ready for submission';
+      }
+    } catch (error) {
+      console.error(`[BulkAddProcessor] Error processing item ${i}:`, error);
+      initialItems[i].status = 'error';
+      initialItems[i].message = `Error: ${error.message}`;
+    }
+    setProcessedItems([...initialItems]);
+  };
 
   // Process the final submission of items
   const processSubmission = useCallback(async (items) => {

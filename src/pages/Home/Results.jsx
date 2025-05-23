@@ -75,7 +75,11 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
           query: searchQuery
         };
         
+        logDebug(`[Results] Fetching lists with params:`, params);
         const listApiResponse = await listService.getUserLists(params);
+        
+        // Log the response for debugging
+        logDebug(`[Results] List API response:`, listApiResponse);
         
         // Ensure we have a consistent structure
         if (listApiResponse && listApiResponse.data) {
@@ -115,7 +119,11 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
           hashtags 
         };
         
+        logDebug(`[Results] Fetching ${contentType} with params:`, params);
         const searchApiResponse = await searchService.search(params);
+        
+        // Log the response for debugging
+        logDebug(`[Results] Search API response for ${contentType}:`, searchApiResponse);
         
         // Extract data based on content type
         if (searchApiResponse) {
@@ -142,6 +150,16 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
         logWarn(`[Results] Unsupported contentType: ${contentType}`);
       }
       
+      // Ensure the responseData always has items array for consistency
+      if (!Array.isArray(responseData.items)) {
+        responseData.items = [];
+      }
+      
+      // Ensure the responseData always has a total value
+      if (typeof responseData.total !== 'number') {
+        responseData.total = 0;
+      }
+      
       return { 
         data: responseData, 
         currentPage: pageParam 
@@ -149,7 +167,14 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
     } 
     catch (error) {
       logError(`[Results] Error fetching ${contentType} page ${pageParam}:`, error);
-      throw error;
+      
+      // Return a structured error response rather than throwing
+      // This lets us display the error state gracefully in the UI
+      return {
+        data: responseData,
+        currentPage: pageParam,
+        error: error.message || 'Unknown error'
+      };
     }
   }, [contentType, searchQuery, cityId, boroughId, neighborhoodId, hashtags]);
 
@@ -223,27 +248,34 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
       logDebug('[Results getNextPageParam CALLED] LastPage:', lastPage);
       console.log('[Results getNextPageParam] LastPage:', lastPage, 'AllPages:', allPages); // Debug log
       
-      // Fix: Handle the correct response structure
-      // First check if we have a valid lastPage object
+      // Check if we have a valid lastPage object
       if (!lastPage || !lastPage.data) {
+        console.log('[Results getNextPageParam] No valid lastPage or data object');
         return undefined; // No more pages
       }
       
       // Extract the data from the response based on different possible formats
       const pageData = lastPage.data; // This is either {items: [], total: 0} or similar format
       
-      // Extract items directly from pageData structure for all possible formats
-      const items = Array.isArray(pageData.items) ? pageData.items : 
-                   (Array.isArray(pageData.data) ? pageData.data : 
-                    (Array.isArray(pageData.restaurants || pageData.dishes || pageData.lists) ? 
-                     (pageData.restaurants || pageData.dishes || pageData.lists) : []));
-      
-      if (!items || items.length === 0) {
-        console.warn('[Results getNextPageParam] No valid data array found:', pageData); // Debug log
+      // Extract items directly from pageData structure with better null checks
+      let items = [];
+      if (Array.isArray(pageData.items)) {
+        items = pageData.items;
+      } else if (Array.isArray(pageData.data)) {
+        items = pageData.data;
+      } else if (contentType === 'restaurants' && Array.isArray(pageData.restaurants)) {
+        items = pageData.restaurants;
+      } else if (contentType === 'dishes' && Array.isArray(pageData.dishes)) {
+        items = pageData.dishes;
+      } else if (contentType === 'lists' && Array.isArray(pageData.lists)) {
+        items = pageData.lists;
+      } else {
+        // If all attempts to find items fail, log the issue but don't throw an error
+        console.warn('[Results getNextPageParam] No valid data array found:', pageData);
         return undefined; // No more pages
       }
       
-      // Calculate total items based on all available formats
+      // Make the total calculation more robust with fallbacks
       const total = pageData.total || 
                    pageData.totalRestaurants || 
                    pageData.totalDishes || 
@@ -254,15 +286,30 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
       const currentPage = lastPage.currentPage || 1;
       let totalFetched = 0;
       
-      // Count total items fetched so far
-      for (const page of allPages) {
-        const pgData = page.data;
-        const pgItems = Array.isArray(pgData.items) ? pgData.items : 
-                       (Array.isArray(pgData.data) ? pgData.data : 
-                        (Array.isArray(pgData.restaurants || pgData.dishes || pgData.lists) ? 
-                         (pgData.restaurants || pgData.dishes || pgData.lists) : []));
-                         
-        totalFetched += pgItems.length;
+      // Count total items fetched so far with better error handling
+      try {
+        for (const page of allPages) {
+          if (!page || !page.data) continue;
+          const pgData = page.data;
+          
+          let pgItems = [];
+          if (Array.isArray(pgData.items)) {
+            pgItems = pgData.items;
+          } else if (Array.isArray(pgData.data)) {
+            pgItems = pgData.data;
+          } else if (contentType === 'restaurants' && Array.isArray(pgData.restaurants)) {
+            pgItems = pgData.restaurants;
+          } else if (contentType === 'dishes' && Array.isArray(pgData.dishes)) {
+            pgItems = pgData.dishes;
+          } else if (contentType === 'lists' && Array.isArray(pgData.lists)) {
+            pgItems = pgData.lists;
+          }
+          
+          totalFetched += pgItems.length;
+        }
+      } catch (error) {
+        logError('[Results getNextPageParam] Error calculating total fetched items:', error);
+        // Continue with what we have
       }
       
       console.log('[Results getNextPageParam] Calc:', { 
@@ -303,7 +350,7 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
       
       const pageData = page.data;
       
-      // Extract data based on content type
+      // Extract data using consistent extraction logic
       if (contentType === 'restaurants' && Array.isArray(pageData.restaurants)) {
         return pageData.restaurants;
       }
@@ -329,6 +376,7 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
         return pageData;
       }
       
+      // If we can't extract items, return empty array for this page
       return [];
     });
     
@@ -344,11 +392,28 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
 
   useEffect(() => {
     if (contentType === 'lists' && data?.pages) {
-      // Extract all lists from all pages
-      const allLists = data.pages.flatMap(page => page.items || []);
-      if (allLists.length > 0) {
-        logDebug(`[Results] Initializing follow store with ${allLists.length} lists from Home page`);
-        initializeFollowedLists(allLists);
+      try {
+        // Extract all lists from all pages with proper null checking
+        const allLists = data.pages.flatMap(page => {
+          if (!page || !page.data) return [];
+          
+          const pageData = page.data;
+          if (Array.isArray(pageData.lists)) {
+            return pageData.lists;
+          } else if (Array.isArray(pageData.items)) {
+            return pageData.items;
+          } else if (Array.isArray(pageData.data)) {
+            return pageData.data;
+          }
+          return [];
+        });
+        
+        if (allLists.length > 0) {
+          logDebug(`[Results] Initializing follow store with ${allLists.length} lists from Home page`);
+          initializeFollowedLists(allLists);
+        }
+      } catch (error) {
+        logError('[Results] Error initializing follow store:', error);
       }
     }
   }, [data?.pages, contentType, initializeFollowedLists]);
