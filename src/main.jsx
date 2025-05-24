@@ -1,21 +1,11 @@
 // src/main.jsx
 
-// Import the axios method fix first, before anything else
-import '@/services/axios-method-fix';
-
-// Also import the other fixes for additional protection
-import '@/services/monkey-patch-axios';
-import '@/services/axios-simple-fix';
-
-// Import the XHR fixer next
-import '@/services/axiosXhrFixer';
+// Import the unified axios fix module first, before anything else
+import '@/utils/axios-fix';
 
 import './utils/DevModeManager';
 import AuthManager from './utils/AuthManager';
 import offlineModeGuard from './utils/offlineModeGuard';
-
-// Import our patched axios early to ensure all API calls use it
-import '@/services/axios-init';
 
 // Initialize AuthManager early
 if (typeof window !== 'undefined' && !AuthManager.initialized) {

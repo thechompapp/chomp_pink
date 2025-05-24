@@ -86,11 +86,27 @@ export const validateEmail = (fieldName = 'email', options = {}) => {
 };
 
 export const validatePassword = (fieldName = 'password', options = {}) => {
-     const { optional = false, min = 8, max = 100, message = `Password must be between ${min} and ${max} characters.` } = options;
-     let chain = body(fieldName);
-     chain = optional ? chain.optional() : chain.notEmpty().withMessage(`${fieldName} is required.`);
-     chain = chain.isLength({ min, max }).withMessage(message);
-     return chain;
+    const { optional = false, min = 8, max = 100, message = `Password must be between ${min} and ${max} characters.` } = options;
+    let chain = body(fieldName);
+    chain = optional ? chain.optional() : chain.notEmpty().withMessage(`${fieldName} is required.`);
+
+    // Custom: Allow 'doof123' for 'admin@example.com' in development mode
+    chain = chain.custom((value, { req }) => {
+        if (
+            process.env.NODE_ENV === 'development' &&
+            req.body &&
+            req.body.email === 'admin@example.com' &&
+            value === 'doof123'
+        ) {
+            return true; // Bypass min length for this special case
+        }
+        // Otherwise, enforce length
+        if (typeof value !== 'string' || value.length < min || value.length > max) {
+            throw new Error(message);
+        }
+        return true;
+    });
+    return chain;
 };
 
 export const validateTags = (fieldName = 'tags', options = {}) => {

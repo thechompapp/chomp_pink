@@ -27,6 +27,9 @@ import trendingRoutes from './routes/trending.js';
 import neighborhoodRoutes from './routes/neighborhoods.js';
 import analyticsRoutes from './routes/analytics.js';
 
+// Import simplified routes for E2E testing
+import simplifiedRoutes from './routes/simplified-routes.js';
+
 import { optionalAuth } from './middleware/auth.js';
 import db from './db/index.js';
 import { errorHandlerMiddleware } from './utils/errorHandler.js';
@@ -192,6 +195,8 @@ class AppServer {
       { path: '/api/trending', router: trendingRoutes },
       { path: '/api/neighborhoods', router: neighborhoodRoutes },
       { path: '/api/analytics', router: analyticsRoutes },
+      // Add simplified routes for E2E testing
+      { path: '/api/e2e', router: simplifiedRoutes },
     ];
     
     // Register each route

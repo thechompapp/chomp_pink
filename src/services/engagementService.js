@@ -1,6 +1,7 @@
 /* src/services/engagementService.js */
 import apiClient from '@/services/apiClient.js';
 import { logWarn, logError, logDebug } from '@/utils/logger.js';
+import { handleApiResponse } from '@/utils/serviceHelpers.js';
 
 /**
  * Logs an engagement event to the backend.
@@ -42,11 +43,16 @@ const logEngagement = async ({ item_type, item_id, engagement_type }) => {
     // Since this is a fire-and-forget operation, we can use a simplified approach
     logDebug(`[engagementService] Logging engagement: ${engagement_type} for ${item_type} ${numericItemId}`);
     
-    // Fire and forget with error handling
-    apiClient.post('/api/engage', payload)
-        .catch(error => {
-            logError(`[engagementService] Failed to log engagement for ${item_type} ${numericItemId} (${engagement_type}):`, error);
-        });
+    // Use handleApiResponse for consistent error handling
+    handleApiResponse(
+        () => apiClient.post('/api/engage', payload),
+        'engagementService.logEngagement'
+    ).catch(result => {
+        // This is a fire-and-forget operation, so we just log errors but don't throw
+        if (!result.success) {
+            logError(`[engagementService] Failed to log engagement for ${item_type} ${numericItemId} (${engagement_type}):`, result.error);
+        }
+    });
 };
 
 export const engagementService = {

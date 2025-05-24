@@ -14,20 +14,19 @@
  */
 
 import axios from 'axios';
-import { patchGlobalAxios, patchAxiosInstance } from '@/services/axios-patch';
+import { patchGlobalAxios, patchAxiosInstance, applyXhrFixes } from '@/services/axios-fix';
 import * as config from '@/config';
 import { logDebug, logError, logWarn } from '@/utils/logger';
 import httpInterceptor from '@/services/httpInterceptor';
 import CacheManager from '@/utils/CacheManager';
 import ErrorHandler from '@/utils/ErrorHandler';
-import xhrFixer from '@/services/axiosXhrFixer';
 import mockApi from '@/services/mockApi';
 
-// Apply the patch to fix the TypeError: Cannot read properties of undefined (reading 'toUpperCase')
+// Apply the unified axios fixes to prevent the TypeError: Cannot read properties of undefined (reading 'toUpperCase')
 patchGlobalAxios(axios);
 
-// Apply the XHR fixer globally
-xhrFixer.applyGlobalXhrFixes();
+// Apply XHR-level fixes for browser environments
+applyXhrFixes();
 
 // Store reference to auth store to avoid circular dependency
 let authStoreRef = null;
@@ -304,8 +303,7 @@ Object.defineProperty(apiClient.defaults, 'adapter', {
   }
 });
 
-// Apply the XHR fixer to the apiClient instance
-xhrFixer.patchAxiosAdapter(apiClient);
+// The apiClient instance is already patched with our unified fixes
 
 // Force all requests to use our custom adapter to prevent the toUpperCase error
 apiClient.defaults.adapter = customAdapter;

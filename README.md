@@ -37,13 +37,84 @@ This project uses environment variables to manage configuration and sensitive in
 2. Add the necessary environment variables to the `.env` file, following the format `KEY=VALUE`.
 3. Ensure the `.env` file is included in the `.gitignore` to prevent it from being committed to version control.
 
-## Integration Testing
+## Testing
 
 ### Overview
 
-The Chomp application includes a comprehensive integration testing suite to ensure all components interact correctly, reduce errors, and improve overall application stability.
+The Chomp application includes a comprehensive testing suite to ensure all components interact correctly, reduce errors, and improve overall application stability. The testing suite is organized into different types of tests: E2E (end-to-end), integration, and unit tests.
 
 ### Test Suite Architecture
+
+The test suite is organized into the following structure:
+
+```
+tests/
+├── e2e/                  # End-to-end tests
+│   ├── api/              # API-focused E2E tests
+│   └── features/         # Feature-focused E2E tests
+├── integration/          # Integration tests
+├── unit/                 # Unit tests
+│   └── services/         # Service-specific unit tests
+├── setup/                # Test setup and configuration
+├── runners/              # Test runner scripts
+└── run-tests.js          # Main test runner
+```
+
+#### E2E Tests
+
+End-to-end tests verify the entire application stack, including frontend, backend, and database interactions. These tests use real API endpoints and a real database to ensure the validity of test results, without using mocks.
+
+#### Integration Tests
+
+Integration tests verify that multiple components work together correctly. These tests typically focus on a subset of the application.
+
+#### Unit Tests
+
+Unit tests verify that individual components (functions, classes, etc.) work correctly in isolation.
+
+### Running Tests
+
+The following npm scripts are available for running tests:
+
+```bash
+# Run all tests
+npm run test:all
+
+# Run all E2E tests
+npm run test:e2e
+
+# Run specific E2E test categories
+npm run test:e2e:api       # API-focused E2E tests
+npm run test:e2e:features  # Feature-focused E2E tests
+npm run test:e2e:auth      # Authentication-related E2E tests
+npm run test:e2e:lists     # List management E2E tests
+npm run test:e2e:restaurants # Restaurant-related E2E tests
+npm run test:e2e:dishes    # Dish-related E2E tests
+npm run test:e2e:search    # Search and filtering E2E tests
+npm run test:e2e:admin     # Admin panel E2E tests
+
+# Run unit tests
+npm run test:unit
+
+# Run a single test file
+npm run test:single <test-file-name>
+
+# Create a new test file
+npm run test:create <test-type> <test-name> [subtype]
+# Example: npm run test:create e2e auth-login features
+```
+
+### Creating New Tests
+
+To create a new test file with the correct structure, use the test creation script:
+
+```bash
+npm run test:create e2e auth-login features
+```
+
+This will create a new E2E feature test file with the correct structure and boilerplate code.
+
+### Legacy Integration Test Suite
 
 The integration test suite has evolved through multiple phases:
 

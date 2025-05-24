@@ -1,203 +1,175 @@
 // File: src/services/listService.js
-import apiClient, { get, post, put, del } from './apiClient';
+import apiClient from './apiClient';
 import logger from '../utils/logger'; // frontend logger
 import useFollowStore from '../stores/useFollowStore'; // Changed to default import
 import { logEngagement } from '../utils/logEngagement';
 import { parseApiError } from '../utils/parseApiError';
+import { handleApiResponse, createQueryParams, validateId } from '@/utils/serviceHelpers';
 // import { MOCK_LIST_DETAIL, MOCK_USER_LISTS, MOCK_LIST_ITEMS } from '../utils/mockData'; // For testing
 
 const listService = {
   // Fetch all lists with optional query parameters
   // Params can include: userId, cityId, page, limit, sortBy, sortOrder, listType, isPublic, isFollowedByUserId
   getLists: async function(params = {}) {
-    try {
-      // Log the params for debugging
-      logger.debug('[listService] getLists called with params:', JSON.stringify(params));
-      
-      // Build params as a plain object
-      const paramsObj = {};
-      if (params.userId) paramsObj.userId = typeof params.userId === 'object' ? (params.userId.id || params.userId.userId || '') : String(params.userId);
-      if (params.cityId) paramsObj.cityId = String(params.cityId);
-      if (params.page) paramsObj.page = String(params.page);
-      if (params.limit) paramsObj.limit = String(params.limit);
-      if (params.sortBy) paramsObj.sortBy = String(params.sortBy);
-      if (params.sortOrder) paramsObj.sortOrder = String(params.sortOrder);
-      if (params.listType) paramsObj.listType = String(params.listType);
-      if (typeof params.isPublic !== 'undefined') paramsObj.isPublic = String(params.isPublic);
-      if (params.isFollowedByUserId) paramsObj.isFollowedByUserId = typeof params.isFollowedByUserId === 'object' ? (params.isFollowedByUserId.id || params.isFollowedByUserId.userId || '') : String(params.isFollowedByUserId);
-      if (params.searchTerm) paramsObj.searchTerm = String(params.searchTerm);
-      if (params.excludeUserId) paramsObj.excludeUserId = String(params.excludeUserId);
+    logger.debug('[listService] getLists called with params:', JSON.stringify(params));
+    
+    // Build params as a plain object
+    const paramsObj = {};
+    if (params.userId) paramsObj.userId = typeof params.userId === 'object' ? (params.userId.id || params.userId.userId || '') : String(params.userId);
+    if (params.cityId) paramsObj.cityId = String(params.cityId);
+    if (params.page) paramsObj.page = String(params.page);
+    if (params.limit) paramsObj.limit = String(params.limit);
+    if (params.sortBy) paramsObj.sortBy = String(params.sortBy);
+    if (params.sortOrder) paramsObj.sortOrder = String(params.sortOrder);
+    if (params.listType) paramsObj.listType = String(params.listType);
+    if (typeof params.isPublic !== 'undefined') paramsObj.isPublic = String(params.isPublic);
+    if (params.isFollowedByUserId) paramsObj.isFollowedByUserId = typeof params.isFollowedByUserId === 'object' ? (params.isFollowedByUserId.id || params.isFollowedByUserId.userId || '') : String(params.isFollowedByUserId);
+    if (params.searchTerm) paramsObj.searchTerm = String(params.searchTerm);
+    if (params.excludeUserId) paramsObj.excludeUserId = String(params.excludeUserId);
 
-      // Log the final query string for debugging
-      const queryString = JSON.stringify(paramsObj);
-      logger.debug(`[listService] Making request to /lists?${queryString}`);
-
-      logger.debug(`[listService] Calling get function with params:`, paramsObj);
-      const response = await get(`/lists`, paramsObj);
-      
-      // Log the response for debugging
-      logger.debug(`[listService] Response received:`, response);
-      
-      // Handle the response format - the get function may return the data directly
-      const responseData = response.data ? response : { data: response };
-      logger.debug(`[listService] Normalized response data:`, responseData);
-      
-      const result = { 
-        success: true, 
-        data: responseData.data.data || responseData.data, 
-        pagination: responseData.data.pagination 
-      };
-      
-      logger.debug(`[listService] Final result:`, result);
-      return result;
-    } catch (error) {
-      logger.error('Error fetching lists:', error);
-      return { success: false, error: parseApiError(error), message: 'Failed to fetch lists.' };
-    }
+    logger.debug(`[listService] Making request to /lists with params:`, paramsObj);
+    
+    const result = await handleApiResponse(
+      () => apiClient.get('/lists', { params: paramsObj }),
+      'ListService.getLists'
+    );
+    
+    // Format the response to maintain backward compatibility
+    return {
+      success: result.success,
+      data: result.data,
+      pagination: result.pagination || null,
+      message: result.message,
+      error: result.error
+    };
   },
 
   // Fetch a specific list by its ID
   getList: async function(id, userId = null) {
-    try {
-      let url = `/lists/${id}`;
-      if (userId) {
-        url += `?userId=${userId}`;
-      }
-      const response = await apiClient.get(url);
-      // logger.debug(`getList response for ID ${id}:`, response.data);
-      return { success: true, data: response.data.data || response.data };
-    } catch (error) {
-      logger.error('Error fetching list:', id, error);
-      return { success: false, error: parseApiError(error), message: `Failed to fetch list: ${id}` };
-    }
+    const safeId = validateId(id, 'listId');
+    const params = userId ? { userId } : {};
+    
+    return handleApiResponse(
+      () => apiClient.get(`/lists/${safeId}`, { params }),
+      'ListService.getList'
+    );
   },
 
   // Create a new list
   createList: async function(listData) {
-    try {
-      // logger.debug('Attempting to create list with data:', listData);
-      const response = await apiClient.post('/lists', listData);
-      // logger.info('List created successfully:', response.data);
-      return { success: true, data: response.data.data || response.data, message: response.data.message || 'List created successfully.' };
-    } catch (error) {
-      logger.error('Error creating list:', listData, error);
-      return { success: false, error: parseApiError(error), message: 'Failed to create list.' };
-    }
+    return handleApiResponse(
+      () => apiClient.post('/lists', listData),
+      'ListService.createList'
+    );
   },
 
   // Update an existing list by its ID
   updateList: async function(id, listData) {
-    try {
-      // logger.debug(`Attempting to update list ${id} with data:`, listData);
-      const response = await apiClient.put(`/lists/${id}`, listData);
-      // logger.info(`List ${id} updated successfully:`, response.data);
-      return { success: true, data: response.data.data || response.data, message: response.data.message || 'List updated successfully.' };
-    } catch (error) {
-      logger.error('Error updating list:', id, listData, error);
-      return { success: false, error: parseApiError(error), message: `Failed to update list: ${id}` };
-    }
+    const safeId = validateId(id, 'listId');
+    
+    return handleApiResponse(
+      () => apiClient.put(`/lists/${safeId}`, listData),
+      'ListService.updateList'
+    );
   },
 
   // Delete a list by its ID
   deleteList: async function(id) {
-    try {
-      // logger.debug(`Attempting to delete list ${id}`);
-      const response = await apiClient.delete(`/lists/${id}`);
-      // logger.info(`List ${id} deleted successfully:`, response.data);
-      return { success: true, message: response.data.message || 'List deleted successfully.' };
-    } catch (error) {
-      logger.error('Error deleting list:', id, error);
-      return { success: false, error: parseApiError(error), message: `Failed to delete list: ${id}` };
-    }
+    const safeId = validateId(id, 'listId');
+    
+    return handleApiResponse(
+      () => apiClient.delete(`/lists/${safeId}`),
+      'ListService.deleteList'
+    );
   },
 
   // Fetch items within a specific list
   getListItems: async function(listId, params = {}) {
-    try {
-      // For getListItems, searchLists, getListSuggestions, getFollowedLists, getFeaturedLists, getListsContainingDish, getListsContainingRestaurant, getMultipleListSummary, getRecentListsForUser, getListActivity, getMultipleListItemsDetails, getCollaboratingLists, use plain objects for params
-      const response = await apiClient.get(`/lists/${listId}/items`, { params });
-      // logger.debug(`getListItems response for list ID ${listId}:`, response.data);
-      return { 
-        success: true, 
-        data: response.data.data || response.data, 
-        pagination: response.data.pagination 
-      };
-    } catch (error) {
-      logger.error('Error fetching items for list:', listId, error);
-      return { success: false, error: parseApiError(error), message: `Failed to fetch items for list: ${listId}` };
-    }
+    const safeId = validateId(listId, 'listId');
+    
+    const result = await handleApiResponse(
+      () => apiClient.get(`/lists/${safeId}/items`, { params }),
+      'ListService.getListItems'
+    );
+    
+    // Format the response to maintain backward compatibility
+    return {
+      success: result.success,
+      data: result.data,
+      pagination: result.pagination || null,
+      message: result.message,
+      error: result.error
+    };
   },
 
   // Add an item to a specific list
   // itemData can be { dish_id, restaurant_id, notes, custom_item_name, custom_item_description, type: 'dish' | 'restaurant' | 'custom' }
   addItemToList: async function(listId, itemData) {
-    try {
-      // logger.debug(`Attempting to add item to list ${listId}:`, itemData);
-      const response = await apiClient.post(`/lists/${listId}/items`, itemData);
-      // logger.info(`Item added to list ${listId} successfully:`, response.data);
-      return { success: true, data: response.data.data || response.data, message: response.data.message || 'Item added successfully.' };
-    } catch (error) {
-      logger.error('Error adding item to list:', listId, itemData, error);
-      return { success: false, error: parseApiError(error), message: 'Failed to add item to list.' };
-    }
+    const safeId = validateId(listId, 'listId');
+    
+    return handleApiResponse(
+      () => apiClient.post(`/lists/${safeId}/items`, itemData),
+      'ListService.addItemToList'
+    );
   },
 
   // Update an item within a list
   updateListItem: async function(listId, itemId, itemData) {
-    try {
-      // logger.debug(`Attempting to update item ${itemId} in list ${listId}:`, itemData);
-      const response = await apiClient.put(`/lists/${listId}/items/${itemId}`, itemData);
-      // logger.info(`Item ${itemId} in list ${listId} updated successfully:`, response.data);
-      return { success: true, data: response.data.data || response.data, message: response.data.message || 'Item updated successfully.' };
-    } catch (error) {
-      logger.error('Error updating item in list:', listId, itemId, itemData, error);
-      return { success: false, error: parseApiError(error), message: `Failed to update item: ${itemId} in list.` };
-    }
+    const safeListId = validateId(listId, 'listId');
+    const safeItemId = validateId(itemId, 'itemId');
+    
+    return handleApiResponse(
+      () => apiClient.put(`/lists/${safeListId}/items/${safeItemId}`, itemData),
+      'ListService.updateListItem'
+    );
   },
 
   // Remove an item from a list
   deleteListItem: async function(listId, itemId) {
-    try {
-      // logger.debug(`Attempting to delete item ${itemId} from list ${listId}`);
-      const response = await apiClient.delete(`/lists/${listId}/items/${itemId}`);
-      // logger.info(`Item ${itemId} deleted from list ${listId} successfully:`, response.data);
-      return { success: true, message: response.data.message || 'Item removed successfully.' };
-    } catch (error) {
-      logger.error('Error deleting item from list:', listId, itemId, error);
-      return { success: false, error: parseApiError(error), message: `Failed to remove item: ${itemId} from list.` };
-    }
+    const safeListId = validateId(listId, 'listId');
+    const safeItemId = validateId(itemId, 'itemId');
+    
+    return handleApiResponse(
+      () => apiClient.delete(`/lists/${safeListId}/items/${safeItemId}`),
+      'ListService.deleteListItem'
+    );
   },
 
   // Search lists by term and type (e.g., 'dish', 'restaurant', 'all')
   // `options` can include { page, limit, userId, cityId, includePrivate }
   searchLists: async function(searchTerm, searchType = 'all', { page = 1, limit = 20, userId = null, cityId = null, includePrivate = false } = {}) {
-    try {
-      const params = { term: searchTerm, type: searchType, page, limit };
-      if (userId) params.userId = userId;
-      if (cityId) params.cityId = cityId;
-      if (includePrivate) params.includePrivate = true;
-      logger.debug(`Searching lists with term: "${searchTerm}", type: "${searchType}", params:`, params);
-      const response = await apiClient.get(`/lists/search`, { params });
-      logger.debug('Search lists response:', response.data);
-      return { success: true, data: response.data.data || response.data, pagination: response.data.pagination };
-    } catch (error) {
-      logger.error('Error searching lists:', error);
-      return { success: false, error: parseApiError(error), message: `Failed to search lists: ${searchTerm}` };
-    }
+    const params = { term: searchTerm, type: searchType, page, limit };
+    if (userId) params.userId = userId;
+    if (cityId) params.cityId = cityId;
+    if (includePrivate) params.includePrivate = true;
+    
+    logger.debug(`Searching lists with term: "${searchTerm}", type: "${searchType}", params:`, params);
+    
+    const result = await handleApiResponse(
+      () => apiClient.get('/lists/search', { params }),
+      'ListService.searchLists'
+    );
+    
+    // Format the response to maintain backward compatibility
+    return {
+      success: result.success,
+      data: result.data,
+      pagination: result.pagination || null,
+      message: result.message,
+      error: result.error
+    };
   },
 
   // Method to get list suggestions for autocomplete or quick search
   getListSuggestions: async function(query, { limit = 5, listType = null, forUserId = null } = {}) {
-    try {
-      const params = { q: query, limit };
-      if (listType) params.listType = listType;
-      if (forUserId) params.userId = forUserId;
-      const response = await apiClient.get(`/lists/suggestions`, { params });
-      return { success: true, data: response.data.data || response.data };
-    } catch (error) {
-      logger.error(`Error fetching list suggestions for query "${query}":`, error);
-      return { success: false, error: parseApiError(error), message: `Failed to fetch list suggestions for "${query}"` };
-    }
+    const params = { q: query, limit };
+    if (listType) params.listType = listType;
+    if (forUserId) params.userId = forUserId;
+    
+    return handleApiResponse(
+      () => apiClient.get('/lists/suggestions', { params }),
+      'ListService.getListSuggestions'
+    );
   },
 
   // Fetch lists created by a specific user

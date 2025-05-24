@@ -3,19 +3,19 @@
  * Authentication Context
  * 
  * Provides a unified interface for authentication state and operations:
- * - User authentication state
+ * - User authentication state management
  * - Login/logout/register operations
- * - Token management
+ * - Token management and refresh
  * - Loading and error states
  * - Offline mode support
+ * - Admin/superuser role management
  */
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import authService from '@/services/auth/authService';
-import tokenManager from '@/services/auth/tokenManager';
+import PropTypes from 'prop-types';
+import authService from '@/services/authService';
 import { logDebug, logError, logInfo } from '@/utils/logger';
-import { AUTH_ERROR_TYPES } from '@/utils/auth/errorHandler';
 
-// Create context
+// Context creation
 const AuthContext = createContext(null);
 
 /**
@@ -30,12 +30,18 @@ export const AuthProvider = ({ children }) => {
   
   // Admin/superuser state
   const [isSuperuser, setIsSuperuser] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [roles, setRoles] = useState([]);
+  const [permissions, setPermissions] = useState([]);
   const [superuserStatusReady, setSuperuserStatusReady] = useState(false);
   
   // Offline mode state
   const [isOffline, setIsOffline] = useState(
     localStorage.getItem('offline_mode') === 'true'
   );
+  
+  // Refresh token state
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   /**
    * Check authentication status
@@ -48,93 +54,153 @@ export const AuthProvider = ({ children }) => {
       // Skip check if user explicitly logged out
       const userExplicitlyLoggedOut = localStorage.getItem('user_explicitly_logged_out') === 'true';
       if (userExplicitlyLoggedOut && !forceCheck) {
+        logDebug('[AuthContext] User explicitly logged out, skipping auth check');
         setIsAuthenticated(false);
         setUser(null);
         setIsLoading(false);
-        return;
+        return false;
       }
       
-      // Check if we have valid tokens
-      const hasValidTokens = tokenManager.hasValidTokens();
-      if (!hasValidTokens) {
-        setIsAuthenticated(false);
-        setUser(null);
-        setIsLoading(false);
-        return;
-      }
-      
-      // Check development mode override
-      const devModeBypass = process.env.NODE_ENV === 'development' && 
-                           localStorage.getItem('bypass_auth_check') === 'true';
-      
-      if (devModeBypass) {
+      // Development mode bypass
+      if (process.env.NODE_ENV === 'development' && localStorage.getItem('bypass_auth_check') === 'true') {
         logInfo('[AuthContext] Using development mode auth bypass');
-        
-        // Set authenticated state with admin user
-        setIsAuthenticated(true);
-        setUser({
+        const devUser = {
           id: 1,
           email: 'admin@example.com',
           name: 'Admin User',
           account_type: 'superuser',
-          permissions: ['admin', 'create', 'edit', 'delete']
-        });
+          role: 'admin',
+          permissions: ['admin', 'create', 'edit', 'delete', 'read']
+        };
         
-        // Set superuser status
-        setIsSuperuser(true);
-        setSuperuserStatusReady(true);
-        
-        setIsLoading(false);
-        return;
-      }
-      
-      // Fetch current user
-      const currentUser = await authService.getCurrentUser();
-      
-      if (currentUser) {
-        setUser(currentUser);
+        setUser(devUser);
         setIsAuthenticated(true);
-        
-        // Check superuser status
-        const userIsSuperuser = 
-          currentUser.account_type === 'superuser' || 
-          currentUser.role === 'admin';
-        
-        setIsSuperuser(userIsSuperuser);
+        setIsSuperuser(true);
+        setIsAdmin(true);
+        setRoles(['admin', 'superuser']);
+        setPermissions(devUser.permissions);
         setSuperuserStatusReady(true);
+        setIsLoading(false);
         
-        // Clear explicit logout flag
-        localStorage.removeItem('user_explicitly_logged_out');
-      } else {
-        setUser(null);
-        setIsAuthenticated(false);
-        setIsSuperuser(false);
-        setSuperuserStatusReady(true);
+        // Store user in localStorage for persistence
+        localStorage.setItem('current_user', JSON.stringify(devUser));
+        return true;
       }
+      
+      // Check if we have a valid token
+      const token = localStorage.getItem('token');
+      if (!token) {
+        logDebug('[AuthContext] No auth token found');
+        setIsAuthenticated(false);
+        setUser(null);
+        setIsLoading(false);
+        return false;
+      }
+      
+      try {
+        // Try to get current user from API
+        const currentUser = await authService.getCurrentUser();
+        
+        if (currentUser) {
+          // Update user state
+          setUser(currentUser);
+          setIsAuthenticated(true);
+          
+          // Update role-based states
+          updateUserRolesAndPermissions(currentUser);
+          
+          // Store user in localStorage for persistence
+          localStorage.setItem('current_user', JSON.stringify(currentUser));
+          
+          logDebug('[AuthContext] User authenticated:', currentUser.email);
+          setIsLoading(false);
+          return true;
+        }
+      } catch (error) {
+        logError('[AuthContext] Error fetching current user:', error);
+        // If token is invalid, clear it
+        if (error.response && error.response.status === 401) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('current_user');
+        }
+        setIsAuthenticated(false);
+        setUser(null);
+        setIsLoading(false);
+        return false;
+      }
+      
+      // If we get here, authentication failed
+      setIsAuthenticated(false);
+      setUser(null);
+      setIsLoading(false);
+      return false;
+      
     } catch (error) {
       logError('[AuthContext] Error checking auth status:', error);
-      
-      // Handle token errors by clearing tokens
-      if (error.type === AUTH_ERROR_TYPES.TOKEN_ERROR) {
-        tokenManager.clearTokens();
-        setIsAuthenticated(false);
-        setUser(null);
-      }
-      
-      // Handle offline mode
-      if (error.type === AUTH_ERROR_TYPES.OFFLINE_ERROR || error.type === AUTH_ERROR_TYPES.NETWORK_ERROR) {
-        setIsOffline(true);
-        
-        // Keep existing auth state in offline mode
-        if (tokenManager.hasValidTokens()) {
-          setIsAuthenticated(true);
-        }
-      } else {
-        setError(error);
-      }
-    } finally {
+      setError({
+        code: 'AUTH_CHECK_ERROR',
+        message: 'Failed to check authentication status',
+        details: error.message,
+        timestamp: Date.now()
+      });
+      setIsAuthenticated(false);
+      setUser(null);
       setIsLoading(false);
+      return false;
     }
+  }, []);
+  
+  /**
+   * Update user roles and permissions
+   */
+  const updateUserRolesAndPermissions = useCallback((user) => {
+    if (!user) return;
+    
+    const userRoles = [];
+    const userPermissions = [];
+    
+    // Determine roles
+    if (user.role) userRoles.push(user.role);
+    if (user.account_type) userRoles.push(user.account_type);
+    
+    // Add admin role if applicable
+    const isAdminUser = user.role === 'admin' || user.account_type === 'admin' || 
+                       user.role === 'superuser' || user.account_type === 'superuser';
+    
+    if (isAdminUser) {
+      userRoles.push('admin');
+      userPermissions.push('admin');
+    }
+    
+    // Add superuser role if applicable
+    const isSuperuserUser = user.role === 'superuser' || user.account_type === 'superuser';
+    if (isSuperuserUser) {
+      userRoles.push('superuser');
+      userPermissions.push('superuser');
+    }
+    
+    // Add any additional permissions from user object
+    if (Array.isArray(user.permissions)) {
+      user.permissions.forEach(permission => {
+        if (!userPermissions.includes(permission)) {
+          userPermissions.push(permission);
+        }
+      });
+    }
+    
+    // Update state
+    setIsSuperuser(isSuperuserUser);
+    setIsAdmin(isAdminUser || isSuperuserUser);
+    setRoles([...new Set(userRoles)]);
+    setPermissions([...new Set(userPermissions)]);
+    setSuperuserStatusReady(true);
+    
+    logDebug('[AuthContext] Updated user roles and permissions:', {
+      roles: [...new Set(userRoles)],
+      permissions: [...new Set(userPermissions)],
+      isAdmin: isAdminUser || isSuperuserUser,
+      isSuperuser: isSuperuserUser
+    });
   }, []);
   
   /**
@@ -398,52 +464,47 @@ export const AuthProvider = ({ children }) => {
    */
   useEffect(() => {
     checkAuthStatus();
-  }, [checkAuthStatus]);
+    
+    // Set up periodic auth check (every 5 minutes)
+    const authCheckInterval = setInterval(() => {
+      if (isAuthenticated) {
+        checkAuthStatus(true);
+      }
+    }, 5 * 60 * 1000);
+    
+    // Clean up interval on unmount
+    return () => clearInterval(authCheckInterval);
+  }, [checkAuthStatus, isAuthenticated]);
   
   // Memoize context value to prevent unnecessary re-renders
-  const contextValue = useMemo(() => ({
-    // Authentication state
-    user,
-    isAuthenticated,
-    isLoading,
-    error,
-    
-    // Admin/superuser state
-    isSuperuser,
-    superuserStatusReady,
-    
-    // Offline mode state
-    isOffline,
-    
-    // Authentication operations
-    login,
-    register,
-    logout,
-    updateProfile,
-    changePassword,
-    checkAuthStatus,
-    
-    // Permission checking
-    hasPermission,
-  }), [
-    user,
-    isAuthenticated,
-    isLoading,
-    error,
-    isSuperuser,
-    superuserStatusReady,
-    isOffline,
-    login,
-    register,
-    logout,
-    updateProfile,
-    changePassword,
-    checkAuthStatus,
-    hasPermission,
-  ]);
+  const value = useMemo(
+    () => ({
+      // State
+      user,
+      isAuthenticated,
+      isLoading,
+      error,
+      isSuperuser,
+      isAdmin,
+      roles,
+      permissions,
+      superuserStatusReady,
+      isOffline,
+      isRefreshing,
+      
+      // Methods
+      login,
+      register,
+      logout,
+      updateProfile,
+      changePassword,
+      hasPermission
+    }),
+    [user, isAuthenticated, isLoading, error, isSuperuser, isAdmin, roles, permissions, superuserStatusReady, isOffline, isRefreshing, login, register, logout, updateProfile, changePassword, hasPermission]
+  );
   
   return (
-    <AuthContext.Provider value={contextValue}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
@@ -454,12 +515,15 @@ export const AuthProvider = ({ children }) => {
  */
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  
   if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
-  
   return context;
 };
 
-export default AuthContext;
+// Add PropTypes for better developer experience
+AuthProvider.propTypes = {
+  children: PropTypes.node.isRequired
+};
+
+export default AuthProvider;

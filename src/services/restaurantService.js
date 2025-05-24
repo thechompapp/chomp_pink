@@ -1,6 +1,7 @@
 /* src/services/restaurantService.js */
 import apiClient from './apiClient.js';
 import { logError, logDebug, logWarn } from '@/utils/logger.js';
+import { handleApiResponse, validateId } from '@/utils/serviceHelpers.js';
 
 /**
  * Mock restaurant data for development and testing
@@ -47,57 +48,8 @@ const MOCK_RESTAURANTS = [
   }
 ];
 
-/**
- * Extract data from various API response formats
- * @param {Object|Array} response - API response
- * @param {string} context - Context for logging
- * @returns {Array|Object} - Extracted data
- */
-const extractDataFromResponse = (response, context) => {
-  // Case 1: Direct object or array response
-  if (response && (Array.isArray(response) || typeof response === 'object')) {
-    // If it's a direct data object (not a wrapper)
-    if (!response.data && !response.success) {
-      return response;
-    }
-  }
-  
-  // Case 2: { data: [...] } format
-  if (response && typeof response === 'object') {
-    if (response.data) {
-      return response.data;
-    }
-    
-    // Case 3: { success: true, data: [...] } format
-    if (response.success && response.data) {
-      return response.data;
-    }
-  }
-  
-  // No valid data found
-  logWarn(`[RestaurantService] Could not extract data from ${context} response:`, response);
-  return null;
-};
-
-/**
- * Validate and normalize restaurant ID
- * @param {string|number} id - Restaurant ID to validate
- * @returns {number|null} - Validated ID or null if invalid
- */
-const validateRestaurantId = (id) => {
-  if (!id) {
-    logWarn('[RestaurantService] Invalid restaurant ID: empty or undefined');
-    return null;
-  }
-  
-  const parsedId = parseInt(id, 10);
-  if (isNaN(parsedId) || parsedId <= 0) {
-    logWarn(`[RestaurantService] Invalid restaurant ID: ${id}`);
-    return null;
-  }
-  
-  return parsedId;
-};
+// Note: These functions are no longer needed since we're using handleApiResponse and validateId helpers
+// which standardize the response format, error handling, and ID validation
 
 /**
  * Restaurant service for standardized API access to restaurant-related endpoints
@@ -109,35 +61,27 @@ export const restaurantService = {
    * @returns {Promise<Object|null>} - Restaurant details or null if not found
    */
   async getRestaurantDetails(restaurantId) {
-    try {
-      const id = validateRestaurantId(restaurantId);
-      if (!id) return null;
-      
-      logDebug(`[RestaurantService] Fetching restaurant details for ID: ${id}`);
-      
-      const response = await apiClient.get(`/restaurants/${id}`);
-      const data = extractDataFromResponse(response, 'getRestaurantDetails');
-      
-      if (!data) {
-        logWarn(`[RestaurantService] No restaurant found with ID: ${id}`);
-        // Check mock data
+    const id = validateId(restaurantId, 'restaurantId');
+    if (!id) return null;
+    
+    logDebug(`[RestaurantService] Fetching restaurant details for ID: ${id}`);
+    
+    const result = await handleApiResponse(
+      () => apiClient.get(`/restaurants/${id}`),
+      'RestaurantService.getRestaurantDetails'
+    );
+    
+    if (!result.success || !result.data) {
+      logWarn(`[RestaurantService] No restaurant found with ID: ${id}`);
+      // Check mock data for development fallback
+      if (process.env.NODE_ENV === 'development') {
         const mockRestaurant = MOCK_RESTAURANTS.find(r => r.id === id);
         return mockRestaurant || null;
       }
-      
-      return data;
-    } catch (error) {
-      logError(`[RestaurantService] Error fetching restaurant details:`, error);
-      
-      // Check mock data for development fallback
-      if (process.env.NODE_ENV === 'development') {
-        const id = validateRestaurantId(restaurantId);
-        const mockRestaurant = id ? MOCK_RESTAURANTS.find(r => r.id === id) : null;
-        return mockRestaurant || null;
-      }
-      
       return null;
     }
+    
+    return result.data;
   },
 
   /**
@@ -155,47 +99,38 @@ export const restaurantService = {
    * @returns {Promise<Array>} - List of restaurants matching criteria
    */
   async searchRestaurants(params = {}) {
-    try {
-      logDebug(`[RestaurantService] Searching restaurants with params:`, params);
-      
-      const response = await apiClient.get('/restaurants', { params });
-      const data = extractDataFromResponse(response, 'searchRestaurants');
-      
-      if (!data || !Array.isArray(data) || data.length === 0) {
-        logWarn(`[RestaurantService] No restaurants found with search params:`, params);
-        
-        // Return mock data for development
-        if (process.env.NODE_ENV === 'development') {
-          // Apply basic filtering to mock data
-          let filteredMocks = [...MOCK_RESTAURANTS];
-          
-          if (params.cuisine) {
-            filteredMocks = filteredMocks.filter(r => 
-              r.cuisine.toLowerCase().includes(params.cuisine.toLowerCase()));
-          }
-          
-          if (params.name) {
-            filteredMocks = filteredMocks.filter(r => 
-              r.name.toLowerCase().includes(params.name.toLowerCase()));
-          }
-          
-          return filteredMocks;
-        }
-        
-        return [];
-      }
-      
-      return data;
-    } catch (error) {
-      logError(`[RestaurantService] Error searching restaurants:`, error);
+    logDebug(`[RestaurantService] Searching restaurants with params:`, params);
+    
+    const result = await handleApiResponse(
+      () => apiClient.get('/restaurants', { params }),
+      'RestaurantService.searchRestaurants'
+    );
+    
+    if (!result.success || !result.data || !Array.isArray(result.data) || result.data.length === 0) {
+      logWarn(`[RestaurantService] No restaurants found with search params:`, params);
       
       // Return mock data for development
       if (process.env.NODE_ENV === 'development') {
-        return MOCK_RESTAURANTS;
+        // Apply basic filtering to mock data
+        let filteredMocks = [...MOCK_RESTAURANTS];
+        
+        if (params.cuisine) {
+          filteredMocks = filteredMocks.filter(r => 
+            r.cuisine.toLowerCase().includes(params.cuisine.toLowerCase()));
+        }
+        
+        if (params.name) {
+          filteredMocks = filteredMocks.filter(r => 
+            r.name.toLowerCase().includes(params.name.toLowerCase()));
+        }
+        
+        return filteredMocks;
       }
       
       return [];
     }
+    
+    return result.data;
   },
   
   /**

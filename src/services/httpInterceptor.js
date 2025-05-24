@@ -578,15 +578,16 @@ function stopLoading(config) {
 function notifyLoadingListeners() {
   // Create state snapshot to avoid mutation during iteration
   const stateSnapshot = getLoadingState();
-  
-  // Use forEach on Set for more efficient iteration
-  globalLoadingState.loadingListeners.forEach(listener => {
+  // Use a shallow copy of listeners to avoid issues if listeners unsubscribe themselves during iteration
+  const listeners = Array.from(globalLoadingState.loadingListeners);
+  listeners.forEach(listener => {
     try {
       listener(stateSnapshot);
     } catch (e) {
       logError('Error in loading state listener', e);
     }
   });
+  // Note: If excessive calls are detected, consider debouncing this in the future.
 }
 
 /**

@@ -53,70 +53,53 @@ const search = async (params = {}, useCache = true) => {
     refresh = false,
   } = params;
 
-  try {
-    // Generate cache key based on search parameters
-    const cacheKey = JSON.stringify({
-      q, type, limit, offset, cityId, boroughId, neighborhoodId, hashtags
-    });
-    
-    // Check cache first unless refresh is requested
-    if (useCache && !refresh && searchCache.has(cacheKey)) {
-      const { data, timestamp } = searchCache.get(cacheKey);
-      if (Date.now() - timestamp < CACHE_TTL) {
-        logDebug('[searchService] Returning cached search results');
-        return data;
-      }
+  // Generate cache key based on search parameters
+  const cacheKey = JSON.stringify({
+    q, type, limit, offset, cityId, boroughId, neighborhoodId, hashtags
+  });
+  
+  // Check cache first unless refresh is requested
+  if (useCache && !refresh && searchCache.has(cacheKey)) {
+    const { data, timestamp } = searchCache.get(cacheKey);
+    if (Date.now() - timestamp < CACHE_TTL) {
+      logDebug('[searchService] Returning cached search results');
+      return data;
     }
-    
-    logDebug(`[searchService] Performing search with params:`, params);
-    
-    // Transform filters for API using the utility function
-    const apiFilters = transformFiltersForApi({
-      cityId,
-      boroughId,
-      neighborhoodId,
-      hashtags
-    });
-    
-    // Create query parameters
-    const queryParams = createQueryParams({
-      q,
-      type,
-      limit: String(limit),
-      offset: String(offset),
-      ...apiFilters
-    });
-    
-    // Use direct axios config object approach to prevent toUpperCase error
-    const axiosConfig = {
-      url: `/search${queryParams.toString() ? `?${queryParams.toString()}` : ''}`,
-      method: 'get'
-    };
-    
-    // Make API request with standardized error handling
-    const response = await apiClient(axiosConfig);
-    
-    // Process and normalize the response
-    const result = response?.data || { 
-      restaurants: [], 
-      dishes: [], 
-      lists: [], 
-      totalRestaurants: 0, 
-      totalDishes: 0, 
-      totalLists: 0 
-    };
-    
-    // Update cache
-    if (useCache) {
-      searchCache.set(cacheKey, {
-        data: result,
-        timestamp: Date.now()
-      });
-    }
-    
-    return result;
-  } catch (error) {
-    logError('[searchService] Error performing search:', error);
+  }
+  
+  logDebug(`[searchService] Performing search with params:`, params);
+  
+  // Transform filters for API using the utility function
+  const apiFilters = transformFiltersForApi({
+    cityId,
+    boroughId,
+    neighborhoodId,
+    hashtags
+  });
+  
+  // Create query parameters
+  const queryParams = createQueryParams({
+    q,
+    type,
+    limit: String(limit),
+    offset: String(offset),
+    ...apiFilters
+  });
+  
+  // Use direct axios config object approach to prevent toUpperCase error
+  const axiosConfig = {
+    url: `/search${queryParams.toString() ? `?${queryParams.toString()}` : ''}`,
+    method: 'get'
+  };
+  
+  // Make API request with standardized error handling
+  const result = await handleApiResponse(
+    () => apiClient(axiosConfig),
+    'searchService.search'
+  );
+  
+  // If the API request failed, return empty results
+  if (!result.success) {
     return { 
       restaurants: [], 
       dishes: [], 
@@ -124,9 +107,29 @@ const search = async (params = {}, useCache = true) => {
       totalRestaurants: 0, 
       totalDishes: 0, 
       totalLists: 0,
-      error: error.message || 'An error occurred during search'
+      error: result.error || 'An error occurred during search'
     };
   }
+  
+  // Process and normalize the response
+  const searchResults = result.data || { 
+    restaurants: [], 
+    dishes: [], 
+    lists: [], 
+    totalRestaurants: 0, 
+    totalDishes: 0, 
+    totalLists: 0 
+  };
+  
+  // Update cache
+  if (useCache) {
+    searchCache.set(cacheKey, {
+      data: searchResults,
+      timestamp: Date.now()
+    });
+  }
+  
+  return searchResults;
 };
 
 export const searchService = {

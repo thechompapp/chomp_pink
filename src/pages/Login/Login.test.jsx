@@ -6,43 +6,6 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'; // Import QueryClientProvider
 
-// --- Mock Store Setup ---
-const mockLoginAction = vi.fn();
-const mockClearError = vi.fn();
-let mockIsAuthenticated = false;
-let mockAuthError = null; // Added mock error state
-
-// Mock state provider function - used internally by the default mock
-const mockStoreState = () => ({
-    login: mockLoginAction,
-    isAuthenticated: mockIsAuthenticated,
-    clearError: mockClearError,
-    user: null,
-    isLoading: false,
-    error: mockAuthError, // Use mock error state
-});
-
-// Mock the entire module
-vi.mock('@/stores/useAuthStore', () => ({
-  // Mock the default export (the hook)
-  default: (selector) => selector(mockStoreState()),
-  // Mock getState if needed by the component (needed for error in performLogin)
-  getState: () => ({
-      error: mockAuthError, // Include error in getState
-      // Include other state properties if getState() is used to access them elsewhere
-  })
-}));
-
-// Mock useNavigate
-const mockNavigate = vi.fn();
-vi.mock('react-router-dom', async (importOriginal) => {
-  const actual = await importOriginal();
-  return {
-    ...actual,
-    useNavigate: () => mockNavigate,
-  };
-});
-// --- End Mock Setup ---
 
 // Component under test
 import Login from './index';

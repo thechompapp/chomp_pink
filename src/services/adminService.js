@@ -27,63 +27,87 @@ const addAdminHeaders = (config = {}) => {
 
 export const adminService = {
   getAdminRestaurants: async () => {
-    return handleApiResponse(
+    const result = await handleApiResponse(
       () => apiClient.get('/admin/restaurants'),
-      'AdminService GetRestaurants'
-    ).catch(error => {
-      logError('Failed to fetch admin restaurants:', error);
-      throw error;
-    });
+      'AdminService.getAdminRestaurants'
+    );
+    
+    if (!result.success) {
+      logError('Failed to fetch admin restaurants:', result.error);
+      return { success: false, error: result.error, data: [] };
+    }
+    
+    return result;
   },
 
   getAdminDishes: async () => {
-    return handleApiResponse(
+    const result = await handleApiResponse(
       () => apiClient.get('/admin/dishes'),
-      'AdminService GetDishes'
-    ).catch(error => {
-      logError('Failed to fetch admin dishes:', error);
-      throw error;
-    });
+      'AdminService.getAdminDishes'
+    );
+    
+    if (!result.success) {
+      logError('Failed to fetch admin dishes:', result.error);
+      return { success: false, error: result.error, data: [] };
+    }
+    
+    return result;
   },
 
   getAdminUsers: async () => {
-    return handleApiResponse(
+    const result = await handleApiResponse(
       () => apiClient.get('/admin/users'),
-      'AdminService GetUsers'
-    ).catch(error => {
-      logError('Failed to fetch admin users:', error);
-      throw error;
-    });
+      'AdminService.getAdminUsers'
+    );
+    
+    if (!result.success) {
+      logError('Failed to fetch admin users:', result.error);
+      return { success: false, error: result.error, data: [] };
+    }
+    
+    return result;
   },
 
   getAdminCitiesSimple: async () => {
-    return handleApiResponse(
+    const result = await handleApiResponse(
       () => apiClient.get('/admin/cities'),
-      'AdminService GetCitiesSimple'
-    ).catch(error => {
-      logError('Failed to fetch admin cities:', error);
-      throw error;
-    });
+      'AdminService.getAdminCitiesSimple'
+    );
+    
+    if (!result.success) {
+      logError('Failed to fetch admin cities:', result.error);
+      return { success: false, error: result.error, data: [] };
+    }
+    
+    return result;
   },
 
   getAdminNeighborhoods: async () => {
-    return handleApiResponse(
+    const result = await handleApiResponse(
       () => apiClient.get('/admin/neighborhoods'),
-      'AdminService GetNeighborhoods'
-    ).catch(error => {
-      logError('Failed to fetch admin neighborhoods:', error);
-      throw error;
-    });
+      'AdminService.getAdminNeighborhoods'
+    );
+    
+    if (!result.success) {
+      logError('Failed to fetch admin neighborhoods:', result.error);
+      return { success: false, error: result.error, data: [] };
+    }
+    
+    return result;
   },
 
   getAdminHashtags: async () => {
-    return handleApiResponse(
+    const result = await handleApiResponse(
       () => apiClient.get('/admin/hashtags'),
-      'AdminService GetHashtags'
-    ).catch(error => {
-      logError('Failed to fetch admin hashtags:', error);
-      throw error;
-    });
+      'AdminService.getAdminHashtags'
+    );
+    
+    if (!result.success) {
+      logError('Failed to fetch admin hashtags:', result.error);
+      return { success: false, error: result.error, data: [] };
+    }
+    
+    return result;
   },
 
   /**
@@ -174,7 +198,8 @@ export const adminService = {
    */
   processSubmission: async (id, action, data = {}) => {
     if (!['approve', 'reject'].includes(action)) {
-      throw new Error(`Invalid submission action: ${action}. Must be 'approve' or 'reject'.`);
+      logError(`[AdminService] Invalid submission action: ${action}. Must be 'approve' or 'reject'.`);
+      return { success: false, error: `Invalid submission action: ${action}. Must be 'approve' or 'reject'.` };
     }
     
     logDebug(`[AdminService] ${action === 'approve' ? 'Approving' : 'Rejecting'} submission ${id}`);
@@ -183,7 +208,7 @@ export const adminService = {
     
     return handleApiResponse(
       () => apiClient.post(`/admin/submissions/${action}/${id}`, data, requestConfig),
-      `AdminService ${action}Submission`
+      `AdminService.processSubmission.${action}`
     );
   },
 

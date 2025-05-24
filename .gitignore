@@ -6,3 +6,12 @@ build/
 .env
 .DS_Store
 .vite/
+
+# Generated artifacts
+test-reports/
+test-results/
+diagnostic-report-*.json
+doof-backend/logs/
+
+# Test results
+test-results/bulk-add-test-results.json

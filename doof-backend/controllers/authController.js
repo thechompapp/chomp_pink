@@ -19,7 +19,7 @@ export const register = async (req, res) => {
   const { username, email, password, role } = req.body;
 
   try {
-    let user = await UserModel.findByEmail(email);
+    let user = await UserModel.findUserByEmail(email);
     if (user) {
       return sendError(res, 'User already exists with this email.', 409, 'USER_ALREADY_EXISTS');
     }
@@ -31,14 +31,10 @@ export const register = async (req, res) => {
         }
     }
 
-
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
     const newUser = {
       username,
       email,
-      password: hashedPassword,
+      password,
       role: role || 'user', // Default role to 'user' if not provided
     };
 
@@ -63,6 +59,7 @@ export const register = async (req, res) => {
     sendSuccess(res, { token, user: userResponse }, 'User registered successfully.', 201);
 
   } catch (error) {
+    console.error('Registration error:', error);
     // The 'originalError' in sendError will be logged by the responseHandler's logger
     sendError(res, 'Error registering user.', 500, 'REGISTRATION_FAILED', error);
   }
@@ -79,23 +76,42 @@ export const login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    const user = await UserModel.findByEmail(email);
+    const user = await UserModel.findUserByEmail(email);
     if (!user) {
       return sendError(res, 'Invalid credentials: User not found.', 401, 'INVALID_CREDENTIALS');
     }
+    
+    console.log('User found:', user.email, user.id);
+    
+    if (!user.password_hash) {
+      console.error('No password hash found for user:', user.id);
+      return sendError(res, 'Authentication error: No password set for this user.', 500, 'AUTH_ERROR');
+    }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
       return sendError(res, 'Invalid credentials: Password incorrect.', 401, 'INVALID_CREDENTIALS');
     }
     
-    // Ensure user contains id and role for token generation
-    if (typeof user.id === 'undefined' || typeof user.role === 'undefined') {
-        logger.error('User login successful but id/role missing in user object from DB', user);
-        return sendError(res, 'Login failed due to an internal issue retrieving user details.', 500, 'LOGIN_INTERNAL_ERROR');
+    if (typeof user.id === 'undefined') {
+        logger.error('User login successful but id is missing in user object from DB', user);
+        return sendError(res, 'Login failed: User ID is missing.', 500, 'LOGIN_INTERNAL_ERROR');
     }
-
-    const token = generateAuthToken(user);
+    
+    // Ensure user has a role, default to 'user' if not set
+    if (typeof user.role === 'undefined') {
+        console.log('No role found for user, defaulting to "user"');
+        user.role = 'user';
+    }
+    
+    let token;
+    try {
+        token = generateAuthToken(user);
+        console.log('Token generated successfully');
+    } catch (error) {
+        logger.error('Error generating auth token:', error);
+        return sendError(res, 'Failed to generate authentication token.', 500, 'TOKEN_GENERATION_ERROR');
+    }
 
     const userResponse = {
       id: user.id,

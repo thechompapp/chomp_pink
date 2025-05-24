@@ -20,67 +20,75 @@ const formatUser = (user) => {
 
 /**
  * Get current user's profile
- * @returns {Promise<Object>} User profile data
+ * @returns {Promise<Object>} User profile data or null if error
  */
 export const getCurrentUser = async () => {
   logDebug('[UserService] Fetching current user profile');
   
-  return handleApiResponse(
+  const result = await handleApiResponse(
     () => apiClient.get('/api/users/me'),
-    'UserService Get Current User'
-  ).then(data => {
-    return formatUser(data);
-  }).catch(error => {
-    logError('[UserService] Failed to fetch current user:', error);
-    throw error;
-  });
+    'UserService.getCurrentUser'
+  );
+  
+  if (!result.success) {
+    logError('[UserService] Failed to fetch current user:', result.error);
+    return null;
+  }
+  
+  return formatUser(result.data);
 };
 
 /**
  * Get a specific user's public profile by ID or handle
  * @param {string|number} identifier - User ID or handle
- * @returns {Promise<Object>} User profile data
+ * @returns {Promise<Object>} User profile data or null if error
  */
 export const getUserProfile = async (identifier) => {
   if (!identifier) {
-    throw new Error('User ID or handle is required');
+    logError('[UserService] User ID or handle is required');
+    return null;
   }
   
   const encodedIdentifier = encodeURIComponent(String(identifier));
   logDebug(`[UserService] Fetching profile for user: ${identifier}`);
   
-  return handleApiResponse(
+  const result = await handleApiResponse(
     () => apiClient.get(`/api/users/profile/${encodedIdentifier}`),
-    `UserService Get Profile (${identifier})`
-  ).then(data => {
-    return formatUser(data); // Ensure only public data is formatted/returned
-  }).catch(error => {
-    logError(`[UserService] Failed to fetch profile for user ${identifier}:`, error);
-    throw error;
-  });
+    `UserService.getUserProfile (${identifier})`
+  );
+  
+  if (!result.success) {
+    logError(`[UserService] Failed to fetch profile for user ${identifier}:`, result.error);
+    return null;
+  }
+  
+  return formatUser(result.data); // Ensure only public data is formatted/returned
 };
 
 /**
  * Update current user's profile
  * @param {Object} profileData - Data to update in the user profile
- * @returns {Promise<Object>} Updated user profile data
+ * @returns {Promise<Object>} Updated user profile data or null if error
  */
 export const updateUserProfile = async (profileData) => {
   if (!profileData || typeof profileData !== 'object') {
-    throw new Error('Valid profile data is required');
+    logError('[UserService] Valid profile data is required');
+    return null;
   }
   
   logDebug('[UserService] Updating user profile');
   
-  return handleApiResponse(
+  const result = await handleApiResponse(
     () => apiClient.put('/api/users/me', profileData),
-    'UserService Update Profile'
-  ).then(data => {
-    return formatUser(data);
-  }).catch(error => {
-    logError('[UserService] Failed to update user profile:', error);
-    throw error;
-  });
+    'UserService.updateUserProfile'
+  );
+  
+  if (!result.success) {
+    logError('[UserService] Failed to update user profile:', result.error);
+    return null;
+  }
+  
+  return formatUser(result.data);
 };
 
 

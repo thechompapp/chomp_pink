@@ -1,287 +1,282 @@
-/* src/services/authService.js */
-import apiClient from '@/services/apiClient.js';
+/**
+ * Authentication Service
+ * 
+ * Handles all authentication-related API calls and token management
+ */
+import apiClient from '@/services/apiClient';
+import { logDebug, logError } from '@/utils/logger';
 import { handleApiResponse } from '@/utils/serviceHelpers.js';
-import { logError, logDebug } from '@/utils/logger.js';
 
-const API_ENDPOINT = '/auth'; // Use '/auth' since apiClient already has '/api' as baseURL
+const API_ENDPOINT = '/auth';
 
-export const authService = {
-    /**
-     * Logs in a user.
-     * @param {object} credentials - { email, password }
-     * @returns {Promise<object>} - Promise resolving with { success: true, token, user } or rejecting with standardized error.
-     */
-    login: async (credentials) => {
-        try {
-            // CRITICAL: Clear offline mode flags first to ensure we're in online mode
-            if (typeof localStorage !== 'undefined') {
-                localStorage.removeItem('offline-mode');
-                localStorage.removeItem('offline_mode');
-                localStorage.setItem('force_online', 'true');
-            }
-            if (typeof sessionStorage !== 'undefined') {
-                sessionStorage.removeItem('offline-mode');
-                sessionStorage.removeItem('offline_mode');
-            }
-            
-            // Input validation before API call
-            if (!credentials || !credentials.email || !credentials.password) {
-                throw new Error("Email and password are required.");
-            }
-            
-            // Check for admin login in development mode
-            if (process.env.NODE_ENV === 'development' && 
-                credentials.email === 'admin@example.com' && 
-                credentials.password === 'doof123') {
-                logDebug('[AuthService] Using admin credentials in development mode');
-                // Set admin flags for development mode
-                localStorage.setItem('admin_access_enabled', 'true');
-                localStorage.setItem('superuser_override', 'true');
-            }
-            
-            logDebug('[AuthService] Attempting login for:', credentials.email);
-            
-            // Create a direct axios config object with explicit method
-            const axiosConfig = {
-                url: `${API_ENDPOINT}/login`,
-                method: 'post', // Explicitly set method as a string
-                data: credentials,
-                // Add a timeout to prevent hanging requests
-                timeout: 10000
-            };
-            
-            const response = await handleApiResponse(
-                () => apiClient(axiosConfig), // Use direct config approach
-                'AuthService Login'
-            );
-            
-            if (response?.token && response?.user) {
-                // Login successful, ensure offline mode is disabled
-                if (typeof localStorage !== 'undefined') {
-                    localStorage.removeItem('offline-mode');
-                    localStorage.removeItem('offline_mode');
-                    localStorage.setItem('force_online', 'true');
-                    localStorage.removeItem('user_explicitly_logged_out');
-                    
-                    // In development mode, set admin flags if user is admin
-                    if (process.env.NODE_ENV === 'development' && 
-                        (response.user.role === 'admin' || 
-                         response.user.account_type === 'superuser')) {
-                        localStorage.setItem('admin_access_enabled', 'true');
-                        localStorage.setItem('superuser_override', 'true');
-                    }
-                }
-                
-                // Dispatch event to force UI refresh
-                if (typeof window !== 'undefined') {
-                    window.dispatchEvent(new CustomEvent('forceUiRefresh', {
-                        detail: { timestamp: Date.now() }
-                    }));
-                }
-                
-                return response;
-            } else {
-                throw new Error('Login failed: Invalid response from server.');
-            }
-        } catch (error) {
-            logError('[AuthService] Login failed:', error);
-            throw error;
-        }
-    },
+/**
+ * AuthService - Handles all authentication-related operations
+ */
+const AuthService = {
+  /**
+   * Logs in a user with email and password
+   * @param {Object} credentials - User credentials
+   * @param {string} credentials.email - User's email
+   * @param {string} credentials.password - User's password
+   * @returns {Promise<Object>} User data and tokens or error object
+   */
+  async login(credentials) {
+    logDebug('[AuthService] Attempting login for:', credentials.email);
+    
+    const result = await handleApiResponse(
+      () => apiClient({
+        url: `${API_ENDPOINT}/login`,
+        method: 'post',
+        data: credentials
+      }),
+      'AuthService.login'
+    );
 
-    /**
-     * Registers a new user.
-     * @param {object} userData - { username, email, password }
-     * @returns {Promise<object>} - Promise resolving with { success: true, token, user } or rejecting with standardized error.
-     */
-    register: async (userData) => {
-        if (!userData || !userData.username || !userData.email || !userData.password) {
-            throw new Error("Username, email, and password are required for registration.");
-        }
-        
-        logDebug('[AuthService] Attempting registration for:', userData.email);
-        
-        // Create a direct axios config object with explicit method
-        const axiosConfig = {
-            url: `${API_ENDPOINT}/register`,
-            method: 'post', // Explicitly set method as a string
-            data: userData
-        };
-        
-        return handleApiResponse(
-            () => apiClient(axiosConfig), // Use direct config approach
-            'AuthService Register'
-        ).then(response => {
-            if (response?.token && response?.user) {
-                return response;
-            } else {
-                throw new Error('Registration failed: Invalid response from server.');
-            }
-        }).catch(error => {
-            logError('[AuthService] Registration failed:', error);
-            throw error;
+    if (result.success && result.data?.token) {
+      localStorage.setItem('token', result.data.token);
+      if (result.data.refreshToken) {
+        localStorage.setItem('refreshToken', result.data.refreshToken);
+      }
+      logDebug('[AuthService] Login successful, tokens stored');
+    }
+    
+    return result.success ? result.data : { success: false, error: result.error };
+  },
+
+  /**
+   * Registers a new user
+   * @param {Object} userData - User registration data
+   * @returns {Promise<Object>} Created user data or error object
+   */
+  async register(userData) {
+    logDebug('[AuthService] Attempting user registration');
+    
+    const result = await handleApiResponse(
+      () => apiClient({
+        url: `${API_ENDPOINT}/register`,
+        method: 'post',
+        data: userData
+      }),
+      'AuthService.register'
+    );
+    
+    return result.success ? result.data : { success: false, error: result.error };
+  },
+
+  /**
+   * Gets the current authenticated user's profile
+   * @returns {Promise<Object>} User profile data or error object
+   */
+  async getCurrentUser() {
+    logDebug('[AuthService] Fetching current user');
+    
+    const result = await handleApiResponse(
+      () => apiClient({
+        url: `${API_ENDPOINT}/me`,
+        method: 'get'
+      }),
+      'AuthService.getCurrentUser'
+    );
+    
+    return result.success ? result.data : { success: false, error: result.error };
+  },
+
+  /**
+   * Logs out the current user
+   * @returns {Promise<Object>} Success status
+   */
+  async logout() {
+    try {
+      logDebug('[AuthService] Logging out user');
+      
+      // Clear all auth-related data from storage
+      const authKeys = [
+        'token',
+        'refreshToken',
+        'user',
+        'auth-storage',
+        'offline-mode',
+        'offline_mode',
+        'admin_access_enabled',
+        'superuser_override'
+      ];
+      
+      authKeys.forEach(key => {
+        localStorage.removeItem(key);
+        sessionStorage.removeItem(key);
+      });
+      
+      // Attempt to call the logout endpoint
+      try {
+        await apiClient({
+          url: `${API_ENDPOINT}/logout`,
+          method: 'post'
         });
-    },
+      } catch (error) {
+        logError('[AuthService] Logout API call failed, but continuing with local cleanup', error);
+      }
+      
+      logDebug('[AuthService] User logged out successfully');
+      return { success: true };
+    } catch (error) {
+      logError('[AuthService] Logout failed:', error);
+      throw error;
+    }
+  },
 
-     /**
-      * Updates user account type (admin action).
-      * @param {number} userId - The ID of the user to update.
-      * @param {string} accountType - The new account type ('user', 'contributor', 'superuser').
-      * @returns {Promise<object>} - Promise resolving with { success: true, data: { updated user } } or rejecting.
-      */
-     updateAccountType: async (userId, accountType) => {
-         if (!userId || !accountType) {
-             throw new Error("User ID and account type are required.");
-         }
-         
-         logDebug(`[AuthService] Attempting to update account type for user ${userId} to ${accountType}`);
-         
-         // Create a direct axios config object with explicit method
-         const axiosConfig = {
-             url: `${API_ENDPOINT}/update-account-type/${userId}`,
-             method: 'put', // Explicitly set method as a string
-             data: { account_type: accountType }
-         };
-         
-         return handleApiResponse(
-             () => apiClient(axiosConfig), // Use direct config approach
-             'AuthService Update Account Type'
-         ).then(response => {
-             if (response?.data) {
-                 return response;
-             } else {
-                 throw new Error('Failed to update account type: Invalid response from server.');
-             }
-         }).catch(error => {
-             logError(`[AuthService] Failed to update account type for user ${userId}:`, error);
-             throw error;
-         });
-     },
+  /**
+   * Refreshes the authentication token
+   * @returns {Promise<Object>} New token data or error object
+   */
+  async refreshToken() {
+    logDebug('[AuthService] Refreshing token');
+    
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (!refreshToken) {
+      logError('[AuthService] No refresh token available');
+      return { success: false, error: 'No refresh token available' };
+    }
+    
+    const result = await handleApiResponse(
+      () => apiClient({
+        url: `${API_ENDPOINT}/refresh-token`,
+        method: 'post',
+        data: { refreshToken }
+      }),
+      'AuthService.refreshToken'
+    );
+    
+    if (result.success && result.data?.token) {
+      const { token, refreshToken: newRefreshToken } = result.data;
+      
+      localStorage.setItem('token', token);
+      if (newRefreshToken) {
+        localStorage.setItem('refreshToken', newRefreshToken);
+      }
+      
+      logDebug('[AuthService] Token refreshed successfully');
+      return { success: true, token, refreshToken: newRefreshToken || refreshToken };
+    }
+    
+    // If we reach here, either the API call failed or the response didn't contain a token
+    logError('[AuthService] Token refresh failed:', result.error || 'Invalid token refresh response');
+    this.clearTokens();
+    return { success: false, error: result.error || 'Invalid token refresh response' };
+  },
 
-    /**
-     * Refresh the authentication token
-     * @returns {Promise<object>} - Promise resolving with new token data or rejecting with standardized error
-     */
-    refreshToken: async () => {
-        logDebug('[AuthService] Attempting to refresh token');
-        
-        // Create a direct axios config object with explicit method
-        const axiosConfig = {
-            url: `${API_ENDPOINT}/refresh-token`,
-            method: 'post', // Explicitly set method as a string
-            data: {}
-        };
-        
-        return handleApiResponse(
-            () => apiClient(axiosConfig), // Use direct config approach
-            'AuthService Refresh Token'
-        ).then(response => {
-            if (response?.token) {
-                return response;
-            } else {
-                throw new Error('Token refresh failed: Invalid response from server.');
-            }
-        }).catch(error => {
-            logError('[AuthService] Token refresh failed:', error);
-            throw error;
-        });
-    },
+  /**
+   * Clears all authentication tokens
+   */
+  clearTokens() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
+  },
 
-    /**
-     * Logs out the current user.
-     * @returns {Promise<object>} - Promise resolving with { success: true, message } or rejecting with standardized error.
-     */
-    logout: async () => {
-        try {
-            // CRITICAL: Clear offline mode flags first to ensure we're in online mode
-            if (typeof localStorage !== 'undefined') {
-                localStorage.removeItem('offline-mode');
-                localStorage.removeItem('offline_mode');
-                localStorage.setItem('force_online', 'true');
-            }
-            if (typeof sessionStorage !== 'undefined') {
-                sessionStorage.removeItem('offline-mode');
-                sessionStorage.removeItem('offline_mode');
-            }
-            
-            // Check if user is already logged out
-            const authStorage = localStorage.getItem('auth-storage');
-            let isAuthenticated = false;
-            try {
-                if (authStorage) {
-                    const authData = JSON.parse(authStorage);
-                    isAuthenticated = authData?.state?.isAuthenticated || false;
-                }
-            } catch (parseError) {
-                logError('[AuthService] Error parsing auth storage:', parseError);
-            }
-            
-            if (!isAuthenticated) {
-                logDebug('[AuthService] Already logged out, skipping API call');
-                return { success: true, message: 'Already logged out' };
-            }
-            
-            // Try to call the server logout endpoint but don't depend on its success
-            try {
-                // Create a direct axios config object with explicit method
-                const axiosConfig = {
-                    url: `${API_ENDPOINT}/logout`,
-                    method: 'post', // Explicitly set method as a string
-                    data: {},
-                    // Skip interceptors for logout requests to avoid token refresh attempts
-                    _skipAuthRefresh: true,
-                    // Prevent 401 errors from being thrown during logout
-                    validateStatus: status => status < 500,
-                    // Add a timeout to prevent hanging requests
-                    timeout: 5000
-                };
-                
-                // Use the direct config approach to avoid method issues
-                const response = await apiClient(axiosConfig);
-                logDebug('[AuthService] Logout API call successful:', response);
-            } catch (apiError) {
-                // Just log the error but continue with client-side logout
-                logError('[AuthService] Logout API call failed:', apiError);
-            }
-            
-            // Clear local storage regardless of API success
-            try {
-                // Clear all auth-related items
-                localStorage.removeItem('auth-storage');
-                localStorage.removeItem('auth-token');
-                localStorage.removeItem('admin_access_enabled');
-                localStorage.removeItem('superuser_override');
-                localStorage.removeItem('admin_api_key');
-                
-                // Also clear admin flags to ensure clean logout
-                if (process.env.NODE_ENV === 'development') {
-                    localStorage.setItem('user_explicitly_logged_out', 'true');
-                }
-                
-                logDebug('[AuthService] Cleared auth storage');
-                
-                // Dispatch event to force UI refresh
-                if (typeof window !== 'undefined') {
-                    window.dispatchEvent(new CustomEvent('forceUiRefresh', {
-                        detail: { timestamp: Date.now() }
-                    }));
-                }
-            } catch (storageError) {
-                logError('[AuthService] Failed to clear localStorage:', storageError);
-            }
-            
-            return { success: true, message: 'Logged out successfully' };
-        } catch (error) {
-            // Log the error but still report success to ensure UI updates properly
-            logError('[AuthService] Unexpected error during logout:', error);
-            
-            // Even if there's an error, try to clear storage as a last resort
-            try {
-                localStorage.removeItem('auth-storage');
-                localStorage.removeItem('auth-token');
-            } catch (e) {}
-            
-            return { success: true, message: 'Logged out on client-side only' };
-        }
-    },
+  /**
+   * Requests a password reset email
+   * @param {string} email - User's email address
+   * @returns {Promise<Object>} Success status or error object
+   */
+  async requestPasswordReset(email) {
+    logDebug(`[AuthService] Requesting password reset for: ${email}`);
+    
+    const result = await handleApiResponse(
+      () => apiClient({
+        url: `${API_ENDPOINT}/forgot-password`,
+        method: 'post',
+        data: { email }
+      }),
+      'AuthService.requestPasswordReset'
+    );
+    
+    return result.success 
+      ? { success: true, message: 'Password reset email sent' }
+      : { success: false, error: result.error };
+  },
+
+  /**
+   * Resets the user's password using a reset token
+   * @param {string} token - Password reset token
+   * @param {string} newPassword - New password
+   * @returns {Promise<Object>} Success status
+   */
+  async resetPassword(token, newPassword) {
+    try {
+      logDebug('[AuthService] Resetting password');
+      
+      await apiClient({
+        url: `${API_ENDPOINT}/reset-password`,
+        method: 'post',
+        data: { token, newPassword }
+      });
+      
+      return { success: true, message: 'Password reset successful' };
+    } catch (error) {
+      logError('[AuthService] Password reset failed:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Verifies an email address using a verification token
+   * @param {string} token - Email verification token
+   * @returns {Promise<Object>} Success status
+   */
+  async verifyEmail(token) {
+    try {
+      logDebug('[AuthService] Verifying email');
+      
+      await apiClient({
+        url: `${API_ENDPOINT}/verify-email`,
+        method: 'post',
+        data: { token }
+      });
+      
+      return { success: true, message: 'Email verified successfully' };
+    } catch (error) {
+      logError('[AuthService] Email verification failed:', error);
+      throw error;
+    }
+  }
 };
+
+// Add request interceptor to include auth token
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Add response interceptor to handle token refresh
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    
+    // If the error is 401 and we haven't tried to refresh yet
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      
+      try {
+        const { token } = await AuthService.refreshToken();
+        if (token) {
+          originalRequest.headers.Authorization = `Bearer ${token}`;
+          return apiClient(originalRequest);
+        }
+      } catch (refreshError) {
+        await AuthService.logout();
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      }
+    }
+    
+    return Promise.reject(error);
+  }
+);
+
+export default AuthService;

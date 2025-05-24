@@ -10,7 +10,7 @@ import eslintConfigPrettier from "eslint-config-prettier";
 export default [
   { files: ["**/*.{js,mjs,cjs,jsx}"] },
   { languageOptions: { parserOptions: { ecmaFeatures: { jsx: true } } } },
-  { languageOptions: { globals: globals.browser } },
+  { languageOptions: { globals: Object.fromEntries(Object.entries(globals.browser).map(([k,v]) => [k.trim(), v])) } },
   pluginJs.configs.recommended,
   pluginReactConfig,
   {

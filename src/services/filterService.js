@@ -1,6 +1,7 @@
 /* src/services/filterService.js */
 import apiClient from './apiClient';
 import { logDebug, logError, logWarn, logInfo } from '@/utils/logger';
+import { handleApiResponse, validateId, createQueryParams } from '@/utils/serviceHelpers';
 
 /**
  * Mock data for development fallback when API returns unexpected format
@@ -19,39 +20,8 @@ const MOCK_BOROUGHS = [
   { id: 5, name: 'Staten Island', city_id: 1 }
 ];
 
-/**
- * Extract data from various API response formats
- * @param {Object|Array} response - API response
- * @param {string} context - Context for logging
- * @returns {Array} - Extracted data array
- */
-const extractDataFromResponse = (response, context) => {
-  // Case 1: Direct array response
-  if (Array.isArray(response)) {
-    return response;
-  }
-  
-  // Case 2: { data: [...] } format
-  if (response && typeof response === 'object') {
-    if (Array.isArray(response.data)) {
-      return response.data;
-    }
-    
-    // Case 3: { success: true, data: [...] } format
-    if (response.success && Array.isArray(response.data)) {
-      return response.data;
-    }
-    
-    // Case 4: { data: { data: [...] } } format (nested data)
-    if (response.data && response.data.data && Array.isArray(response.data.data)) {
-      return response.data.data;
-    }
-  }
-  
-  // No valid data found
-  logWarn(`[FilterService] Could not extract data array from ${context} response:`, response);
-  return [];
-};
+// Note: This function is no longer needed since we're using handleApiResponse
+// which standardizes the response format
 
 /**
  * Filter service for standardized API access to filter-related endpoints
@@ -64,34 +34,36 @@ export const filterService = {
    */
   async getCities(options = {}) {
     logDebug('[FilterService] Fetching cities from API with options:', options);
-    try {
-      // Build params as a plain object
-      const params = options && Object.keys(options).length > 0 ? Object.fromEntries(Object.entries(options).map(([key, value]) => [key, typeof value === 'object' ? JSON.stringify(value) : String(value)])) : undefined;
-      const response = await apiClient.get('/filters/cities', params ? { params } : undefined);
-      
-      // Extract cities array from the response
-      const citiesArray = extractDataFromResponse(response, 'cities');
-      
-      if (citiesArray.length === 0) {
-        logWarn('[FilterService] No cities found in response, using mock data');
-        return MOCK_CITIES;
-      }
-      
-      // Process the cities data
-      const processedCities = citiesArray.map(city => ({
-        id: parseInt(city.id, 10) || null,
-        name: city.name || '',
-        has_boroughs: Boolean(city.has_boroughs),
-        state: city.state || null,
-        country: city.country || 'USA'
-      }));
-      
-      logDebug(`[FilterService] Processed ${processedCities.length} cities`);
-      return processedCities;
-    } catch (error) {
-      logError('[FilterService] Error fetching cities:', error);
+    
+    // Convert options to proper params format
+    const params = options && Object.keys(options).length > 0 ? 
+      Object.fromEntries(Object.entries(options).map(([key, value]) => 
+        [key, typeof value === 'object' ? JSON.stringify(value) : String(value)])) : undefined;
+    
+    const result = await handleApiResponse(
+      () => apiClient.get('/filters/cities', params ? { params } : undefined),
+      'FilterService.getCities'
+    );
+    
+    // Extract and process data
+    const citiesArray = Array.isArray(result.data) ? result.data : [];
+    
+    if (citiesArray.length === 0) {
+      logWarn('[FilterService] No cities found in response, using mock data');
       return MOCK_CITIES;
     }
+    
+    // Process the cities data
+    const processedCities = citiesArray.map(city => ({
+      id: parseInt(city.id, 10) || null,
+      name: city.name || '',
+      has_boroughs: Boolean(city.has_boroughs),
+      state: city.state || null,
+      country: city.country || 'USA'
+    }));
+    
+    logDebug(`[FilterService] Processed ${processedCities.length} cities`);
+    return processedCities;
   },
   
   /**
@@ -100,27 +72,27 @@ export const filterService = {
    */
   async getCuisines() {
     logDebug('[FilterService] Fetching cuisines');
-    try {
-      const response = await apiClient.get('/hashtags/cuisines');
-      const cuisines = extractDataFromResponse(response, 'cuisines');
-      
-      if (cuisines.length === 0) {
-        logWarn('[FilterService] No cuisines found, using mock data');
-        // Import from hashtagService to avoid duplication
-        const { MOCK_HASHTAGS } = await import('./hashtagService');
-        return MOCK_HASHTAGS;
-      }
-      
-      return cuisines.map(cuisine => ({
-        id: parseInt(cuisine.id, 10) || null,
-        name: cuisine.name || '',
-        usage_count: parseInt(cuisine.usage_count, 10) || 0
-      }));
-    } catch (error) {
-      logError('[FilterService] Error fetching cuisines:', error);
+    
+    const result = await handleApiResponse(
+      () => apiClient.get('/hashtags/cuisines'),
+      'FilterService.getCuisines'
+    );
+    
+    // Extract and process data
+    const cuisines = Array.isArray(result.data) ? result.data : [];
+    
+    if (cuisines.length === 0) {
+      logWarn('[FilterService] No cuisines found, using mock data');
+      // Import from hashtagService to avoid duplication
       const { MOCK_HASHTAGS } = await import('./hashtagService');
       return MOCK_HASHTAGS;
     }
+    
+    return cuisines.map(cuisine => ({
+      id: parseInt(cuisine.id, 10) || null,
+      name: cuisine.name || '',
+      usage_count: parseInt(cuisine.usage_count, 10) || 0
+    }));
   },
 
   /**
@@ -136,35 +108,35 @@ export const filterService = {
 
     logDebug(`[FilterService] Looking up neighborhood for zipcode: ${zipcode}`);
     
-    try {
-      const response = await apiClient.get(`/neighborhoods/by-zipcode/${zipcode}`);
-      const neighborhoods = extractDataFromResponse(response, 'neighborhoods');
-      
-      if (!neighborhoods || neighborhoods.length === 0) {
-        logDebug(`[FilterService] No neighborhoods match zipcode: ${zipcode}`);
-        return null;
-      }
-      
-      // Return the first matching neighborhood
-      const neighborhood = neighborhoods[0];
-      logDebug(`[FilterService] Found neighborhood for zipcode ${zipcode}:`, neighborhood.name);
-      
-      // Normalize the neighborhood object
-      return {
-        id: parseInt(neighborhood.id, 10) || null,
-        name: neighborhood.name || '',
-        neighborhood: neighborhood.name || '',  // For compatibility
-        neighborhood_name: neighborhood.name || '',  // For compatibility
-        borough_id: parseInt(neighborhood.borough_id, 10) || null,
-        borough_name: neighborhood.borough_name || null,
-        city_id: parseInt(neighborhood.city_id, 10) || null,
-        city_name: neighborhood.city_name || null,
-        zipcode: zipcode
-      };
-    } catch (error) {
-      logError(`[FilterService] Error finding neighborhood by zipcode ${zipcode}:`, error);
+    const result = await handleApiResponse(
+      () => apiClient.get(`/neighborhoods/by-zipcode/${zipcode}`),
+      'FilterService.findNeighborhoodByZipcode'
+    );
+    
+    // Extract neighborhoods data
+    const neighborhoods = Array.isArray(result.data) ? result.data : [];
+    
+    if (neighborhoods.length === 0) {
+      logDebug(`[FilterService] No neighborhoods match zipcode: ${zipcode}`);
       return null;
     }
+    
+    // Return the first matching neighborhood
+    const neighborhood = neighborhoods[0];
+    logDebug(`[FilterService] Found neighborhood for zipcode ${zipcode}:`, neighborhood.name);
+    
+    // Normalize the neighborhood object
+    return {
+      id: parseInt(neighborhood.id, 10) || null,
+      name: neighborhood.name || '',
+      neighborhood: neighborhood.name || '',  // For compatibility
+      neighborhood_name: neighborhood.name || '',  // For compatibility
+      borough_id: parseInt(neighborhood.borough_id, 10) || null,
+      borough_name: neighborhood.borough_name || null,
+      city_id: parseInt(neighborhood.city_id, 10) || null,
+      city_name: neighborhood.city_name || null,
+      zipcode: zipcode
+    };
   },
 
   /**
@@ -181,58 +153,65 @@ export const filterService = {
     const numericCityId = parseInt(cityId, 10);
     logDebug(`[FilterService] Getting neighborhoods for city ID: ${numericCityId}`);
     
-    try {
-      const response = await apiClient.get(`/filters/neighborhoods?cityId=${numericCityId}`);
-      const neighborhoods = extractDataFromResponse(response, 'neighborhoods');
-      
-      if (neighborhoods.length === 0) {
-        logWarn(`[FilterService] No neighborhoods found for city ID: ${numericCityId}`);
-        
-        // For New York City (ID 1), return mock boroughs as fallback
-        if (numericCityId === 1) {
-          logDebug('[FilterService] Using mock boroughs for New York City');
-          return MOCK_BOROUGHS;
-        }
-        return [];
-      }
-      
-      // Process the neighborhoods data
-      const processedNeighborhoods = neighborhoods.map(neighborhood => ({
-        id: parseInt(neighborhood.id, 10) || null,
-        name: neighborhood.name || '',
-        neighborhood: neighborhood.name || '', // For compatibility
-        neighborhood_name: neighborhood.name || '', // For compatibility
-        borough_id: parseInt(neighborhood.borough_id, 10) || null,
-        borough_name: neighborhood.borough_name || '',
-        city_id: numericCityId
-      }));
-      
-      logDebug(`[FilterService] Processed ${processedNeighborhoods.length} neighborhoods for city ID: ${numericCityId}`);
-      return processedNeighborhoods;
-    } catch (error) {
-      logError(`[FilterService] Error getting neighborhoods for city ID ${numericCityId}:`, error);
+    const result = await handleApiResponse(
+      () => apiClient.get('/filters/neighborhoods', { 
+        params: { cityId: numericCityId } 
+      }),
+      'FilterService.getNeighborhoodsByCity'
+    );
+    
+    // Extract and process data
+    const neighborhoods = Array.isArray(result.data) ? result.data : [];
+    
+    if (neighborhoods.length === 0) {
+      logWarn(`[FilterService] No neighborhoods found for city ID: ${numericCityId}`);
       
       // For New York City (ID 1), return mock boroughs as fallback
       if (numericCityId === 1) {
+        logDebug('[FilterService] Using mock boroughs for New York City');
         return MOCK_BOROUGHS;
       }
       return [];
     }
+    
+    // Process the neighborhoods data
+    const processedNeighborhoods = neighborhoods.map(neighborhood => ({
+      id: parseInt(neighborhood.id, 10) || null,
+      name: neighborhood.name || '',
+      neighborhood: neighborhood.name || '', // For compatibility
+      neighborhood_name: neighborhood.name || '', // For compatibility
+      borough_id: parseInt(neighborhood.borough_id, 10) || null,
+      borough_name: neighborhood.borough_name || '',
+      city_id: numericCityId
+    }));
+    
+    logDebug(`[FilterService] Processed ${processedNeighborhoods.length} neighborhoods for city ID: ${numericCityId}`);
+    return processedNeighborhoods;
   },
 
   /**
-   * Helper to find a city by partial name match
+   * Helper to find a city by partial name match (pure function)
    * @param {Array} cities - List of city objects
    * @param {string} normalizedCityName - Normalized city name to match
+   * @param {Function} normalizeFn - Function to normalize city names
+   * @param {Function} [logFn] - Optional logger for ambiguous matches
    * @returns {Object|null} - Matching city object or null
    */
-  findCityByPartialMatch(cities, normalizedCityName) {
+  findCityByPartialMatch: function(cities, normalizedCityName, normalizeFn, logFn) {
     for (const city of cities) {
-      const cityNameNormalized = this.normalizeCityName(city.name);
-      if (cityNameNormalized.includes(normalizedCityName) ||
-        normalizedCityName.includes(cityNameNormalized)) {
+      const cityNameNormalized = normalizeFn(city.name);
+      if (
+        cityNameNormalized.includes(normalizedCityName) ||
+        normalizedCityName.includes(cityNameNormalized)
+      ) {
+        if (logFn) {
+          logFn(`[FilterService] Partial match: input='${normalizedCityName}', city='${cityNameNormalized}' (ID: ${city.id})`);
+        }
         return city;
       }
+    }
+    if (logFn) {
+      logFn(`[FilterService] No partial city match for '${normalizedCityName}'`);
     }
     return null;
   },
