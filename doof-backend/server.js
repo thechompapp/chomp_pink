@@ -139,10 +139,27 @@ class AppServer {
     const frontendUrls = [
       process.env.FRONTEND_URL || 'http://localhost:5173',
       'http://localhost:5174',  // In case Vite uses this port
+      'http://localhost:5175',  // Updated port for frontend
       'http://127.0.0.1:5173',
-      'http://127.0.0.1:5174'
+      'http://127.0.0.1:5174',
+      'http://127.0.0.1:5175',
+      'http://localhost:3000',   // For test environments
+      'http://127.0.0.1:3000'    // For test environments
     ];
     logger.info(`Frontend URLs configured for CORS:`, frontendUrls);
+    
+    // For testing environments, allow all origins if TEST_MODE is enabled
+    const isTestMode = process.env.NODE_ENV === 'test' || process.env.TEST_MODE === 'true';
+    
+    if (isTestMode) {
+      logger.info('Test mode enabled: CORS allowing all origins');
+      return {
+        origin: '*',
+        credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+      };
+    }
     
     return {
       origin: function(origin, callback) {

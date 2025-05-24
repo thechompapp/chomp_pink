@@ -17,10 +17,12 @@ import axios from 'axios';
 import { patchGlobalAxios, patchAxiosInstance, applyXhrFixes } from '@/services/axios-fix';
 import * as config from '@/config';
 import { logDebug, logError, logWarn } from '@/utils/logger';
-import httpInterceptor from '@/services/httpInterceptor';
+import httpInterceptor from '@/services/httpInterceptor'; 
 import CacheManager from '@/utils/CacheManager';
 import ErrorHandler from '@/utils/ErrorHandler';
 import mockApi from '@/services/mockApi';
+// Import the function to set up auth-specific interceptors
+import { setupAuthInterceptors } from '@/services/authService'; 
 
 // Apply the unified axios fixes to prevent the TypeError: Cannot read properties of undefined (reading 'toUpperCase')
 patchGlobalAxios(axios);
@@ -97,6 +99,9 @@ const apiClient = axios.create({
 
 // Apply the patch directly to this instance to ensure it's fixed
 patchAxiosInstance(apiClient);
+
+// Setup authentication-specific interceptors AFTER the instance is created and patched
+setupAuthInterceptors(apiClient);
 
 // Create a safe fallback adapter for handling cases where the default adapter fails
 const fallbackAdapter = (config) => {

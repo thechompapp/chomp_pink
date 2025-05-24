@@ -25,9 +25,16 @@ if (result.error) {
 }
 
 
+// Determine if we're in a test environment
+const isTestEnvironment = process.env.NODE_ENV === 'test' || process.env.TEST_MODE === 'true';
+
+// Use a consistent test secret when in test mode
+const testJwtSecret = 'test-jwt-secret-for-api-testing-environments-only';
+
 const config = {
   port: process.env.PORT || 5001,
-  jwtSecret: process.env.JWT_SECRET, // This is the crucial part
+  // Use test JWT secret in test environments, otherwise use environment variable
+  jwtSecret: isTestEnvironment ? testJwtSecret : process.env.JWT_SECRET,
   jwtExpiration: process.env.JWT_EXPIRATION || '1h', // e.g., 1 hour
   jwtCookieExpiration: parseInt(process.env.JWT_COOKIE_EXPIRATION_MS || (1 * 60 * 60 * 1000), 10), // 1 hour in ms
   refreshTokenExpirationDays: parseInt(process.env.REFRESH_TOKEN_EXPIRATION_DAYS || '7', 10),
@@ -50,10 +57,15 @@ const config = {
 
 // Critical check for JWT_SECRET
 if (!config.jwtSecret) {
-  console.error('FATAL ERROR: JWT_SECRET is not defined in environment variables or .env file.');
-  // process.exit(1); // Optionally exit if the secret is absolutely critical for startup
+  if (isTestEnvironment) {
+    console.warn('[Config] JWT_SECRET not found in environment, but test mode is enabled. Using test secret.');
+    config.jwtSecret = testJwtSecret; // Ensure we have a secret for tests
+  } else {
+    console.error('FATAL ERROR: JWT_SECRET is not defined in environment variables or .env file.');
+    // process.exit(1); // Optionally exit if the secret is absolutely critical for startup
+  }
 } else {
-  console.log('[Config] JWT_SECRET loaded successfully.');
+  console.log(`[Config] JWT_SECRET loaded successfully. ${isTestEnvironment ? '(Using test secret)' : ''}`);
 }
 
 

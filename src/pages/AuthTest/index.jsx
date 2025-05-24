@@ -1,7 +1,7 @@
 // src/pages/AuthTest/index.jsx
 import React from 'react';
 import { AuthProvider } from '@/contexts/auth';
-import AuthSystemTest from '@/tests/auth-system-test';
+// import AuthSystemTest from '@/tests/auth-system-test';
 
 /**
  * Authentication Test Page
@@ -17,7 +17,7 @@ const AuthTestPage = () => {
         This page allows you to test the new authentication system without affecting the rest of the application.
       </p>
       
-      <AuthSystemTest />
+      {/* <AuthSystemTest /> */}
     </div>
   );
 };

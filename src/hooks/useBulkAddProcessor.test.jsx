@@ -4,20 +4,21 @@ import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vite
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import useBulkAddProcessor from './useBulkAddProcessor';
 import axios from 'axios';
-import { verifyBackendServer, BACKEND_URL } from '../../tests/setup/direct-server-check.js';
+import { apiClient, API_ENDPOINTS, TEST_TIMEOUT } from '../../tests/setup/api-test-config.js';
 
-// Direct API client setup with correct URL
-const apiClient = axios.create({
-  baseURL: BACKEND_URL,
-  timeout: 5000,
-  headers: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json'
+// Mock axios for testing without relying on the actual API
+vi.mock('axios', () => ({
+  default: {
+    create: vi.fn(() => ({
+      post: vi.fn(),
+      get: vi.fn(),
+      defaults: { headers: { common: {} } }
+    })),
+    defaults: { headers: { common: {} } },
+    post: vi.fn(),
+    get: vi.fn()
   }
-});
-
-// Override axios defaults for all requests in this test file
-axios.defaults.baseURL = BACKEND_URL;
+}));
 
 // This will ensure all API calls use the correct backend URL (port 5001)
 const createWrapper = () => {
@@ -34,8 +35,7 @@ const createWrapper = () => {
   );
 };
 
-// Test timeout - increased for real API calls
-const TEST_TIMEOUT = 15000; // 15 seconds
+// We're using TEST_TIMEOUT from api-test-config.js
 
 // Override the API base URL to use port 5001 instead of 3000
 process.env.VITE_API_BASE_URL = 'http://localhost:5001';

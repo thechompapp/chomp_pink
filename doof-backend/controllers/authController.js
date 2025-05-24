@@ -9,6 +9,17 @@ import logger from '../utils/logger.js'; // For any specific logging not covered
 
 // User registration
 export const register = async (req, res) => {
+  // Check if this is a test request
+  const isTestRequest = req.headers['x-test-mode'] === 'true';
+  const isTestEnv = process.env.TEST_MODE === 'true' || process.env.NODE_ENV === 'test';
+  
+  // Log the registration attempt for debugging
+  console.log(`Registration attempt ${isTestRequest || isTestEnv ? '(TEST MODE)' : ''}:`, {
+    email: req.body.email,
+    username: req.body.username,
+    testMode: isTestRequest || isTestEnv
+  });
+  
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     // Concatenate error messages for a clearer response detail
@@ -67,6 +78,16 @@ export const register = async (req, res) => {
 
 // User login
 export const login = async (req, res) => {
+  // Check if this is a test request
+  const isTestRequest = req.headers['x-test-mode'] === 'true';
+  const isTestEnv = process.env.TEST_MODE === 'true' || process.env.NODE_ENV === 'test';
+  
+  // Log the login attempt for debugging
+  console.log(`Login attempt ${isTestRequest || isTestEnv ? '(TEST MODE)' : ''}:`, {
+    email: req.body.email,
+    testMode: isTestRequest || isTestEnv
+  });
+  
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     const errorMessages = errors.array().map(err => err.msg).join(', ');
@@ -175,6 +196,15 @@ export const getMe = async (req, res) => {
 // This endpoint will use the optionalAuth middleware to check if the user is authenticated
 export const getAuthStatus = async (req, res) => {
   try {
+    // Check if this is a test request
+    const isTestRequest = req.headers['x-test-mode'] === 'true';
+    const isTestEnv = process.env.TEST_MODE === 'true' || process.env.NODE_ENV === 'test';
+    
+    console.log(`Auth status check ${isTestRequest || isTestEnv ? '(TEST MODE)' : ''}:`, {
+      authenticated: !!req.user,
+      testMode: isTestRequest || isTestEnv
+    });
+    
     // If the user is authenticated, the middleware will attach req.user
     if (req.user) {
       // User is authenticated, send back user info

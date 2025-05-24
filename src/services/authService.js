@@ -3,7 +3,7 @@
  * 
  * Handles all authentication-related API calls and token management
  */
-import apiClient from '@/services/apiClient';
+import apiClient from '@/services/apiClient'; // This apiClient is actually apiUtils from apiClient.js
 import { logDebug, logError } from '@/utils/logger';
 import { handleApiResponse } from '@/utils/serviceHelpers.js';
 
@@ -24,11 +24,7 @@ const AuthService = {
     logDebug('[AuthService] Attempting login for:', credentials.email);
     
     const result = await handleApiResponse(
-      () => apiClient({
-        url: `${API_ENDPOINT}/login`,
-        method: 'post',
-        data: credentials
-      }),
+      () => apiClient.post(`${API_ENDPOINT}/login`, credentials),
       'AuthService.login'
     );
 
@@ -52,11 +48,7 @@ const AuthService = {
     logDebug('[AuthService] Attempting user registration');
     
     const result = await handleApiResponse(
-      () => apiClient({
-        url: `${API_ENDPOINT}/register`,
-        method: 'post',
-        data: userData
-      }),
+      () => apiClient.post(`${API_ENDPOINT}/register`, userData),
       'AuthService.register'
     );
     
@@ -71,10 +63,7 @@ const AuthService = {
     logDebug('[AuthService] Fetching current user');
     
     const result = await handleApiResponse(
-      () => apiClient({
-        url: `${API_ENDPOINT}/me`,
-        method: 'get'
-      }),
+      () => apiClient.get(`${API_ENDPOINT}/me`),
       'AuthService.getCurrentUser'
     );
     
@@ -108,10 +97,9 @@ const AuthService = {
       
       // Attempt to call the logout endpoint
       try {
-        await apiClient({
-          url: `${API_ENDPOINT}/logout`,
-          method: 'post'
-        });
+        // Assuming apiClient.post returns a promise that handleApiResponse would wrap
+        // If logout doesn't need special handling by handleApiResponse, call directly
+        await apiClient.post(`${API_ENDPOINT}/logout`);
       } catch (error) {
         logError('[AuthService] Logout API call failed, but continuing with local cleanup', error);
       }
@@ -138,11 +126,7 @@ const AuthService = {
     }
     
     const result = await handleApiResponse(
-      () => apiClient({
-        url: `${API_ENDPOINT}/refresh-token`,
-        method: 'post',
-        data: { refreshToken }
-      }),
+      () => apiClient.post(`${API_ENDPOINT}/refresh-token`, { refreshToken }),
       'AuthService.refreshToken'
     );
     
@@ -158,9 +142,8 @@ const AuthService = {
       return { success: true, token, refreshToken: newRefreshToken || refreshToken };
     }
     
-    // If we reach here, either the API call failed or the response didn't contain a token
     logError('[AuthService] Token refresh failed:', result.error || 'Invalid token refresh response');
-    this.clearTokens();
+    AuthService.clearTokens(); // Changed from this.clearTokens()
     return { success: false, error: result.error || 'Invalid token refresh response' };
   },
 
@@ -170,6 +153,7 @@ const AuthService = {
   clearTokens() {
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
+    logDebug('[AuthService] Tokens cleared');
   },
 
   /**
@@ -181,11 +165,7 @@ const AuthService = {
     logDebug(`[AuthService] Requesting password reset for: ${email}`);
     
     const result = await handleApiResponse(
-      () => apiClient({
-        url: `${API_ENDPOINT}/forgot-password`,
-        method: 'post',
-        data: { email }
-      }),
+      () => apiClient.post(`${API_ENDPOINT}/forgot-password`, { email }),
       'AuthService.requestPasswordReset'
     );
     
@@ -201,20 +181,16 @@ const AuthService = {
    * @returns {Promise<Object>} Success status
    */
   async resetPassword(token, newPassword) {
-    try {
-      logDebug('[AuthService] Resetting password');
-      
-      await apiClient({
-        url: `${API_ENDPOINT}/reset-password`,
-        method: 'post',
-        data: { token, newPassword }
-      });
-      
-      return { success: true, message: 'Password reset successful' };
-    } catch (error) {
-      logError('[AuthService] Password reset failed:', error);
-      throw error;
-    }
+    logDebug('[AuthService] Attempting to reset password');
+    
+    const result = await handleApiResponse(
+      () => apiClient.post(`${API_ENDPOINT}/reset-password`, { token, newPassword }),
+      'AuthService.resetPassword'
+    );
+
+    return result.success 
+      ? { success: true, message: 'Password reset successfully' }
+      : { success: false, error: result.error };
   },
 
   /**
@@ -226,57 +202,72 @@ const AuthService = {
     try {
       logDebug('[AuthService] Verifying email');
       
-      await apiClient({
-        url: `${API_ENDPOINT}/verify-email`,
-        method: 'post',
-        data: { token }
-      });
+      // This was not using handleApiResponse, let's keep it direct or wrap it if needed
+      // Assuming direct call is fine and it handles its own errors or they propagate
+      await apiClient.post(`${API_ENDPOINT}/verify-email`, { token });
       
       return { success: true, message: 'Email verified successfully' };
     } catch (error) {
       logError('[AuthService] Email verification failed:', error);
-      throw error;
+      // Re-throw or return a structured error, matching other methods
+      return { success: false, error: error.response?.data?.message || error.message || 'Email verification failed' };
     }
   }
 };
 
-// Add request interceptor to include auth token
-apiClient.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
-// Add response interceptor to handle token refresh
-apiClient.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
-    
-    // If the error is 401 and we haven't tried to refresh yet
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-      
-      try {
-        const { token } = await AuthService.refreshToken();
-        if (token) {
-          originalRequest.headers.Authorization = `Bearer ${token}`;
-          return apiClient(originalRequest);
-        }
-      } catch (refreshError) {
-        await AuthService.logout();
-        window.location.href = '/login';
-        return Promise.reject(refreshError);
+export const setupAuthInterceptors = (axiosInstance) => {
+  // Request interceptor to include auth token
+  axiosInstance.interceptors.request.use(
+    (config) => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
       }
+      return config;
+    },
+    (error) => Promise.reject(error)
+  );
+
+  // Response interceptor to handle token refresh
+  axiosInstance.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+      const originalRequest = error.config;
+      
+      // If the error is 401 and we haven't tried to refresh yet
+      if (error.response?.status === 401 && !originalRequest._retry) {
+        originalRequest._retry = true; // Mark that we've tried to refresh for this request
+        try {
+          logDebug('[AuthService Interceptor] Attempting token refresh due to 401');
+          // Use AuthService directly as it's in the same module scope
+          const refreshResult = await AuthService.refreshToken(); 
+          
+          if (refreshResult.success && refreshResult.token) {
+            // Update the default Authorization header for subsequent requests on this instance
+            axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${refreshResult.token}`;
+            // Update the Authorization header for the original request
+            originalRequest.headers['Authorization'] = `Bearer ${refreshResult.token}`;
+            // Retry the original request with the new token
+            return axiosInstance(originalRequest);
+          } else {
+            // Refresh token failed or didn't return a new token
+            logError('[AuthService Interceptor] Token refresh failed or no new token received.');
+            AuthService.clearTokens();
+            // Optionally, trigger a global logout event or redirect to login
+            // window.dispatchEvent(new Event('forceLogout'));
+            return Promise.reject(error); // Reject with the original 401 error
+          }
+        } catch (refreshError) {
+          logError('[AuthService Interceptor] Exception during token refresh:', refreshError);
+          AuthService.clearTokens();
+          // window.dispatchEvent(new Event('forceLogout'));
+          return Promise.reject(refreshError); // Reject with the refresh error
+        }
+      }
+      return Promise.reject(error);
     }
-    
-    return Promise.reject(error);
-  }
-);
+  );
+  logDebug('[AuthService] Axios interceptors configured on the provided instance.');
+};
 
 export default AuthService;

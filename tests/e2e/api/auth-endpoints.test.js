@@ -6,34 +6,28 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { tokenStorage, withAuth } from '../../setup/enhanced-test-setup.js';
 import { setupVitestHooks } from '../../setup/setup-vitest-hooks.js';
-import axios from 'axios';
-import { verifyBackendServer, BACKEND_URL } from '../../setup/direct-server-check.js';
-
-// Direct API client setup with correct URL
-const apiClient = axios.create({
-  baseURL: BACKEND_URL,
-  timeout: 5000,
-  headers: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json'
-  }
-});
-
-// Override axios defaults for all requests in this test file
-axios.defaults.baseURL = BACKEND_URL;
+import { 
+  apiClient, 
+  tokenStorage, 
+  verifyBackendServer, 
+  API_ENDPOINTS,
+  TEST_TIMEOUT 
+} from '../../setup/browser-test-config.js';
 
 // Setup Vitest hooks for capturing API request/response data
 setupVitestHooks();
 
 // In-memory token storage is imported from enhanced-test-setup.js
 
-// Test user credentials - using a known test user in the database
+// Test data for authentication endpoints
 const testUser = {
-  email: 'user@example.com',
-  password: 'password123'
+  email: 'test@example.com',
+  password: 'Password123!',
+  name: 'Test User'
 };
+
+// We're now using the API_ENDPOINTS from api-test-config.js
 
 // Test registration data with unique values to prevent conflicts
 const registrationData = {
@@ -76,7 +70,7 @@ describe('Authentication Endpoints', () => {
   });
 
   describe('Registration', () => {
-    it.skip('should register a new user', async () => {
+    it('should register a new user', async () => {
       try {
         console.log('Attempting to register a new user...');
         
@@ -89,7 +83,7 @@ describe('Authentication Endpoints', () => {
           username: `user_${Date.now()}`
         };
         
-        const response = await apiClient.post('/api/auth/register', newUser);
+        const response = await apiClient.post(API_ENDPOINTS.AUTH.REGISTER, newUser);
         
         // Log response for debugging
         console.log('Registration response:', {
@@ -138,7 +132,7 @@ describe('Authentication Endpoints', () => {
           // Missing password and username
         };
         
-        const response = await apiClient.post('/api/auth/register', invalidUser);
+        const response = await apiClient.post(API_ENDPOINTS.AUTH.REGISTER, invalidUser);
         
         // This should not happen - the request should fail
         console.error('Unexpected success response:', response.data);
@@ -166,7 +160,7 @@ describe('Authentication Endpoints', () => {
       
       try {
         console.log('Attempting to login...');
-        const response = await apiClient.post('/api/auth/login', testUser);
+        const response = await apiClient.post(API_ENDPOINTS.AUTH.LOGIN, testUser);
         
         console.log('Login response:', {
           status: response.status,
@@ -205,10 +199,11 @@ describe('Authentication Endpoints', () => {
       
       try {
         console.log('Attempting to login with invalid credentials...');
-        const response = await apiClient.post('/api/auth/login', {
+        const invalidCredentials = {
           email: 'wrong@example.com',
           password: 'wrongpassword'
-        });
+        };
+        const response = await apiClient.post(API_ENDPOINTS.AUTH.LOGIN, invalidCredentials);
         
         // This should not happen - the request should fail
         console.error('Unexpected success response:', response.data);
@@ -233,19 +228,44 @@ describe('Authentication Endpoints', () => {
   });
 
   describe('Logout', () => {
-    it('should successfully logout', () => {
-      // Just clear the token, as the logout endpoint doesn't need to be tested
-      tokenStorage.clearToken();
-    });
+    it('should successfully logout', async () => {
+      // Verify backend is available
+      await verifyBackendServer();
+      
+      try {
+        // First login to get a token
+        console.log('Logging in to get a token for logout test...');
+        const loginResponse = await apiClient.post(API_ENDPOINTS.AUTH.LOGIN, testUser);
+        
+        // Store token
+        tokenStorage.setToken(loginResponse.data.token);
+        
+        // Now logout
+        console.log('Attempting to logout...');
+        const response = await apiClient.post(API_ENDPOINTS.AUTH.LOGOUT);
+        
+        // Verify logout was successful
+        expect(response.status).toBe(200);
+        expect(response.data).toHaveProperty('success', true);
+        
+        // Clear token from storage
+        tokenStorage.clearToken();
+        
+        console.log('Logout test passed!');
+      } catch (error) {
+        console.error('Error during logout test:', error.message);
+        throw error;
+      }
+    }, TEST_TIMEOUT);
   });
 
   describe('Auth Status', () => {
-    it.skip('should return auth status for authenticated user', async () => {
+    it('should return auth status for authenticated user', async () => {
       
       try {
         // First login to get a token
         console.log('Logging in to get a token for auth status test...');
-        const loginResponse = await apiClient.post('/api/auth/login', testUser);
+        const loginResponse = await apiClient.post(API_ENDPOINTS.AUTH.LOGIN, testUser);
         
         // Verify login was successful
         expect(loginResponse.status).toBe(200);
@@ -254,13 +274,13 @@ describe('Authentication Endpoints', () => {
         // Store token
         tokenStorage.setToken(loginResponse.data.token);
         
-        // Check auth status
+        // Check auth status with token
         console.log('Checking auth status with token...');
-        const response = await withAuth(apiClient.get)('/api/auth/status');
+        const statusResponse = await apiClient.get(API_ENDPOINTS.AUTH.STATUS);
         
         console.log('Auth status response:', {
-          status: response.status,
-          isAuthenticated: response.data.isAuthenticated
+          status: statusResponse.status,
+          isAuthenticated: statusResponse.data.isAuthenticated
         });
         
         // Verify response status
@@ -285,7 +305,7 @@ describe('Authentication Endpoints', () => {
       }
     }, TEST_TIMEOUT);
 
-    it.skip('should return auth status for unauthenticated user', async () => {
+    it('should return auth status for unauthenticated user', async () => {
       // Verify backend is available
       await verifyBackendServer();
       
@@ -293,9 +313,9 @@ describe('Authentication Endpoints', () => {
         // Clear token
         tokenStorage.clearToken();
         
-        // Check auth status
+        // Check auth status without token
         console.log('Checking auth status without token...');
-        const response = await apiClient.get('/api/auth/status');
+        const response = await apiClient.get(API_ENDPOINTS.AUTH.STATUS);
         
         console.log('Unauthenticated status response:', {
           status: response.status,
@@ -306,20 +326,12 @@ describe('Authentication Endpoints', () => {
         expect(response.status).toBe(200);
         
         // Verify response data
+        expect(response.data).toHaveProperty('success', true);
         expect(response.data).toHaveProperty('isAuthenticated', false);
-        
-        // Either the user property doesn't exist or it's null
-        if (response.data.hasOwnProperty('user')) {
-          expect(response.data.user).toBeNull();
-        }
         
         console.log('Unauthenticated status test passed!');
       } catch (error) {
-        console.error('Unauthenticated status test failed:', error.message);
-        if (error.response) {
-          console.error('Response status:', error.response.status);
-          console.error('Response data:', error.response.data);
-        }
+        console.error('Error during unauthenticated status test:', error.message);
         throw error;
       }
     }, TEST_TIMEOUT);

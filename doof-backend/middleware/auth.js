@@ -9,12 +9,14 @@ export const requireAuth = async (req, res, next) => {
   // Check for development bypass headers
   const bypassAuth = req.headers['x-bypass-auth'] === 'true';
   const isPlacesApiRequest = req.headers['x-places-api-request'] === 'true';
+  const isTestMode = req.headers['x-test-mode'] === 'true';
   const isAdminRoute = req.path.startsWith('/admin');
   const adminApiKey = req.headers['x-admin-api-key'];
   const configuredAdminKey = process.env.ADMIN_API_KEY;
 
-  // Check if we're running in development mode
-  const isDevMode = process.env.NODE_ENV === 'development';
+  // Check if we're running in development or test mode
+  const isDevMode = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
+  const isTestEnv = process.env.TEST_MODE === 'true' || process.env.NODE_ENV === 'test';
   const isLocalhost = req.headers.host?.includes('localhost') || req.headers.host?.includes('127.0.0.1');
   
   // If admin API key is provided and matches our configured key, allow access
@@ -30,10 +32,10 @@ export const requireAuth = async (req, res, next) => {
     return next();
   }
 
-  // Allow bypass in development mode with the right headers
-  if (isDevMode && isLocalhost && (bypassAuth || isPlacesApiRequest)) {
-    console.log(`[Auth Middleware] Bypassing authentication for ${req.path} in development mode on localhost`);
-    // Set a default admin user for development
+  // Allow bypass in development/test mode with the right headers
+  if ((isDevMode || isTestEnv) && isLocalhost && (bypassAuth || isPlacesApiRequest || isTestMode)) {
+    console.log(`[Auth Middleware] Bypassing authentication for ${req.path} in ${isTestEnv ? 'test' : 'development'} mode on localhost`);
+    // Set a default admin user for development/testing
     req.user = {
       id: 1,
       username: 'admin',
@@ -221,14 +223,16 @@ export const generateRefreshToken = async (userId) => {
 };
 
 export const optionalAuth = async (req, res, next) => {
-    // Development mode bypass check
-    const isDevMode = process.env.NODE_ENV === 'development';
+    // Development/test mode bypass check
+    const isDevMode = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
+    const isTestEnv = process.env.TEST_MODE === 'true' || process.env.NODE_ENV === 'test';
     const isLocalhost = req.headers.host?.includes('localhost') || req.headers.host?.includes('127.0.0.1');
     const hasBypassHeader = req.headers['x-bypass-auth'] === 'true';
+    const isTestMode = req.headers['x-test-mode'] === 'true';
   
-    // Allow access in development mode with bypass headers
-    if (isDevMode && isLocalhost && hasBypassHeader) {
-        console.log(`[OptionalAuth Middleware] Development mode bypass for ${req.path}`);
+    // Allow access in development/test mode with bypass headers
+    if ((isDevMode || isTestEnv) && isLocalhost && (hasBypassHeader || isTestMode)) {
+        console.log(`[OptionalAuth Middleware] ${isTestEnv ? 'Test' : 'Development'} mode bypass for ${req.path}`);
         // Set a mock superuser
         req.user = {
             id: 1,

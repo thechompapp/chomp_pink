@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { apiClient, TEST_TIMEOUT } from '../../setup/enhanced-test-setup.js';
+import { apiClient, TEST_TIMEOUT, API_ENDPOINTS } from '../../setup/api-test-config.js';
 import { setupVitestHooks } from '../../setup/setup-vitest-hooks.js';
 
 // Setup Vitest hooks for capturing API request/response data
@@ -15,7 +15,7 @@ describe('Health Check', () => {
   it('should be able to connect to the API health endpoint', async () => {
     try {
       console.log('Attempting to connect to health endpoint...');
-      const response = await apiClient.get('/api/health');
+      const response = await apiClient.get(API_ENDPOINTS.SYSTEM.HEALTH);
       
       console.log(`Health endpoint response status: ${response.status}`);
       
