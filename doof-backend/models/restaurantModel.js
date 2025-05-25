@@ -15,117 +15,66 @@ export const findAllRestaurants = async (options = {}) => {
     sort = 'created_at',
     order = 'desc',
     search,
-    city_id,
-    neighborhood_id,
-    cuisine, // This is a hashtag name for filtering
-    google_place_id,
     userId,
   } = options;
 
   const offset = (page - 1) * limit;
   const queryParams = [];
-  let paramIndex = 1;
+  let paramIndex = 0;
 
-  queryParams.push(userId || null); // For $1 in is_favorited_by_user
-
-  let baseSelect = `
-    SELECT r.*,
-           c.name AS city_name,
-           n.name AS neighborhood_name,
-           COALESCE(
-               (SELECT ARRAY_AGG(DISTINCT h.name ORDER BY h.name)
-                FROM hashtags h
-                JOIN restauranthashtags rh ON h.id = rh.hashtag_id
-                WHERE rh.restaurant_id = r.id),
-               '{}'::TEXT[]
-           ) AS tags,
-           EXISTS (
-              SELECT 1 FROM listitems li_fav -- Corrected from list_items
-              JOIN lists l_fav ON li_fav.list_id = l_fav.id
-              WHERE li_fav.item_id = r.id AND li_fav.item_type = 'restaurant'
-              AND l_fav.user_id = $1
-            ) AS is_favorited_by_user
-  `;
-  // Placeholders for potential future calculated fields, not directly from restaurants table
-  // baseSelect += `, NULL AS city_state_abbreviation, NULL AS average_rating, 0 AS review_count`;
-
-
-  let fromAndJoins = `
-    FROM restaurants r
-    LEFT JOIN cities c ON r.city_id = c.id
-    LEFT JOIN neighborhoods n ON r.neighborhood_id = n.id
-  `;
-
+  // Simple query to just get restaurants without complex joins
+  let query = 'SELECT * FROM restaurants';
+  let countQuery = 'SELECT COUNT(*) FROM restaurants';
+  
   let whereClauses = [];
-  let countParams = []; // Separate params for count query for proper indexing
-
-  if (city_id) {
-    whereClauses.push(`r.city_id = $${++paramIndex}`);
-    queryParams.push(city_id);
-    countParams.push(city_id);
-  }
-  if (neighborhood_id) {
-    whereClauses.push(`r.neighborhood_id = $${++paramIndex}`);
-    queryParams.push(neighborhood_id);
-    countParams.push(neighborhood_id);
-  }
-  if (google_place_id) {
-    whereClauses.push(`r.google_place_id = $${++paramIndex}`);
-    queryParams.push(google_place_id);
-    countParams.push(google_place_id);
-  }
+  
   if (search) {
-    // Search in restaurant name or in names of dishes associated with the restaurant
-    whereClauses.push(`(r.name ILIKE $${++paramIndex} OR EXISTS (SELECT 1 FROM dishes d_search WHERE d_search.restaurant_id = r.id AND d_search.name ILIKE $${paramIndex}))`);
+    whereClauses.push(`name ILIKE $${++paramIndex}`);
     queryParams.push(`%${search}%`);
-    countParams.push(`%${search}%`);
   }
-
-  let cuisineSpecificJoins = '';
-  if (cuisine) {
-    cuisineSpecificJoins = `
-      JOIN restauranthashtags rh_cuisine ON r.id = rh_cuisine.restaurant_id
-      JOIN hashtags h_cuisine ON rh_cuisine.hashtag_id = h_cuisine.id
-    `;
-    whereClauses.push(`h_cuisine.category = 'cuisine' AND h_cuisine.name ILIKE $${++paramIndex}`);
-    queryParams.push(cuisine); // Using cuisine name directly for ILIKE
-    countParams.push(cuisine);
-  }
-
-  let finalQuery = baseSelect + fromAndJoins + cuisineSpecificJoins;
-  let countQuery = `SELECT COUNT(DISTINCT r.id) FROM restaurants r ` + fromAndJoins + cuisineSpecificJoins;
-
 
   if (whereClauses.length > 0) {
-    finalQuery += ` WHERE ${whereClauses.join(' AND ')}`;
-    // Adjust placeholder numbers for count query's where clause
-    let countWhereClause = ` WHERE ${whereClauses.join(' AND ')}`;
-    for(let i = paramIndex -1; i >= 1; i--) { // Iterate backwards to adjust placeholders correctly
-        countWhereClause = countWhereClause.replace(new RegExp(`\\$${i+1}(?!\\d)`, 'g'), `$${i}`);
-    }
-    countQuery += countWhereClause;
+    query += ` WHERE ${whereClauses.join(' AND ')}`;
+    countQuery += ` WHERE ${whereClauses.join(' AND ')}`;
   }
 
-  finalQuery += ` GROUP BY r.id, c.name, n.name`;
+  // Add sorting and pagination
+  const validSortColumns = ['name', 'created_at', 'adds'];
+  const sortColumn = validSortColumns.includes(sort) ? sort : 'created_at';
+  const sortDirection = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
-  const validSortColumns = ['name', 'created_at', 'updated_at', 'adds'];
-  let sortColumn = `r.${validSortColumns.includes(sort) ? sort : 'created_at'}`;
-  const sortOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-  finalQuery += ` ORDER BY ${sortColumn} ${sortOrder} NULLS LAST, r.id ${sortOrder}`;
-
-  finalQuery += ` LIMIT $${++paramIndex} OFFSET $${++paramIndex}`;
-  queryParams.push(limit, offset);
+  query += ` ORDER BY ${sortColumn} ${sortDirection} LIMIT ${limit} OFFSET ${offset}`;
 
   try {
-    console.log("[RestaurantModel findAllRestaurants] Main Query:", finalQuery, queryParams);
-    console.log("[RestaurantModel findAllRestaurants] Count Query:", countQuery, countParams);
+    console.log("[RestaurantModel findAllRestaurants] Query:", query, queryParams);
+    console.log("[RestaurantModel findAllRestaurants] Count Query:", countQuery, queryParams);
 
-    const results = await db.query(finalQuery, queryParams);
-    const countResult = await db.query(countQuery, countParams);
+    const results = await db.query(query, queryParams);
+    const countResult = await db.query(countQuery, queryParams);
     const total = parseInt(countResult.rows[0]?.count || 0, 10);
 
+    // Map results to the expected format
     return {
-      restaurants: results.rows.map(row => formatRestaurant(row)),
+      data: results.rows.map(row => ({
+        id: Number(row.id),
+        name: row.name || 'Unnamed Restaurant',
+        description: row.description || null,
+        cuisine: row.cuisine || null,
+        price_range: row.price_range || null,
+        city_name: row.city_name || null,
+        neighborhood_name: row.neighborhood_name || null,
+        tags: [],  // Simplified - not fetching tags
+        adds: Number(row.adds || 0),
+        address: row.address || null,
+        google_place_id: row.google_place_id || null,
+        latitude: row.latitude ? Number(row.latitude) : null,
+        longitude: row.longitude ? Number(row.longitude) : null,
+        city_id: row.city_id ? Number(row.city_id) : null,
+        neighborhood_id: row.neighborhood_id ? Number(row.neighborhood_id) : null,
+        created_by: row.created_by ? Number(row.created_by) : null,
+        created_at: row.created_at || null,
+        updated_at: row.updated_at || null
+      })),
       total,
     };
   } catch (error) {

@@ -4,25 +4,22 @@ export const formatRestaurant = (restaurant) => {
     return {
         id: Number(restaurant.id),
         name: restaurant.name || 'Unnamed Restaurant',
-        city: restaurant.city || null,
-        neighborhood: restaurant.neighborhood || null,
+        description: restaurant.description || null,
+        cuisine: restaurant.cuisine || null,
+        price_range: restaurant.price_range || null,
+        city_name: restaurant.city_name || null,
+        neighborhood_name: restaurant.neighborhood_name || null,
         tags: Array.isArray(restaurant.tags) ? restaurant.tags : [],
         adds: Number(restaurant.adds || 0),
-        // Ensure all relevant fields from schema are included or handled
         address: restaurant.address || null,
-        phone: restaurant.phone || null,
-        website: restaurant.website || null,
-        instagram_handle: restaurant.instagram_handle || null,
         google_place_id: restaurant.google_place_id || null,
         latitude: restaurant.latitude ? Number(restaurant.latitude) : null,
         longitude: restaurant.longitude ? Number(restaurant.longitude) : null,
         city_id: restaurant.city_id ? Number(restaurant.city_id) : null,
         neighborhood_id: restaurant.neighborhood_id ? Number(restaurant.neighborhood_id) : null,
-        zip_code: restaurant.zip_code || null,
-        chain_id: restaurant.chain_id ? Number(restaurant.chain_id) : null,
+        created_by: restaurant.created_by ? Number(restaurant.created_by) : null,
         created_at: restaurant.created_at || null,
-        updated_at: restaurant.updated_at || null,
-
+        updated_at: restaurant.updated_at || null
     };
 };
 
@@ -30,18 +27,17 @@ export const formatDish = (dish) => {
     if (!dish || !dish.id || !dish.name) return null;
     return {
         id: Number(dish.id),
-        dish_id: Number(dish.id), // dish_id seems redundant if id is the primary key for dishes
         name: dish.name || 'Unnamed Dish',
-        restaurant_name: dish.restaurant_name || 'Unknown Restaurant', // This likely comes from a JOIN
-        tags: Array.isArray(dish.tags) ? dish.tags : [],
-        // Ensure all relevant fields from schema are included or handled
         restaurant_id: dish.restaurant_id ? Number(dish.restaurant_id) : null,
+        restaurant_name: dish.restaurant_name || null, // This likely comes from a JOIN
         description: dish.description || null,
         price: dish.price ? Number(dish.price) : null,
-        is_common: typeof dish.is_common === 'boolean' ? dish.is_common : false,
+        category: dish.category || null,
+        tags: Array.isArray(dish.tags) ? dish.tags : [],
         adds: dish.adds ? Number(dish.adds) : 0,
+        created_by: dish.created_by ? Number(dish.created_by) : null,
         created_at: dish.created_at || null,
-        updated_at: dish.updated_at || null,
+        updated_at: dish.updated_at || null
     };
 };
 

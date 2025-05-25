@@ -191,18 +191,30 @@ app.post('/reset-connections', (req, res) => {
 
 // API proxy endpoint to bypass CORS
 app.use('/api-proxy', async (req, res) => {
+  // Log the original request URL and the target URL for debugging
   const targetUrl = `${BACKEND_URL}${req.url}`;
+  console.log(`[DEBUG] Original request URL: ${req.url}`);
+  console.log(`[DEBUG] Target URL: ${targetUrl}`);
   const startTime = Date.now();
   const requestId = `req-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
   
-  console.log(`[${requestId}] Proxying request: ${req.method} ${targetUrl}`);
-  console.log(`[${requestId}] Request headers:`, req.headers);
-  console.log(`[${requestId}] Request body:`, req.body);
-  
   try {
-    // Create a custom axios instance for this request
+    console.log(`\n[${requestId}] === API REQUEST ===`);
+    console.log(`[${requestId}] Proxying request: ${req.method} ${req.url}`);
+    console.log(`[${requestId}] Request headers:`, req.headers);
+
+    let requestBody = {};
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      try {
+        requestBody = req.body || {};
+        console.log(`[${requestId}] Request body:`, JSON.stringify(requestBody, null, 2));
+      } catch (e) {
+        console.error(`[${requestId}] Error parsing request body:`, e);
+      }
+    }
+
     const axiosInstance = axios.create({
-      timeout: 30000, // 30 second timeout to prevent timeouts
+      timeout: 30000 // 30 second timeout to prevent timeouts
     });
     
     // Track the connection
@@ -221,20 +233,91 @@ app.use('/api-proxy', async (req, res) => {
       return config;
     });
     
+    // Ensure Content-Type is set for POST/PUT requests with a body
+    const headers = {
+      ...req.headers,
+      host: new URL(BACKEND_URL).host,
+      origin: BACKEND_URL,
+      'x-test-mode': 'true',
+      'x-request-id': requestId
+    };
+    
+    // If it's a POST/PUT request and there's no Content-Type, set it to application/json
+    if ((req.method === 'POST' || req.method === 'PUT') && !headers['content-type']) {
+      headers['content-type'] = 'application/json';
+    }
+    
+    // Log the actual request being sent
+    console.log(`[${requestId}] Sending request to backend:`);
+    console.log(`[${requestId}] - Method: ${req.method}`);
+    console.log(`[${requestId}] - URL: ${targetUrl}`);
+    console.log(`[${requestId}] - Headers:`, headers);
+    
+    // Debug the request body transformation
+    console.log(`[${requestId}] - Original request body:`, req.body);
+    console.log(`[${requestId}] - Original request body type:`, typeof req.body);
+    
+    // Store the original body type
+    const originalBodyType = typeof req.body;
+    
+    // If the body is a string, try to parse it
+    let parsedBody = req.body;
+    if (originalBodyType === 'string') {
+      try {
+        parsedBody = JSON.parse(req.body);
+        console.log(`[${requestId}] - Parsed request body:`, parsedBody);
+      } catch (e) {
+        console.log(`[${requestId}] - Failed to parse request body:`, e.message);
+      }
+    }
+    
+    // Ensure username field is correctly set if name is present
+    if (parsedBody && parsedBody.name && !parsedBody.username) {
+      console.log(`[${requestId}] - Found 'name' field but no 'username' field, fixing...`);
+      parsedBody.username = parsedBody.name;
+      delete parsedBody.name;
+      console.log(`[${requestId}] - Fixed request body:`, parsedBody);
+      req.body = parsedBody;
+    }
+    
+    // Convert the body back to string if it was modified
+    if (typeof req.body !== 'string' && originalBodyType === 'string') {
+      req.body = JSON.stringify(req.body);
+      console.log(`[${requestId}] - Converted body back to string:`, req.body);
+    }
+    
+    // Prepare the request data
+    let requestData;
+    if (typeof parsedBody === 'object' && parsedBody !== null) {
+      // If we have a parsed body object, use it
+      requestData = parsedBody;
+    } else if (typeof req.body === 'string') {
+      // If the body is a string, use it directly
+      try {
+        // Try to parse it to validate it's proper JSON
+        JSON.parse(req.body);
+        requestData = req.body;
+      } catch (e) {
+        // If it's not valid JSON, stringify the parsed body
+        console.log(`[${requestId}] - Invalid JSON in request body, using parsed body:`, e.message);
+        requestData = parsedBody;
+      }
+    } else {
+      // Fallback to the original body
+      requestData = req.body;
+    }
+    
     // Make the request
     const response = await axiosInstance({
       method: req.method,
       url: targetUrl,
-      data: req.body,
-      headers: {
-        ...req.headers,
-        host: new URL(BACKEND_URL).host,
-        origin: BACKEND_URL,
-        'x-test-mode': 'true',
-        'x-request-id': requestId
-      },
+      data: requestData,
+      headers: headers,
       validateStatus: () => true // Return all status codes, not just 2xx
     });
+    
+    // Log what was actually sent to the backend
+    console.log(`[${requestId}] - Final data sent to backend:`, requestData);
     
     // Remove this connection from the active connections list
     activeConnections = activeConnections.filter(conn => conn.requestId !== requestId);
@@ -242,9 +325,25 @@ app.use('/api-proxy', async (req, res) => {
     const duration = Date.now() - startTime;
     console.log(`[${requestId}] Response received in ${duration}ms with status ${response.status}`);
     
-    // Log a sample of the response data (to avoid huge logs)
-    const responsePreview = JSON.stringify(response.data).substring(0, 200);
-    console.log(`[${requestId}] Response preview: ${responsePreview}${responsePreview.length >= 200 ? '...' : ''}`);
+    // Log detailed response information
+    console.log(`[${requestId}] Response status: ${response.status} ${response.statusText}`);
+    
+    // Log the full response data for better debugging
+    try {
+      const responseData = JSON.stringify(response.data, null, 2);
+      console.log(`[${requestId}] Full response data:`);
+      console.log(responseData);
+      
+      // Log validation errors if present
+      if (response.data && response.data.errors) {
+        console.log(`[${requestId}] Validation errors:`);
+        console.log(JSON.stringify(response.data.errors, null, 2));
+      }
+    } catch (e) {
+      console.error(`[${requestId}] Error stringifying response data:`, e);
+      const responsePreview = JSON.stringify(response.data).substring(0, 200);
+      console.log(`[${requestId}] Response preview: ${responsePreview}${responsePreview.length >= 200 ? '...' : ''}`);
+    }
     
     // Send the response back to the client
     res.status(response.status).json(response.data);
@@ -346,7 +445,7 @@ app.get('/health', async (req, res) => {
 
 // Serve the API test runner at the root
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'api-test-runner-fixed.html'));
+  res.sendFile(path.join(__dirname, 'public', 'api-test-runner.html'));
 });
 
 // Start the server
