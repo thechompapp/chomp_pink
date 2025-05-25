@@ -1,17 +1,104 @@
-# Ignore node_modules folder
+# Dependencies
 node_modules/
-.vscode/
-dist/
-build/
-.env
-.DS_Store
-.vite/
+.pnp
+.pnp.js
 
-# Generated artifacts
+# Testing
+coverage/
+.nyc_output/
+
+# Test results and reports
 test-reports/
 test-results/
+coverage/
+.nyc_output/
 diagnostic-report-*.json
+*.tap
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Build outputs
+dist/
+dist-ssr/
+build/
+
+# Cache directories
+.cache/
+.temp/
+.tmp/
+
+# Vite specific
+.vite/
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local development
+.local
+
+# Test specific
+test-results/bulk-add-test-results.json
+
+# E2E test artifacts
+playwright-report/
+playwright/.cache/
+playwright/test-results/
+
+# Diagnostic reports
+diagnostic-report-*.json
+
+# Backend specific
 doof-backend/logs/
 
-# Test results
-test-results/bulk-add-test-results.json
+# Misc
+.DS_Store
+Thumbs.db
+
+# System files
+.DS_Store
+
+# Environment files
+.env.local
+
+# Backup directories
+backup_*/
+
+# Test and coverage
+coverage/
+test-results/
+test-reports/
+
+# Logs
+*.log
+
+# Node modules
+node_modules/
+
+# IDE specific files
+.vscode/
+.idea/

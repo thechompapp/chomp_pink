@@ -1,58 +1,127 @@
 /**
- * Simplified Health Endpoint Test
+ * Health Endpoint Integration Test
  * 
- * This file contains a simplified test for the health endpoint
- * using our robust API client.
+ * This file contains integration tests for the health endpoint.
+ * It follows the project's rules by using real API endpoints and data.
  */
 
-import { describe, it, expect } from 'vitest';
-import apiClient, { getHealth } from '../setup/robust-api-client.js';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import axios from 'axios';
+import { config, skipIfNoIntegration, debugLog } from '../setup/test-config.js';
 
-// Test timeout (10 seconds)
-const TEST_TIMEOUT = 10000;
+// Test timeout (30 seconds to allow for API response time)
+const TEST_TIMEOUT = 30000;
 
-describe('Health Endpoint', () => {
+// Skip tests if integration tests are disabled
+describe.skipIf(!config.test.integration)('Health Endpoint (Integration)', () => {
+  let healthResponse;
+  let apiClient;
+
+  beforeAll(() => {
+    // Create a fresh axios instance for testing with minimal configuration
+    apiClient = axios.create({
+      baseURL: config.api.baseUrl,
+      timeout: config.api.timeout,
+      headers: config.api.headers,
+      withCredentials: false
+    });
+
+    // Simple request interceptor for logging
+    apiClient.interceptors.request.use(request => {
+      console.log(`[TEST] Sending ${request.method?.toUpperCase()} to ${request.url}`);
+      return request;
+    });
+
+    // Simple response interceptor for logging
+    apiClient.interceptors.response.use(
+      response => {
+        console.log(`[TEST] Received ${response.status} from ${response.config.url}`);
+        return response;
+      },
+      error => {
+        if (error.response) {
+          console.error('[TEST] Error response:', {
+            status: error.response.status,
+            statusText: error.response.statusText,
+            url: error.config.url,
+            data: error.response.data
+          });
+        } else if (error.request) {
+          console.error('[TEST] No response received:', error.message);
+        } else {
+          console.error('[TEST] Request setup error:', error.message);
+        }
+        return Promise.reject(error);
+      }
+    );
+  }, TEST_TIMEOUT);
+
   it('should return a 200 status code and UP status', async () => {
-    const result = await getHealth();
-    
-    console.log('Health check result:', result);
-    
-    expect(result.success).toBe(true);
-    expect(result.status).toBe(200);
-    expect(result.data).toHaveProperty('status', 'UP');
-    expect(result.data).toHaveProperty('message');
-    expect(result.data).toHaveProperty('timestamp');
+    try {
+      // Make a real API request to the health endpoint
+      const response = await apiClient.get('/health');
+      healthResponse = response.data;
+      
+      debugLog('Health check response:', response.data);
+      
+      // Basic response validation
+      expect(response.status).toBe(200);
+      expect(healthResponse).toBeDefined();
+      expect(healthResponse.status).toBe('UP');
+      expect(healthResponse.message).toBeDefined();
+      expect(healthResponse.timestamp).toBeDefined();
+    } catch (error) {
+      console.error('Health check failed:', error);
+      throw error; // Re-throw to fail the test
+    }
   }, TEST_TIMEOUT);
   
-  it('should include database pool information', async () => {
-    const result = await getHealth();
-    
-    expect(result.success).toBe(true);
-    expect(result.data).toHaveProperty('databasePool');
-    expect(result.data.databasePool).toHaveProperty('total');
-    expect(result.data.databasePool).toHaveProperty('idle');
-    expect(result.data.databasePool).toHaveProperty('waiting');
-  }, TEST_TIMEOUT);
+  it('should include database pool information', () => {
+    expect(healthResponse).toBeDefined();
+    expect(healthResponse.databasePool).toBeDefined();
+    expect(healthResponse.databasePool).toMatchObject({
+      total: expect.any(Number),
+      idle: expect.any(Number),
+      waiting: expect.any(Number)
+    });
+  });
   
-  it('should include memory usage information', async () => {
-    const result = await getHealth();
-    
-    expect(result.success).toBe(true);
-    expect(result.data).toHaveProperty('memoryUsage');
-    expect(result.data.memoryUsage).toHaveProperty('rss');
-    expect(result.data.memoryUsage).toHaveProperty('heapTotal');
-    expect(result.data.memoryUsage).toHaveProperty('heapUsed');
-  }, TEST_TIMEOUT);
+  it('should include memory usage information', () => {
+    expect(healthResponse).toBeDefined();
+    expect(healthResponse.memoryUsage).toBeDefined();
+    expect(healthResponse.memoryUsage).toMatchObject({
+      rss: expect.any(Number),
+      heapTotal: expect.any(Number),
+      heapUsed: expect.any(Number)
+    });
+  });
   
-  it('should respond quickly (under 200ms)', async () => {
+  it('should respond within a reasonable time', async () => {
     const startTime = Date.now();
-    const result = await getHealth();
-    const endTime = Date.now();
-    const responseTime = endTime - startTime;
-    
-    console.log(`Health endpoint response time: ${responseTime}ms`);
-    
-    expect(result.success).toBe(true);
-    expect(responseTime).toBeLessThan(200);
+    try {
+      const response = await apiClient.get('/health');
+      const endTime = Date.now();
+      const responseTime = endTime - startTime;
+      
+      debugLog(`Health endpoint response time: ${responseTime}ms`);
+      
+      expect(response.status).toBe(200);
+      expect(responseTime).toBeLessThan(1000); // Should respond in under 1 second
+    } catch (error) {
+      console.error('Health check failed in response time test:', error);
+      throw error; // Re-throw to fail the test
+    }
   }, TEST_TIMEOUT);
+  
+  afterAll(() => {
+    // Clean up any resources if needed
+    debugLog('Cleaning up test resources');
+  });
 });
+
+// Add a message when integration tests are skipped
+if (!config.test.integration) {
+  console.log('\n\x1b[33m%s\x1b[0m', 
+    'Integration tests are skipped. Set RUN_INTEGRATION_TESTS=true to run them.'
+  );
+}

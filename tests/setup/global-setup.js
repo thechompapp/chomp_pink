@@ -1,79 +1,76 @@
 /**
- * Global Setup for E2E Tests
+ * Test Setup Configuration
  * 
- * This file contains setup and teardown functions that run once before
- * and after all tests. It handles database initialization, server startup,
- * and other global test prerequisites.
+ * This file sets up the test environment before running tests.
+ * It's loaded before any test files are executed.
  */
 
-import { initializeTestDatabase, closeDbConnections } from './db-utils.js';
-import { config } from './config.js';
-import apiClient, { handleApiRequest } from './api-client.js';
+// Set up global test environment variables
+process.env.NODE_ENV = 'test';
+process.env.REACT_APP_API_BASE_URL = 'http://localhost:5001';
+
+// Import Vitest's expect and vi (Vitest's jest-like API)
+import { expect, vi, beforeAll, afterAll, afterEach } from 'vitest';
+import { configure } from '@testing-library/react';
 
 /**
- * Setup function that runs before all tests
- * Vitest expects this to return a teardown function
+ * Configure test library settings
  */
-export default async () => {
-  console.log('🚀 Starting global test setup...');
-  
-  try {
-    // Check if API is available
-    console.log('Checking API availability...');
-    try {
-      // First try the health endpoint
-      const healthCheck = await handleApiRequest(
-        () => apiClient.get('/health'),
-        'API Health Check'
-      );
-      
-      if (healthCheck.success) {
-        console.log('✅ API health endpoint is available');
-      } else {
-        // If health endpoint fails, try another common endpoint
-        console.log('⚠️ Health endpoint not found, trying alternative endpoint...');
-        const altCheck = await handleApiRequest(
-          () => apiClient.get('/'),
-          'Alternative API Check'
-        );
-        
-        if (altCheck.success) {
-          console.log('✅ API is available via alternative endpoint');
-        } else {
-          console.warn('⚠️ API may not be fully available. Some tests may fail.');
-          console.log(`API base URL: ${config.api.baseUrl}`);
-        }
-      }
-    } catch (error) {
-      console.warn(`⚠️ API check error: ${error.message}`);
-      console.log(`API base URL: ${config.api.baseUrl}`);
-      console.log('Make sure the development server is running with: npm run dev');
-    }
-    
-    // Skip database initialization for real API testing
-    console.log('ℹ️ Using existing database for real API testing');
-    
-    // Vitest expects the setup function to return a teardown function
-    return async () => {
-      console.log('🧹 Starting global test teardown...');
-      
-      try {
-        // No need to clean up the database when using the real API
-        console.log('ℹ️ No database cleanup needed for real API testing');
-        
-        console.log('✅ Global teardown completed');
-      } catch (error) {
-        console.error(`❌ Global teardown failed: ${error.message}`);
-        // Don't throw the error to allow tests to complete
-        console.error('Continuing despite error...');
-      }
-    };
-  } catch (error) {
-    console.error(`❌ Global setup failed: ${error.message}`);
-    // Instead of failing, we'll return a minimal teardown function
-    console.warn('Continuing with minimal setup...');
-    return async () => {
-      console.log('Minimal teardown completed');
-    };
-  }
-};
+configure({
+  testIdAttribute: 'data-testid',
+  // Add any other global test configurations here
+});
+
+/**
+ * Global test setup
+ * Runs once before all tests
+ */
+beforeAll(() => {
+  console.log('🔧 Setting up test environment...');
+  // Add any global setup code here
+});
+
+/**
+ * Global test teardown
+ * Runs once after all tests complete
+ */
+afterAll(() => {
+  console.log('🧹 Cleaning up test environment...');
+  // Add any global cleanup code here
+});
+
+// Reset mocks between tests
+afterEach(() => {
+  vi.clearAllMocks();
+});
+
+// Make expect and vi globally available
+global.expect = expect;
+global.vi = vi;
+
+// Mock any browser APIs used in tests
+if (typeof window !== 'undefined') {
+  // Mock localStorage
+  const localStorageMock = {
+    getItem: vi.fn(),
+    setItem: vi.fn(),
+    removeItem: vi.fn(),
+    clear: vi.fn(),
+  };
+  Object.defineProperty(window, 'localStorage', { value: localStorageMock });
+
+  // Mock window.matchMedia
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: vi.fn().mockImplementation(query => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+}

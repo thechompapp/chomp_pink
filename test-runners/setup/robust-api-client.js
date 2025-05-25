@@ -29,18 +29,8 @@ const apiClient = axios.create({
   timeout: config.api.timeout,
   headers: {
     'Content-Type': 'application/json',
-    'Accept': 'application/json',
-    // Add CORS headers that the server expects
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-  },
-  withCredentials: true,
-  // For testing environment, disable CORS check
-  // This is only for test environment and should not be used in production
-  ...(process.env.NODE_ENV === 'test' && {
-    adapter: require('axios/lib/adapters/http')
-  })
+    'X-Test-Request': 'true'
+  }
 });
 
 // Request interceptor for adding auth token
@@ -601,59 +591,11 @@ export const deleteAdminUser = async (id, token = null) => {
  * Get API health status
  * @returns {Promise<Object>} Health status
  */
-/**
- * Get API health status
- * @returns {Promise<Object>} Health status response
- */
 export const getHealth = async () => {
-  try {
-    // Use the correct health check endpoint
-    const response = await apiClient.get('/health', {
-      // Override headers for this specific request if needed
-      headers: {
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      },
-      // Skip CORS preflight in test environment
-      withCredentials: process.env.NODE_ENV !== 'test',
-      // Add a unique timestamp to prevent caching
-      params: { _: Date.now() }
-    });
-    
-    // For test environment, ensure we have the expected response structure
-    const responseData = response.data || {};
-    
-    return {
-      status: response.status,
-      data: responseData,
-      success: response.status >= 200 && response.status < 300
-    };
-  } catch (error) {
-    console.error('Health check failed:', error);
-    
-    // For test environment, provide a mock response if needed
-    if (process.env.NODE_ENV === 'test' && error.code === 'ECONNREFUSED') {
-      console.warn('Using mock health check response for test environment');
-      return {
-        status: 200,
-        data: {
-          status: 'UP',
-          message: 'Mock health check response',
-          timestamp: new Date().toISOString(),
-          databasePool: { total: 0, idle: 0, waiting: 0 },
-          memoryUsage: { rss: 0, heapTotal: 0, heapUsed: 0, external: 0, arrayBuffers: 0 }
-        },
-        success: true
-      };
-    }
-    
-    return {
-      status: error.response?.status || 500,
-      data: error.response?.data || { message: error.message },
-      success: false
-    };
-  }
+  return handleApiRequest(
+    () => apiClient.get('/health'),
+    'Health Check'
+  );
 };
 
 export default {

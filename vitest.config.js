@@ -8,21 +8,33 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./tests/setup.js'],
+    server: {
+      deps: {
+        inline: ['axios'],
+      },
+    },
     coverage: {
+      provider: 'v8',
       reporter: ['text', 'json', 'html'],
       exclude: [
         'node_modules/',
-        'tests/',
-        '**/*.test.{js,jsx,ts,tsx}',
+        '**/*.test.js',
+        '**/*.spec.js',
+        '**/tests/**',
         '**/__mocks__/**',
         '**/test-utils/**',
         '**/testUtils.*',
-        '**/test/**',
       ],
-      include: ['src/**/*.{js,jsx,ts,tsx}'],
+      include: [
+        'src/**/*.{js,jsx,ts,tsx}',
+        '!src/__tests__/**',
+      ],
     },
-    testTimeout: 30000, // 30 seconds for API tests
-    include: ['**/*.{test,spec}.{js,jsx,ts,tsx}'],
+    testTimeout: 30000, // Increase timeout for API tests
+    include: [
+      '**/tests/unit/**/*.test.{js,jsx,ts,tsx}',
+      '**/tests/integration/**/*.test.{js,jsx,ts,tsx}',
+    ],
   },
   resolve: {
     alias: {
