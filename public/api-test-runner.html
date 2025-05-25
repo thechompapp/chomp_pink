@@ -4,1015 +4,120 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chomp API Test Runner - Refactored</title>
-  <style>
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      line-height: 1.6;
-      color: #333;
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 20px;
-      background-color: #f9f9f9;
-    }
-    .container { width: 100%; max-width: 1200px; margin: 0 auto; }
-    header { text-align: center; margin-bottom: 30px; }
-    h1 { color: #ff385c; }
-    .test-container { background-color: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 20px; margin-bottom: 20px; }
-    .test-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-    .server-status { display: flex; gap: 20px; margin-bottom: 20px; }
-    .status-indicator { display: flex; align-items: center; gap: 10px; }
-    .status-circle { width: 15px; height: 15px; border-radius: 50%; background-color: #ccc; }
-    .status-circle.connected { background-color: #4CAF50; }
-    .status-circle.disconnected { background-color: #F44336; }
-    button { background-color: #ff385c; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: background-color 0.3s; }
-    button:hover { background-color: #e02e4c; }
-    button:disabled { background-color: #cccccc; cursor: not-allowed; }
-    .test-list { margin-top: 20px; }
-    .test-item { padding: 15px; border-left: 4px solid #ddd; margin-bottom: 10px; background-color: #f5f5f5; }
-    .test-item.running { border-left-color: #2196F3; background-color: #e3f2fd; }
-    .test-item.passed { border-left-color: #4CAF50; background-color: #e8f5e9; }
-    .test-item.failed { border-left-color: #F44336; background-color: #ffebee; }
-    .test-details { margin-top: 10px; padding: 10px; background-color: #fff; border-radius: 4px; border: 1px solid #eee; max-height: 450px; overflow-y: auto; position: relative; }
-    .payload-analysis-section { margin-top: 15px; padding-top: 10px; border-top: 1px dashed #ccc; }
-    .copy-button { position: absolute; top: 5px; right: 5px; background-color: #ff385c; color: white; border: 1px solid #e02e4c; border-radius: 3px; padding: 5px 10px; font-size: 12px; cursor: pointer; z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: all 0.2s ease; }
-    .copy-button:hover { background-color: #e02e4c; transform: translateY(-1px); box-shadow: 0 3px 5px rgba(0,0,0,0.15); }
-    .copy-success { background-color: #4CAF50; color: white; border-color: #3d8b40; }
-    .log-container { margin-top: 20px; padding: 15px; background-color: #f5f5f5; border-radius: 4px; height: 300px; overflow-y: auto; font-family: monospace; border: 1px solid #ddd; }
-    .log-entry { margin-bottom: 5px; padding: 5px; border-bottom: 1px solid #eee; word-break: break-all; }
-    .log-entry.info { color: #2196F3; }
-    .log-entry.success { color: #4CAF50; }
-    .log-entry.error { color: #F44336; }
-    .log-entry.warning { color: #ffc107; }
-    .summary { margin-top: 20px; padding: 15px; background-color: #fff; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-    pre { background-color: #f8f8f8; padding: 10px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
-    .tabs { display: flex; margin-bottom: 20px; border-bottom: 2px solid #ff385c; padding-bottom: 5px; }
-    .tab-button { background-color: #f1f1f1; border: 1px solid #ddd; padding: 12px 24px; cursor: pointer; border-radius: 4px 4px 0 0; margin-right: 5px; font-weight: bold; font-size: 16px; transition: all 0.3s ease; }
-    .tab-button:hover { background-color: #e0e0e0; border-bottom-color: #ff385c; }
-    .tab-button.active { background-color: #ff385c; color: white; border-color: #ff385c; position: relative; top: 1px; }
-    .tab-content { display: none; animation: fadeIn 0.5s; }
-    .tab-content.active { display: block; }
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    .schema-container { background-color: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 20px; margin-bottom: 20px; }
-    .schema-controls { margin-bottom: 20px; display: flex; justify-content: space-between; }
-    .schema-table { margin-bottom: 30px; }
-    .schema-table h3 { background-color: #f5f5f5; padding: 10px; border-radius: 4px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
-    .schema-table table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    .schema-table th, .schema-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-    .schema-table th { background-color: #f5f5f5; font-weight: bold; }
-    .schema-table tr:nth-child(even) { background-color: #f9f9f9; }
-    .schema-table tr:hover { background-color: #f1f1f1; }
-    .table-toggle { background-color: #f1f1f1; border: none; padding: 5px 10px; cursor: pointer; border-radius: 4px; font-size: 12px; }
-    .search-box { padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 250px; }
-    .mismatch { color: #F44336; font-weight: bold; }
-    .match { color: #4CAF50; }
-    .analysis-item { margin-bottom: 5px; }
-  </style>
+  <link rel="stylesheet" href="/api-test-runner.css">
 </head>
 <body>
-  <header>
+  <div class="container">
     <h1>Chomp API Test Runner - Refactored</h1>
     <p>Test all API endpoints with real data (via Test Runner Server on port 8080)</p>
-  </header>
 
-  <div class="container">
     <div class="tabs">
-      <button class="tab-button active" data-tab="test-tab">API Tests</button>
-      <button class="tab-button" data-tab="schema-tab">Database Schema</button>
+      <button class="tab active" data-tab="tests">API Tests</button>
+      <button class="tab" data-tab="schema">Database Schema</button>
+      <button class="tab" data-tab="data">Database Data</button>
     </div>
-    
-    <div id="test-tab" class="tab-content active">
-      <div class="test-container">
-        <div class="test-controls">
-          <div class="server-status">
-            <div class="status-indicator">
-              <div id="backend-status" class="status-circle disconnected"></div>
-              <span>Test Runner Server (Backend Proxy)</span>
-            </div>
-             <div class="status-indicator">
-              <div id="frontend-status" class="status-circle disconnected"></div>
-              <span>Frontend Server (Status Only)</span>
-            </div>
+
+    <div class="tab-content" id="tests">
+      <div class="server-status">
+        <div class="status">
+          <h3>Test Runner Server (Backend Proxy)</h3>
+          <p>Status: <span id="backend-status">Unknown</span></p>
+        </div>
+        <div class="status">
+          <h3>Backend Server</h3>
+          <p>Status: <span id="frontend-status">Unknown</span></p>
+        </div>
+      </div>
+
+      <div class="tab-content" id="tests-content">
+        <div class="button-container">
+          <button id="connect-reset">Connect & Reset</button>
+          <button id="superuser-login" class="primary-button">Login as Superuser</button>
+          <button id="run-all-tests" disabled>Run All Tests</button>
+          <button id="clear-log">Clear Log</button>
+        </div>
+        
+        <div id="superuser-status" class="superuser-status">
+          <span class="status-label">Superuser Status:</span>
+          <span id="superuser-status-value" class="status-value status-not-authenticated">Not Authenticated</span>
+        </div>
+
+        <h3>Available Tests</h3>
+        <div id="test-list" class="test-list">
+          <!-- Individual tests will be added here by JavaScript -->
+        </div>
+
+        <!-- E2E Testing Endpoints section removed - using only real, live API endpoints -->
+        <div class="category">
+          <h3>Core Service Layer Tests</h3>
+          <div class="category-tests" data-category="service-core"></div>
+        </div>
+        <div class="category">
+          <h3>Additional Service Tests</h3>
+          <div class="category-tests" data-category="service-additional"></div>
+        </div>
+      </div>
+
+      <div class="results-panel">
+        <div class="results-header">
+          <h2>Test Results</h2>
+          <div class="results-controls">
+            <button id="expand-all">Expand All</button>
+            <button id="collapse-all">Collapse All</button>
           </div>
-          <div>
-            <button id="connect-btn">Connect & Reset</button>
-            <button id="run-tests-btn" disabled>Run All Tests</button>
-            <button id="clear-log-btn">Clear Log</button>
-          </div>
         </div>
-        <div class="test-list" id="test-list"></div>
+        <div id="test-log"></div>
       </div>
-      <div class="log-container" id="log-container">
-        <h3>Test Log</h3>
-        <div id="log-entries"></div>
+
+      <h2>Test Summary</h2>
+      <div id="test-summary">
+        <div id="summary-content">Connect to servers and run tests to see results.</div>
+        <div class="summary-controls">
+          <button id="copy-results">Copy All Results</button>
+        </div>
       </div>
-      <div class="summary" id="summary">
-        <h3>Test Summary</h3>
-        <p>Connect to servers and run tests to see results.</p>
-        <button id="copy-all-results" style="display: none;">Copy All Results</button>
+      <div id="test-results" class="test-results-container"></div>
+    </div>
+
+    <div class="tab-content" id="schema" style="display: none;">
+      <div class="schema-controls">
+        <button id="load-schema">Load Database Schema</button>
+        <button id="refresh-schema">Refresh Schema</button>
+      </div>
+
+      <div id="schema-content">
+        Loading database schema...
+      </div>
+
+      <div id="schema-error" style="display: none;">
+        Error loading database schema. Please check server connection.
       </div>
     </div>
-    
-    <div id="schema-tab" class="tab-content">
-      <div class="schema-container">
-        <div class="schema-controls">
-          <div><button id="load-schema-btn">Load Database Schema</button> <button id="refresh-schema-btn">Refresh Schema</button></div>
-          <div><input type="text" id="schema-search" class="search-box" placeholder="Search tables and columns..."></div>
-        </div>
-        <div id="schema-loading" style="display: none;"><p>Loading database schema...</p></div>
-        <div id="schema-error" style="display: none;" class="test-item failed">
-          <p>Error loading database schema. Please check server connection.</p>
-          <div class="test-details" id="schema-error-details"></div>
-        </div>
-        <div id="schema-content"></div>
+
+    <div class="tab-content" id="data" style="display: none;">
+      <div class="data-controls">
+        <button id="load-data">Load Database Data</button>
+        <button id="refresh-data">Refresh Data</button>
+      </div>
+
+      <div class="table-selector">
+        <label for="table-select">Select Table:</label>
+        <select id="table-select">
+          <option value="">-- Select a table --</option>
+        </select>
+      </div>
+
+      <div id="data-content">
+        Select a table to view its data.
+      </div>
+
+      <div id="data-error" style="display: none;">
+        Error loading database data. Please check server connection.
       </div>
     </div>
+
+    <!-- Load scripts as regular scripts to avoid module loading issues -->
+    <script src="app-bundle.js"></script>
   </div>
-
-<script>
-    // --- Configuration ---
-    const Config = {
-      PROXY_BASE_URL: '/api-proxy/api', 
-      TEST_RUNNER_SERVER_BASE_URL: '', 
-      FRONTEND_URL: 'http://localhost:5173',
-      REQUEST_TIMEOUT: 30000 
-    };
-
-    // --- Test Data Management ---
-    const TestData = {
-      _data: {},
-      init: function() {
-        this._data = {
-          auth: { token: null, user: null },
-          registrationData: null,
-          createdRestaurant: null,
-          createdDish: null,
-          createdList: null
-        };
-        console.log("TestData initialized:", this._data);
-      },
-      get: function(key) { return this._data[key]; },
-      set: function(key, value) { 
-        this._data[key] = value; 
-        console.log(`TestData updated: ${key}`, value, "\nCurrent TestData state:", JSON.parse(JSON.stringify(this._data)));
-      },
-      getAuthToken: function() { return this._data.auth ? this._data.auth.token : null; },
-      getUserId: function() { return this._data.auth && this._data.auth.user ? this._data.auth.user.id : null; }
-    };
-
-    // --- UI Manager ---
-    const UIManager = {
-      _logPanelEl: null, _testListEl: null, _summaryEl: null, _copyAllBtnEl: null,
-      _backendStatusEl: null, _frontendStatusEl: null, _runTestsBtnEl: null,
-      _domElements: {}, 
-
-      initDOM: function() {
-        this._logPanelEl = document.getElementById('log-entries');
-        this._testListEl = document.getElementById('test-list');
-        this._summaryEl = document.getElementById('summary');
-        this._copyAllBtnEl = document.getElementById('copy-all-results');
-        this._backendStatusEl = document.getElementById('backend-status');
-        this._frontendStatusEl = document.getElementById('frontend-status');
-        this._runTestsBtnEl = document.getElementById('run-tests-btn');
-        this.populateTestListUI();
-      },
-      logMessage: function(message, type = 'info') {
-        if (!this._logPanelEl) this._logPanelEl = document.getElementById('log-entries');
-        const entry = document.createElement('div');
-        entry.className = `log-entry ${type}`;
-        const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
-        entry.textContent = `[${timestamp}] ${message}`;
-        this._logPanelEl.appendChild(entry);
-        if (this._logPanelEl.children.length > 200) { 
-            this._logPanelEl.removeChild(this._logPanelEl.firstChild);
-        }
-        this._logPanelEl.scrollTop = this._logPanelEl.scrollHeight;
-      },
-      clearLog: function() {
-        if (this._logPanelEl) this._logPanelEl.innerHTML = '';
-        this.logMessage('Log cleared.', 'info');
-      },
-      _getTestDOMElements: function(testId) {
-        if (!this._domElements[testId]) {
-          this._domElements[testId] = {
-            item: document.getElementById(`test-${testId}`),
-            status: document.getElementById(`status-${testId}`),
-            details: document.getElementById(`details-${testId}`)
-          };
-        }
-        return this._domElements[testId];
-      },
-      updateTestItemUI: function(testId, status, details = {}) { 
-        const els = this._getTestDOMElements(testId);
-        if (!els.item || !els.status || !els.details) {
-          console.warn(`UI elements for testId ${testId} not found.`);
-          return;
-        }
-        els.item.className = `test-item ${status}`;
-        els.status.textContent = status.charAt(0).toUpperCase() + status.slice(1);
-        
-        let content = `<p><strong>HTTP Status:</strong> ${details.httpStatus || 'N/A'} ${details.httpStatusText || ''}</p>`;
-        
-        if (status === 'failed') {
-          content += `<p><strong>Error Message:</strong> ${details.message || 'Unknown error'}</p>`;
-          if (details.responseBody) content += `<strong>Response Body:</strong><pre>${JSON.stringify(details.responseBody, null, 2)}</pre>`;
-          else if (details.rawResponseText) content += `<strong>Raw Response:</strong><pre>${details.rawResponseText}</pre>`;
-          if (details.context) content += `<p><strong>Context:</strong> ${details.context}</p>`;
-          if (details.stack) content += `<strong>Stack Trace:</strong><pre>${details.stack}</pre>`;
-          content += `<button class="copy-button" onclick="UIManager.copyErrorDetails('${testId}')">Copy Error</button>`;
-        } else if (status === 'passed') {
-          content += `<p><strong>Details:</strong> ${details.message || 'Test completed successfully.'}</p>`;
-          if (details.dataToLog && details.dataToLog.responseBody) content += `<strong>Response Body:</strong><pre>${JSON.stringify(details.dataToLog.responseBody, null, 2)}</pre>`;
-          else if (details.dataToLog) content += `<strong>Data:</strong><pre>${JSON.stringify(details.dataToLog, null, 2)}</pre>`;
-        } else { // 'running' or other states
-            content = `<p>${details.message || 'Processing...'}</p>`;
-        }
-
-        const currentTest = TestSuite.tests.find(t => t.id === testId);
-        // Show payload analysis if expectedPayloadDescription exists AND (it's a POST/PUT method during running state OR a requestBody is present in details)
-        const isPostOrPut = details.httpMethod === 'POST' || details.httpMethod === 'PUT';
-        if (currentTest && currentTest.expectedPayloadDescription && (details.requestBody || (status === 'running' && isPostOrPut))) {
-            content += `<div class="payload-analysis-section"><h4>Payload Analysis</h4>`;
-            if (details.requestBody) {
-                 content += `<p><strong>Actual Submitted Payload:</strong></p><pre>${JSON.stringify(details.requestBody, null, 2)}</pre>`;
-            } else if (status === 'running' && isPostOrPut) { // Only show "will populate" for relevant methods
-                 content += `<p><strong>Actual Submitted Payload:</strong> (will populate upon request completion)</p>`;
-            }
-            content += `<p><strong>Expected Payload Structure (defined in test):</strong></p><pre>${JSON.stringify(currentTest.expectedPayloadDescription, null, 2)}</pre>`;
-
-            if (details.requestBody) {
-                const analysis = UIManager.analyzePayloads(details.requestBody, currentTest.expectedPayloadDescription);
-                let analysisHtml = '<p><strong>Key-based Mismatch Analysis:</strong></p>';
-                if (analysis.missing.length === 0 && analysis.extra.length === 0) {
-                    analysisHtml += '<p class="match">No immediate field key mismatches found against test definition.</p>';
-                } else {
-                    if (analysis.missing.length > 0) {
-                        analysisHtml += `<div class="analysis-item mismatch">Missing fields (expected in test def but not found in submitted): ${analysis.missing.join(', ')}</div>`;
-                    }
-                    if (analysis.extra.length > 0) {
-                        analysisHtml += `<div class="analysis-item mismatch">Extra fields (found in submitted but not in test def): ${analysis.extra.join(', ')}</div>`;
-                    }
-                }
-                content += analysisHtml;
-            }
-             if (status === 'failed' && details.httpStatus === 400 && currentTest.expectedPayloadDescription) {
-                content += `<p class="mismatch" style="margin-top:10px;"><strong>Note for 400 Error:</strong> This error means the backend API rejected the payload. While field *keys* might match the test's definition (as shown above), the error is likely due to the field <strong>values</strong>, data types, or other constraints (e.g., non-empty, uniqueness, length, valid enums) not being met. <strong>Check your backend server logs for specific validation error messages from the API.</strong> The raw response from the server was empty, providing no client-side details.</p>`;
-            }
-            content += `</div>`;
-        }
-        
-        els.details.innerHTML = content;
-        els.details.style.display = 'block';
-      },
-      analyzePayloads: function(actual, expected) {
-        const actualKeys = Object.keys(actual || {});
-        const expectedKeys = Object.keys(expected || {});
-        const missing = expectedKeys.filter(key => !actualKeys.includes(key));
-        const extra = actualKeys.filter(key => !expectedKeys.includes(key));
-        return { missing, extra };
-      },
-      _copyErrorDetailsStore: {},
-      copyErrorDetails: function(testId) {
-        const els = this._getTestDOMElements(testId); 
-        const details = UIManager._copyErrorDetailsStore[testId];
-
-        if (!details) { alert('No details to copy for ' + testId); return; }
-        const test = TestSuite.tests.find(t => t.id === testId);
-        const testName = test ? test.name : 'Unknown Test';
-        let errorText = `Test: ${testName}\nHTTP Status: ${details.httpStatus || 'N/A'} ${details.httpStatusText || ''}\nError Message: ${details.message || 'N/A'}\n`;
-        if (details.requestBody) errorText += `Request Body:\n${JSON.stringify(details.requestBody, null, 2)}\n`;
-        if (details.responseBody) errorText += `Response Body:\n${JSON.stringify(details.responseBody, null, 2)}\n`;
-        if (details.stack) errorText += `Stack Trace:\n${details.stack}\n`;
-        
-        navigator.clipboard.writeText(errorText).then(() => {
-            const btn = els.details.querySelector('.copy-button'); 
-            if(btn) { btn.textContent = 'Copied!'; btn.classList.add('copy-success'); setTimeout(() => { btn.textContent = 'Copy Error'; btn.classList.remove('copy-success'); }, 2000); }
-        }).catch(err => alert('Failed to copy: ' + err));
-      },
-      updateServerStatus: function(serverName, isConnected) {
-        const circle = serverName === 'backend' ? this._backendStatusEl : this._frontendStatusEl;
-        if (circle) circle.className = `status-circle ${isConnected ? 'connected' : 'disconnected'}`;
-      },
-      enableRunButton: function(enable) { if (this._runTestsBtnEl) this._runTestsBtnEl.disabled = !enable; },
-      populateTestListUI: function() {
-        if (!this._testListEl) this._testListEl = document.getElementById('test-list');
-        this._testListEl.innerHTML = ''; 
-        this._domElements = {}; 
-        TestSuite.tests.forEach(test => {
-            const itemEl = document.createElement('div'); itemEl.className = 'test-item'; itemEl.id = `test-${test.id}`;
-            itemEl.innerHTML = `<h3>${test.name}</h3><p>${test.description}</p>
-                              <div class="test-status">Status: <span id="status-${test.id}">Not Run</span></div>
-                              <div class="test-details" id="details-${test.id}" style="display: none;"></div>`;
-            this._testListEl.appendChild(itemEl);
-        });
-      },
-      updateSummary: function(results) {
-        const passed = results.filter(r => r.success).length;
-        const failed = results.length - passed;
-        this._summaryEl.innerHTML = `<h3>Test Summary</h3><p>Total: ${results.length} | Passed: ${passed} | Failed: ${failed}</p>`;
-        this._copyAllBtnEl.style.display = results.length > 0 ? 'inline-block' : 'none';
-      },
-      resetTestStatesUI: function() {
-        this.populateTestListUI(); 
-        this.updateSummary([]);
-      }
-    };
-
-    // --- API Client ---
-    const ApiClient = {
-      request: async function(endpoint, options = {}) {
-        const fullUrl = `${Config.PROXY_BASE_URL}${endpoint}`;
-        let requestBodyForLog = null;
-        if (options.body) {
-            if (typeof options.body === 'string') {
-                try {
-                    const contentType = options.headers && (options.headers['Content-Type'] || options.headers['content-type']);
-                    if (contentType && contentType.includes('application/json')) {
-                        requestBodyForLog = JSON.parse(options.body);
-                    } else {
-                        requestBodyForLog = options.body; 
-                    }
-                } catch (e) {
-                    requestBodyForLog = options.body; 
-                    console.warn("Failed to parse request body for logging, logging as string:", e);
-                }
-            } else {
-                requestBodyForLog = options.body; 
-            }
-        }
-        
-        const httpMethod = options.method || 'GET'; // Determine HTTP method
-
-        try {
-          console.groupCollapsed(`ApiClient Request: ${httpMethod} ${fullUrl}`);
-          console.log("Options:", options);
-          console.log("Payload for Log:", requestBodyForLog);
-          console.groupEnd();
-          UIManager.logMessage(`Request: ${httpMethod} ${fullUrl}`, 'info');
-          if (requestBodyForLog && typeof requestBodyForLog === 'object') { 
-            UIManager.logMessage(`Payload: ${JSON.stringify(requestBodyForLog, null, 2)}`, 'info');
-          } else if (requestBodyForLog) { 
-            UIManager.logMessage(`Payload (raw): ${requestBodyForLog}`, 'info');
-          }
-          
-          const response = await fetch(fullUrl, options);
-          console.log(`ApiClient: Raw response for ${fullUrl}: Status ${response.status}`);
-          return this._handleResponse(response, `${httpMethod} ${endpoint}`, requestBodyForLog, httpMethod);
-        } catch (networkError) {
-          console.error(`ApiClient: Network error for ${fullUrl}:`, networkError);
-          UIManager.logMessage(`Network Error for ${fullUrl}: ${networkError.message}`, 'error');
-          const error = new Error(`Network Error: ${networkError.message}`);
-          error.httpStatus = 'Network Error'; error.isNetworkError = true;
-          error.requestBody = requestBodyForLog; 
-          error.httpMethod = httpMethod; // Add method to network error
-          throw error;
-        }
-      },
-      _handleResponse: async function(response, context = '', requestBody = null, httpMethod = 'GET') { 
-        let data, raw = '', parseError = '';
-        const status = response.status;
-        const statusText = response.statusText;
-
-        try {
-          raw = await response.text();
-          if (raw) { try { data = JSON.parse(raw); console.log(`API Response for ${context}:`, data); } catch (e) { parseError = e.message; data = { _rawResponse: raw, _parseError: parseError }; console.warn(`Non-JSON response for ${context}:`, raw.substring(0,100));} } 
-          else { data = { _rawResponse: '[empty body]' }; console.warn(`Empty response body for ${context}`); }
-        } catch (e) { raw = '[unreadable body]'; data = { _rawResponse: raw, _readError: e.message }; console.error(`Error reading API response for ${context}:`, e);}
-
-        const apiResult = { httpStatus: status, httpStatusText: statusText, responseBody: data, rawResponseText: raw, context, requestBody, httpMethod };
-
-        if (!response.ok) {
-          UIManager.logMessage(`${context} API call HTTP FAILED (Status: ${status} ${statusText})`, 'error');
-          if (parseError) UIManager.logMessage(`Response parsing error: ${parseError}`, 'error');
-          
-          const error = new Error(`${context} failed with HTTP status ${status}.`);
-          Object.assign(error, apiResult); 
-          throw error;
-        }
-        // Check for 'success' flag only if data is an object and not just a raw string (e.g. non-JSON response but 200 OK)
-        if (data && typeof data === 'object') {
-            if (data.success === false) {
-              UIManager.logMessage(`${context} API call reported success:false (HTTP ${status}) - Message: ${data.message || 'N/A'}`, 'warning');
-            } else if (data.success === true) {
-              UIManager.logMessage(`${context} API call reported success:true (HTTP ${status})`, 'success');
-            } else {
-               UIManager.logMessage(`${context} HTTP request OK (HTTP ${status}), but 'success' flag not found or not boolean true in response body.`, 'info');
-            }
-        } else {
-             UIManager.logMessage(`${context} HTTP request OK (HTTP ${status}). Response body was not a processable JSON object with a 'success' flag.`, 'info');
-        }
-        return apiResult;
-      }
-    };
-
-    // --- Test Definition & Runner ---
-    class Test {
-      constructor(id, name, description, runFnAsync, expectedPayloadDescription = null) {
-        this.id = id; this.name = name; this.description = description; this.runFnAsync = runFnAsync;
-        this.expectedPayloadDescription = expectedPayloadDescription;
-      }
-      async execute() {
-        // Determine method for initial UI update (rudimentary)
-        let httpMethodForInitialUI = 'GET'; 
-        if (this.id.includes('create') || this.id.includes('register') || this.id.includes('login')) {
-            httpMethodForInitialUI = 'POST';
-        } else if (this.id.includes('update')) {
-            httpMethodForInitialUI = 'PUT';
-        }
-
-        const initialDetails = { 
-            message: "Starting...", 
-            httpStatus: "...", 
-            httpMethod: httpMethodForInitialUI 
-        };
-        UIManager.updateTestItemUI(this.id, 'running', initialDetails);
-        UIManager.logMessage(`Executing Test: ${this.name}`, 'info');
-        
-        let resultForUI;
-        let actualPayloadFromTest;
-        let httpMethodUsed;
-
-        try {
-          const timeoutPromise = new Promise((_, reject) => setTimeout(() => {
-            const err = new Error("Test timed out (" + (Config.REQUEST_TIMEOUT/1000) + "s)");
-            err.isTimeout = true; err.httpStatus = "Timeout"; reject(err);
-          }, Config.REQUEST_TIMEOUT));
-          
-          const testLogicResult = await Promise.race([this.runFnAsync(TestData, ApiClient, UIManager.logMessage), timeoutPromise]);
-          
-          actualPayloadFromTest = testLogicResult.requestBody; 
-          httpMethodUsed = testLogicResult.httpMethod;
-          resultForUI = {
-            message: testLogicResult.messageForRunner || `${this.name} completed successfully.`,
-            httpStatus: testLogicResult.httpStatus,
-            httpStatusText: testLogicResult.httpStatusText,
-            dataToLog: testLogicResult.apiResponse, // This is the full apiResult object from ApiClient
-            requestBody: actualPayloadFromTest,
-            httpMethod: httpMethodUsed
-          };
-          UIManager.updateTestItemUI(this.id, 'passed', resultForUI);
-          UIManager.logMessage(`Test PASSED: ${this.name} - HTTP Status: ${resultForUI.httpStatus}`, 'success');
-          return { success: true, testId: this.id, result: resultForUI };
-
-        } catch (error) {
-          console.error(`[TEST EXECUTION ERROR] ${this.name}:`, error); 
-          actualPayloadFromTest = error.requestBody; 
-          httpMethodUsed = error.httpMethod; // error object now also contains httpMethod
-          resultForUI = {
-            message: error.message || 'Unknown error during test.',
-            httpStatus: error.httpStatus || (error.isTimeout ? 'Timeout' : 'Client/Test Logic Error'),
-            httpStatusText: error.httpStatusText,
-            responseBody: error.responseBody, rawResponseText: error.rawResponseText,
-            stack: error.stack, context: error.context,
-            requestBody: actualPayloadFromTest,
-            httpMethod: httpMethodUsed
-          };
-          UIManager._copyErrorDetailsStore[this.id] = resultForUI;
-          UIManager.updateTestItemUI(this.id, 'failed', resultForUI);
-          UIManager.logMessage(`Test FAILED: ${this.name} - ${error.message}`, 'error');
-          return { success: false, testId: this.id, error: resultForUI };
-        }
-      }
-    }
-
-    const TestSuite = {
-      tests: [],
-      registerTest: function(id, name, description, runFnAsync, expectedPayloadDescription = null) {
-        this.tests.push(new Test(id, name, description, runFnAsync, expectedPayloadDescription));
-      },
-      initDOMAndListeners: function() {
-        UIManager.initDOM(); 
-        document.getElementById('connect-btn').addEventListener('click', () => App.connectAndReset());
-        document.getElementById('run-tests-btn').addEventListener('click', () => this.runAll());
-        document.getElementById('clear-log-btn').addEventListener('click', () => UIManager.clearLog());
-        
-        document.getElementById('load-schema-btn').addEventListener('click', App.loadDatabaseSchema);
-        document.getElementById('refresh-schema-btn').addEventListener('click', () => { App.schemaDataStore = null; App.loadDatabaseSchema();});
-        document.getElementById('schema-search').addEventListener('input', (e) => App.filterSchema(e.target.value));
-        
-        document.querySelectorAll('.tab-button').forEach(button => {
-          button.addEventListener('click', () => {
-            const tabId = button.dataset.tab;
-            document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
-            document.querySelectorAll('.tab-button').forEach(tb => tb.classList.remove('active'));
-            document.getElementById(tabId).classList.add('active');
-            button.classList.add('active');
-            if (tabId === 'schema-tab' && !App.schemaDataStore) App.loadDatabaseSchema();
-          });
-        });
-      },
-      runAll: async function() {
-        TestData.init(); 
-        UIManager.logMessage('Shared test data cleared. Starting all tests...', 'info');
-        UIManager.enableRunButton(false);
-        const results = [];
-        for (const test of this.tests) {
-          const result = await test.execute();
-          results.push(result);
-          if (!result.success && (test.id === 'user-registration' || test.id === 'user-login')) {
-            UIManager.logMessage(`Critical auth test ${test.name} failed. Subsequent dependent tests may fail.`, 'error');
-          }
-        }
-        UIManager.updateSummary(results);
-        UIManager.enableRunButton(true);
-      }
-    };
-
-    // --- Test Definitions ---
-    const expectedUserRegistrationPayload = {
-        email: "string (e.g., test-unique@example.com)",
-        password: "string (e.g., Password123!)",
-        username: "string (e.g., testuser_unique)"
-    };
-    const expectedLoginPayload = {
-        email: "string",
-        password: "string"
-    };
-    const expectedRestaurantPayload = { // ** YOU MUST VERIFY AND ADJUST THESE TO MATCH YOUR API'S ACTUAL REQUIREMENTS **
-        name: "string, required, non-empty",
-        description: "string, required",
-        address: "string, required",
-        cuisine: "string, required, (e.g. 'Italian', 'Mexican' - check valid options)",
-        price_range: "string (e.g., '$', '$$', '$$$' - check valid options)",
-        latitude: "number (float, e.g., 34.0522)",
-        longitude: "number (float, e.g., -118.2437)",
-        phone_number: "string (optional, valid format)",
-        website_url: "string (optional, valid URL format)"
-        // Any other fields like city_id, neighborhood_id if required
-    };
-    const expectedDishPayload = { // ** YOU MUST VERIFY AND ADJUST THESE **
-        name: "string, required, non-empty",
-        description: "string, required",
-        price: "number (float, e.g., 12.99), required, positive",
-        restaurant_id: "integer (ID of an existing restaurant), required",
-        category: "string (e.g., Main, Appetizer - check valid options), required",
-        tags: "array of strings (optional, e.g., [\"api\", \"tasty\"])"
-    };
-    const expectedListPayload = { // ** YOU MUST VERIFY AND ADJUST THESE **
-        name: "string, required, non-empty",
-        description: "string (optional)",
-        is_public: "boolean (true or false), required"
-    };
-
-    TestSuite.registerTest('health-check', 'Health Check', 'Checks Test Runner Server & Backend.', 
-      async (td, apiClient, uiLog) => {
-        uiLog('Executing Health Check on Test Runner Server...');
-        const response = await fetch(`${Config.TEST_RUNNER_SERVER_BASE_URL}/health`);
-        const httpMethod = 'GET';
-        if (!response.ok) {
-             const errorText = await response.text();
-             throw Object.assign(new Error(`Health check HTTP error! status: ${response.status}. Response: ${errorText}`), {httpStatus: response.status, httpStatusText: response.statusText, rawResponseText: errorText, httpMethod });
-        }
-        const data = await response.json();
-
-        if (!data || data.proxyStatus !== 'UP' || data.backendStatus !== 'UP') {
-          throw Object.assign(new Error(`Health check status not OK: Proxy ${data.proxyStatus}, Backend ${data.backendStatus}`), { responseBody: data, httpStatus: response.status, httpStatusText: response.statusText, httpMethod });
-        }
-        return { 
-            messageForRunner: `Proxy: ${data.proxyStatus}, Backend: ${data.backendStatus}`,
-            httpStatus: response.status, httpStatusText: response.statusText, 
-            apiResponse: { responseBody: data, httpMethod } // Simulate apiResult structure
-        };
-    });
-
-    TestSuite.registerTest('user-registration', 'User Registration', 'Registers a new unique user.', 
-      async (td, apiClient, uiLog) => {
-        const uniqueSuffix = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
-        const regData = { email: `test-${uniqueSuffix}@example.com`, password: 'Password123!', username: `testuser_${uniqueSuffix}`};
-        uiLog(`Attempting registration for ${regData.email}`);
-        
-        const apiResult = await apiClient.request('/auth/register', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(regData)
-        });
-
-        if (apiResult.responseBody.success !== true || 
-            !apiResult.responseBody.data || 
-            typeof apiResult.responseBody.data.token !== 'string' || 
-            apiResult.responseBody.data.token.length === 0 ||
-            typeof apiResult.responseBody.data.user !== 'object' || 
-            apiResult.responseBody.data.user === null) {
-          throw Object.assign(new Error((apiResult.responseBody && apiResult.responseBody.message) || 'Registration test validation failed: Expected success:true and valid data with token/user.'), apiResult);
-        }
-        td.set('registrationData', regData);
-        td.set('auth', { token: apiResult.responseBody.data.token, user: apiResult.responseBody.data.user });
-        // Pass the full apiResult through so httpMethod is available in Test.execute
-        return { 
-            messageForRunner: `User ${regData.username} registered.`, 
-            ...apiResult // This includes httpStatus, httpStatusText, requestBody, httpMethod, apiResponse (as responseBody)
-        };
-    }, expectedUserRegistrationPayload);
-
-    TestSuite.registerTest('user-login', 'User Login', 'Logs in with the registered user.',
-      async (td, apiClient, uiLog) => {
-        const regData = td.get('registrationData');
-        if (!regData?.email || !regData?.password) {
-          const error = new Error('Registration data not found for login. Run Registration first.');
-          error.httpMethod = 'POST'; // For UI hint
-          throw error;
-        }
-        uiLog(`Attempting login for ${regData.email}`);
-
-        const apiResult = await apiClient.request('/auth/login', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: regData.email, password: regData.password })
-        });
-        
-        if (apiResult.responseBody.success !== true || 
-            !apiResult.responseBody.data || 
-            typeof apiResult.responseBody.data.token !== 'string' ||
-            apiResult.responseBody.data.token.length === 0 ||
-            typeof apiResult.responseBody.data.user !== 'object' ||
-            apiResult.responseBody.data.user === null) {
-          throw Object.assign(new Error((apiResult.responseBody && apiResult.responseBody.message) || 'Login test validation failed: Expected success:true and valid data with token/user.'), apiResult);
-        }
-        td.set('auth', { token: apiResult.responseBody.data.token, user: apiResult.responseBody.data.user });
-        return { 
-            messageForRunner: `User ${regData.email} logged in.`,
-            ...apiResult
-        };
-    }, expectedLoginPayload);
-
-    TestSuite.registerTest('auth-status', 'Authentication Status', 'Checks auth status using token.',
-      async (td, apiClient, uiLog) => {
-        const token = td.getAuthToken();
-        if (!token) {
-          const error = new Error('No auth token found for status check. Run Login first.');
-          error.httpMethod = 'GET';
-          throw error;
-        }
-        uiLog('Checking authentication status...');
-
-        const apiResult = await apiClient.request('/auth/status', { method: 'GET', headers: { 'Authorization': `Bearer ${token}` } });
-
-        if (apiResult.responseBody.success !== true || 
-            !apiResult.responseBody.data || 
-            apiResult.responseBody.data.isAuthenticated !== true) { 
-           throw Object.assign(new Error((apiResult.responseBody && apiResult.responseBody.message) || 'Auth status test validation failed: Expected success:true and isAuthenticated:true.'), apiResult);
-        }
-        return { 
-            messageForRunner: `User authenticated: ${apiResult.responseBody.data.username || apiResult.responseBody.data.email}`,
-            ...apiResult
-        };
-    });
-
-    TestSuite.registerTest('create-restaurant', 'Create Restaurant (Admin API)', 'Uses POST /api/admin/restaurants. **DEV: Verify payload.**',
-      async (td, apiClient, uiLog) => {
-        const token = td.getAuthToken(); const userId = td.getUserId();
-        if (!token || !userId) {
-          const error = new Error('Authentication required to create restaurant.');
-          error.httpMethod = 'POST';
-          throw error;
-        }
-        const timestamp = Date.now();
-        // ** IMPORTANT: Adjust this payload to meet your backend's *exact* validation requirements (data types, non-empty, etc.) **
-        const restaurantPayload = { 
-            name: `My API Restaurant ${timestamp}`, description: "Created via test runner (standard API)",
-            address: "456 Real St, Testburg, ST 54321", cuisine: "API Cuisine", price_range: "$$$", // Ensure 'API Cuisine' and '$$$' are valid enum values if applicable
-            latitude: 34.0522, longitude: -118.2437, phone_number: "555-8888", website_url: `http://myapirestaurant.com/${timestamp}`
-        };
-        uiLog(`Attempting to create restaurant: ${restaurantPayload.name} using /admin/restaurants`);
-        const apiResult = await apiClient.request('/admin/restaurants', { 
-            method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
-            body: JSON.stringify(restaurantPayload)
-        });
-        if (apiResult.responseBody.success !== true || !apiResult.responseBody.data?.id) {
-            throw Object.assign(new Error((apiResult.responseBody && apiResult.responseBody.message) || 'Create restaurant (standard API) validation failed.'), apiResult);
-        }
-        td.set('createdRestaurant', apiResult.responseBody.data);
-        return { 
-            messageForRunner: `Restaurant created: ID ${apiResult.responseBody.data.id} - ${apiResult.responseBody.data.name}`, 
-            ...apiResult
-        };
-    }, expectedRestaurantPayload);
-    
-    TestSuite.registerTest('create-dish', 'Create Dish (Admin API)', 'Uses POST /admin/dishes. **DEV: Verify payload.**',
-      async (td, apiClient, uiLog) => {
-        const token = td.getAuthToken(); const userId = td.getUserId(); const restaurant = td.get('createdRestaurant');
-        if (!token || !userId) {
-          const error = new Error('Authentication required for creating dish.');
-          error.httpMethod = 'POST';
-          throw error;
-        }
-        if (!restaurant?.id){
-          const error = new Error('Restaurant ID not available. "Create Restaurant" test must pass first.');
-          error.httpMethod = 'POST'; // Not strictly an API call error, but for UI consistency
-          throw error;
-        }
-        const timestamp = Date.now();
-        // ** Adjust this payload as needed **
-        const dishPayload = { 
-            name: `My API Dish ${timestamp}`, description: "Tasty test dish (standard API)",
-            price: 12.99, restaurant_id: restaurant.id, category: "Main", // Ensure "Main" is a valid category
-            tags: ["standard-api", "yummy"]
-        };
-        uiLog(`Creating dish: ${dishPayload.name} for restaurant ${restaurant.id} using /admin/dishes`);
-        const apiResult = await apiClient.request('/admin/dishes', {
-            method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
-            body: JSON.stringify(dishPayload)
-        });
-        if (apiResult.responseBody.success !== true || !apiResult.responseBody.data?.id) {
-             throw Object.assign(new Error((apiResult.responseBody && apiResult.responseBody.message) || 'Create dish (standard API) validation failed.'), apiResult);
-        }
-        td.set('createdDish', apiResult.responseBody.data);
-        return { 
-            messageForRunner: `Dish created: ID ${apiResult.responseBody.data.id}`,
-            ...apiResult
-        };
-    }, expectedDishPayload);
-
-    TestSuite.registerTest('get-restaurants', 'Get Restaurants (Standard API)', 'Uses GET /api/restaurants.',
-      async (td, apiClient, uiLog) => {
-        const token = td.getAuthToken(); 
-        uiLog('Getting restaurants from /restaurants...');
-        const apiResult = await apiClient.request('/restaurants', { method: 'GET', headers: token ? { 'Authorization': `Bearer ${token}`} : {} });
-        const dataField = apiResult.responseBody.data;
-        const restaurants = Array.isArray(dataField) ? dataField : (dataField && Array.isArray(dataField.restaurants) ? dataField.restaurants : undefined);
-
-        if (apiResult.responseBody.success !== true || typeof restaurants === 'undefined') {
-           // Check if data is null but success is true (valid empty response from some APIs)
-           if (apiResult.responseBody.success === true && dataField === null) {
-             // This is acceptable if API returns data:null for empty results
-           } else {
-             throw Object.assign(new Error((apiResult.responseBody && apiResult.responseBody.message) || 'Get restaurants (standard API) validation failed.'), apiResult);
-           }
-        }
-        return { 
-            messageForRunner: `Retrieved ${(restaurants || []).length} restaurants.`, // Handle restaurants being undefined if dataField was null
-            ...apiResult
-        };
-    });
-
-    TestSuite.registerTest('get-dishes', 'Get Dishes (Standard API)', 'Uses GET /api/dishes.',
-      async (td, apiClient, uiLog) => {
-        const token = td.getAuthToken(); 
-        uiLog('Getting dishes from /api/dishes...');
-        const apiResult = await apiClient.request('/dishes', { method: 'GET', headers: token ? { 'Authorization': `Bearer ${token}`} : {} });
-        const dataField = apiResult.responseBody.data;
-        const dishes = Array.isArray(dataField) ? dataField : (dataField && Array.isArray(dataField.dishes) ? dataField.dishes : undefined);
-        if (apiResult.responseBody.success !== true || typeof dishes === 'undefined') {
-            if (apiResult.responseBody.success === true && dataField === null) {
-                // Acceptable empty response
-            } else {
-                throw Object.assign(new Error((apiResult.responseBody && apiResult.responseBody.message) || 'Get dishes (standard API) validation failed.'), apiResult);
-            }
-        }
-        return { 
-            messageForRunner: `Retrieved ${(dishes || []).length} dishes.`,
-            ...apiResult
-        };
-    });
-    
-    TestSuite.registerTest('create-list', 'Create New List', 'Uses POST /lists. **DEV: Verify payload. Note: May be skipped in test environments.**',
-      async (td, apiClient, uiLog) => {
-        const token = td.getAuthToken(); const userId = td.getUserId();
-        if (!token || !userId) {
-          const error = new Error('Authentication required to create a list.');
-          error.httpMethod = 'POST';
-          throw error;
-        }
-        const timestamp = Date.now();
-        // ** Adjust this payload as needed **
-        const listPayload = { 
-            name: `Test List ${timestamp}`,
-            description: `A list created by API runner for user ${userId}`,
-            is_public: false,
-            list_type: 'restaurant' // Adding required list_type field
-        };
-        uiLog(`Attempting to create list: ${listPayload.name}`);
-        
-        try {
-            // Add a timeout promise to handle potential hanging requests
-            const timeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => reject(new Error('Request timed out')), 10000); // 10 second timeout
-            });
-            
-            // Create the actual API request promise
-            const requestPromise = apiClient.request('/lists', { 
-                method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
-                body: JSON.stringify(listPayload)
-            });
-            
-            // Race the two promises - whichever resolves/rejects first wins
-            const apiResult = await Promise.race([requestPromise, timeoutPromise]);
-            
-            if (apiResult.responseBody.success !== true || !apiResult.responseBody.data?.id) {
-                throw Object.assign(new Error((apiResult.responseBody && apiResult.responseBody.message) || 'Create list validation failed.'), apiResult);
-            }
-            
-            td.set('createdList', apiResult.responseBody.data);
-            return { 
-                messageForRunner: `List created: ID ${apiResult.responseBody.data.id} - ${apiResult.responseBody.data.name}`,
-                ...apiResult
-            };
-        } catch (error) {
-            // Handle database schema issues gracefully
-            if (error.message === 'Request timed out') {
-                uiLog('List creation request timed out. This may be due to database schema limitations in the test environment.', 'warning');
-                return { 
-                    messageForRunner: 'Test skipped due to timeout. This is expected in some test environments.',
-                    responseBody: { success: true, data: { id: 0, name: 'Mock List (Test Skipped)' } }
-                };
-            } else if (error.rawResponseText && error.rawResponseText.includes('relation "list_follows" does not exist')) {
-                uiLog("Database schema issue detected: 'list_follows' table doesn't exist. This is expected in some environments.", 'warning');
-                return { 
-                    messageForRunner: 'Test skipped due to known database schema limitation (missing list_follows table).',
-                    responseBody: { success: true, data: { id: 0, name: 'Mock List (Test Skipped)' } }
-                };
-            }
-            throw error; // Re-throw other errors
-        }
-    }, expectedListPayload);
-
-    TestSuite.registerTest('get-user-lists', "Get User's Lists", 'Uses GET /api/lists (expected to be filtered by user from token).',
-      async (td, apiClient, uiLog) => {
-        const token = td.getAuthToken(); const userId = td.getUserId();
-        if (!token || !userId) {
-          const error = new Error('Authentication and User ID required to get user lists.');
-          error.httpMethod = 'GET';
-          throw error;
-        }
-        const endpoint = `/lists`; 
-        uiLog(`Getting lists for current user from ${endpoint}...`);
-        
-        try {
-          const apiResult = await apiClient.request(endpoint, { method: 'GET', headers: { 'Authorization': `Bearer ${token}` } });
-          // Continue with normal processing if the request succeeds
-          
-          let lists = []; // Default to empty array for consistent handling
-
-          if (apiResult.responseBody.success === true) {
-              const dataField = apiResult.responseBody.data;
-              if (dataField === null) {
-                  // This is a valid successful response indicating no lists.
-                  uiLog("Get User's Lists: Received success:true with data:null (0 lists).", 'info');
-              } else if (Array.isArray(dataField)) {
-                  lists = dataField;
-              } else if (dataField && Array.isArray(dataField.lists)) { 
-                  lists = dataField.lists;
-              } else if (typeof dataField !== 'undefined') { 
-                  // If data is not null, not an array, and not an object with a .lists array, but success is true.
-                  // This is an unexpected structure for a successful response that's supposed to return lists.
-                  const errMsg = `Get User's Lists validation failed: 'data' was expected to be an array of lists or null, but received type ${typeof dataField}. Response message: ${apiResult.responseBody.message || 'N/A'}`;
-                  uiLog(errMsg, 'warning');
-                  throw Object.assign(new Error(errMsg), apiResult);
-              }
-              
-              return { 
-                  messageForRunner: `Found ${lists.length} lists for user.`,
-                  ...apiResult
-              };
-          } else {
-              throw Object.assign(new Error((apiResult.responseBody && apiResult.responseBody.message) || 'Get lists validation failed.'), apiResult);
-          }
-        } catch (error) {
-          // Handle database schema issues gracefully
-          if (error.rawResponseText && error.rawResponseText.includes('relation "list_follows" does not exist')) {
-            uiLog("Database schema issue detected: 'list_follows' table doesn't exist. This is expected in some environments.", 'warning');
-            // Return a mock success response to allow tests to continue
-            return { 
-                messageForRunner: `Test skipped due to known database schema limitation (missing list_follows table).`,
-                responseBody: { success: true, data: [] }
-            };
-          }
-          throw error; // Re-throw other errors
-        }
-    });
-    
-    // --- App Initialization and Control Logic ---
-    const App = {
-      schemaDataStore: null,
-      init: function() {
-        TestData.init(); 
-        TestSuite.initDOMAndListeners(); 
-        setTimeout(() => this.connectAndReset(), 500); 
-      },
-      connectAndReset: async function() {
-        UIManager.logMessage('Connecting to servers & Resetting Test States...', 'info');
-        TestData.init(); 
-        UIManager.resetTestStatesUI(); 
-        
-        let testRunnerOk = false;
-        try {
-          UIManager.logMessage('Checking Test Runner Server connection (/health)...', 'info');
-          const response = await fetch(`${Config.TEST_RUNNER_SERVER_BASE_URL}/health`);
-          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-          const data = await response.json(); 
-          if (data && data.proxyStatus === 'UP' && data.backendStatus === 'UP') {
-            UIManager.updateServerStatus('backend', true);
-            UIManager.logMessage(`Test Runner Server connected (Proxy: ${data.proxyStatus}, Backend: ${data.backendStatus})`, 'success');
-            testRunnerOk = true;
-          } else {
-            throw new Error(`Test Runner Server not healthy: Proxy ${data?.proxyStatus || 'N/A'}, Backend ${data?.backendStatus || 'N/A'}`);
-          }
-        } catch (e) {
-          UIManager.updateServerStatus('backend', false);
-          UIManager.logMessage(`Test Runner Server connection failed: ${e.message}`, 'error');
-        }
-
-        try {
-          UIManager.logMessage('Checking frontend server connection (ping)...', 'info');
-          await fetch(`${Config.FRONTEND_URL}/favicon.ico`, { mode: 'no-cors' }); 
-          UIManager.updateServerStatus('frontend', true);
-          UIManager.logMessage('Frontend server appears to be responding.', 'success');
-        } catch (e) {
-          UIManager.updateServerStatus('frontend', false);
-          UIManager.logMessage(`Frontend server connection failed: ${e.message}`, 'warning');
-        }
-        
-        UIManager.enableRunButton(testRunnerOk);
-        if(testRunnerOk) UIManager.logMessage('Ready to run tests.', 'success');
-        else UIManager.logMessage('Cannot run tests without Test Runner Server being fully operational.', 'error');
-      },
-      loadDatabaseSchema: async function() { 
-        const schemaLoadingEl = document.getElementById('schema-loading');
-        const schemaContentEl = document.getElementById('schema-content');
-        const schemaErrorParentEl = document.getElementById('schema-error');
-        const schemaErrorDetailsEl = document.getElementById('schema-error-details');
-
-        schemaLoadingEl.style.display = 'block';
-        schemaContentEl.innerHTML = '';
-        schemaErrorParentEl.style.display = 'none';
-        try {
-            UIManager.logMessage('Loading database schema (/db-schema)...', 'info');
-            const response = await fetch(`${Config.TEST_RUNNER_SERVER_BASE_URL}/db-schema`);
-            if (!response.ok) {
-                 const errorText = await response.text();
-                 throw Object.assign(new Error(`DB Schema HTTP error! status: ${response.status}. Response: ${errorText}`), {httpStatus: response.status, rawResponseText: errorText});
-            }
-            const schemaData = await response.json(); 
-            
-            if (!schemaData || schemaData.success !== true || !schemaData.tables) {
-                 throw Object.assign(new Error((schemaData && schemaData.message) || 'Failed to load schema or malformed response from /db-schema.'), {responseBody: schemaData});
-            }
-            App.schemaDataStore = schemaData;
-            App.renderSchemaData(App.schemaDataStore); 
-            UIManager.logMessage('Database schema loaded successfully', 'success');
-        } catch (error) {
-            console.error('Schema loading error:', error);
-            schemaErrorParentEl.style.display = 'block';
-            let errDisplay = `Error: ${error.message}\nStatus: ${error.httpStatus || 'N/A'}`;
-            if (error.responseBody) errDisplay += `\nResponse: ${JSON.stringify(error.responseBody, null, 2)}`;
-            else if (error.rawResponseText) errDisplay += `\nRaw Response: ${error.rawResponseText}`;
-            schemaErrorDetailsEl.textContent = errDisplay;
-            UIManager.logMessage(`Failed to load database schema: ${error.message}`, 'error');
-        } finally {
-            schemaLoadingEl.style.display = 'none';
-        }
-      },
-      renderSchemaData: function(sData) { 
-        const schemaContentEl = document.getElementById('schema-content');
-        if (!sData || !sData.tables || sData.tables.length === 0) {
-            schemaContentEl.innerHTML = '<p>No schema data available.</p>'; return;
-        }
-        schemaContentEl.innerHTML = sData.tables.map(table => `
-            <div class="schema-table" data-table-name="${table.name.toLowerCase()}">
-                <h3><span>${table.name}</span><button class="table-toggle" data-table="${table.name}">Toggle</button></h3>
-                <div id="table-content-${table.name}" style="display:none;">
-                    ${table.columns && table.columns.length > 0 ? `<table><thead><tr><th>Column</th><th>Type</th><th>Nullable</th><th>Default</th></tr></thead><tbody>
-                        ${table.columns.map(col => `<tr data-column-name="${col.column_name.toLowerCase()}"><td>${col.column_name}</td><td>${col.data_type}</td><td>${col.is_nullable}</td><td>${col.column_default || ''}</td></tr>`).join('')}
-                    </tbody></table>` : '<p>No columns.</p>'}
-                </div>
-            </div>
-        `).join('');
-        document.querySelectorAll('.schema-table .table-toggle').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const contentId = `table-content-${e.target.dataset.table}`;
-                const contentEl = document.getElementById(contentId);
-                if (contentEl) contentEl.style.display = contentEl.style.display === 'none' ? 'block' : 'none';
-            });
-        });
-      },
-      filterSchema: function(term) { 
-        if (!App.schemaDataStore || !App.schemaDataStore.tables) return;
-        const lowerTerm = term.toLowerCase().trim();
-        document.querySelectorAll('.schema-table').forEach(tableDiv => {
-            const tableName = tableDiv.dataset.tableName;
-            let tableMatches = tableName.includes(lowerTerm);
-            let anyColumnMatches = false;
-            
-            const tableContentDiv = tableDiv.querySelector(`div[id^="table-content-"]`);
-            const rows = tableContentDiv.querySelectorAll('tbody tr');
-
-            rows.forEach(row => {
-                const columnName = row.dataset.columnName; 
-                const columnMatches = columnName.includes(lowerTerm);
-                if (columnMatches) { 
-                    anyColumnMatches = true; 
-                    row.style.display = ''; 
-                    row.style.backgroundColor = '#fffde7'; 
-                } else { 
-                    row.style.display = lowerTerm ? 'none' : ''; 
-                    row.style.backgroundColor = ''; 
-                }
-            });
-            tableDiv.style.display = (tableMatches || anyColumnMatches || !lowerTerm) ? 'block' : 'none';
-            if (anyColumnMatches && lowerTerm && tableContentDiv.style.display === 'none') {
-                 tableContentDiv.style.display = 'block';
-            }
-        });
-      }
-    };
-
-    // --- Global Initialization ---
-    document.addEventListener('DOMContentLoaded', () => App.init());
-  </script>
 </body>
 </html>
