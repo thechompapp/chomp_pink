@@ -253,58 +253,57 @@ app.use('/api-proxy', async (req, res) => {
     console.log(`[${requestId}] - URL: ${targetUrl}`);
     console.log(`[${requestId}] - Headers:`, headers);
     
-    // Debug the request body transformation
+    // Log the original request body for debugging
     console.log(`[${requestId}] - Original request body:`, req.body);
     console.log(`[${requestId}] - Original request body type:`, typeof req.body);
     
-    // Store the original body type
-    const originalBodyType = typeof req.body;
-    
-    // If the body is a string, try to parse it
-    let parsedBody = req.body;
-    if (originalBodyType === 'string') {
-      try {
-        parsedBody = JSON.parse(req.body);
-        console.log(`[${requestId}] - Parsed request body:`, parsedBody);
-      } catch (e) {
-        console.log(`[${requestId}] - Failed to parse request body:`, e.message);
-      }
-    }
-    
-    // Ensure username field is correctly set if name is present
-    if (parsedBody && parsedBody.name && !parsedBody.username) {
-      console.log(`[${requestId}] - Found 'name' field but no 'username' field, fixing...`);
-      parsedBody.username = parsedBody.name;
-      delete parsedBody.name;
-      console.log(`[${requestId}] - Fixed request body:`, parsedBody);
-      req.body = parsedBody;
-    }
-    
-    // Convert the body back to string if it was modified
-    if (typeof req.body !== 'string' && originalBodyType === 'string') {
-      req.body = JSON.stringify(req.body);
-      console.log(`[${requestId}] - Converted body back to string:`, req.body);
-    }
-    
-    // Prepare the request data
+    // Simplified request data handling
     let requestData;
-    if (typeof parsedBody === 'object' && parsedBody !== null) {
-      // If we have a parsed body object, use it
-      requestData = parsedBody;
-    } else if (typeof req.body === 'string') {
-      // If the body is a string, use it directly
-      try {
-        // Try to parse it to validate it's proper JSON
-        JSON.parse(req.body);
+    
+    // Check if this is a JSON request based on Content-Type header
+    const contentType = req.headers['content-type'] || '';
+    const isJsonRequest = contentType.includes('application/json');
+    
+    if (isJsonRequest) {
+      // For JSON requests, ensure we have a proper object to pass to axios
+      if (typeof req.body === 'string') {
+        try {
+          // If body is a string, parse it to an object
+          requestData = JSON.parse(req.body);
+          console.log(`[${requestId}] - Parsed JSON request body:`, requestData);
+        } catch (e) {
+          // If parsing fails, log the error and use the original body
+          console.error(`[${requestId}] - Failed to parse JSON request body:`, e.message);
+          console.error(`[${requestId}] - Problematic JSON string:`, req.body);
+          // Return a 400 Bad Request response to the client
+          res.status(400).json({
+            success: false,
+            message: 'Invalid JSON in request body',
+            error: e.message
+          });
+          return; // Exit early
+        }
+      } else if (typeof req.body === 'object' && req.body !== null) {
+        // If body is already an object, use it directly
         requestData = req.body;
-      } catch (e) {
-        // If it's not valid JSON, stringify the parsed body
-        console.log(`[${requestId}] - Invalid JSON in request body, using parsed body:`, e.message);
-        requestData = parsedBody;
+        console.log(`[${requestId}] - Using object request body:`, requestData);
+      } else {
+        // Handle edge case where body is neither string nor object
+        console.warn(`[${requestId}] - Unexpected body type for JSON request:`, typeof req.body);
+        requestData = req.body;
+      }
+      
+      // Special case handling: name -> username field conversion if needed
+      // Only do this for auth endpoints to avoid breaking other API calls
+      if (req.url.includes('/auth/') && requestData && requestData.name && !requestData.username) {
+        console.log(`[${requestId}] - Converting 'name' field to 'username' for auth endpoint`);
+        requestData.username = requestData.name;
+        delete requestData.name;
       }
     } else {
-      // Fallback to the original body
+      // For non-JSON requests, pass the body as-is
       requestData = req.body;
+      console.log(`[${requestId}] - Using non-JSON request body (${typeof requestData})`);
     }
     
     // Make the request
