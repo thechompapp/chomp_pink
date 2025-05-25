@@ -41,20 +41,44 @@
           <span class="status-label">Superuser Status:</span>
           <span id="superuser-status-value" class="status-value status-not-authenticated">Not Authenticated</span>
         </div>
-
-        <h3>Available Tests</h3>
-        <div id="test-list" class="test-list">
-          <!-- Individual tests will be added here by JavaScript -->
-        </div>
-
-        <!-- E2E Testing Endpoints section removed - using only real, live API endpoints -->
-        <div class="category">
-          <h3>Core Service Layer Tests</h3>
-          <div class="category-tests" data-category="service-core"></div>
-        </div>
-        <div class="category">
-          <h3>Additional Service Tests</h3>
-          <div class="category-tests" data-category="service-additional"></div>
+        
+        <div class="test-categories">
+            <div class="category">
+              <h3>Health & Authentication</h3>
+              <div class="category-tests" data-category="health-auth"></div>
+            </div>
+            <div class="category">
+              <h3>Admin Operations</h3>
+              <div class="category-tests" data-category="admin-ops"></div>
+            </div>
+            <div class="category">
+              <h3>Core Public Data</h3>
+              <div class="category-tests" data-category="core-public"></div>
+            </div>
+            <div class="category">
+              <h3>Search & Location</h3>
+              <div class="category-tests" data-category="search-location"></div>
+            </div>
+             <div class="category">
+              <h3>User Account</h3>
+              <div class="category-tests" data-category="user-account"></div>
+            </div>
+            <div class="category">
+              <h3>List Management</h3>
+              <div class="category-tests" data-category="list-management"></div>
+            </div>
+            <div class="category">
+              <h3>Engagement</h3>
+              <div class="category-tests" data-category="engagement"></div>
+            </div>
+             <div class="category">
+              <h3>Content Submission</h3>
+              <div class="category-tests" data-category="content-submission"></div>
+            </div>
+            <div class="category">
+              <h3>Trending & Analytics</h3>
+              <div class="category-tests" data-category="trending-analytics"></div>
+            </div>
         </div>
       </div>
 
@@ -84,14 +108,8 @@
         <button id="load-schema">Load Database Schema</button>
         <button id="refresh-schema">Refresh Schema</button>
       </div>
-
-      <div id="schema-content">
-        Loading database schema...
-      </div>
-
-      <div id="schema-error" style="display: none;">
-        Error loading database schema. Please check server connection.
-      </div>
+      <div id="schema-content">Loading database schema...</div>
+      <div id="schema-error" style="display: none;">Error loading database schema. Please check server connection.</div>
     </div>
 
     <div class="tab-content" id="data" style="display: none;">
@@ -99,24 +117,14 @@
         <button id="load-data">Load Database Data</button>
         <button id="refresh-data">Refresh Data</button>
       </div>
-
       <div class="table-selector">
         <label for="table-select">Select Table:</label>
-        <select id="table-select">
-          <option value="">-- Select a table --</option>
-        </select>
+        <select id="table-select"><option value="">-- Select a table --</option></select>
       </div>
-
-      <div id="data-content">
-        Select a table to view its data.
-      </div>
-
-      <div id="data-error" style="display: none;">
-        Error loading database data. Please check server connection.
-      </div>
+      <div id="data-content">Select a table to view its data.</div>
+      <div id="data-error" style="display: none;">Error loading database data. Please check server connection.</div>
     </div>
 
-    <!-- Load scripts as regular scripts to avoid module loading issues -->
     <script src="app-bundle.js"></script>
   </div>
 </body>
