@@ -26,9 +26,14 @@ export const generateAuthToken = (user) => {
   }
   
   const payload = {
-    id: user.id,
-    role: user.role,
-    // You can add more non-sensitive data to the payload if needed
+    user: {
+      id: user.id,
+      username: user.username || '',
+      email: user.email || '',
+      role: user.role || 'user',
+      // Include both role and account_type for backward compatibility
+      account_type: user.role || user.account_type || 'user'
+    }
   };
   
   console.log('JWT Payload:', JSON.stringify(payload, null, 2));

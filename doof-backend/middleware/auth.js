@@ -78,16 +78,40 @@ export const requireAuth = async (req, res, next) => {
         return res.status(500).json({ success: false, message: 'Internal server error: JWT secret not configured.' });
     }
     const decoded = jwt.verify(token, config.jwtSecret);
+    console.log('Decoded token in requireAuth:', JSON.stringify(decoded, null, 2));
+    
+    // Check if the token has the expected structure
+    if (!decoded.user) {
+      console.error('Token is missing user object:', decoded);
+      return res.status(401).json({ success: false, message: 'Invalid token structure.' });
+    }
+
+    // Get user from database
     const user = await UserModel.findUserById(decoded.user.id);
     if (!user) {
+      console.error('User not found in database for token:', decoded.user.id);
       return res.status(401).json({ success: false, message: 'Invalid token: User not found.' });
     }
+    
+    // Log the user data from the database
+    console.log('User from database:', JSON.stringify({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      account_type: user.account_type
+    }, null, 2));
+    
+    // Set user data on request object
     req.user = {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        account_type: user.account_type || 'user'
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role || 'user',
+      account_type: user.role || user.account_type || 'user' // Fallback to role if account_type is not set
     };
+    
+    console.log('Request user object set to:', JSON.stringify(req.user, null, 2));
     next();
   } catch (error) {
     console.error('JWT Verification Error:', error.message);

@@ -15,11 +15,33 @@ router.use((req, res, next) => {
     return next();
   }
   
-  // Check if user is a superuser
-  if (!req.user || req.user.account_type !== 'superuser') {
+  // Check if user is a superuser (check both account_type and role for backward compatibility)
+  const isSuperuser = req.user && (
+    req.user.account_type === 'superuser' || 
+    req.user.role === 'superuser' ||
+    (req.user.user && (req.user.user.account_type === 'superuser' || req.user.user.role === 'superuser'))
+  );
+  
+  if (!isSuperuser) {
+    console.log('Access denied. User details:', {
+      user: req.user,
+      hasAccountType: !!req.user?.account_type,
+      hasRole: !!req.user?.role,
+      accountType: req.user?.account_type,
+      role: req.user?.role,
+      isSuperuser
+    });
     return res.status(403).json({ 
       success: false, 
-      message: 'Access denied: Superuser privileges required.' 
+      message: 'Access denied: Superuser privileges required.',
+      details: {
+        userId: req.user?.id,
+        username: req.user?.username,
+        accountType: req.user?.account_type,
+        role: req.user?.role,
+        hasSuperuserRole: req.user?.role === 'superuser',
+        hasSuperuserAccountType: req.user?.account_type === 'superuser'
+      }
     });
   }
   
