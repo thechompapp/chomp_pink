@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import axios from 'axios';
+import axios from 'axios/dist/node/axios.cjs';
 import { config } from '../setup/config.js';
 import { getOrCreateTestUser, getOrCreateAdminUser } from '../setup/test-users.js';
 

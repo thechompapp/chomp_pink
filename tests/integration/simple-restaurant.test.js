@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import axios from 'axios';
+import axios from 'axios/dist/node/axios.cjs';
 
 // Create a simple API client
 const apiClient = axios.create({

@@ -1,0 +1,102 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      # Start PostgreSQL container for testing
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+      env:
+        NODE_ENV: development
+    
+    - name: Run unit tests
+      run: npm test:unit
+      env:
+        NODE_ENV: test
+    
+    - name: Start backend server
+      run: |
+        npm run start:test & 
+        echo $! > server.pid
+        sleep 5 # Wait for server to start
+      env:
+        NODE_ENV: test
+        DATABASE_URL: postgresql://test:test@localhost:5432/testdb
+        PORT: 5001
+    
+    - name: Run integration tests
+      run: npm test:integration
+      env:
+        NODE_ENV: test
+        RUN_INTEGRATION_TESTS: true
+        DATABASE_URL: postgresql://test:test@localhost:5432/testdb
+        API_BASE_URL: http://localhost:5001/api
+    
+    - name: Stop backend server
+      if: always()
+      run: |
+        if [ -f server.pid ]; then
+          kill $(cat server.pid) || true
+          rm server.pid
+        fi
+
+  deploy:
+    name: Deploy to Production
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+    
+    - name: Install dependencies
+      run: npm ci
+      env:
+        NODE_ENV: production
+    
+    - name: Build application
+      run: npm run build
+    
+    - name: Deploy to production
+      # Add your deployment steps here
+      # For example, deploying to Vercel, Netlify, or a server
+      run: |
+        echo "Deployment steps would go here"
+        # Example: npx vercel --prod --token ${{ secrets.VERCEL_TOKEN }}

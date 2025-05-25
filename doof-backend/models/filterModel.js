@@ -5,13 +5,13 @@ import db from '../db/index.js';
 const filterModel = {
     async getCities() {
         try {
-            // Select id, name, and the new has_boroughs flag
-            const query = 'SELECT id, name, has_boroughs FROM public.cities ORDER BY name';
+            // Select only existing columns (id and name) and set a default has_boroughs value
+            const query = 'SELECT id, name FROM public.cities ORDER BY name';
             const result = await db.query(query);
-            // Ensure boolean is returned correctly
+            // Add default has_boroughs: true for all cities
             return (result.rows || []).map(row => ({
                 ...row,
-                has_boroughs: !!row.has_boroughs // Explicit boolean conversion
+                has_boroughs: true // Default to true for all cities
             }));
         } catch (error) {
             // Use console.error for backend logging

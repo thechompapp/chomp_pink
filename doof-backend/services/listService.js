@@ -47,9 +47,9 @@ const rawMethods = {
   },
   
   // Create a new list
-  createList: async (listData) => {
-    logDebug(`[ListService.createList] Creating new list:`, listData);
-    const newList = await listModel.createList(listData);
+  createList: async (listData, userId, userHandle) => {
+    logDebug(`[ListService.createList] Creating new list:`, listData, `for user ${userId} (${userHandle})`);
+    const newList = await listModel.createList(listData, userId, userHandle);
     return newList;
   },
   

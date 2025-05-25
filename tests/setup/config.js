@@ -12,17 +12,35 @@ export const config = {
     timeout: 10000, // 10 seconds - increased from 2 seconds to handle potential network latency
   },
   
-  // Test user credentials
+  // Test user credentials - must be provided via environment variables
   testUsers: {
     regular: {
-      email: process.env.TEST_USER_EMAIL || 'testuser@doof.com',
-      password: process.env.TEST_USER_PASSWORD || 'Test123!',
-      username: process.env.TEST_USER_USERNAME || 'testuser'
+      email: process.env.TEST_USER_EMAIL,
+      password: process.env.TEST_USER_PASSWORD,
+      username: process.env.TEST_USER_USERNAME
     },
     admin: {
-      email: process.env.TEST_ADMIN_EMAIL || 'admin@doof.com',
-      password: process.env.TEST_ADMIN_PASSWORD || 'Admin123!',
-      username: process.env.TEST_ADMIN_USERNAME || 'adminuser'
+      email: process.env.TEST_ADMIN_EMAIL,
+      password: process.env.TEST_ADMIN_PASSWORD,
+      username: process.env.TEST_ADMIN_USERNAME
+    }
+  },
+  
+  // Validate required environment variables
+  validate: () => {
+    const requiredVars = [
+      'API_BASE_URL',
+      'TEST_USER_EMAIL',
+      'TEST_USER_PASSWORD',
+      'TEST_USER_USERNAME',
+      'TEST_ADMIN_EMAIL',
+      'TEST_ADMIN_PASSWORD',
+      'TEST_ADMIN_USERNAME'
+    ];
+    
+    const missingVars = requiredVars.filter(varName => !process.env[varName]);
+    if (missingVars.length > 0) {
+      throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
     }
   },
   

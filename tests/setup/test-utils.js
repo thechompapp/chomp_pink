@@ -2,7 +2,7 @@
 import '@testing-library/jest-dom';
 
 // Mock axios globally
-import axios from 'axios';
+import axios from 'axios/dist/node/axios.cjs';
 import MockAdapter from 'axios-mock-adapter';
 
 // Create a global mock adapter

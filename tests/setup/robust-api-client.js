@@ -14,50 +14,88 @@ const tokenStorage = {
     this.token = token;
     apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
   },
+  getToken() {
+    return this.token;
+  },
   clearToken() {
     this.token = null;
     delete apiClient.defaults.headers.common['Authorization'];
-  },
-  getToken() {
-    return this.token;
   }
 };
 
-// Create axios instance with default configuration
+// Create an axios instance with base configuration
 const apiClient = axios.create({
   baseURL: config.api.baseUrl,
   timeout: config.api.timeout,
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
-    // Add CORS headers that the server expects
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization'
   },
-  withCredentials: true,
-  // For testing environment, disable CORS check
-  // This is only for test environment and should not be used in production
-  ...(process.env.NODE_ENV === 'test' && {
-    adapter: require('axios/lib/adapters/http')
-  })
+  withCredentials: true
 });
 
-// Request interceptor for adding auth token
+/**
+ * Helper function to handle API requests with retry logic
+ * @param {Function} requestFn - The API request function to execute
+ * @param {number} maxRetries - Maximum number of retry attempts (default: 3)
+ * @param {number} delay - Delay between retries in milliseconds (default: 1000)
+ * @returns {Promise<any>} The API response
+ */
+const handleApiRequest = async (requestFn, maxRetries = 3, delay = 1000) => {
+  let lastError;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await requestFn();
+      return response;
+    } catch (error) {
+      lastError = error;
+      
+      // If this is the last attempt or the error is not retryable, break the loop
+      if (attempt === maxRetries || !isRetryableError(error)) {
+        break;
+      }
+      
+      // Wait before retrying
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  // If we get here, all retries failed
+  throw lastError;
+};
+
+/**
+ * Check if an error is retryable
+ * @param {Error} error - The error to check
+ * @returns {boolean} True if the error is retryable
+ */
+const isRetryableError = (error) => {
+  if (!error.response) {
+    // Network errors are retryable
+    return true;
+  }
+  
+  const status = error.response.status;
+  
+  // Retry on server errors and rate limiting
+  return status >= 500 || status === 429;
+};
+
+// Add a request interceptor to include the auth token
 apiClient.interceptors.request.use(
   (config) => {
-    // Add request ID for tracking
-    config.headers['X-Request-ID'] = `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    
-    // Add auth token if available
     const token = tokenStorage.getToken();
     if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`;
+      config.headers.Authorization = `Bearer ${token}`;
     }
-    
+    // Add request ID for tracking
+    config.headers['X-Request-ID'] = `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     // Log request for debugging
     console.log(`API Request: ${config.method.toUpperCase()} ${config.baseURL}${config.url}`);
-    
     return config;
   },
   (error) => {
@@ -66,7 +104,7 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Response interceptor for handling common errors
+// Add a response interceptor to handle errors
 apiClient.interceptors.response.use(
   (response) => {
     // Log response for debugging
@@ -83,36 +121,42 @@ apiClient.interceptors.response.use(
       data: error.response?.data,
       message: error.message
     });
-    
     return Promise.reject(error);
   }
 );
 
-/**
- * API request wrapper with standardized error handling
- * @param {Function} requestFn - Function that returns a promise from axios
- * @param {string} context - Context for error messages
- * @returns {Promise<Object>} - Standardized response object
- */
-export const handleApiRequest = async (requestFn, context = 'API Request') => {
-  try {
-    const response = await requestFn();
-    return {
-      success: true,
-      status: response.status,
-      data: response.data,
-      headers: response.headers
-    };
-  } catch (error) {
-    return {
-      success: false,
-      status: error.response?.status,
-      error: error.response?.data?.message || error.message,
-      data: error.response?.data,
-      context
-    };
+// Helper function to handle API requests with retry logic
+async function performRequestWithRetry(requestFn, maxRetries = 3, delay = 1000) {
+  let lastError;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await requestFn();
+      return {
+        success: true,
+        status: response.status,
+        data: response.data,
+        headers: response.headers
+      };
+    } catch (error) {
+      lastError = error;
+      
+      if (attempt < maxRetries) {
+        // Exponential backoff
+        const waitTime = delay * Math.pow(2, attempt - 1);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
+    }
   }
-};
+  
+  // If we've exhausted all retries, return the last error
+  return {
+    success: false,
+    error: lastError.response?.data?.message || lastError.message,
+    status: lastError.response?.status,
+    data: lastError.response?.data
+  };
+}
 
 /**
  * Login with the provided credentials
@@ -656,6 +700,7 @@ export const getHealth = async () => {
   }
 };
 
+// Export all functions as a single default export
 export default {
   apiClient,
   tokenStorage,

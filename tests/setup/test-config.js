@@ -9,13 +9,14 @@
 export const config = {
   // API configuration
   api: {
-    // Base URL for API requests
+    // Base URL for API requests - always use the correct port (5001)
     baseUrl: process.env.API_BASE_URL || 'http://localhost:5001/api',
     // Default timeout for API requests (in milliseconds)
     timeout: 30000,
     // Minimal headers to avoid CORS issues
     headers: {
-      'Accept': 'application/json'
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
     }
   },
   
@@ -24,7 +25,11 @@ export const config = {
     // Whether to run tests that require a real backend
     integration: process.env.RUN_INTEGRATION_TESTS === 'true',
     // Whether to log detailed debug information
-    debug: process.env.DEBUG_TESTS === 'true'
+    debug: process.env.DEBUG_TESTS === 'true',
+    // Maximum retry attempts for flaky tests
+    maxRetries: 3,
+    // Delay between retries (ms)
+    retryDelay: 1000
   }
 };
 

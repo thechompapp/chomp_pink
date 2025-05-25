@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import axios from 'axios';
+import axios from 'axios/dist/node/axios.cjs';
 
 // Test timeout (10 seconds)
 const TEST_TIMEOUT = 10000;

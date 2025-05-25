@@ -2,6 +2,9 @@
 import { vi } from 'vitest';
 import { config } from './setup/config';
 
+// Validate required environment variables before running any tests
+config.validate();
+
 // Mock global objects needed for testing
 global.console = {
   ...console,

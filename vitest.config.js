@@ -6,12 +6,18 @@ export default defineConfig({
   plugins: [react()],
   test: {
     globals: true,
-    environment: 'jsdom',
+    environment: 'node', // Changed from 'jsdom' to 'node' for API tests
     setupFiles: ['./tests/setup.js'],
+    setupFilesAfterEnv: ['./tests/setup/integration-setup.js'],
     server: {
       deps: {
         inline: ['axios'],
       },
+    },
+    // Handle axios ESM imports
+    deps: {
+      inline: ['axios'],
+      interopDefault: false,
     },
     coverage: {
       provider: 'v8',

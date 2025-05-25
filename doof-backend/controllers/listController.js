@@ -270,29 +270,98 @@ export const addItemToList = async (req, res, next) => {
 };
 
 export const createList = async (req, res, next) => {
-  // Will be refactored to use the new pattern
-  console.log('[listController LOG] Entered createList function.');
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    console.error('[listController createList] Validation Errors:', errors.array());
-    return res.status(400).json({ success: false, errors: errors.array() });
+  try {
+    console.log('[listController] Entered createList function');
+    
+    // Validate request
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      console.error('[listController] Validation errors:', errors.array());
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        error: { type: 'ValidationError' },
+        data: errors.array()
+      });
+    }
+
+    const { id: userId } = req.user;
+    const {
+      name,
+      description = '',
+      list_type,
+      isPublic,
+      is_public,
+      tags = [],
+      location = {}
+    } = req.body;
+    
+    // Handle both isPublic and is_public for backward compatibility
+    const isPublicFinal = isPublic !== undefined ? isPublic : (is_public !== undefined ? is_public : true);
+
+    console.log(`[listController] Creating list for user ${userId} with data:`, {
+      name,
+      list_type,
+      isPublic: isPublicFinal,
+      tags: Array.isArray(tags) ? tags.join(',') : '[]'
+    });
+
+    // Prepare list data for creation
+    const listData = {
+      name,
+      description,
+      list_type,
+      is_public: isPublicFinal,
+      created_by: userId, // Use the authenticated user's ID
+      user_id: userId,    // Also store as user_id for backward compatibility
+      tags: Array.isArray(tags) ? tags.filter(tag => typeof tag === 'string') : [],
+      location: location || {},
+      status: 'active',
+      metadata: {}
+    };
+
+    // Create the list using the service
+    const newList = await listService.createList(listData, userId, req.user.username);
+    
+    console.log(`[listController] Successfully created list ${newList.id} for user ${userId}`);
+    
+    // Format the response
+    const response = {
+      success: true,
+      message: 'List created successfully',
+      data: {
+        id: newList.id,
+        name: newList.name,
+        description: newList.description,
+        list_type: newList.list_type,
+        is_public: newList.is_public,
+        created_at: newList.created_at,
+        updated_at: newList.updated_at,
+        item_count: 0
+      }
+    };
+    
+    return res.status(201).json(response);
+    
+  } catch (error) {
+    console.error('[listController] Error in createList:', error);
+    
+    // Handle specific error types
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return res.status(409).json({
+        success: false,
+        message: 'A list with this name already exists',
+        error: { type: 'DuplicateListError' }
+      });
+    }
+    
+    // Default error response
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error while creating list',
+      error: { type: 'ServerError' }
+    });
   }
-
-  const { id: userId, username: userHandleFromToken } = req.user; // req.user is populated by requireAuth
-  const {
-    name,
-    description,
-    list_type,
-    is_public = true, // Default to public if not specified
-    tags,
-    city_id,
-    // initialItemId, // Handled by frontend flow, not this core API
-    // initialItemType,
-  } = req.body;
-
-  let creatorHandle = userHandleFromToken;
-  
-  // TODO: Replace with service call...
 };
 
 // Placeholder methods to be refactored later
