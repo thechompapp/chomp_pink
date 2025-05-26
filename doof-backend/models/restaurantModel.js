@@ -1,13 +1,35 @@
-// Filename: /root/doof-backend/models/restaurantModel.js
+// Filename: /doof-backend/models/restaurantModel.js
 import db from '../db/index.js';
 import { formatRestaurant } from '../utils/formatters.js';
 import * as DishModel from './dishModel.js';
-import * as HashtagModel from './hashtagModel.js'; // Assuming this will be used for tag logic
+import * as HashtagModel from './hashtagModel.js';
 import format from 'pg-format';
+
+// Default values for optional fields
+const DEFAULT_RESTAURANT = {
+  description: '',
+  cuisine: 'other',
+  price_range: '$$$$',
+  adds: 0,
+  is_active: true
+};
 
 export const SIMILARITY_THRESHOLD = 0.2;
 export const SINGLE_MATCH_THRESHOLD = 0.9;
 
+/**
+ * Find all restaurants with pagination and filtering
+ * @param {Object} options - Query options
+ * @param {number} options.page - Page number (default: 1)
+ * @param {number} options.limit - Items per page (default: 20)
+ * @param {string} options.sort - Field to sort by (default: 'created_at')
+ * @param {string} options.order - Sort order ('asc' or 'desc', default: 'desc')
+ * @param {string} options.search - Search term for restaurant name
+ * @param {number} options.userId - Filter by user ID
+ * @param {string} options.cuisine - Filter by cuisine type
+ * @param {string} options.priceRange - Filter by price range
+ * @returns {Promise<Object>} Paginated list of restaurants
+ */
 export const findAllRestaurants = async (options = {}) => {
   const {
     page = 1,
@@ -16,21 +38,49 @@ export const findAllRestaurants = async (options = {}) => {
     order = 'desc',
     search,
     userId,
+    cuisine,
+    priceRange
   } = options;
 
   const offset = (page - 1) * limit;
   const queryParams = [];
   let paramIndex = 0;
 
-  // Simple query to just get restaurants without complex joins
-  let query = 'SELECT * FROM restaurants';
-  let countQuery = 'SELECT COUNT(*) FROM restaurants';
+  // Build the base query with proper table aliases
+  let query = `
+    SELECT 
+      r.*,
+      c.name AS city_name,
+      n.name AS neighborhood_name,
+      COALESCE(
+        (SELECT ARRAY_AGG(DISTINCT h.name ORDER BY h.name)
+         FROM hashtags h
+         JOIN restaurant_hashtags rh ON h.id = rh.hashtag_id
+         WHERE rh.restaurant_id = r.id),
+        '{}'::TEXT[]
+      ) AS tags
+    FROM restaurants r
+    LEFT JOIN cities c ON r.city_id = c.id
+    LEFT JOIN neighborhoods n ON r.neighborhood_id = n.id
+  `;
+  
+  let countQuery = 'SELECT COUNT(*) FROM restaurants r';
   
   let whereClauses = [];
   
   if (search) {
-    whereClauses.push(`name ILIKE $${++paramIndex}`);
+    whereClauses.push(`r.name ILIKE $${++paramIndex}`);
     queryParams.push(`%${search}%`);
+  }
+
+  if (cuisine) {
+    whereClauses.push(`r.cuisine = $${++paramIndex}`);
+    queryParams.push(cuisine);
+  }
+
+  if (priceRange) {
+    whereClauses.push(`r.price_range = $${++paramIndex}`);
+    queryParams.push(priceRange);
   }
 
   if (whereClauses.length > 0) {
@@ -39,11 +89,13 @@ export const findAllRestaurants = async (options = {}) => {
   }
 
   // Add sorting and pagination
-  const validSortColumns = ['name', 'created_at', 'adds'];
-  const sortColumn = validSortColumns.includes(sort) ? sort : 'created_at';
+  const validSortColumns = ['name', 'created_at', 'updated_at', 'adds'];
+  const sortColumn = validSortColumns.includes(sort) ? 
+    (sort === 'name' ? 'r.name' : `r.${sort}`) : 'r.created_at';
   const sortDirection = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
-  query += ` ORDER BY ${sortColumn} ${sortDirection} LIMIT ${limit} OFFSET ${offset}`;
+  query += ` ORDER BY ${sortColumn} ${sortDirection} 
+             LIMIT ${limit} OFFSET ${offset}`;
 
   try {
     console.log("[RestaurantModel findAllRestaurants] Query:", query, queryParams);

@@ -43,21 +43,29 @@ export const formatDish = (dish) => {
 
 export const formatList = (list) => {
     if (!list) return null;
+    
+    // Determine the best handle to use, in order of preference:
+    // 1. owner_username (from users table)
+    // 2. creator_handle (from lists table)
+    // 3. 'unknown' as fallback
+    const handle = list.owner_username || list.creator_handle || 'unknown';
+    
     return {
         id: Number(list.id || 0),
         name: list.name || 'Unnamed List',
         description: list.description || null,
-        type: list.list_type || 'mixed', // ensure 'type' and 'list_type' are consistent if both exist
+        type: list.list_type || 'mixed',
         list_type: list.list_type || 'mixed',
         saved_count: Number(list.saved_count || 0),
-        item_count: Number(list.item_count || 0), // This might be a derived count
-        city: list.city_name || list.city || null, // Consolidate city representation
+        item_count: Number(list.item_count || 0),
+        city: list.city_name || list.city || null,
         tags: Array.isArray(list.tags) ? list.tags : [],
         is_public: !!list.is_public,
-        is_following: !!list.is_following, // This likely depends on the querying user
+        is_following: !!list.is_following,
         created_by_user: !!list.created_by_user,
         user_id: list.user_id ? Number(list.user_id) : null,
-        creator_handle: list.creator_handle || null,
+        creator_handle: handle,
+        owner_username: list.owner_username || list.creator_handle || null,
         created_at: list.created_at || null,
         updated_at: list.updated_at || null,
     };

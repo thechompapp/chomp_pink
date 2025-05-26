@@ -23,52 +23,68 @@ export const handleApiResponse = async (apiCall, context, transformFn = null) =>
     logDebug(`[${context}] Response received:`, {
       status: response?.status,
       statusText: response?.statusText,
-      data: response?.data ? 'data present' : 'no data', // Don't log full data at debug level
+      hasData: !!response?.data,
+      dataKeys: response?.data ? Object.keys(response.data) : 'no data',
       success: response?.data?.success
     });
     
-    // If the response already has a standardized format with success flag, return it directly
+    // If the response is already in the expected format, return it directly
     if (response?.data && typeof response.data === 'object' && 'success' in response.data) {
-      return response.data;
+      // Ensure the response has all required fields
+      const formattedResponse = {
+        success: response.data.success !== undefined ? response.data.success : true,
+        message: response.data.message || 'Operation successful',
+        data: response.data.data !== undefined ? response.data.data : response.data,
+        ...(response.data.pagination && { pagination: response.data.pagination })
+      };
+      
+      // Apply transform function if provided
+      if (transformFn && formattedResponse.data) {
+        try {
+          formattedResponse.data = transformFn(formattedResponse.data);
+        } catch (transformError) {
+          logError(`[${context}] Error applying transform function:`, transformError);
+          // Continue with untransformed data
+        }
+      }
+      
+      return formattedResponse;
     }
     
     // Handle various response formats to normalize them
-    // Format 1: { success: true, data: {...}, message: "..." }
-    // Format 2: { data: [...] }
-    // Format 3: Direct data array or object
-    
-    // Case 1: API returns data object with nested data property (older API format)
-    if (response?.data?.data !== undefined) {
-      const responseData = response.data.data;
+    // Format 1: { data: [...] } (direct data without success flag)
+    if (response?.data !== undefined) {
+      const responseData = response.data;
       const transformedData = transformFn ? transformFn(responseData) : responseData;
       return {
         success: true,
-        message: response.data.message || 'Operation successful',
-        data: transformedData
-      };
-    }
-    // Case 2: API returns data directly
-    else if (response?.data !== undefined) {
-      const transformedData = transformFn ? transformFn(response.data) : response.data;
-      return {
-        success: true,
         message: 'Operation successful',
-        data: transformedData
+        data: transformedData,
+        ...(response.pagination && { pagination: response.pagination })
       };
     }
+    
     // Error case: No recognizable data format
-    else {
-      const errorMessage = response?.data?.message || 'Unrecognized API response format';
-      logWarn(`[${context}] Unexpected response structure: ${errorMessage}`);
-      return {
-        success: false,
-        message: errorMessage,
-        error: {
-          type: 'unexpected_format',
-          details: 'API returned an unrecognized data format'
+    const errorMessage = 'Unrecognized API response format';
+    logWarn(`[${context}] Unexpected response structure:`, {
+      status: response.status,
+      statusText: response.statusText,
+      data: response.data
+    });
+    
+    return {
+      success: false,
+      message: errorMessage,
+      error: {
+        type: 'unexpected_format',
+        details: 'API returned an unrecognized data format',
+        response: {
+          status: response.status,
+          statusText: response.statusText,
+          data: response.data
         }
-      };
-    }
+      }
+    };
   } catch (error) {
     // Detailed error logging for troubleshooting
     const statusCode = error.response?.status;

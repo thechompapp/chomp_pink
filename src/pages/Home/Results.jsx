@@ -28,21 +28,17 @@ const ItemSkeleton = ({ type }) => {
 
 const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, searchQuery }) => {
   const RESULTS_PER_PAGE = 25;
+  const queryClient = useQueryClient();
   
-  // DIRECT FIX: Always clear mock data flag when showing lists
-  // This ensures we don't get stuck in offline mode
+  // Clear mock data flag when showing lists to ensure we don't get stuck in offline mode
   useEffect(() => {
     if (contentType === 'lists') {
-      // Force online mode for lists
       localStorage.removeItem('use_mock_data');
       logDebug('[Results] Forcing real data mode for lists');
     }
   }, [contentType]);
   
-  // Get the QuickAdd context to enable adding items to lists
   const { openQuickAdd } = useQuickAdd();
-  
-  // Get the follow store initialization function
   const { initializeFollowedLists } = useFollowStore();
 
   const fetchFunction = useCallback(async ({ pageParam = 1 }) => {
@@ -50,20 +46,9 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
     
     const limit = RESULTS_PER_PAGE;
     const offset = (pageParam - 1) * limit;
-    let responseData = { 
-      restaurants: [], 
-      dishes: [], 
-      lists: [], 
-      totalRestaurants: 0, 
-      totalDishes: 0, 
-      totalLists: 0,
-      items: [],
-      total: 0
-    };
     
     try {
       if (contentType === 'lists') {
-        // Get lists using listService
         const params = {
           view: 'all', 
           page: pageParam, 
@@ -76,143 +61,92 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
         };
         
         logDebug(`[Results] Fetching lists with params:`, params);
-        const listApiResponse = await listService.getUserLists(params);
+        const response = await listService.getUserLists(params);
         
-        // Log the response for debugging
-        logDebug(`[Results] List API response:`, listApiResponse);
+        console.log('[Results] Raw API response:', JSON.stringify(response, null, 2));
         
-        // Ensure we have a consistent structure
-        if (listApiResponse && listApiResponse.success) {
-          // Log the exact structure for debugging
-          logDebug(`[Results] listApiResponse.data structure:`, listApiResponse.data);
-          // Handle different possible structures
-          if (Array.isArray(listApiResponse.data)) {
-            responseData.lists = listApiResponse.data;
-            responseData.totalLists = listApiResponse.pagination?.total || listApiResponse.data.length;
-          } else if (listApiResponse.data && Array.isArray(listApiResponse.data.data)) {
-            responseData.lists = listApiResponse.data.data;
-            responseData.totalLists = listApiResponse.data.total || listApiResponse.pagination?.total || responseData.lists.length;
-          } else if (listApiResponse.data && Array.isArray(listApiResponse.data.lists)) {
-            responseData.lists = listApiResponse.data.lists;
-            responseData.totalLists = listApiResponse.data.total || listApiResponse.pagination?.total || responseData.lists.length;
-          } else {
-            responseData.lists = [];
-            responseData.totalLists = 0;
-            logWarn(`[Results] Unexpected listApiResponse structure:`, listApiResponse);
-          }
-          // Set general items and total for consistency
-          responseData.items = responseData.lists;
-          responseData.total = responseData.totalLists;
+        // Handle response format
+        let items = [];
+        let total = 0;
+        
+        console.log('[Results] Processing API response:', {
+          hasSuccess: response?.success,
+          hasData: !!response?.data,
+          hasDataData: !!response?.data?.data,
+          dataType: response?.data ? typeof response.data : 'undefined',
+          dataKeys: response?.data ? Object.keys(response.data) : 'no data'
+        });
+        
+        // Handle the actual API response format
+        if (response?.success && response?.data?.data) {
+          items = Array.isArray(response.data.data) ? response.data.data : [];
+          total = response.data.total || items.length;
+          console.log(`[Results] Extracted ${items.length} items from response.data.data`);
+        } 
+        // Fallback to other possible response formats
+        else if (response?.data?.data) {
+          items = Array.isArray(response.data.data) ? response.data.data : [];
+          total = response.data.total || 0;
+          console.log(`[Results] Extracted ${items.length} items from response.data.data (fallback)`);
+        } else if (Array.isArray(response?.data)) {
+          items = response.data;
+          total = response.pagination?.total || items.length;
+          console.log(`[Results] Extracted ${items.length} items from response.data array`);
+        } else if (response?.data?.lists) {
+          items = Array.isArray(response.data.lists) ? response.data.lists : [];
+          total = response.data.total || items.length;
+          console.log(`[Results] Extracted ${items.length} items from response.data.lists`);
         } else {
-          // Handle errors or other formats
-          responseData.lists = [];
-          responseData.totalLists = 0;
-          // Set general items and total for consistency
-          responseData.items = responseData.lists;
-          responseData.total = responseData.totalLists;
-          logWarn(`[Results] List API call unsuccessful:`, listApiResponse);
+          console.warn('[Results] Could not extract items from response:', response);
         }
-      } 
-      else if (contentType === 'restaurants' || contentType === 'dishes') {
-        // Get restaurants or dishes using searchService
-        const params = { 
-          q: searchQuery, 
-          type: contentType, 
-          limit, 
-          offset, 
-          cityId, 
-          boroughId, 
-          neighborhoodId, 
-          hashtags 
+        
+        return {
+          items,
+          total,
+          page: pageParam,
+          hasMore: (pageParam * limit) < total
         };
-        
-        logDebug(`[Results] Fetching ${contentType} with params:`, params);
-        const searchApiResponse = await searchService.search(params);
-        
-        // Log the response for debugging
-        logDebug(`[Results] Search API response for ${contentType}:`, searchApiResponse);
-        
-        // Extract data based on content type
-        if (searchApiResponse) {
-          // Handle different response formats
-          if (searchApiResponse.data) {
-            // If searchApiResponse has .data property (newer API format)
-            responseData = searchApiResponse.data;
-          } else {
-            // Direct response (older API format)
-            responseData = searchApiResponse;
-          }
-          
-          // Make sure the response has the expected structure
-          if (contentType === 'restaurants') {
-            responseData.items = responseData.restaurants || [];
-            responseData.total = responseData.totalRestaurants || 0;
-          } else if (contentType === 'dishes') {
-            responseData.items = responseData.dishes || [];
-            responseData.total = responseData.totalDishes || 0;
-          }
-        }
       } 
-      else {
-        logWarn(`[Results] Unsupported contentType: ${contentType}`);
-      }
       
-      // Ensure the responseData always has items array for consistency
-      if (!Array.isArray(responseData.items)) {
-        responseData.items = [];
-      }
-      
-      // Ensure the responseData always has a total value
-      if (typeof responseData.total !== 'number') {
-        responseData.total = 0;
-      }
-      
-      return { 
-        data: responseData, 
-        currentPage: pageParam 
+      // Handle restaurants and dishes
+      const params = { 
+        q: searchQuery, 
+        type: contentType, 
+        limit, 
+        offset, 
+        cityId, 
+        boroughId, 
+        neighborhoodId, 
+        hashtags 
       };
-    } 
-    catch (error) {
-      logError(`[Results] Error fetching ${contentType} page ${pageParam}:`, error);
       
-      // Return a structured error response rather than throwing
-      // This lets us display the error state gracefully in the UI
+      logDebug(`[Results] Fetching ${contentType} with params:`, params);
+      const response = await searchService.search(params);
+      
+      let items = [];
+      let total = 0;
+      
+      if (response?.data) {
+        items = response.data[contentType] || [];
+        total = response.data.total || items.length;
+      } else if (response?.[contentType]) {
+        items = response[contentType];
+        total = response.total || items.length;
+      }
+      
       return {
-        data: responseData,
-        currentPage: pageParam,
-        error: error.message || 'Unknown error'
+        items,
+        total,
+        page: pageParam,
+        hasMore: (pageParam * limit) < total
       };
+      
+    } catch (error) {
+      logError(`[Results] Error in fetchFunction:`, error);
+      throw error;
     }
   }, [contentType, searchQuery, cityId, boroughId, neighborhoodId, hashtags]);
 
-  // Get the queryClient for manual invalidation
-  const queryClient = useQueryClient();
-  
-  // Force refresh on page visibility change to catch up after network issues
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        // Check if we've had a recent list operation
-        const recentListOp = localStorage.getItem('recent_list_operation');
-        if (recentListOp) {
-          const timestamp = parseInt(recentListOp, 10);
-          const now = Date.now();
-          // If operation was within last 60 seconds, force refresh
-          if (now - timestamp < 60000) {
-            logDebug('[Home/Results] Page became visible after recent list operation, forcing refresh');
-            queryClient.invalidateQueries({ queryKey: ['results'], exact: false });
-            queryClient.refetchQueries({ queryKey: ['results'], exact: false });
-          }
-        }
-      }
-    };
-    
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [queryClient]);
-  
   // Set up event listeners for list data updates
   useEffect(() => {
     // Only add event listeners when contentType is 'lists'
@@ -252,144 +186,127 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
     queryKey: ['results', contentType, searchQuery, cityId, boroughId, neighborhoodId, JSON.stringify(hashtags)],
     queryFn: fetchFunction,
     getNextPageParam: (lastPage, allPages) => {
-      logDebug('[Results getNextPageParam CALLED] LastPage:', lastPage);
-      console.log('[Results getNextPageParam] LastPage:', lastPage, 'AllPages:', allPages); // Debug log
+      console.log('[getNextPageParam] Last page data:', lastPage);
       
-      // Check if we have a valid lastPage object
+      // If no data in the last page, no more pages
       if (!lastPage || !lastPage.data) {
-        console.log('[Results getNextPageParam] No valid lastPage or data object');
-        return undefined; // No more pages
+        console.log('[getNextPageParam] No more pages - no data in last page');
+        return undefined;
       }
       
-      // Extract the data from the response based on different possible formats
-      const pageData = lastPage.data; // This is either {items: [], total: 0} or similar format
+      // Get pagination info from the last page
+      const currentPage = lastPage.page || 1;
+      const itemsPerPage = lastPage.items?.length || 0;
+      const totalItems = lastPage.total || 0;
+      const totalFetched = currentPage * itemsPerPage;
       
-      // Extract items directly from pageData structure with better null checks
-      let items = [];
-      if (Array.isArray(pageData.items)) {
-        items = pageData.items;
-      } else if (Array.isArray(pageData.data)) {
-        items = pageData.data;
-      } else if (contentType === 'restaurants' && Array.isArray(pageData.restaurants)) {
-        items = pageData.restaurants;
-      } else if (contentType === 'dishes' && Array.isArray(pageData.dishes)) {
-        items = pageData.dishes;
-      } else if (contentType === 'lists' && Array.isArray(pageData.lists)) {
-        items = pageData.lists;
-      } else {
-        // If all attempts to find items fail, log the issue but don't throw an error
-        console.warn('[Results getNextPageParam] No valid data array found:', pageData);
-        return undefined; // No more pages
+      console.log('[getNextPageParam] Pagination info:', {
+        currentPage,
+        totalItems,
+        itemsPerPage,
+        totalFetched,
+        hasMore: totalItems > totalFetched
+      });
+      
+      // If we've fetched all items, don't fetch more
+      if (totalItems <= totalFetched) {
+        console.log('[getNextPageParam] No more pages - all items fetched');
+        return undefined;
       }
       
-      // Make the total calculation more robust with fallbacks
-      const total = pageData.total || 
-                   pageData.totalRestaurants || 
-                   pageData.totalDishes || 
-                   pageData.totalLists || 
-                   0;
-      
-      // Calculate current page and total fetched
-      const currentPage = lastPage.currentPage || 1;
-      let totalFetched = 0;
-      
-      // Count total items fetched so far with better error handling
-      try {
-        for (const page of allPages) {
-          if (!page || !page.data) continue;
-          const pgData = page.data;
-          
-          let pgItems = [];
-          if (Array.isArray(pgData.items)) {
-            pgItems = pgData.items;
-          } else if (Array.isArray(pgData.data)) {
-            pgItems = pgData.data;
-          } else if (contentType === 'restaurants' && Array.isArray(pgData.restaurants)) {
-            pgItems = pgData.restaurants;
-          } else if (contentType === 'dishes' && Array.isArray(pgData.dishes)) {
-            pgItems = pgData.dishes;
-          } else if (contentType === 'lists' && Array.isArray(pgData.lists)) {
-            pgItems = pgData.lists;
-          }
-          
-          totalFetched += pgItems.length;
-        }
-      } catch (error) {
-        logError('[Results getNextPageParam] Error calculating total fetched items:', error);
-        // Continue with what we have
-      }
-      
-      console.log('[Results getNextPageParam] Calc:', { 
-        currentPage, 
-        totalFetched, 
-        total, 
-        dataLength: items.length 
-      }); // Debug log
-      
-      // If we have more items to fetch, return the next page
-      if (total > totalFetched) {
-        const nextPage = currentPage + 1;
-        console.log('[Results getNextPageParam] More pages exist, next page:', nextPage); // Debug log
-        return nextPage;
-      }
-      
-      console.log('[Results getNextPageParam] No more pages.'); // Debug log
-      return undefined; // No more pages
+      // Return the next page number
+      const nextPage = currentPage + 1;
+      console.log('[getNextPageParam] Fetching next page:', nextPage);
+      return nextPage;
     },
     initialPageParam: 1,
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
 
-  const items = useMemo(() => {
-    logDebug('[Results useMemo] Processing data.pages:', data?.pages);
-    console.log('[Results useMemo] Processing data.pages:', data?.pages); // Debug log
-    
-    if (!data || !data.pages || !Array.isArray(data.pages)) {
-      return [];
+  // Process the data from the API
+  const { items, total } = useMemo(() => {
+    if (!data || !data.pages || data.pages.length === 0) {
+      return { items: [], total: 0 };
     }
     
-    // Handle the data structure that matches getNextPageParam
-    const flattened = data.pages.flatMap(page => {
-      if (!page || !page.data) {
-        return [];
+    // Helper function to extract items from different response formats
+    const extractItems = (page) => {
+      if (!page) return { items: [], total: 0 };
+      
+      try {
+        // Log page structure for debugging
+        logDebug('[Results] Page structure:', {
+          keys: Object.keys(page),
+          hasData: !!page.data,
+          dataType: page.data ? typeof page.data : 'undefined',
+          dataKeys: page.data ? Object.keys(page.data) : 'no data'
+        });
+        
+        // Handle different response formats
+        if (contentType === 'lists') {
+          // Format 1: { success: true, data: { data: [...], total: X } }
+          if (page.success && page.data?.data && Array.isArray(page.data.data)) {
+            return { items: page.data.data, total: page.data.total };
+          }
+          // Format 2: { data: [...] }
+          if (page.data && Array.isArray(page.data)) {
+            return { items: page.data, total: page.data.length };
+          }
+          // Format 3: Direct array
+          if (Array.isArray(page)) {
+            return { items: page, total: page.length };
+          }
+        } 
+        // Handle other content types
+        else if (page[contentType] && Array.isArray(page[contentType])) {
+          return { items: page[contentType], total: page.total || page[contentType].length };
+        }
+        
+        // Fallback to common structures
+        if (page.items && Array.isArray(page.items)) {
+          return { items: page.items, total: page.total || page.items.length };
+        }
+        if (page.data && Array.isArray(page.data)) {
+          return { items: page.data, total: page.total || page.data.length };
+        }
+      } catch (error) {
+        logError('[Results] Error in extractItems:', error);
       }
       
-      const pageData = page.data;
-      
-      // Extract data using consistent extraction logic
-      if (contentType === 'restaurants' && Array.isArray(pageData.restaurants)) {
-        return pageData.restaurants;
+      return { items: [], total: 0 };
+    };
+    
+    // Process all pages and combine results
+    let allItems = [];
+    let totalItems = 0;
+    
+    data.pages.forEach((page) => {
+      try {
+        const { items: pageItems, total: pageTotal } = extractItems(page);
+        if (pageItems && pageItems.length > 0) {
+          allItems = [...allItems, ...pageItems];
+          // Use the largest total we find (in case of pagination)
+          if (pageTotal > totalItems) {
+            totalItems = pageTotal;
+          }
+        }
+      } catch (error) {
+        logError('[Results] Error processing page:', error);
       }
-      
-      if (contentType === 'dishes' && Array.isArray(pageData.dishes)) {
-        return pageData.dishes;
-      }
-      
-      if (contentType === 'lists' && Array.isArray(pageData.lists)) {
-        return pageData.lists;
-      }
-      
-      // General fallback logic for any array data
-      if (Array.isArray(pageData.items)) {
-        return pageData.items;
-      }
-      
-      if (Array.isArray(pageData.data)) {
-        return pageData.data;
-      }
-      
-      if (Array.isArray(pageData)) {
-        return pageData;
-      }
-      
-      // If we can't extract items, return empty array for this page
-      return [];
     });
     
-    logDebug(`[Results useMemo] Flattened items count: ${flattened.length}`);
-    console.log('[Results useMemo] Flattened items count:', flattened.length); // Debug log
-    return flattened;
+    // If we didn't get a total from any page, use the count of items
+    if (totalItems === 0) {
+      totalItems = allItems.length;
+    }
+    
+    logDebug(`[Results] Processed ${allItems.length} items with total ${totalItems}`);
+    
+    return {
+      items: allItems.filter(item => item && item.id !== undefined),
+      total: totalItems
+    };
   }, [data, contentType]);
 
   const showInitialLoading = isLoading && !items.length;

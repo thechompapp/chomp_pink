@@ -202,6 +202,33 @@ const fallbackAdapter = (config) => {
               _isFallbackResponse: true
             };
             
+            logDebug(`[${context}] Full API Response:`, responseObject);
+            
+            // Format 1: { success: true, data: {...}, message: "..." }
+            // Format 2: { data: [...] }
+            // Format 3: Direct data array or object
+            
+            // Case 1: API returns data object with nested data property (standard format)
+            if (responseObject.data?.data !== undefined) {
+              const responseData = responseObject.data.data;
+              const transformedData = transformFn ? transformFn(responseData) : responseData;
+              return {
+                success: responseObject.data.success !== undefined ? responseObject.data.success : true,
+                message: responseObject.data.message || 'Operation successful',
+                data: transformedData,
+                pagination: responseObject.data.pagination
+              };
+            }
+            // Case 2: API returns data directly
+            else if (responseObject.data !== undefined) {
+              const transformedData = transformFn ? transformFn(responseObject.data) : responseObject.data;
+              return {
+                success: true,
+                message: 'Operation successful',
+                data: transformedData
+              };
+            }
+            
             console.log('[FallbackAdapter] Successfully completed request', {
               url: url.toString(),
               status: response.status

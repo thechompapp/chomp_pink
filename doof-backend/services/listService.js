@@ -33,7 +33,19 @@ const rawMethods = {
   // Get lists created by or followed by a user
   getUserLists: async (userId, options = {}) => {
     logDebug(`[ListService.getUserLists] Fetching lists for user ${userId} with options:`, options);
-    return await listModel.findListsByUser(userId, options);
+    try {
+      const result = await listModel.findListsByUser(userId, options);
+      logDebug(`[ListService.getUserLists] Result from model:`, {
+        hasData: !!result.data,
+        dataLength: result.data?.length || 0,
+        total: result.total,
+        pagination: result.pagination
+      });
+      return result;
+    } catch (error) {
+      logDebug(`[ListService.getUserLists] Error:`, error.message);
+      throw error;
+    }
   },
   
   // Get items in a list

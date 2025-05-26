@@ -13,35 +13,142 @@ const listService = {
   getLists: async function(params = {}) {
     logger.debug('[listService] getLists called with params:', JSON.stringify(params));
     
-    // Build params as a plain object
-    const paramsObj = {};
-    if (params.userId) paramsObj.userId = typeof params.userId === 'object' ? (params.userId.id || params.userId.userId || '') : String(params.userId);
-    if (params.cityId) paramsObj.cityId = String(params.cityId);
-    if (params.page) paramsObj.page = String(params.page);
-    if (params.limit) paramsObj.limit = String(params.limit);
-    if (params.sortBy) paramsObj.sortBy = String(params.sortBy);
-    if (params.sortOrder) paramsObj.sortOrder = String(params.sortOrder);
-    if (params.listType) paramsObj.listType = String(params.listType);
-    if (typeof params.isPublic !== 'undefined') paramsObj.isPublic = String(params.isPublic);
-    if (params.isFollowedByUserId) paramsObj.isFollowedByUserId = typeof params.isFollowedByUserId === 'object' ? (params.isFollowedByUserId.id || params.isFollowedByUserId.userId || '') : String(params.isFollowedByUserId);
-    if (params.searchTerm) paramsObj.searchTerm = String(params.searchTerm);
-    if (params.excludeUserId) paramsObj.excludeUserId = String(params.excludeUserId);
+    try {
+      // Build params as a plain object
+      const paramsObj = {};
+      if (params.userId) paramsObj.userId = typeof params.userId === 'object' ? (params.userId.id || params.userId.userId || '') : String(params.userId);
+      if (params.cityId) paramsObj.cityId = String(params.cityId);
+      if (params.page) paramsObj.page = String(params.page);
+      if (params.limit) paramsObj.limit = String(params.limit);
+      if (params.sortBy) paramsObj.sortBy = String(params.sortBy);
+      if (params.sortOrder) paramsObj.sortOrder = String(params.sortOrder);
+      if (params.listType) paramsObj.listType = String(params.listType);
+      if (typeof params.isPublic !== 'undefined') paramsObj.isPublic = String(params.isPublic);
+      if (params.isFollowedByUserId) paramsObj.isFollowedByUserId = typeof params.isFollowedByUserId === 'object' ? (params.isFollowedByUserId.id || params.isFollowedByUserId.userId || '') : String(params.isFollowedByUserId);
+      if (params.searchTerm) paramsObj.searchTerm = String(params.searchTerm);
+      if (params.excludeUserId) paramsObj.excludeUserId = String(params.excludeUserId);
 
-    logger.debug(`[listService] Making request to /lists with params:`, paramsObj);
-    
-    const result = await handleApiResponse(
-      () => apiClient.get('/lists', { params: paramsObj }),
-      'ListService.getLists'
-    );
-    
-    // Format the response to maintain backward compatibility
-    return {
-      success: result.success,
-      data: result.data,
-      pagination: result.pagination || null,
-      message: result.message,
-      error: result.error
-    };
+      logger.debug(`[listService] Making request to /lists with params:`, paramsObj);
+      
+      const response = await apiClient.get('/lists', { params: paramsObj });
+      
+      // Handle empty or invalid responses
+      if (!response || !response.data) {
+        logger.warn('[listService] Empty or invalid API response, returning empty result');
+        return {
+          success: true,
+          data: [],
+          pagination: {
+            page: parseInt(params.page) || 1,
+            limit: parseInt(params.limit) || 25,
+            total: 0,
+            totalPages: 0
+          }
+        };
+      }
+      
+      logger.debug('[listService] Raw API response:', {
+        status: response.status,
+        hasData: !!response.data,
+        dataType: response.data ? typeof response.data : 'none',
+        dataKeys: response.data ? Object.keys(response.data) : []
+      });
+      
+      // Process the response through handleApiResponse
+      const result = await handleApiResponse(
+        () => Promise.resolve(response),
+        'ListService.getLists'
+      );
+      
+      // Ensure we always return a valid data structure
+      const responseData = result.data || [];
+      const pagination = result.pagination || {
+        page: parseInt(params.page) || 1,
+        limit: parseInt(params.limit) || 25,
+        total: 0,
+        totalPages: 0
+      };
+      
+      logger.debug('[listService] Processed API response:', {
+        success: result.success,
+        message: result.message,
+        hasData: Array.isArray(responseData) && responseData.length > 0,
+        dataType: Array.isArray(responseData) ? 'array' : typeof responseData,
+        pagination: pagination
+      });
+      
+      // Handle different response formats
+      if (result.success) {
+        // Extract data and pagination from the response
+        let responseData = [];
+        let pagination = null;
+
+        // Handle different response structures
+        if (Array.isArray(result.data)) {
+          // Case: { success: true, data: [...] }
+          responseData = result.data;
+          pagination = result.pagination || {
+            page: parseInt(params.page) || 1,
+            limit: parseInt(params.limit) || 25,
+            total: result.data.length,
+            totalPages: Math.ceil((result.data.length || 0) / (parseInt(params.limit) || 25))
+          };
+        } else if (result.data && Array.isArray(result.data.data)) {
+          // Case: { success: true, data: { data: [...], pagination: {...} } }
+          responseData = result.data.data;
+          pagination = result.data.pagination || result.pagination || {
+            page: parseInt(params.page) || 1,
+            limit: parseInt(params.limit) || 25,
+            total: responseData.length,
+            totalPages: Math.ceil((responseData.length || 0) / (parseInt(params.limit) || 25))
+          };
+        } else if (result.data && result.data.items) {
+          // Case: { success: true, data: { items: [...], total: X } }
+          responseData = Array.isArray(result.data.items) ? result.data.items : [];
+          pagination = {
+            page: parseInt(params.page) || 1,
+            limit: parseInt(params.limit) || 25,
+            total: result.data.total || responseData.length,
+            totalPages: Math.ceil((result.data.total || responseData.length) / (parseInt(params.limit) || 25))
+          };
+        }
+        
+        logger.debug('[listService] Processed response data:', {
+          itemsCount: responseData.length,
+          pagination: pagination
+        });
+        
+        return {
+          success: true,
+          data: responseData,
+          pagination: pagination,
+          message: result.message || 'Lists retrieved successfully'
+        };
+      }
+      
+      // Handle error case
+      return {
+        success: false,
+        data: [],
+        pagination: null,
+        message: result.message || 'Failed to fetch lists',
+        error: result.error
+      };
+      
+    } catch (error) {
+      logger.error('[listService] Error in getLists:', error);
+      return {
+        success: false,
+        data: [],
+        pagination: null,
+        message: 'Failed to fetch lists due to an error',
+        error: {
+          type: 'api_error',
+          message: error.message,
+          details: error
+        }
+      };
+    }
   },
 
   // Fetch a specific list by its ID

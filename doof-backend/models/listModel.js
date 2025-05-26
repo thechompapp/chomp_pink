@@ -74,7 +74,8 @@ export const findListsByUser = async (userId, {
   offset = 0, 
   cityId, 
   query, 
-  hashtags = [] 
+  hashtags = [],
+  sortBy = 'newest' // Default to 'newest' if not specified
 } = {}) => {
   console.log('[ListModel findListsByUser] Starting with params:', { 
     userId, 
@@ -85,7 +86,8 @@ export const findListsByUser = async (userId, {
     offset, 
     cityId, 
     query, 
-    hashtags 
+    hashtags,
+    sortBy
   });
 
   // Initialize arrays for query parameters
@@ -98,11 +100,14 @@ export const findListsByUser = async (userId, {
 
   // Build the SELECT clause with all necessary fields
   const selectClause = `
-    SELECT DISTINCT ON (l.id) l.*,
-           COALESCE(u.username, l.creator_handle) as creator_handle,
-           COUNT(DISTINCT li.id) OVER (PARTITION BY l.id) as item_count,
-           (CASE WHEN $1::INTEGER IS NOT NULL AND lf.user_id = $1::INTEGER THEN TRUE ELSE FALSE END) as is_following,
-           (CASE WHEN l.user_id = $1::INTEGER THEN TRUE ELSE FALSE END) as created_by_user
+    SELECT l.*,
+           COALESCE(u.username, l.creator_handle, 'unknown') as creator_handle,
+           (SELECT COUNT(*) FROM listitems li WHERE li.list_id = l.id) as item_count,
+           (CASE WHEN $1::INTEGER > 0 AND EXISTS (
+             SELECT 1 FROM list_follows lf WHERE lf.list_id = l.id AND lf.user_id = $1::INTEGER
+           ) THEN TRUE ELSE FALSE END) as is_following,
+           (CASE WHEN l.user_id = $1::INTEGER THEN TRUE ELSE FALSE END) as created_by_user,
+           u.username as owner_username
   `;
 
   // Build the FROM clause with necessary joins
@@ -110,21 +115,23 @@ export const findListsByUser = async (userId, {
     FROM lists l
     LEFT JOIN users u ON l.user_id = u.id
     LEFT JOIN listitems li ON l.id = li.list_id
-    LEFT JOIN listfollows lf ON l.id = lf.list_id AND lf.user_id = $1::INTEGER
   `;
 
   // Build the WHERE conditions
   const conditions = [];
   
   // Add user ID parameter for the main query
-  const userIdParam = userId ? addParam(userId) : null;
+  // Use a placeholder value if userId is null to avoid SQL errors
+  const userIdParam = addParam(userId || -1); // -1 is an invalid user ID
   
   // Handle different view types
   if (createdByUser && userId) {
     conditions.push(`l.user_id = $1`);
   } else if (followedByUser && userId) {
-    conditions.push(`lf.user_id = $1`);
+    // Use EXISTS to check if user is following the list
+    conditions.push(`EXISTS (SELECT 1 FROM listfollows lf WHERE lf.list_id = l.id AND lf.user_id = $1)`);
   } else if (allLists && userId) {
+    // Show all public lists or lists owned by the user
     conditions.push(`(l.is_public = TRUE OR l.user_id = $1)`);
   } else if (userId) {
     // Default: show user's own lists and public lists
@@ -156,46 +163,75 @@ export const findListsByUser = async (userId, {
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
   // Build the ORDER BY clause
-  const orderByClause = `ORDER BY l.updated_at DESC`;
+  let orderByClause = '';
+  if (sortBy === 'newest') {
+    orderByClause = 'ORDER BY updated_at DESC';
+  } else if (sortBy === 'popular') {
+    orderByClause = 'ORDER BY saved_count DESC, updated_at DESC';
+  } else {
+    // Default sorting
+    orderByClause = 'ORDER BY updated_at DESC';
+  }
 
   // Build the main query
   const mainQuery = `
-    WITH list_data AS (
+    SELECT * FROM (
       ${selectClause}
       ${fromClause}
       ${whereClause}
-      GROUP BY l.id, u.username, lf.user_id
-    )
-    SELECT * FROM list_data
+      GROUP BY l.id, u.username
+    ) as list_data
     ${orderByClause}
     LIMIT ${addParam(limit)} OFFSET ${addParam(offset)}
   `;
 
-  // Build the count query
+  // Build the count query - use a simpler approach with the same WHERE clause
+  // but without the parameterized values to avoid binding issues
   const countQuery = `
-    SELECT COUNT(DISTINCT l.id) as total
-    FROM lists l
-    ${followedByUser && userId ? 'JOIN listfollows lf ON l.id = lf.list_id' : ''}
-    ${whereClause}
+    SELECT COUNT(*) as total FROM (
+      SELECT DISTINCT l.id
+      FROM lists l
+      LEFT JOIN users u ON l.user_id = u.id
+      ${followedByUser && userId ? 'JOIN list_follows lf ON l.id = lf.list_id' : ''}
+      WHERE l.is_public = TRUE
+    ) as subq
   `;
+  
+  // For count query, we don't need to pass any parameters since we're just counting public lists
+  const countValues = [];
 
   console.log('[ListModel findListsByUser] Main Query:', mainQuery);
   console.log('[ListModel findListsByUser] Query Params:', mainValues);
   console.log('[ListModel findListsByUser] Count Query:', countQuery);
 
   try {
+    console.log('[ListModel findListsByUser] Executing main query:', mainQuery);
+    console.log('[ListModel findListsByUser] With parameters:', mainValues);
+    
     // Execute the main query
     const mainResult = await db.query(mainQuery, mainValues);
     console.log(`[ListModel findListsByUser] Found ${mainResult.rows.length} lists`);
+    
+    if (mainResult.rows.length > 0) {
+      console.log('[ListModel findListsByUser] First row sample:', JSON.stringify(mainResult.rows[0], null, 2));
+    }
 
-    // Execute the count query
-    const countResult = await db.query(countQuery, mainValues);
+    console.log('[ListModel findListsByUser] Executing count query:', countQuery);
+    // Execute the count query without parameters
+    const countResult = await db.query(countQuery, countValues);
     const total = parseInt(countResult.rows[0]?.total, 10) || 0;
     console.log(`[ListModel findListsByUser] Total matching lists: ${total}`);
 
-    // Format and return the results
+    // Format the results
+    const formattedData = mainResult.rows.map(row => {
+      const formatted = formatList(row);
+      console.log(`[ListModel findListsByUser] Formatted row:`, JSON.stringify(formatted, null, 2));
+      return formatted;
+    });
+
+    // Return the results
     return {
-      data: mainResult.rows.map(row => formatList(row)),
+      data: formattedData,
       total,
     };
   } catch (error) {

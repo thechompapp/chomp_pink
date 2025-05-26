@@ -1,38 +1,85 @@
-// Filename: /root/doof-backend/models/dishModel.js
-/* REFACTORED: Convert to ES Modules (named exports) */
-/* REFACTORED: Optimize tag fetching, Added pagination */
+// Filename: /doof-backend/models/dishModel.js
 import db from '../db/index.js';
 import { formatDish } from '../utils/formatters.js';
 import format from 'pg-format';
 
-// Export functions individually
+// Default values for optional fields
+const DEFAULT_DISH = {
+  description: '',
+  price: '0.00',
+  category: 'main',
+  is_common: false,
+  adds: 0
+};
+
+/**
+ * Find all dishes with pagination and filtering
+ * @param {Object} options - Query options
+ * @param {number} options.page - Page number (default: 1)
+ * @param {number} options.limit - Items per page (default: 20)
+ * @param {string} options.sort - Field to sort by (default: 'name')
+ * @param {string} options.order - Sort order ('asc' or 'desc', default: 'asc')
+ * @param {string} options.search - Search term for dish name
+ * @param {Object} options.filters - Additional filters
+ * @param {number} options.filters.restaurantId - Filter by restaurant ID
+ * @param {string} options.filters.category - Filter by category
+ * @returns {Promise<Object>} Paginated list of dishes
+ */
 export const findAllDishes = async (options = {}) => {
   const {
+    page = 1,
     limit = 20,
-    offset = 0,
-    sortBy = 'name',
-    sortDirection = 'asc',
+    sort = 'name',
+    order = 'asc',
     search = '',
     filters = {}
   } = options;
+  
+  const offset = (page - 1) * limit;
 
+  const whereClauses = [];
   const queryParams = [];
-  let paramIndex = 0;
+  let paramIndex = 1;
 
-  // Simple query to just get dishes without complex joins
-  let query = 'SELECT * FROM dishes';
-  let countQuery = 'SELECT COUNT(*) FROM dishes';
+  // Build the base query with proper table aliases
+  let query = `
+    SELECT 
+      d.*,
+      r.name AS restaurant_name,
+      r.address AS restaurant_address,
+      c.name AS city_name,
+      n.name AS neighborhood_name,
+      COALESCE(
+        (SELECT ARRAY_AGG(DISTINCT h.name ORDER BY h.name)
+         FROM hashtags h
+         JOIN dish_hashtags dh ON h.id = dh.hashtag_id
+         WHERE dh.dish_id = d.id),
+        '{}'::TEXT[]
+      ) AS tags
+    FROM dishes d
+    JOIN restaurants r ON d.restaurant_id = r.id
+    LEFT JOIN cities c ON r.city_id = c.id
+    LEFT JOIN neighborhoods n ON r.neighborhood_id = n.id
+  `;
   
-  let whereClauses = [];
+  let countQuery = 'SELECT COUNT(*) FROM dishes d';
   
+  // Apply search filter
   if (search) {
-    whereClauses.push(`name ILIKE $${++paramIndex}`);
+    whereClauses.push(`d.name ILIKE $${paramIndex++}`);
     queryParams.push(`%${search}%`);
   }
 
+  // Apply restaurant filter
   if (filters.restaurantId) {
-    whereClauses.push(`restaurant_id = $${++paramIndex}`);
+    whereClauses.push(`d.restaurant_id = $${paramIndex++}`);
     queryParams.push(filters.restaurantId);
+  }
+  
+  // Apply category filter
+  if (filters.category) {
+    whereClauses.push(`d.category = $${paramIndex++}`);
+    queryParams.push(filters.category);
   }
 
   if (whereClauses.length > 0) {
@@ -41,11 +88,13 @@ export const findAllDishes = async (options = {}) => {
   }
 
   // Add sorting and pagination
-  const validSortColumns = ['name', 'created_at', 'adds'];
-  const sortColumn = validSortColumns.includes(sortBy) ? sortBy : 'name';
-  const sortOrder = sortDirection.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+  const validSortColumns = ['name', 'price', 'created_at', 'updated_at', 'adds'];
+  const sortColumn = validSortColumns.includes(sort) ? 
+    (sort === 'name' ? 'd.name' : `d.${sort}`) : 'd.name';
+  const sortOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
-  query += ` ORDER BY ${sortColumn} ${sortOrder} LIMIT ${limit} OFFSET ${offset}`;
+  query += ` ORDER BY ${sortColumn} ${sortOrder} 
+             LIMIT ${limit} OFFSET ${offset}`;
 
   try {
     console.log("[DishModel findAllDishes] Query:", query, queryParams);
@@ -55,28 +104,66 @@ export const findAllDishes = async (options = {}) => {
     const countResult = await db.query(countQuery, queryParams);
     const total = parseInt(countResult.rows[0]?.count || 0, 10);
 
-    // Map results to the expected format
+    // Format the results
     return {
       data: results.rows.map(row => ({
         id: Number(row.id),
         name: row.name || 'Unnamed Dish',
-        restaurant_id: row.restaurant_id ? Number(row.restaurant_id) : null,
-        description: row.description || null,
-        price: row.price ? Number(row.price) : null,
-        category: row.category || null,
-        tags: [],  // Simplified - not fetching tags
+        description: row.description || '',
+        price: this._formatPrice(row.price),
+        category: row.category || 'main',
+        isCommon: Boolean(row.is_common),
         adds: Number(row.adds || 0),
-        created_by: row.created_by ? Number(row.created_by) : null,
-        created_at: row.created_at || null,
-        updated_at: row.updated_at || null
+        restaurant: {
+          id: Number(row.restaurant_id),
+          name: row.restaurant_name,
+          address: row.restaurant_address,
+          city: row.city_name,
+          neighborhood: row.neighborhood_name
+        },
+        tags: row.tags || [],
+        createdBy: row.created_by ? Number(row.created_by) : null,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
       })),
       total,
+      page: Number(page),
+      limit: Number(limit),
+      totalPages: Math.ceil(total / limit)
     };
   } catch (error) {
     console.error('Error in findAllDishes model:', error);
     throw new Error('Database error fetching dishes.');
   }
 };
+
+/**
+ * Format price consistently
+ * @private
+ * @param {string|number} price - Price to format
+ * @returns {string} Formatted price
+ */
+function _formatPrice(price) {
+  if (price === null || price === undefined) {
+    return '0.00';
+  }
+  
+  // If it's already a number, format it with 2 decimal places
+  if (typeof price === 'number') {
+    return price.toFixed(2);
+  }
+  
+  // If it's a string, try to parse it as a number
+  const num = parseFloat(price);
+  if (!isNaN(num)) {
+    return num.toFixed(2);
+  }
+  
+  // If we can't parse it, return the original string or a default
+  return price || '0.00';
+}
+
+export { _formatPrice };
 export const findDishesByRestaurantId = async (restaurantId, options = {}) => { /* ... implementation ... */ };
 export const findDishById = async (id) => {
   try {
