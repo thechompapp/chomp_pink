@@ -1,0 +1,110 @@
+/**
+ * Pagination Component Styles
+ */
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  margin: 1.5rem 0;
+}
+
+.pagination-list {
+  display: flex;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  gap: 0.25rem;
+}
+
+.pagination-item {
+  display: flex;
+}
+
+.pagination-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.5rem;
+  height: 2.5rem;
+  padding: 0 0.5rem;
+  border: 1px solid #DBDBDB;
+  background-color: #FFFFFF;
+  color: #484848;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pagination-button:hover:not(:disabled) {
+  background-color: #F5F5F5;
+  border-color: #CCCCCC;
+}
+
+.pagination-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 90, 95, 0.3);
+  z-index: 1;
+}
+
+.pagination-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination-button-active {
+  background-color: #FF5A5F;
+  border-color: #FF5A5F;
+  color: #FFFFFF;
+}
+
+.pagination-button-active:hover {
+  background-color: #FF5A5F;
+  border-color: #FF5A5F;
+  color: #FFFFFF;
+}
+
+.pagination-ellipsis {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.5rem;
+  height: 2.5rem;
+  padding: 0 0.5rem;
+  color: #767676;
+  font-size: 1.25rem;
+}
+
+/* Pagination Sizes */
+.pagination-sm .pagination-button,
+.pagination-sm .pagination-ellipsis {
+  min-width: 2rem;
+  height: 2rem;
+  font-size: 0.75rem;
+}
+
+.pagination-lg .pagination-button,
+.pagination-lg .pagination-ellipsis {
+  min-width: 3rem;
+  height: 3rem;
+  font-size: 1rem;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 576px) {
+  .pagination-list {
+    gap: 0.125rem;
+  }
+  
+  .pagination-button {
+    min-width: 2rem;
+    height: 2rem;
+    padding: 0 0.25rem;
+  }
+  
+  .pagination-ellipsis {
+    min-width: 2rem;
+    height: 2rem;
+  }
+}

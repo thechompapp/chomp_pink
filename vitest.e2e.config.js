@@ -7,7 +7,7 @@ export default defineConfig({
     environment: 'node',
     setupFiles: ['./tests/setup/global-setup.js'],
     testTimeout: 60000, // 60 seconds for E2E tests
-    include: ['**/tests/e2e/**/*.test.{js,jsx,ts,tsx}'],
+    include: ['**/tests/e2e/**/*.{test,vitest}.{js,jsx,ts,tsx}'],
     exclude: ['node_modules/**'],
   },
   resolve: {

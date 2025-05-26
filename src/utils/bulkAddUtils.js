@@ -1,9 +1,50 @@
-/* src/utils/bulkAddUtils.js */
 /**
- * Utility functions for bulk add operations.
- * Extracts common functionality from the bulk add processor to improve maintainability.
+ * Enhanced Bulk Add Utility Functions
+ * 
+ * Provides utility functions for bulk add operations with improved performance,
+ * error handling, and maintainability.
  */
-import { logDebug, logError, logWarn } from '@/utils/logger.js';
+import { logDebug, logError, logWarn, logInfo } from '@/utils/logger.js';
+
+/**
+ * Configuration constants for bulk add operations
+ */
+export const BULK_ADD_CONFIG = {
+  batchSize: 5,           // Number of items to process in a batch
+  maxRetries: 3,          // Maximum number of retries for API calls
+  retryDelay: 1000,       // Delay between retries in milliseconds
+  defaultCityId: 1,       // Default city ID (New York)
+  defaultNeighborhoodId: 1, // Default neighborhood ID
+  maxPlaceOptions: 5,     // Maximum number of place options to show
+  processingTimeout: 30000, // Timeout for processing in milliseconds
+  retryAttempts: 3        // For backward compatibility
+};
+
+/**
+ * Mapping of ZIP codes to neighborhoods for testing and fallback
+ */
+export const zipToNeighborhoodMap = {
+  '10001': { id: 1, name: 'Chelsea', city_id: 1 },
+  '10002': { id: 2, name: 'Lower East Side', city_id: 1 },
+  '10003': { id: 3, name: 'East Village', city_id: 1 },
+  '10011': { id: 4, name: 'West Village', city_id: 1 },
+  '10012': { id: 5, name: 'SoHo', city_id: 1 },
+  '10013': { id: 6, name: 'Tribeca', city_id: 1 },
+  '10014': { id: 7, name: 'Meatpacking District', city_id: 1 },
+  '10016': { id: 8, name: 'Murray Hill', city_id: 1 },
+  '10017': { id: 9, name: 'Midtown East', city_id: 1 },
+  '10018': { id: 10, name: 'Midtown West', city_id: 1 },
+  '10019': { id: 11, name: 'Midtown', city_id: 1 },
+  '10021': { id: 12, name: 'Upper East Side', city_id: 1 },
+  '10023': { id: 13, name: 'Upper West Side', city_id: 1 },
+  '10024': { id: 14, name: 'Upper West Side', city_id: 1 },
+  '10025': { id: 15, name: 'Upper West Side', city_id: 1 },
+  '10028': { id: 16, name: 'Upper East Side', city_id: 1 },
+  '10036': { id: 17, name: 'Times Square', city_id: 1 },
+  '11238': { id: 18, name: 'Prospect Heights', city_id: 2 },
+  '11249': { id: 5, name: 'Williamsburg', city_id: 2 },
+  '11377': { id: 12, name: 'Sunnyside', city_id: 3 }
+};
 
 /**
  * Finds duplicate items within a batch by name.
@@ -216,191 +257,389 @@ export const extractAddressComponents = (placeDetails) => {
 };
 
 /**
- * Processes raw input text into structured items.
+ * Parses raw input text into structured items.
  * @param {string} rawText - Raw input text with items separated by newlines
  * @returns {Array} - Array of parsed items
  */
 export const parseRawInput = (rawText) => {
-  if (!rawText) return [];
+  if (!rawText || !rawText.trim()) return [];
   
   const lines = rawText.split('\n').filter(line => line.trim());
+  logDebug(`[parseRawInput] Processing ${lines.length} lines`);
   
   return lines.map((line, index) => {
-    // Support both pipe and semicolon separators
-    const separator = line.includes('|') ? '|' : ';';
-    const parts = line.split(separator).map(part => part.trim());
-    
-    // Basic validation
-    if (parts.length < 2) {
+    try {
+      // Split by comma or pipe
+      const parts = line.split(/[,|]/).map(part => part.trim());
+      
+      // Basic validation
+      if (parts.length < 1) {
+        return {
+          _raw: line,
+          _lineNumber: index + 1,
+          status: 'error',
+          message: 'Invalid format. Please use: Name, Address, City, State, ZIP'
+        };
+      }
+      
+      // Extract name (required)
+      const name = parts[0];
+      
+      if (!name) {
+        return {
+          _raw: line,
+          _lineNumber: index + 1,
+          status: 'error',
+          message: 'Name is required'
+        };
+      }
+      
+      // Extract address (optional but recommended)
+      const address = parts.length > 1 ? parts[1] : '';
+      
+      // Extract city (optional)
+      const city = parts.length > 2 ? parts[2] : '';
+      
+      // Extract state (optional)
+      const state = parts.length > 3 ? parts[3] : '';
+      
+      // Extract ZIP (optional)
+      const zipcode = parts.length > 4 ? parts[4] : '';
+      
+      // Extract tags (optional)
+      const tags = parts.length > 5 ? 
+        parts[5].split(',').map(tag => tag.trim()).filter(Boolean) : 
+        [];
+      
       return {
-        _lineNumber: index + 1,
-        name: parts[0] || '',
+        name,
+        address,
+        city,
+        state,
+        zipcode,
+        tags,
         type: 'restaurant', // Default type
-        status: 'error',
-        message: 'Invalid format. Expected: name; type; location; tags'
-      };
-    }
-    
-    const name = parts[0];
-    const type = parts[1].toLowerCase();
-    const location = parts[2] || '';
-    // Keep tags as a string to avoid issues with rendering
-    const tags = parts[3] || '';
-    
-    // Create item based on type
-    if (type === 'restaurant') {
-      return {
+        _raw: line,
         _lineNumber: index + 1,
-        name,
-        type,
-        city_name: location, // For restaurants, location is city name
-        tags,
         status: 'pending',
-        message: 'Ready for processing'
+        message: 'Ready to process'
       };
-    } else if (type === 'dish') {
+    } catch (error) {
+      logError(`[parseRawInput] Error parsing line ${index + 1}:`, error);
+      
       return {
+        _raw: line,
         _lineNumber: index + 1,
-        name,
-        type,
-        restaurant_name: location, // For dishes, location is restaurant name
-        tags,
-        status: 'pending',
-        message: 'Ready for processing'
-      };
-    } else {
-      return {
-        _lineNumber: index + 1,
-        name,
-        type: 'unknown',
-        location,
-        tags,
         status: 'error',
-        message: `Unknown type: ${type}. Expected 'restaurant' or 'dish'.`
+        message: `Error parsing line: ${error.message}`
       };
     }
   });
 };
 
 /**
- * Batch processes items for better performance.
- * @param {Array} items - Items to process
- * @param {Function} processorFn - Function to process each item
- * @param {number} batchSize - Size of each batch
- * @returns {Promise<Array>} - Processed items
+ * Alternative parser that handles more complex formats
+ * @param {string} inputText - Raw input text
+ * @returns {Array} - Array of parsed items
  */
-export const batchProcess = async (items, processorFn, batchSize = 5) => {
-  console.log('[batchProcess] Starting batch processing with:', { itemsLength: items?.length, processorFn, batchSize });
-  if (!items || !Array.isArray(items) || items.length === 0) {
-    logWarn('[batchProcess] No items to process or invalid items array');
+export const parseInputText = (inputText) => {
+  if (!inputText || typeof inputText !== 'string') {
     return [];
   }
-
-  if (typeof processorFn !== 'function') {
-    logError('[batchProcess] Invalid processor function');
-    return [...items]; // Return original items to avoid data loss
-  }
-
-  // Import BULK_ADD_CONFIG at the top of the file
-  // Ensure batchSize is a positive number
-  const effectiveBatchSize = Math.max(1, Math.floor(Number(batchSize) || 5));
   
-  // Create a copy of the items to avoid mutating the original array
-  const results = [...items];
+  // Split by newlines and filter out empty lines
+  const lines = inputText
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean);
   
-  // Track processing statistics for debugging
-  const stats = {
-    totalItems: items.length,
-    processedItems: 0,
-    successfulItems: 0,
-    failedItems: 0,
-    startTime: Date.now()
-  };
+  logInfo(`[parseInputText] Processing ${lines.length} lines of input`);
   
-  try {
-    // Process items in batches
-    for (let i = 0; i < items.length; i += effectiveBatchSize) {
-      const batchStartTime = Date.now();
-      
-      // Create the current batch
-      const batch = items.slice(i, Math.min(i + effectiveBatchSize, items.length));
-      
-      // Get the original indices for proper result placement
-      // This handles the case where items might not have unique identifiers
-      const batchIndices = [];
-      for (let j = 0; j < batch.length; j++) {
-        batchIndices.push(i + j); // More reliable than indexOf which can find wrong item
+  return lines.map((line, index) => {
+    try {
+      // First, check if this is a semicolon-delimited format
+      // Example: "Maison Passerelle; restaurant; New York; French-Diaspora Fusion"
+      if (line.includes(';')) {
+        const parts = line.split(';').map(part => part.trim());
+        const name = parts[0] || '';
+        
+        if (!name) {
+          return {
+            _raw: line,
+            _lineNumber: index + 1,
+            status: 'error',
+            message: 'Name is required'
+          };
+        }
+        
+        const type = parts.length > 1 ? parts[1] : 'restaurant';
+        const location = parts.length > 2 ? parts[2] : '';
+        const hashtags = parts.length > 3 ? parts[3] : '';
+        
+        // Extract city and state from location if possible
+        let city = '';
+        let state = '';
+        
+        if (location.includes(',')) {
+          const locationParts = location.split(',').map(part => part.trim());
+          city = locationParts[0] || '';
+          state = locationParts.length > 1 ? locationParts[1] : '';
+        } else {
+          city = location; // Assume the whole location is the city
+        }
+        
+        // Parse hashtags
+        let tags = [];
+        if (hashtags) {
+          // If hashtags contains commas, split by commas
+          if (hashtags.includes(',')) {
+            tags = hashtags.split(',').map(tag => tag.trim()).filter(Boolean);
+          } else {
+            // Otherwise, treat the whole string as a single tag
+            tags = [hashtags];
+          }
+        }
+        
+        return {
+          name,
+          type,
+          city,
+          state,
+          tags,
+          _raw: line,
+          _lineNumber: index + 1,
+          status: 'pending',
+          message: 'Ready to process'
+        };
       }
       
-      logDebug(`[batchProcess] Processing batch ${Math.floor(i / effectiveBatchSize) + 1}/${Math.ceil(items.length / effectiveBatchSize)} (${batch.length} items)`);
+      // Support other formats: CSV, pipe-delimited, or even mixed
+      // First, determine the primary delimiter (comma or pipe)
+      const primaryDelimiter = line.includes('|') ? '|' : ',';
+      const parts = line.split(primaryDelimiter).map(part => part.trim());
       
-      // Process batch in parallel
-      await Promise.all(
-        batch.map((item, batchIndex) => {
-          const originalIndex = batchIndices[batchIndex];
+      // Extract the basic fields
+      const name = parts[0] || '';
+      
+      if (!name) {
+        return {
+          _raw: line,
+          _lineNumber: index + 1,
+          status: 'error',
+          message: 'Name is required'
+        };
+      }
+      
+      // Handle different formats for address information
+      let address = '';
+      let city = '';
+      let state = '';
+      let zipcode = '';
+      let tags = [];
+      
+      if (parts.length > 1) {
+        // Check if the second part contains a full address
+        const addressPart = parts[1];
+        
+        if (addressPart.includes(',')) {
+          // This might be a full address like "123 Main St, New York, NY 10001"
+          const addressParts = addressPart.split(',').map(part => part.trim());
           
-          return processorFn(item, originalIndex, results)
-            .then(result => {
-              stats.successfulItems++;
-              return result;
-            })
-            .catch(error => {
-              stats.failedItems++;
-              
-              // Log the error with context
-              logError(`[batchProcess] Error processing item ${originalIndex}:`, error);
-              console.error(`[batchProcess] Item data:`, item);
-              
-              // Update item with error status while preserving original data
-              results[originalIndex] = {
-                ...results[originalIndex],
-                status: 'error',
-                message: `Processing error: ${error.message || 'Unknown error'}`
-              };
-            })
-            .finally(() => {
-              stats.processedItems++;
-            });
-        })
-      );
+          address = addressParts[0] || '';
+          city = addressParts.length > 1 ? addressParts[1] : '';
+          
+          if (addressParts.length > 2) {
+            // The last part might contain state and ZIP
+            const stateZip = addressParts[2].split(' ').filter(Boolean);
+            state = stateZip[0] || '';
+            zipcode = stateZip.length > 1 ? stateZip[1] : '';
+          }
+        } else {
+          // Simple address
+          address = addressPart;
+          
+          // Get city, state, ZIP from other parts if available
+          city = parts.length > 2 ? parts[2] : '';
+          state = parts.length > 3 ? parts[3] : '';
+          zipcode = parts.length > 4 ? parts[4] : '';
+        }
+      }
       
-      const batchDuration = Date.now() - batchStartTime;
-      logDebug(`[batchProcess] Batch completed in ${batchDuration}ms`);
+      // Extract tags from the last part if it contains commas
+      const lastPart = parts[parts.length - 1];
+      if (parts.length > 2 && lastPart.includes(',')) {
+        // This might be a list of tags
+        tags = lastPart.split(',').map(tag => tag.trim()).filter(Boolean);
+      } else if (parts.length > 5) {
+        // Tags in the standard position
+        tags = parts[5].split(',').map(tag => tag.trim()).filter(Boolean);
+      }
+      
+      return {
+        name,
+        address,
+        city,
+        state,
+        zipcode,
+        tags,
+        type: 'restaurant',
+        _raw: line,
+        _lineNumber: index + 1,
+        status: 'pending',
+        message: 'Ready to process'
+      };
+    } catch (error) {
+      logError(`[parseInputText] Error parsing line ${index + 1}:`, error);
+      return {
+        _raw: line,
+        _lineNumber: index + 1,
+        status: 'error',
+        message: `Error parsing line: ${error.message}`
+      };
     }
-  } catch (error) {
-    // Catch any unexpected errors in the batch processing loop itself
-    logError('[batchProcess] Unexpected error in batch processing:', error);
-    console.error('[batchProcess] Full error details:', error);
-  }
-  
-  // Log processing statistics
-  const totalDuration = Date.now() - stats.startTime;
-  logDebug(`[batchProcess] Processing completed: ${stats.successfulItems}/${stats.totalItems} successful, ${stats.failedItems} failed, took ${totalDuration}ms`);
-  
-  return results;
+  });
 };
 
 /**
- * Alias for parseRawInput for backward compatibility
- * @param {string} rawText - Raw input text with items separated by newlines
- * @returns {Array} - Array of parsed items
+ * Batch processes items for better performance with enhanced error handling.
+ * @param {Array} items - Items to process
+ * @param {Function} processorFn - Function to process each item
+ * @param {number} batchSize - Size of each batch
+ * @param {Function} onBatchComplete - Optional callback for batch completion
+ * @returns {Promise<Array>} - Processed items
  */
-export const parseInputText = parseRawInput;
-
-// Map of known zipcodes to neighborhoods for testing/fallback
-export const zipToNeighborhoodMap = {
-  '10014': { name: 'West Village', id: 3 },
-  '11249': { name: 'Williamsburg', id: 5 },
-  '10001': { name: 'NoMad', id: 7 },
-  '11377': { name: 'Sunnyside', id: 12 },
-  '11238': { name: 'Prospect Heights', id: 18 }
+export const batchProcess = async (items, processorFn, batchSize = BULK_ADD_CONFIG.batchSize, onBatchComplete = null) => {
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    return [];
+  }
+  
+  if (!processorFn || typeof processorFn !== 'function') {
+    throw new Error('Processor function is required');
+  }
+  
+  const processedItems = [];
+  const batches = [];
+  
+  // Split items into batches
+  for (let i = 0; i < items.length; i += batchSize) {
+    batches.push(items.slice(i, i + batchSize));
+  }
+  
+  logInfo(`[batchProcess] Processing ${items.length} items in ${batches.length} batches`);
+  
+  // Process each batch sequentially
+  for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+    const batch = batches[batchIndex];
+    
+    logDebug(`[batchProcess] Processing batch ${batchIndex + 1} of ${batches.length} (${batch.length} items)`);
+    
+    try {
+      // Process items in the batch concurrently
+      const batchPromises = batch.map(async (item) => {
+        try {
+          return await processorFn(item);
+        } catch (error) {
+          logError(`[batchProcess] Error processing item ${item.name || ''}:`, error);
+          return {
+            ...item,
+            status: 'error',
+            message: `Error: ${error.message || 'Unknown error'}`,
+            error: error
+          };
+        }
+      });
+      
+      // Wait for all items in the batch to be processed
+      const batchResults = await Promise.allSettled(batchPromises);
+      
+      // Process results and handle any errors
+      const processedBatch = batchResults.map((result, index) => {
+        if (result.status === 'fulfilled') {
+          return result.value;
+        } else {
+          // Handle rejected promises
+          logError(`[batchProcess] Promise rejected for item:`, result.reason);
+          return {
+            ...batch[index],
+            status: 'error',
+            message: `Error: ${result.reason?.message || 'Unknown error'}`,
+            error: result.reason
+          };
+        }
+      });
+      
+      // Add batch results to processed items
+      processedItems.push(...processedBatch);
+      
+      // Call the batch complete callback if provided
+      if (onBatchComplete && typeof onBatchComplete === 'function') {
+        onBatchComplete(processedBatch, batchIndex, batches.length);
+      }
+      
+      // Add a small delay between batches to avoid overwhelming the API
+      if (batchIndex < batches.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    } catch (batchError) {
+      logError(`[batchProcess] Error processing batch ${batchIndex + 1}:`, batchError);
+      
+      // Mark all items in the batch as failed
+      const failedBatch = batch.map(item => ({
+        ...item,
+        status: 'error',
+        message: `Batch error: ${batchError.message || 'Unknown error'}`,
+        error: batchError
+      }));
+      
+      processedItems.push(...failedBatch);
+      
+      // Call the batch complete callback if provided
+      if (onBatchComplete && typeof onBatchComplete === 'function') {
+        onBatchComplete(failedBatch, batchIndex, batches.length);
+      }
+    }
+  }
+  
+  logInfo(`[batchProcess] Finished processing ${processedItems.length} items`);
+  
+  return processedItems;
 };
 
-// Default configuration values
-export const BULK_ADD_CONFIG = {
-  batchSize: 5,
-  defaultCityId: 1, // Default to New York
-  defaultNeighborhoodId: 1,
-  retryAttempts: 3,
-  retryDelay: 1000
+/**
+ * Retry a function with exponential backoff
+ * @param {Function} fn - Function to retry
+ * @param {number} maxRetries - Maximum number of retries
+ * @param {number} baseDelay - Base delay in milliseconds
+ * @returns {Promise<any>} - Result of the function
+ */
+export const retryWithBackoff = async (fn, maxRetries = BULK_ADD_CONFIG.maxRetries, baseDelay = BULK_ADD_CONFIG.retryDelay) => {
+  let lastError;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      
+      if (attempt < maxRetries) {
+        // Calculate delay with exponential backoff
+        const delay = baseDelay * Math.pow(2, attempt);
+        logWarn(`[retryWithBackoff] Attempt ${attempt + 1} failed, retrying in ${delay}ms:`, error.message);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  throw lastError;
 };
+
+// Additional neighborhood information for reference
+const additionalNeighborhoods = {
+  '10014': 'West Village',
+  '11249': 'Williamsburg',
+  '10001': 'NoMad',
+  '11377': 'Sunnyside',
+  '11238': 'Prospect Heights'
+};
+
+// Note: The main BULK_ADD_CONFIG and zipToNeighborhoodMap are defined at the top of this file

@@ -1,0 +1,77 @@
+/**
+ * Spinner Component Styles
+ */
+
+.spinner {
+  display: inline-block;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: spinner-rotate 0.75s linear infinite;
+}
+
+/* Spinner Sizes */
+.spinner-sm {
+  width: 16px;
+  height: 16px;
+  border-width: 2px;
+}
+
+.spinner-md {
+  width: 24px;
+  height: 24px;
+  border-width: 2px;
+}
+
+.spinner-lg {
+  width: 48px;
+  height: 48px;
+  border-width: 3px;
+}
+
+/* Spinner Variants */
+.spinner-primary {
+  color: #FF5A5F;
+}
+
+.spinner-secondary {
+  color: #484848;
+}
+
+.spinner-light {
+  color: #FFFFFF;
+}
+
+/* Full Page Spinner */
+.spinner-fullpage {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.8);
+  z-index: 1000;
+}
+
+/* Screen Reader Only Text */
+.spinner-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Animation */
+@keyframes spinner-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -1,13 +1,17 @@
-/* src/pages/BulkAdd/index.jsx */
+/**
+ * BulkAdd Page Index
+ * Entry point for the Bulk Add feature
+ */
 import React from 'react';
-import BulkAddRefactored from './BulkAddRefactored';
+import BulkAddPage from './BulkAddPage';
 
 /**
- * BulkAdd component - wrapper for BulkAddRefactored
+ * BulkAdd component - entry point for the Bulk Add feature
+ * Uses the refactored BulkAddPage component with improved architecture
  * @returns {JSX.Element} - Rendered component
  */
 const BulkAdd = () => {
-  return <BulkAddRefactored />;
+  return <BulkAddPage />;
 };
 
 export default BulkAdd;

@@ -101,8 +101,18 @@ export const findAllRestaurants = async (options = {}) => {
     console.log("[RestaurantModel findAllRestaurants] Query:", query, queryParams);
     console.log("[RestaurantModel findAllRestaurants] Count Query:", countQuery, queryParams);
 
-    const results = await db.query(query, queryParams);
-    const countResult = await db.query(countQuery, queryParams);
+    // Execute both queries in parallel
+    const [results, countResult] = await Promise.all([
+      db.query(query, queryParams).catch(err => {
+        console.error('Error in main query:', err);
+        throw err;
+      }),
+      db.query(countQuery, queryParams).catch(err => {
+        console.error('Error in count query:', err);
+        throw err;
+      })
+    ]);
+
     const total = parseInt(countResult.rows[0]?.count || 0, 10);
 
     // Map results to the expected format
@@ -115,7 +125,7 @@ export const findAllRestaurants = async (options = {}) => {
         price_range: row.price_range || null,
         city_name: row.city_name || null,
         neighborhood_name: row.neighborhood_name || null,
-        tags: [],  // Simplified - not fetching tags
+        tags: row.tags || [],  // Use tags from query if available
         adds: Number(row.adds || 0),
         address: row.address || null,
         google_place_id: row.google_place_id || null,
@@ -130,8 +140,15 @@ export const findAllRestaurants = async (options = {}) => {
       total,
     };
   } catch (error) {
-    console.error('Error in findAllRestaurants model:', error);
-    throw new Error('Database error fetching restaurants.');
+    console.error('Error in findAllRestaurants model:', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      hint: error.hint,
+      position: error.position,
+      stack: error.stack
+    });
+    throw new Error(`Database error fetching restaurants: ${error.message}`);
   }
 };
 

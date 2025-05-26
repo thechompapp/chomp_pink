@@ -6,9 +6,36 @@ export default defineConfig({
   plugins: [react()],
   test: {
     globals: true,
-    environment: 'node', // Changed from 'jsdom' to 'node' for API tests
-    setupFiles: ['./tests/setup.js'],
-    setupFilesAfterEnv: ['./tests/setup/integration-setup.js'],
+    environment: 'jsdom', // Using jsdom for browser-like environment
+    setupFiles: [
+      './tests/setup.js',
+      './tests/setup/react-testing.js' // Add React testing setup
+    ],
+    setupFilesAfterEnv: [
+      './tests/setup/integration-setup.js',
+      '@testing-library/jest-dom/vitest' // Add jest-dom matchers
+    ],
+    // Mock browser globals
+    environmentOptions: {
+      jsdom: {
+        url: 'http://localhost:5001',
+      },
+    },
+    // Mock modules
+    alias: [
+      {
+        find: '@/services/http/OfflineModeHandler',
+        replacement: path.resolve(__dirname, './tests/setup/mocks/OfflineModeHandler.js'),
+      },
+      {
+        find: 'react-hot-toast',
+        replacement: path.resolve(__dirname, './tests/setup/mocks/react-hot-toast.js'),
+      },
+      {
+        find: './OfflineModeHandler',
+        replacement: path.resolve(__dirname, './tests/setup/mocks/OfflineModeHandler.js'),
+      },
+    ],
     server: {
       deps: {
         inline: ['axios'],

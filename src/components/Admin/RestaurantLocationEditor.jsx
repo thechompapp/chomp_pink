@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { usePlacesApi } from '@/context/PlacesApiContext';
 import { placeService } from '@/services/placeService';
-import apiClient from '@/services/apiClient';
+import { apiClient } from '@/services/http';
 import Input from '@/components/UI/Input.jsx';
 import Select from '@/components/UI/Select.jsx';
 import { MapPin } from 'lucide-react';

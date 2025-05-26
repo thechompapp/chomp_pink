@@ -1,31 +1,17 @@
-/* src/services/dishService.js */
-import apiClient from './apiClient.js';
-import { handleApiResponse, validateId } from '@/utils/serviceHelpers.js';
-import { logError, logDebug } from '@/utils/logger.js';
+/**
+ * Dish Service
+ * 
+ * This file provides backward compatibility with the original dishService.js.
+ * It re-exports the unified dish service from the modular architecture.
+ */
+import { dishService } from './dish';
+import { logDebug } from '@/utils/logger';
 
-export const dishService = {
-  getDishDetails: async (dishId) => {
-    const id = validateId(dishId, 'dishId');
-    return handleApiResponse(
-      () => apiClient.get(`/dishes/${id}`),
-      'DishService GetDetails'
-    );
-  },
+// Log that we're using the new modular service architecture
+logDebug('[DishService] Using modular dish service architecture');
 
-  searchDishes: async (params) => {
-    return handleApiResponse(
-      () => apiClient.get('/dishes', { params }),
-      'DishService Search'
-    );
-  },
+// Export for named imports
+export { dishService };
 
-  getDishesByRestaurantId: async (restaurantId) => {
-    const id = validateId(restaurantId, 'restaurantId');
-    return handleApiResponse(
-      () => apiClient.get('/dishes', { params: { restaurantId: id } }),
-      'DishService GetByRestaurantId'
-    );
-  },
-};
-
-// Only use named export for consistency
+// Export default for backward compatibility
+export default dishService;

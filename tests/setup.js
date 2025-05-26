@@ -1,6 +1,10 @@
 // Test setup file for Vitest
+import './setup/dom'; // Setup DOM environment first
 import { vi } from 'vitest';
 import { config } from './setup/config';
+
+// Load test environment variables first
+import './setup/test-env';
 
 // Validate required environment variables before running any tests
 config.validate();

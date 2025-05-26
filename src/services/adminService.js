@@ -1,5 +1,5 @@
 /* src/services/adminService.js */
-import apiClient from '@/services/apiClient';
+import { apiClient } from '@/services/http';
 import { handleApiResponse } from '@/utils/serviceHelpers';
 import { logInfo, logError, logDebug, logWarn } from '@/utils/logger';
 

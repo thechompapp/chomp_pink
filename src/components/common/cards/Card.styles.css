@@ -1,0 +1,96 @@
+/**
+ * Card Component Styles
+ */
+
+.card {
+  background-color: #FFFFFF;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+/* Card Variants */
+.card-default {
+  border: 1px solid #EEEEEE;
+}
+
+.card-outlined {
+  border: 1px solid #DBDBDB;
+}
+
+.card-elevated {
+  border: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Card Header */
+.card-header {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #EEEEEE;
+}
+
+.card-title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #333333;
+}
+
+/* Card Body */
+.card-body {
+  padding: 1.25rem;
+  flex: 1;
+}
+
+/* Card Footer */
+.card-footer {
+  padding: 1rem 1.25rem;
+  border-top: 1px solid #EEEEEE;
+  background-color: #FAFAFA;
+}
+
+/* Interactive States */
+.card-hoverable {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-hoverable:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.card-clickable {
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.card-clickable:active {
+  transform: translateY(0);
+}
+
+.card-clickable:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 90, 95, 0.3);
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .card-header {
+    padding: 0.75rem 1rem;
+  }
+  
+  .card-body {
+    padding: 1rem;
+  }
+  
+  .card-footer {
+    padding: 0.75rem 1rem;
+  }
+}

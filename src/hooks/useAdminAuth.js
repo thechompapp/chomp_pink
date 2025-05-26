@@ -16,7 +16,7 @@
 import { useMemo, useEffect, useState } from 'react';
 import useAuthStore from '@/stores/useAuthStore';
 import { logDebug, logError } from '@/utils/logger';
-import apiClient from '@/services/apiClient';
+import { apiClient } from '@/services/http';
 
 /**
  * Enhanced permission check with robust error handling

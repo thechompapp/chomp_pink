@@ -1,0 +1,134 @@
+/**
+ * Button Component Styles
+ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 500;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  outline: none;
+  position: relative;
+  text-decoration: none;
+}
+
+/* Button Variants */
+.btn-primary {
+  background-color: #FF5A5F;
+  color: white;
+}
+
+.btn-primary:hover:not(.btn-disabled) {
+  background-color: #FF4146;
+}
+
+.btn-secondary {
+  background-color: #484848;
+  color: white;
+}
+
+.btn-secondary:hover:not(.btn-disabled) {
+  background-color: #333333;
+}
+
+.btn-outline {
+  background-color: transparent;
+  color: #FF5A5F;
+  border: 1px solid #FF5A5F;
+}
+
+.btn-outline:hover:not(.btn-disabled) {
+  background-color: rgba(255, 90, 95, 0.05);
+}
+
+.btn-text {
+  background-color: transparent;
+  color: #FF5A5F;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.btn-text:hover:not(.btn-disabled) {
+  text-decoration: underline;
+}
+
+.btn-danger {
+  background-color: #E31C3D;
+  color: white;
+}
+
+.btn-danger:hover:not(.btn-disabled) {
+  background-color: #CD1935;
+}
+
+.btn-success {
+  background-color: #2E8540;
+  color: white;
+}
+
+.btn-success:hover:not(.btn-disabled) {
+  background-color: #267738;
+}
+
+/* Button Sizes */
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 0.875rem;
+}
+
+.btn-md {
+  padding: 8px 16px;
+  font-size: 1rem;
+}
+
+.btn-lg {
+  padding: 12px 24px;
+  font-size: 1.125rem;
+}
+
+/* Button States */
+.btn-disabled,
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-full-width {
+  width: 100%;
+}
+
+/* Loading State */
+.btn-loading {
+  cursor: wait;
+}
+
+.btn-loading-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-loading-spinner {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  margin-right: 0.5em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: btn-spin 0.75s linear infinite;
+}
+
+@keyframes btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.btn-loading-text {
+  opacity: 0.8;
+}

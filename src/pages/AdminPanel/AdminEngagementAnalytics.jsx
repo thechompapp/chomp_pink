@@ -1,7 +1,7 @@
 // src/pages/AdminPanel/AdminEngagementAnalytics.jsx
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import apiClient from '@/services/apiClient';
+import { apiClient } from '@/services/http';
 import LoadingSpinner from '@/components/UI/LoadingSpinner.jsx';
 import ErrorMessage from '@/components/UI/ErrorMessage.jsx';
 import TrendChart from '@/components/UI/TrendChart.jsx'; // Use .jsx

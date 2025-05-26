@@ -3,7 +3,7 @@
  * Enhanced service for fetching hashtag-related data with improved error handling
  * and API client integration.
  */
-import apiClient from '@/services/apiClient';
+import { apiClient } from '@/services/http';
 import { logDebug, logError, logWarn } from '@/utils/logger.js';
 import { handleApiResponse, createQueryParams } from '@/utils/serviceHelpers.js';
 

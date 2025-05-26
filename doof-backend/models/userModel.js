@@ -155,7 +155,7 @@ const UserModel = {
     _formatUser(user) {
         if (!user) return null;
         
-        return {
+        const formattedUser = {
             id: Number(user.id),
             username: user.username,
             email: user.email,
@@ -163,6 +163,13 @@ const UserModel = {
             createdAt: user.created_at,
             updatedAt: user.updated_at
         };
+        
+        // Include password_hash if it exists (needed for authentication)
+        if (user.password_hash) {
+            formattedUser.password_hash = user.password_hash;
+        }
+        
+        return formattedUser;
     }
 };
 

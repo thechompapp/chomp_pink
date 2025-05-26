@@ -1,240 +1,94 @@
-/**
- * Simplified Restaurant Controller
- * 
- * This is a simplified version of the restaurant controller that works with
- * our database schema for E2E testing.
- */
-
-import * as RestaurantModel from '../models/simplified-restaurantModel.js';
+import db from '../db/index.js';
 
 /**
- * Get all restaurants with pagination and filtering
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
+ * Get all restaurants (simplified for testing)
  */
 export const getAllRestaurants = async (req, res) => {
   try {
-    const { page = 1, limit = 20, sort = 'created_at', order = 'desc', search } = req.query;
-    
-    const options = {
-      page: parseInt(page, 10),
-      limit: parseInt(limit, 10),
-      sort,
-      order,
-      search
-    };
-    
-    const result = await RestaurantModel.findAllRestaurants(options);
-    
-    res.status(200).json({
-      success: true,
-      data: {
-        restaurants: result.restaurants,
-        pagination: {
-          total: result.total,
-          page: options.page,
-          limit: options.limit,
-          pages: Math.ceil(result.total / options.limit)
-        }
-      }
-    });
+    const result = await db.query('SELECT id, name, address FROM restaurants LIMIT 10');
+    res.json({ success: true, data: result.rows });
   } catch (error) {
-    console.error('Error in getAllRestaurants controller:', error);
-    res.status(500).json({
-      success: false,
-      message: 'An unexpected error occurred',
-      error: {
-        type: error.constructor.name,
-        stack: error.stack
-      }
-    });
+    console.error('Error getting restaurants:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch restaurants' });
   }
 };
 
 /**
- * Get a restaurant by ID
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
+ * Get restaurant by ID (simplified for testing)
  */
 export const getRestaurantById = async (req, res) => {
   try {
     const { id } = req.params;
+    const result = await db.query('SELECT id, name, address FROM restaurants WHERE id = $1', [id]);
     
-    if (!id || isNaN(parseInt(id, 10))) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid restaurant ID'
-      });
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Restaurant not found' });
     }
     
-    const restaurant = await RestaurantModel.findRestaurantById(parseInt(id, 10));
-    
-    res.status(200).json({
-      success: true,
-      data: restaurant
-    });
+    res.json({ success: true, data: result.rows[0] });
   } catch (error) {
-    console.error(`Error in getRestaurantById controller for ID ${req.params.id}:`, error);
-    
-    if (error.message && error.message.includes('not found')) {
-      return res.status(404).json({
-        success: false,
-        message: error.message
-      });
-    }
-    
-    res.status(500).json({
-      success: false,
-      message: 'An unexpected error occurred',
-      error: {
-        type: error.constructor.name,
-        stack: error.stack
-      }
-    });
+    console.error('Error getting restaurant:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch restaurant' });
   }
 };
 
 /**
- * Create a new restaurant
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
+ * Create a new restaurant (simplified for testing)
  */
 export const createRestaurant = async (req, res) => {
   try {
-    const { name, description, address, cuisine, price_range } = req.body;
+    const { name, address } = req.body;
+    const result = await db.query(
+      'INSERT INTO restaurants (name, address) VALUES ($1, $2) RETURNING id, name, address',
+      [name, address]
+    );
     
-    // Validate required fields
-    if (!name) {
-      return res.status(400).json({
-        success: false,
-        message: 'Restaurant name is required'
-      });
-    }
-    
-    // Get user ID from authenticated user if available
-    const created_by = req.user ? req.user.id : null;
-    
-    const restaurantData = {
-      name,
-      description,
-      address,
-      cuisine,
-      price_range,
-      created_by
-    };
-    
-    const restaurant = await RestaurantModel.createRestaurant(restaurantData);
-    
-    res.status(201).json({
-      success: true,
-      message: 'Restaurant created successfully',
-      data: restaurant
-    });
+    res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error) {
-    console.error('Error in createRestaurant controller:', error);
-    res.status(500).json({
-      success: false,
-      message: 'An unexpected error occurred',
-      error: {
-        type: error.constructor.name,
-        stack: error.stack
-      }
-    });
+    console.error('Error creating restaurant:', error);
+    res.status(500).json({ success: false, error: 'Failed to create restaurant' });
   }
 };
 
 /**
- * Update a restaurant
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
+ * Update a restaurant (simplified for testing)
  */
 export const updateRestaurant = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, address, cuisine, price_range } = req.body;
+    const { name, address } = req.body;
     
-    if (!id || isNaN(parseInt(id, 10))) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid restaurant ID'
-      });
+    const result = await db.query(
+      'UPDATE restaurants SET name = $1, address = $2, updated_at = NOW() WHERE id = $3 RETURNING id, name, address',
+      [name, address, id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Restaurant not found' });
     }
     
-    const updateData = {};
-    
-    if (name !== undefined) updateData.name = name;
-    if (description !== undefined) updateData.description = description;
-    if (address !== undefined) updateData.address = address;
-    if (cuisine !== undefined) updateData.cuisine = cuisine;
-    if (price_range !== undefined) updateData.price_range = price_range;
-    
-    const restaurant = await RestaurantModel.updateRestaurant(parseInt(id, 10), updateData);
-    
-    res.status(200).json({
-      success: true,
-      message: 'Restaurant updated successfully',
-      data: restaurant
-    });
+    res.json({ success: true, data: result.rows[0] });
   } catch (error) {
-    console.error(`Error in updateRestaurant controller for ID ${req.params.id}:`, error);
-    
-    if (error.message && error.message.includes('not found')) {
-      return res.status(404).json({
-        success: false,
-        message: error.message
-      });
-    }
-    
-    res.status(500).json({
-      success: false,
-      message: 'An unexpected error occurred',
-      error: {
-        type: error.constructor.name,
-        stack: error.stack
-      }
-    });
+    console.error('Error updating restaurant:', error);
+    res.status(500).json({ success: false, error: 'Failed to update restaurant' });
   }
 };
 
 /**
- * Delete a restaurant
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
+ * Delete a restaurant (simplified for testing)
  */
 export const deleteRestaurant = async (req, res) => {
   try {
     const { id } = req.params;
+    const result = await db.query('DELETE FROM restaurants WHERE id = $1 RETURNING id', [id]);
     
-    if (!id || isNaN(parseInt(id, 10))) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid restaurant ID'
-      });
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Restaurant not found' });
     }
     
-    await RestaurantModel.deleteRestaurant(parseInt(id, 10));
-    
-    res.status(200).json({
-      success: true,
-      message: 'Restaurant deleted successfully'
-    });
+    res.json({ success: true, message: 'Restaurant deleted successfully' });
   } catch (error) {
-    console.error(`Error in deleteRestaurant controller for ID ${req.params.id}:`, error);
-    
-    if (error.message && error.message.includes('not found')) {
-      return res.status(404).json({
-        success: false,
-        message: error.message
-      });
-    }
-    
-    res.status(500).json({
-      success: false,
-      message: 'An unexpected error occurred',
-      error: {
-        type: error.constructor.name,
-        stack: error.stack
-      }
-    });
+    console.error('Error deleting restaurant:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete restaurant' });
   }
 };

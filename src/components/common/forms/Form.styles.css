@@ -1,0 +1,57 @@
+/**
+ * Form Component Styles
+ */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.form-disabled {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.form-row {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0 -8px;
+}
+
+.form-col {
+  flex: 1 0 0%;
+  padding: 0 8px;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 24px;
+  gap: 12px;
+}
+
+.form-divider {
+  height: 1px;
+  background-color: #DBDBDB;
+  margin: 24px 0;
+  width: 100%;
+}
+
+.form-section {
+  margin-bottom: 24px;
+}
+
+.form-section-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: #484848;
+}
+
+.form-section-subtitle {
+  font-size: 0.875rem;
+  color: #767676;
+  margin-top: -12px;
+  margin-bottom: 16px;
+}

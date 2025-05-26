@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, CheckCircle, List, Heart } from 'lucide-react';
 import Button from '@/components/UI/Button';
 import useAuthStore from '@/stores/useAuthStore';
-import apiClient from '@/services/apiClient';
+import { apiClient } from '@/services/http';
 import QueryResultDisplay from '@/components/QueryResultDisplay';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
 

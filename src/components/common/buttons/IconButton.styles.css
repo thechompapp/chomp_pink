@@ -1,0 +1,46 @@
+/**
+ * Icon Button Component Styles
+ */
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-left .icon-container {
+  margin-right: 8px;
+}
+
+.icon-right .icon-container {
+  margin-left: 8px;
+}
+
+.icon-only {
+  padding: 8px;
+  border-radius: 50%;
+  min-width: 36px;
+  min-height: 36px;
+}
+
+.icon-only.btn-sm {
+  padding: 6px;
+  min-width: 30px;
+  min-height: 30px;
+}
+
+.icon-only.btn-lg {
+  padding: 12px;
+  min-width: 48px;
+  min-height: 48px;
+}
+
+.icon-btn-text {
+  display: inline-block;
+}

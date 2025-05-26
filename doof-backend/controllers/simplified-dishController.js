@@ -1,263 +1,94 @@
-/**
- * Simplified Dish Controller
- * 
- * This is a simplified version of the dish controller that works with
- * our database schema for E2E testing.
- */
-
-import * as DishModel from '../models/simplified-dishModel.js';
+import db from '../db/index.js';
 
 /**
- * Get all dishes with pagination and filtering
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
+ * Get all dishes (simplified for testing)
  */
 export const getAllDishes = async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 20, 
-      sort = 'created_at', 
-      order = 'desc', 
-      search,
-      restaurant_id 
-    } = req.query;
-    
-    const options = {
-      page: parseInt(page, 10),
-      limit: parseInt(limit, 10),
-      sort,
-      order,
-      search,
-      restaurant_id: restaurant_id ? parseInt(restaurant_id, 10) : null
-    };
-    
-    const result = await DishModel.findAllDishes(options);
-    
-    res.status(200).json({
-      success: true,
-      data: {
-        dishes: result.dishes,
-        pagination: {
-          total: result.total,
-          page: options.page,
-          limit: options.limit,
-          pages: Math.ceil(result.total / options.limit)
-        }
-      }
-    });
+    const result = await db.query('SELECT id, name, description, price FROM dishes LIMIT 10');
+    res.json({ success: true, data: result.rows });
   } catch (error) {
-    console.error('Error in getAllDishes controller:', error);
-    res.status(500).json({
-      success: false,
-      message: 'An unexpected error occurred',
-      error: {
-        type: error.constructor.name,
-        stack: error.stack
-      }
-    });
+    console.error('Error getting dishes:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch dishes' });
   }
 };
 
 /**
- * Get a dish by ID
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
+ * Get dish by ID (simplified for testing)
  */
 export const getDishById = async (req, res) => {
   try {
     const { id } = req.params;
+    const result = await db.query('SELECT id, name, description, price FROM dishes WHERE id = $1', [id]);
     
-    if (!id || isNaN(parseInt(id, 10))) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid dish ID'
-      });
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Dish not found' });
     }
     
-    const dish = await DishModel.findDishById(parseInt(id, 10));
-    
-    res.status(200).json({
-      success: true,
-      data: dish
-    });
+    res.json({ success: true, data: result.rows[0] });
   } catch (error) {
-    console.error(`Error in getDishById controller for ID ${req.params.id}:`, error);
-    
-    if (error.message && error.message.includes('not found')) {
-      return res.status(404).json({
-        success: false,
-        message: error.message
-      });
-    }
-    
-    res.status(500).json({
-      success: false,
-      message: 'An unexpected error occurred',
-      error: {
-        type: error.constructor.name,
-        stack: error.stack
-      }
-    });
+    console.error('Error getting dish:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch dish' });
   }
 };
 
 /**
- * Create a new dish
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
+ * Create a new dish (simplified for testing)
  */
 export const createDish = async (req, res) => {
   try {
-    const { name, description, price, category, restaurant_id } = req.body;
+    const { name, description, price } = req.body;
+    const result = await db.query(
+      'INSERT INTO dishes (name, description, price) VALUES ($1, $2, $3) RETURNING id, name, description, price',
+      [name, description, price]
+    );
     
-    // Validate required fields
-    if (!name) {
-      return res.status(400).json({
-        success: false,
-        message: 'Dish name is required'
-      });
-    }
-    
-    if (!restaurant_id) {
-      return res.status(400).json({
-        success: false,
-        message: 'Restaurant ID is required'
-      });
-    }
-    
-    // Get user ID from authenticated user if available
-    const created_by = req.user ? req.user.id : null;
-    
-    const dishData = {
-      name,
-      description,
-      price: parseFloat(price) || 0,
-      category,
-      restaurant_id: parseInt(restaurant_id, 10),
-      created_by
-    };
-    
-    const dish = await DishModel.createDish(dishData);
-    
-    res.status(201).json({
-      success: true,
-      message: 'Dish created successfully',
-      data: dish
-    });
+    res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error) {
-    console.error('Error in createDish controller:', error);
-    
-    if (error.message && error.message.includes('not found')) {
-      return res.status(404).json({
-        success: false,
-        message: error.message
-      });
-    }
-    
-    res.status(500).json({
-      success: false,
-      message: 'An unexpected error occurred',
-      error: {
-        type: error.constructor.name,
-        stack: error.stack
-      }
-    });
+    console.error('Error creating dish:', error);
+    res.status(500).json({ success: false, error: 'Failed to create dish' });
   }
 };
 
 /**
- * Update a dish
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
+ * Update a dish (simplified for testing)
  */
 export const updateDish = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, price, category, restaurant_id } = req.body;
+    const { name, description, price } = req.body;
     
-    if (!id || isNaN(parseInt(id, 10))) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid dish ID'
-      });
+    const result = await db.query(
+      'UPDATE dishes SET name = $1, description = $2, price = $3, updated_at = NOW() WHERE id = $4 RETURNING id, name, description, price',
+      [name, description, price, id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Dish not found' });
     }
     
-    const updateData = {};
-    
-    if (name !== undefined) updateData.name = name;
-    if (description !== undefined) updateData.description = description;
-    if (price !== undefined) updateData.price = parseFloat(price);
-    if (category !== undefined) updateData.category = category;
-    if (restaurant_id !== undefined) updateData.restaurant_id = parseInt(restaurant_id, 10);
-    
-    const dish = await DishModel.updateDish(parseInt(id, 10), updateData);
-    
-    res.status(200).json({
-      success: true,
-      message: 'Dish updated successfully',
-      data: dish
-    });
+    res.json({ success: true, data: result.rows[0] });
   } catch (error) {
-    console.error(`Error in updateDish controller for ID ${req.params.id}:`, error);
-    
-    if (error.message && error.message.includes('not found')) {
-      return res.status(404).json({
-        success: false,
-        message: error.message
-      });
-    }
-    
-    res.status(500).json({
-      success: false,
-      message: 'An unexpected error occurred',
-      error: {
-        type: error.constructor.name,
-        stack: error.stack
-      }
-    });
+    console.error('Error updating dish:', error);
+    res.status(500).json({ success: false, error: 'Failed to update dish' });
   }
 };
 
 /**
- * Delete a dish
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
+ * Delete a dish (simplified for testing)
  */
 export const deleteDish = async (req, res) => {
   try {
     const { id } = req.params;
+    const result = await db.query('DELETE FROM dishes WHERE id = $1 RETURNING id', [id]);
     
-    if (!id || isNaN(parseInt(id, 10))) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid dish ID'
-      });
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Dish not found' });
     }
     
-    await DishModel.deleteDish(parseInt(id, 10));
-    
-    res.status(200).json({
-      success: true,
-      message: 'Dish deleted successfully'
-    });
+    res.json({ success: true, message: 'Dish deleted successfully' });
   } catch (error) {
-    console.error(`Error in deleteDish controller for ID ${req.params.id}:`, error);
-    
-    if (error.message && error.message.includes('not found')) {
-      return res.status(404).json({
-        success: false,
-        message: error.message
-      });
-    }
-    
-    res.status(500).json({
-      success: false,
-      message: 'An unexpected error occurred',
-      error: {
-        type: error.constructor.name,
-        stack: error.stack
-      }
-    });
+    console.error('Error deleting dish:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete dish' });
   }
 };
