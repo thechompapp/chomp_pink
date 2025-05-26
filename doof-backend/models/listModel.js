@@ -18,7 +18,6 @@ export const findListItemsPreview = async (listId, limit = 3) => {
         li.id as list_item_id,
         li.item_id,
         li.item_type,
-        li.notes,
         li.added_at,
         CASE
           WHEN li.item_type = 'restaurant' THEN r.name
@@ -54,7 +53,6 @@ export const findListItemsPreview = async (listId, limit = 3) => {
                 list_item_id: row.list_item_id,
                 item_type: row.item_type,
                 name: row.name || (row.item_type === 'restaurant' ? 'Restaurant' : 'Dish'),
-                notes: row.notes,
                 photo_url: row.photo_url, // Will be null
                 restaurant_name: row.restaurant_name,
                 city: row.city_name,
@@ -68,132 +66,157 @@ export const findListItemsPreview = async (listId, limit = 3) => {
 };
 
 
-export const findListsByUser = async (userId, { createdByUser, followedByUser, allLists, limit = 10, offset = 0, cityId, /* boroughId, neighborhoodId, */ query, hashtags }) => {
-  // boroughId and neighborhoodId are not directly on lists table per schema_dump.sql.
-  // If filtering by these is required for lists, it would need to be done via city_name
-  // and then potentially joining through restaurants and listitems which is complex for a general list query.
-  // For now, assuming boroughId and neighborhoodId are not used for direct list filtering.
-  console.log('[ListModel findListsByUser] Params:', { userId, createdByUser, followedByUser, allLists, limit, offset, cityId, query, hashtags });
+export const findListsByUser = async (userId, { 
+  createdByUser, 
+  followedByUser, 
+  allLists, 
+  limit = 10, 
+  offset = 0, 
+  cityId, 
+  query, 
+  hashtags = [] 
+} = {}) => {
+  console.log('[ListModel findListsByUser] Starting with params:', { 
+    userId, 
+    createdByUser, 
+    followedByUser, 
+    allLists, 
+    limit, 
+    offset, 
+    cityId, 
+    query, 
+    hashtags 
+  });
 
+  // Initialize arrays for query parameters
   const mainValues = [];
-  let mainParamIndex = 1;
-  const addMainValue = (val) => { mainValues.push(val); return `$${mainParamIndex++}`; };
+  let paramIndex = 1;
+  const addParam = (val) => {
+    mainValues.push(val);
+    return `$${paramIndex++}`;
+  };
 
-  const countValues = [];
-  let countParamIndex = 1;
-  const addCountValue = (val) => { countValues.push(val); return `$${countParamIndex++}`; };
-
-  const mainUserIdParam = addMainValue(userId);
-  const countUserIdParam = userId === null ? null : addCountValue(userId);
-
-  let selectClause = `
-    SELECT l.*,
+  // Build the SELECT clause with all necessary fields
+  const selectClause = `
+    SELECT DISTINCT ON (l.id) l.*,
            COALESCE(u.username, l.creator_handle) as creator_handle,
-           COUNT(DISTINCT li.id) as item_count,
-           (CASE WHEN ${mainUserIdParam}::INTEGER IS NOT NULL AND lf.list_id IS NOT NULL THEN TRUE ELSE FALSE END) as is_following,
-           (CASE WHEN ${mainUserIdParam}::INTEGER IS NOT NULL AND l.user_id = ${mainUserIdParam}::INTEGER THEN TRUE ELSE FALSE END) as created_by_user
+           COUNT(DISTINCT li.id) OVER (PARTITION BY l.id) as item_count,
+           (CASE WHEN $1::INTEGER IS NOT NULL AND lf.user_id = $1::INTEGER THEN TRUE ELSE FALSE END) as is_following,
+           (CASE WHEN l.user_id = $1::INTEGER THEN TRUE ELSE FALSE END) as created_by_user
   `;
 
+  // Build the FROM clause with necessary joins
   let fromClause = `
     FROM lists l
     LEFT JOIN users u ON l.user_id = u.id
     LEFT JOIN listitems li ON l.id = li.list_id
-    LEFT JOIN list_follows lf ON l.id = lf.list_id AND lf.user_id = ${mainUserIdParam}::INTEGER
+    LEFT JOIN listfollows lf ON l.id = lf.list_id AND lf.user_id = $1::INTEGER
   `;
 
-  let countFromClause = `
-    FROM lists l
-    LEFT JOIN users u ON l.user_id = u.id
-    LEFT JOIN listitems li ON l.id = li.list_id
-  `;
-  if (followedByUser && userId) {
-    countFromClause += ` JOIN list_follows lf_count ON l.id = lf_count.list_id AND lf_count.user_id = ${countUserIdParam}::INTEGER `;
-  }
-
-  const whereConditions = [];
-  const countWhereConditions = [];
-
-  if (allLists) {
-    if (userId) {
-      whereConditions.push(`(l.is_public = TRUE OR l.user_id = ${mainUserIdParam})`);
-      if (countUserIdParam) countWhereConditions.push(`(l.is_public = TRUE OR l.user_id = ${countUserIdParam})`);
-      else countWhereConditions.push(`l.is_public = TRUE`);
-    } else {
-      whereConditions.push(`l.is_public = TRUE`);
-      countWhereConditions.push(`l.is_public = TRUE`);
-    }
-  } else if (createdByUser && userId) {
-    whereConditions.push(`l.user_id = ${mainUserIdParam}`);
-    if (countUserIdParam) countWhereConditions.push(`l.user_id = ${countUserIdParam}`);
-    // else this case shouldn't be hit if userId is null
+  // Build the WHERE conditions
+  const conditions = [];
+  
+  // Add user ID parameter for the main query
+  const userIdParam = userId ? addParam(userId) : null;
+  
+  // Handle different view types
+  if (createdByUser && userId) {
+    conditions.push(`l.user_id = $1`);
   } else if (followedByUser && userId) {
-    whereConditions.push(`lf.list_id IS NOT NULL`);
-    // For count, the JOIN lf_count already filters
-  } else if (!userId) {
-    whereConditions.push(`l.is_public = TRUE`);
-    countWhereConditions.push(`l.is_public = TRUE`);
+    conditions.push(`lf.user_id = $1`);
+  } else if (allLists && userId) {
+    conditions.push(`(l.is_public = TRUE OR l.user_id = $1)`);
+  } else if (userId) {
+    // Default: show user's own lists and public lists
+    conditions.push(`(l.is_public = TRUE OR l.user_id = $1)`);
   } else {
-     whereConditions.push(`(l.is_public = TRUE OR l.user_id = ${mainUserIdParam})`);
-     if (countUserIdParam) countWhereConditions.push(`(l.is_public = TRUE OR l.user_id = ${countUserIdParam})`);
-     else countWhereConditions.push(`l.is_public = TRUE`);
+    // No user ID provided, only show public lists
+    conditions.push(`l.is_public = TRUE`);
   }
 
-  // Corrected to filter by lists.city_name using cityId (which refers to cities.id)
+  // Add city filter if provided
   if (cityId) {
-    whereConditions.push(`l.city_name = (SELECT name FROM cities WHERE id = ${addMainValue(cityId)})`);
-    countWhereConditions.push(`l.city_name = (SELECT name FROM cities WHERE id = ${addCountValue(cityId)})`);
+    const cityNameQuery = `SELECT name FROM cities WHERE id = ${addParam(cityId)}`;
+    conditions.push(`l.city_name = (${cityNameQuery})`);
   }
 
+  // Add search query filter
   if (query) {
-    const queryLike = `%${query}%`;
-    const mainQueryParam = addMainValue(queryLike);
-    whereConditions.push(`(l.name ILIKE ${mainQueryParam} OR l.description ILIKE ${mainQueryParam})`);
-
-    const countQueryParam = addCountValue(queryLike);
-    countWhereConditions.push(`(l.name ILIKE ${countQueryParam} OR l.description ILIKE ${countQueryParam})`);
+    const searchTerm = `%${query}%`;
+    conditions.push(`(l.name ILIKE ${addParam(searchTerm)} OR l.description ILIKE ${addParam(searchTerm)})`);
   }
 
+  // Add hashtags filter
   if (hashtags && hashtags.length > 0) {
-    const mainTagConditions = hashtags.map(tag => `l.tags @> ARRAY[${addMainValue(tag)}]::TEXT[]`).join(' AND ');
-    whereConditions.push(`(${mainTagConditions})`);
-    const countTagConditions = hashtags.map(tag => `l.tags @> ARRAY[${addCountValue(tag)}]::TEXT[]`).join(' AND ');
-    countWhereConditions.push(`(${countTagConditions})`);
+    const tagConditions = hashtags.map(tag => `l.tags @> ARRAY[${addParam(tag)}]`).join(' OR ');
+    conditions.push(`(${tagConditions})`);
   }
 
-  const mainWhereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
-  const countWhereClause = countWhereConditions.length > 0 ? `WHERE ${countWhereConditions.join(' AND ')}` : '';
+  // Build the final WHERE clause
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-  const groupByClause = `GROUP BY l.id, u.username, lf.list_id`;
+  // Build the ORDER BY clause
   const orderByClause = `ORDER BY l.updated_at DESC`;
-  const limitOffsetClause = `LIMIT ${addMainValue(limit)} OFFSET ${addMainValue(offset)}`;
 
-  const finalMainQuery = `${selectClause} ${fromClause} ${mainWhereClause} ${groupByClause} ${orderByClause} ${limitOffsetClause}`;
-  const finalCountQuery = `SELECT COUNT(DISTINCT l.id) as total ${countFromClause} ${countWhereClause}`;
+  // Build the main query
+  const mainQuery = `
+    WITH list_data AS (
+      ${selectClause}
+      ${fromClause}
+      ${whereClause}
+      GROUP BY l.id, u.username, lf.user_id
+    )
+    SELECT * FROM list_data
+    ${orderByClause}
+    LIMIT ${addParam(limit)} OFFSET ${addParam(offset)}
+  `;
 
-  console.log('[ListModel findListsByUser] Final Main Query:', finalMainQuery);
-  console.log('[ListModel findListsByUser] Main Query Values:', mainValues);
-  console.log('[ListModel findListsByUser] Final Count Query:', finalCountQuery);
-  console.log('[ListModel findListsByUser] Count Query Values:', countValues);
+  // Build the count query
+  const countQuery = `
+    SELECT COUNT(DISTINCT l.id) as total
+    FROM lists l
+    ${followedByUser && userId ? 'JOIN listfollows lf ON l.id = lf.list_id' : ''}
+    ${whereClause}
+  `;
+
+  console.log('[ListModel findListsByUser] Main Query:', mainQuery);
+  console.log('[ListModel findListsByUser] Query Params:', mainValues);
+  console.log('[ListModel findListsByUser] Count Query:', countQuery);
 
   try {
-    const mainResult = await db.query(finalMainQuery, mainValues);
-    console.log('[ListModel findListsByUser] Main query result rows:', mainResult.rows.length);
+    // Execute the main query
+    const mainResult = await db.query(mainQuery, mainValues);
+    console.log(`[ListModel findListsByUser] Found ${mainResult.rows.length} lists`);
 
-    const countResult = await db.query(finalCountQuery, countValues);
+    // Execute the count query
+    const countResult = await db.query(countQuery, mainValues);
     const total = parseInt(countResult.rows[0]?.total, 10) || 0;
-    console.log('[ListModel findListsByUser] Total count:', total);
+    console.log(`[ListModel findListsByUser] Total matching lists: ${total}`);
 
+    // Format and return the results
     return {
       data: mainResult.rows.map(row => formatList(row)),
       total,
     };
   } catch (error) {
-    console.error('[ListModel findListsByUser] Error fetching lists:', error);
-    if (error.code === '08P01') {
-        console.error('[ListModel findListsByUser] Bind error details - Main Query:', finalMainQuery, 'Main Values:', mainValues);
-        console.error('[ListModel findListsByUser] Bind error details - Count Query:', finalCountQuery, 'Count Values:', countValues);
+    console.error('[ListModel findListsByUser] Database error:', {
+      error: error.message,
+      code: error.code,
+      query: error.query,
+      parameters: error.parameters,
+      stack: error.stack
+    });
+    
+    // Provide more specific error messages for common issues
+    if (error.code === '42P01') {
+      throw new Error('Database table not found. Check if all migrations have been run.');
+    } else if (error.code === '42703') {
+      throw new Error('Database column not found. The schema may be out of date.');
+    } else if (error.code === '22P02') {
+      throw new Error('Invalid input syntax for integer. Check your query parameters.');
     }
-    throw new Error('Database error fetching lists.');
+    
+    throw new Error(`Failed to fetch lists: ${error.message}`);
   }
 };
 
@@ -211,7 +234,6 @@ export const findListItemsByListId = async (listId) => {
       li.id AS list_item_id,
       li.item_id,
       li.item_type,
-      li.notes,
       li.added_at,
       CASE
         WHEN li.item_type = 'restaurant' THEN r.name
@@ -258,7 +280,6 @@ export const findListItemsByListId = async (listId) => {
         item_id: row.item_id,
         item_type: row.item_type,
         name: row.name,
-        notes: row.notes,
         added_at: row.added_at,
         restaurant_name: row.restaurant_name,
         city: row.city,
@@ -328,8 +349,8 @@ export const createList = async (listData, userId, userHandle) => {
   // The 'lists' table in schema_dump.sql has city_name VARCHAR(100), NO city_id.
   // So we directly insert the provided city_name.
   const query = `
-    INSERT INTO lists (user_id, name, description, list_type, is_public, tags, city_name, creator_handle, created_by_user)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE)
+    INSERT INTO lists (user_id, name, description, list_type, is_public, tags, city_name, creator_handle)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     RETURNING *;
   `;
   const queryTags = Array.isArray(tags) ? tags.map(String) : [];
@@ -372,18 +393,18 @@ export const createList = async (listData, userId, userHandle) => {
 
 export const updateList = async (listId, listData) => { console.warn("updateList is a placeholder"); return null; };
 
-export const addItemToList = async (listId, itemId, itemType, notes = null) => {
-    console.log(`[ListModel addItemToList] Adding item ${itemId} (${itemType}) to list ${listId}. Notes: ${notes}`);
+export const addItemToList = async (listId, itemId, itemType) => {
+    console.log(`[ListModel addItemToList] Adding item ${itemId} (${itemType}) to list ${listId}`);
     // Ensure to use 'listitems' table
     const query = `
-        INSERT INTO listitems (list_id, item_id, item_type, notes)
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO listitems (list_id, item_id, item_type)
+        VALUES ($1, $2, $3)
         ON CONFLICT (list_id, item_type, item_id) DO UPDATE
-          SET notes = EXCLUDED.notes, added_at = CURRENT_TIMESTAMP
+          SET added_at = CURRENT_TIMESTAMP
         RETURNING *;
     `;
     try {
-        const result = await db.query(query, [listId, itemId, itemType, notes]);
+        const result = await db.query(query, [listId, itemId, itemType]);
         if (result.rows.length === 0) {
             console.error(`[ListModel addItemToList] Failed to add or update item ${itemId} (${itemType}) in list ${listId}. No row returned.`);
             const checkQuery = `SELECT * FROM listitems WHERE list_id = $1 AND item_id = $2 AND item_type = $3`;

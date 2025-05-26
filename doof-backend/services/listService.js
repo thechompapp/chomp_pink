@@ -23,7 +23,7 @@ const rawMethods = {
   // Get a specific list by ID
   getList: async (id, userId = null) => {
     logDebug(`[ListService.getList] Fetching list ${id} for user ${userId || 'anonymous'}`);
-    const list = await listModel.findListById(id, userId);
+    const list = await listModel.findListByIdRaw(id);
     if (!list) {
       throw new Error(`List with ID ${id} not found`);
     }
