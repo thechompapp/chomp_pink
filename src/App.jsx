@@ -33,9 +33,9 @@ const enhancedLazy = (importFn, name) => {
   });
 };
 
-// Lazy-loaded pages
-const Home = enhancedLazy(() => import('./pages/Home'), 'Home');
-import LoginPage from './pages/Login'; // Direct import for Login
+// Direct imports for critical pages
+import Home from './pages/Home';
+import LoginPage from './pages/Login';
 const Login = () => <LoginPage />;
 const Register = enhancedLazy(() => import('./pages/Register'), 'Register');
 const Search = enhancedLazy(() => import('./pages/Search'), 'Search');

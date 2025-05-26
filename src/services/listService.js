@@ -30,13 +30,42 @@ const listService = {
 
       logger.debug(`[listService] Making request to /lists with params:`, paramsObj);
       
+      // Make the API request
       const response = await apiClient.get('/lists', { params: paramsObj });
       
+      // Log the raw response for debugging
+      logger.debug('[listService] Raw API response:', {
+        status: response?.status,
+        statusText: response?.statusText,
+        hasData: !!response?.data,
+        dataType: response?.data ? typeof response.data : 'none',
+        dataKeys: response?.data ? Object.keys(response.data) : 'no data',
+        responseData: response?.data // Log the actual response data for debugging
+      });
+
       // Handle empty or invalid responses
-      if (!response || !response.data) {
-        logger.warn('[listService] Empty or invalid API response, returning empty result');
+      if (!response) {
+        logger.warn('[listService] No response received from API');
         return {
-          success: true,
+          success: false,
+          message: 'No response from server',
+          data: [],
+          pagination: {
+            page: parseInt(params.page) || 1,
+            limit: parseInt(params.limit) || 25,
+            total: 0,
+            totalPages: 0
+          }
+        };
+      }
+
+      // Handle HTTP error status codes
+      if (response.status < 200 || response.status >= 300) {
+        const errorMessage = response.data?.message || `HTTP Error ${response.status}`;
+        logger.warn(`[listService] API error ${response.status}: ${errorMessage}`);
+        return {
+          success: false,
+          message: errorMessage,
           data: [],
           pagination: {
             page: parseInt(params.page) || 1,
@@ -47,93 +76,62 @@ const listService = {
         };
       }
       
-      logger.debug('[listService] Raw API response:', {
-        status: response.status,
-        hasData: !!response.data,
-        dataType: response.data ? typeof response.data : 'none',
-        dataKeys: response.data ? Object.keys(response.data) : []
-      });
-      
-      // Process the response through handleApiResponse
-      const result = await handleApiResponse(
-        () => Promise.resolve(response),
-        'ListService.getLists'
-      );
-      
-      // Ensure we always return a valid data structure
-      const responseData = result.data || [];
-      const pagination = result.pagination || {
-        page: parseInt(params.page) || 1,
-        limit: parseInt(params.limit) || 25,
-        total: 0,
-        totalPages: 0
-      };
-      
-      logger.debug('[listService] Processed API response:', {
-        success: result.success,
-        message: result.message,
-        hasData: Array.isArray(responseData) && responseData.length > 0,
-        dataType: Array.isArray(responseData) ? 'array' : typeof responseData,
-        pagination: pagination
-      });
-      
-      // Handle different response formats
-      if (result.success) {
-        // Extract data and pagination from the response
-        let responseData = [];
-        let pagination = null;
-
-        // Handle different response structures
-        if (Array.isArray(result.data)) {
-          // Case: { success: true, data: [...] }
-          responseData = result.data;
-          pagination = result.pagination || {
-            page: parseInt(params.page) || 1,
-            limit: parseInt(params.limit) || 25,
-            total: result.data.length,
-            totalPages: Math.ceil((result.data.length || 0) / (parseInt(params.limit) || 25))
-          };
-        } else if (result.data && Array.isArray(result.data.data)) {
-          // Case: { success: true, data: { data: [...], pagination: {...} } }
-          responseData = result.data.data;
-          pagination = result.data.pagination || result.pagination || {
-            page: parseInt(params.page) || 1,
-            limit: parseInt(params.limit) || 25,
-            total: responseData.length,
-            totalPages: Math.ceil((responseData.length || 0) / (parseInt(params.limit) || 25))
-          };
-        } else if (result.data && result.data.items) {
-          // Case: { success: true, data: { items: [...], total: X } }
-          responseData = Array.isArray(result.data.items) ? result.data.items : [];
-          pagination = {
-            page: parseInt(params.page) || 1,
-            limit: parseInt(params.limit) || 25,
-            total: result.data.total || responseData.length,
-            totalPages: Math.ceil((result.data.total || responseData.length) / (parseInt(params.limit) || 25))
-          };
-        }
-        
-        logger.debug('[listService] Processed response data:', {
-          itemsCount: responseData.length,
-          pagination: pagination
-        });
-        
-        return {
-          success: true,
-          data: responseData,
-          pagination: pagination,
-          message: result.message || 'Lists retrieved successfully'
-        };
-      }
-      
-      // Handle error case
-      return {
-        success: false,
+      // Process the response
+      let result = {
+        success: true,
+        message: 'Success',
         data: [],
-        pagination: null,
-        message: result.message || 'Failed to fetch lists',
-        error: result.error
+        pagination: {
+          page: parseInt(params.page) || 1,
+          limit: parseInt(params.limit) || 25,
+          total: 0,
+          totalPages: 0
+        }
       };
+
+      // If we have response data, process it
+      if (response.data) {
+        // Handle different response formats
+        if (Array.isArray(response.data)) {
+          // Case 1: Response is an array of lists
+          result.data = response.data;
+          result.pagination.total = response.data.length;
+          result.pagination.totalPages = Math.ceil(response.data.length / result.pagination.limit);
+        } else if (response.data.data && Array.isArray(response.data.data)) {
+          // Case 2: Response has data property containing the array
+          result.data = response.data.data;
+          
+          // Handle pagination if available
+          if (response.data.pagination) {
+            result.pagination = {
+              ...result.pagination,
+              ...response.data.pagination,
+              page: response.data.pagination.page || result.pagination.page,
+              limit: response.data.pagination.limit || result.pagination.limit,
+              total: response.data.pagination.total || response.data.data.length,
+              totalPages: response.data.pagination.totalPages || 
+                         Math.ceil((response.data.pagination.total || response.data.data.length) / (response.data.pagination.limit || result.pagination.limit))
+            };
+          } else {
+            // Default pagination if not provided
+            result.pagination.total = response.data.total || response.data.data.length;
+            result.pagination.totalPages = Math.ceil(result.pagination.total / result.pagination.limit);
+          }
+        } else if (typeof response.data === 'object') {
+          // Case 3: Single list object
+          result.data = [response.data];
+          result.pagination.total = 1;
+          result.pagination.totalPages = 1;
+        }
+      }
+
+      logger.debug('[listService] Processed response:', {
+        success: result.success,
+        dataLength: result.data.length,
+        pagination: result.pagination
+      });
+
+      return result;
       
     } catch (error) {
       logger.error('[listService] Error in getLists:', error);
@@ -279,43 +277,101 @@ const listService = {
     );
   },
 
-  // Fetch lists created by a specific user
+  /**
+   * Fetches lists for a specific user with consistent response structure
+   * @param {string|Object} userIdOrParams - Either a user ID string or a params object
+   * @param {Object} options - Additional options
+   * @returns {Promise<Object>} Normalized response with { success, data, pagination, message }
+   */
   getUserLists: async function(userIdOrParams, options = {}) {
-    // Check if userIdOrParams is an object (params) or a string (userId)
-    if (typeof userIdOrParams === 'object' && userIdOrParams !== null) {
-      // It's a params object, extract userId from it if exists
-      const { userId, page = 1, limit = 10, listType = null, includePrivate = false, ...otherParams } = userIdOrParams;
+    try {
+      // Initialize parameters with defaults
+      let params = {
+        page: 1,
+        limit: 10,
+        listType: null,
+        includePrivate: false,
+        ...(typeof userIdOrParams === 'object' ? userIdOrParams : { userId: userIdOrParams }),
+        ...options
+      };
       
-      // Log the params for debugging
-      logger.debug(`[listService] getUserLists called with params object:`, userIdOrParams);
-      
+      const { 
+        userId, 
+        page, 
+        limit, 
+        listType, 
+        includePrivate,
+        ...otherParams 
+      } = params;
+
+      logger.debug('[listService] getUserLists called with params:', {
+        userId,
+        page,
+        limit,
+        listType,
+        includePrivate,
+        ...(Object.keys(otherParams).length ? { otherParams } : {})
+      });
+
       // Ensure userId is a string if it exists
       const safeUserId = userId ? String(userId) : undefined;
       
-      return this.getLists({
+      // Make the API call through getLists
+      const result = await this.getLists({
         ...otherParams,
         userId: safeUserId,
-        page, 
+        page,
         limit,
         listType,
         isPublic: includePrivate ? undefined : true
       });
-    } else {
-      // It's a userId string with separate options
-      const { page = 1, limit = 10, listType = null, includePrivate = false } = options;
-      
-      // Ensure userId is a string
-      const safeUserId = userIdOrParams ? String(userIdOrParams) : undefined;
-      
-      logger.debug(`[listService] getUserLists called with userId: ${safeUserId}`);
-      
-      return this.getLists({ 
-        userId: safeUserId, 
-        page, 
-        limit, 
-        listType, 
-        isPublic: includePrivate ? undefined : true
+
+      // Log the raw result for debugging
+      logger.debug('[listService] Raw getUserLists result:', {
+        success: result?.success,
+        dataLength: Array.isArray(result?.data) ? result.data.length : 'not an array',
+        hasPagination: !!result?.pagination,
+        rawResult: result
       });
+
+      // Extract data and pagination from the result
+      const items = Array.isArray(result?.data) ? result.data : [];
+      const pagination = result?.pagination || {
+        page: parseInt(page) || 1,
+        limit: parseInt(limit) || 10,
+        total: 0,
+        totalPages: 0
+      };
+
+      // Ensure pagination has all required fields
+      const normalizedPagination = {
+        page: parseInt(pagination.page) || 1,
+        limit: parseInt(pagination.limit) || 10,
+        total: parseInt(pagination.total) || items.length,
+        totalPages: parseInt(pagination.totalPages) || 
+                   Math.ceil((parseInt(pagination.total) || items.length) / (parseInt(pagination.limit) || 10))
+      };
+
+      // Return the normalized response
+      return {
+        success: result?.success || false,
+        data: items,
+        pagination: normalizedPagination,
+        message: result?.message || 'User lists retrieved'
+      };
+    } catch (error) {
+      logger.error('[listService] Error in getUserLists:', error);
+      return {
+        success: false,
+        data: [],
+        pagination: {
+          page: 1,
+          limit: 10,
+          total: 0,
+          totalPages: 0
+        },
+        message: error.message || 'Failed to fetch user lists'
+      };
     }
   },
 

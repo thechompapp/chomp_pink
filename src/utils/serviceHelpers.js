@@ -24,17 +24,29 @@ export const handleApiResponse = async (apiCall, context, transformFn = null) =>
       status: response?.status,
       statusText: response?.statusText,
       hasData: !!response?.data,
+      dataType: response?.data ? typeof response.data : 'none',
       dataKeys: response?.data ? Object.keys(response.data) : 'no data',
-      success: response?.data?.success
+      success: response?.data?.success,
+      fullResponse: response // Include full response for debugging
     });
     
+    // Handle empty or null responses
+    if (!response?.data) {
+      logDebug(`[${context}] Empty or null response.data, returning empty result`);
+      return {
+        success: true,
+        message: 'No data available',
+        data: []
+      };
+    }
+    
     // If the response is already in the expected format, return it directly
-    if (response?.data && typeof response.data === 'object' && 'success' in response.data) {
+    if (typeof response.data === 'object' && 'success' in response.data) {
       // Ensure the response has all required fields
       const formattedResponse = {
         success: response.data.success !== undefined ? response.data.success : true,
         message: response.data.message || 'Operation successful',
-        data: response.data.data !== undefined ? response.data.data : response.data,
+        data: response.data.data !== undefined ? response.data.data : (Array.isArray(response.data) ? response.data : []),
         ...(response.data.pagination && { pagination: response.data.pagination })
       };
       

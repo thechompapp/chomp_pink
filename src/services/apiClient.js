@@ -54,17 +54,18 @@ let _apiBaseUrlCache = null;
 const getApiBaseUrl = () => {
   if (_apiBaseUrlCache) return _apiBaseUrlCache;
   
-  // In development mode, ensure we're using the correct port for the API
+  // In development mode, use relative URL to leverage Vite proxy
   if (process.env.NODE_ENV === 'development') {
-    // Log the current origin to help with debugging
     const currentOrigin = window.location.origin;
     logDebug(`[ApiClient] Current frontend origin: ${currentOrigin}`);
     
-    // Use the configured API URL or default to localhost:5001
-    _apiBaseUrlCache = config.API_BASE_URL || 'http://localhost:5001/api';
-    logDebug(`[ApiClient] Using API base URL: ${_apiBaseUrlCache}`);
+    // Use relative URL to leverage Vite proxy
+    _apiBaseUrlCache = '/api';
+    logDebug(`[ApiClient] Using relative API URL to leverage Vite proxy: ${_apiBaseUrlCache}`);
   } else {
+    // In production, use the configured API URL
     _apiBaseUrlCache = config.API_BASE_URL || 'http://localhost:5001/api';
+    logDebug(`[ApiClient] Using absolute API URL: ${_apiBaseUrlCache}`);
   }
   
   return _apiBaseUrlCache;
@@ -94,13 +95,107 @@ import customAdapter from '@/services/customAdapter';
 const apiClient = axios.create({
   baseURL: getApiBaseUrl(),
   adapter: customAdapter, // Use our custom adapter to fix the TypeError
-  ...DEFAULT_CONFIG
+  ...DEFAULT_CONFIG,
+  // Ensure we have default request/response interceptors
+  withCredentials: true,
+  validateStatus: function (status) {
+    // Consider status codes less than 500 as success
+    return status < 500;
+  }
 });
+
+// Add request interceptor to ensure proper request configuration
+apiClient.interceptors.request.use(
+  (config) => {
+    try {
+      // Ensure we have a valid URL
+      if (!config.url) {
+        throw new Error('URL is required for API request');
+      }
+      
+      // Ensure baseURL is set and properly formatted
+      config.baseURL = (config.baseURL || getApiBaseUrl()).replace(/\/+$/, ''); // Remove trailing slashes
+      
+      // Ensure URL doesn't start with a slash to prevent double slashes
+      if (config.url.startsWith('/')) {
+        config.url = config.url.substring(1);
+      }
+      
+      // Add cache-busting parameter if not already present
+      config.params = {
+        ...config.params,
+        _t: config.params?._t || Date.now()
+      };
+      
+      // Ensure headers are properly set
+      config.headers = {
+        ...(config.headers || {}),
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      };
+      
+      logDebug(`[ApiClient] Making ${config.method?.toUpperCase() || 'GET'} request to: ${config.baseURL}/${config.url}`);
+      
+      return config;
+    } catch (error) {
+      logError('[ApiClient] Request interceptor error:', error);
+      return Promise.reject(ErrorHandler.enhanceError(error, config));
+    }
+  },
+  (error) => {
+    const enhancedError = ErrorHandler.enhanceError(error);
+    logError('[ApiClient] Request interceptor error (outer):', enhancedError);
+    return Promise.reject(enhancedError);
+  }
+);
+
+// Add response interceptor for better error handling
+apiClient.interceptors.response.use(
+  (response) => {
+    // Any status code that lie within the range of 2xx cause this function to trigger
+    logDebug(`[ApiClient] Received response from: ${response.config.url}`, {
+      status: response.status,
+      statusText: response.statusText,
+      data: response.data
+    });
+    return response;
+  },
+  (error) => {
+    const errorMessage = ErrorHandler.getErrorMessage(error);
+    const enhancedError = ErrorHandler.enhanceError(error);
+    
+    // Log detailed error information
+    if (error.response) {
+      // The request was made and the server responded with a status code
+      // that falls out of the range of 2xx
+      logError(`[ApiClient] Response error: ${error.response.status} - ${error.response.statusText}`, {
+        url: error.config?.url,
+        method: error.config?.method,
+        status: error.response.status,
+        statusText: error.response.statusText,
+        data: error.response.data,
+        headers: error.response.headers
+      });
+    } else if (error.request) {
+      // The request was made but no response was received
+      logError('[ApiClient] No response received:', {
+        url: error.config?.url,
+        method: error.config?.method,
+        message: error.message
+      });
+    } else {
+      // Something happened in setting up the request that triggered an Error
+      logError('[ApiClient] Request setup error:', errorMessage);
+    }
+    
+    return Promise.reject(enhancedError);
+  }
+);
 
 // Apply the patch directly to this instance to ensure it's fixed
 patchAxiosInstance(apiClient);
 
-// Setup authentication-specific interceptors AFTER the instance is created and patched
+// Setup authentication interceptors
 setupAuthInterceptors(apiClient);
 
 // Create a safe fallback adapter for handling cases where the default adapter fails
@@ -395,14 +490,18 @@ export const getAuthToken = () => {
  * @param {string} context - Context for logging
  * @returns {Promise<Object>} Response data
  */
-const performRequestWithRetry = async (requestFn, options = {}, context = 'API') => {
-  const { retry = DEFAULT_CONFIG.retry, ...requestOptions } = options;
-  const { retries = 1, retryDelay = 1000, retryCondition } = retry;
+async function performRequestWithRetry(requestFn, options = {}, context = 'API') {
+  // Ensure we have a valid request function
+  if (typeof requestFn !== 'function') {
+    throw new Error('Request function must be provided');
+  }
   
-  // Log to confirm that we're attempting a real API call
-  logDebug(`[${context}] Attempting real API call for ${requestOptions.url || 'unknown endpoint'}`);
+  const maxRetries = Math.max(1, options.retries || 2);
+  const retryDelay = options.retryDelay || 1000;
+  const retryStatusCodes = options.retryStatusCodes || [408, 429, 500, 502, 503, 504];
   
   let lastError = null;
+  let lastResponse = null;
   let attemptCount = 0;
   
   while (attemptCount <= retries) {
@@ -410,29 +509,73 @@ const performRequestWithRetry = async (requestFn, options = {}, context = 'API')
       // Ensure we have a valid method in the request options
       const safeOptions = { ...requestOptions };
       
-      // Fix the TypeError by ensuring method is a string
-      if (typeof requestOptions.method === 'undefined') {
+      // Ensure method is a valid string
+      if (typeof safeOptions.method === 'undefined') {
         safeOptions.method = 'get';
-      } else if (typeof requestOptions.method !== 'string') {
-        safeOptions.method = String(requestOptions.method);
+      } else if (typeof safeOptions.method !== 'string') {
+        safeOptions.method = String(safeOptions.method);
+      }
+      
+      // Add timestamp to prevent caching
+      if (safeOptions.params) {
+        safeOptions.params = {
+          ...safeOptions.params,
+          _t: Date.now()
+        };
+      } else if (safeOptions.method.toLowerCase() === 'get') {
+        safeOptions.params = { _t: Date.now() };
       }
       
       // Attempt the request with the safe options
       const response = await requestFn(safeOptions);
-      return response.data;
+      lastResponse = response;
+      
+      // Check if response is valid
+      if (!response) {
+        throw new Error('No response received from server');
+      }
+      
+      // Log response details for debugging
+      logDebug(`[${context}] Response received: ${response.status} ${response.statusText}`, {
+        url: response.config?.url,
+        method: response.config?.method,
+        data: response.data
+      });
+      
+      // Return the response data if it exists
+      if (response.data !== undefined) {
+        return response.data;
+      }
+      
+      // If we get here, the response data is undefined
+      throw new Error('Response data is undefined');
+      
     } catch (error) {
       lastError = error;
       attemptCount++;
       
+      // Log the error
+      logError(`[${context}] Request failed (attempt ${attemptCount}/${retries + 1}):`, {
+        url: error.config?.url,
+        method: error.config?.method,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        error: error.message,
+        response: error.response?.data
+      });
+      
       // Check if we should retry
+      const isNetworkError = !error.response;
+      const isServerError = error.response && error.response.status >= 500;
       const shouldRetry = 
         attemptCount <= retries && 
-        (typeof retryCondition === 'function' ? retryCondition(error) : false);
+        (isNetworkError || isServerError || 
+         (typeof retryCondition === 'function' && retryCondition(error)));
       
       if (shouldRetry) {
-        logDebug(`[${context}] Request failed, retrying (${attemptCount}/${retries})...`);
-        // Wait before retrying
-        await new Promise(resolve => setTimeout(resolve, retryDelay));
+        const delay = retryDelay * Math.pow(2, attemptCount - 1); // Exponential backoff
+        logDebug(`[${context}] Retrying in ${delay}ms... (${attemptCount}/${retries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
       } else {
         // No more retries or condition not met
         break;
@@ -440,7 +583,15 @@ const performRequestWithRetry = async (requestFn, options = {}, context = 'API')
     }
   }
   
-  // If we get here, all retries failed
+  // If we have a response but still failed, include it in the error
+  if (lastResponse) {
+    const error = new Error(lastResponse.statusText || 'Request failed');
+    error.response = lastResponse;
+    error.status = lastResponse.status;
+    throw error;
+  }
+  
+  // Otherwise throw the last error
   throw lastError;
 };
 
@@ -738,52 +889,34 @@ const apiUtils = {
    * @returns {boolean} Whether the application is in offline mode
    */
   isOfflineMode() {
+    // For debugging, always return false to disable offline mode
+    console.warn('[DEBUG] Offline mode is disabled for debugging');
+    return false;
+    
+    /* Original implementation (commented out for debugging):
+    let isAuthenticated = false;
+    
     try {
-      // CRITICAL: Never use offline mode in development
-      if (process.env.NODE_ENV === 'development') {
-        // Clear offline flags in development mode
-        if (typeof localStorage !== 'undefined') {
-          localStorage.removeItem('offline-mode');
-          localStorage.removeItem('offline_mode');
-          localStorage.setItem('force_online', 'true');
+      // Check auth-storage (main auth state)
+      const authStorage = localStorage.getItem('auth-storage');
+      if (authStorage) {
+        const authData = JSON.parse(authStorage);
+        if (authData?.state?.isAuthenticated) {
+          isAuthenticated = true;
         }
-        if (typeof sessionStorage !== 'undefined') {
-          sessionStorage.removeItem('offline-mode');
-          sessionStorage.removeItem('offline_mode');
-        }
-        return false;
       }
       
-      // Check if user is authenticated - never use offline mode when authenticated
-      let isAuthenticated = false;
+      // Check auth-token (backup check)
+      if (!isAuthenticated && localStorage.getItem('auth-token')) {
+        isAuthenticated = true;
+      }
       
-      // Check multiple auth indicators to be thorough
-      if (typeof localStorage !== 'undefined') {
-        // Check auth-storage (main auth state)
-        try {
-          const authStorage = localStorage.getItem('auth-storage');
-          if (authStorage) {
-            const authData = JSON.parse(authStorage);
-            if (authData?.state?.isAuthenticated) {
-              isAuthenticated = true;
-            }
-          }
-        } catch (err) {
-          logError('[ApiClient] Error parsing auth storage:', err);
-        }
-        
-        // Check auth-token (backup check)
-        if (!isAuthenticated && localStorage.getItem('auth-token')) {
-          isAuthenticated = true;
-        }
-        
-        // Check admin flags (additional backup)
-        if (!isAuthenticated && (
-          localStorage.getItem('admin_access_enabled') === 'true' ||
-          localStorage.getItem('superuser_override') === 'true'
-        )) {
-          isAuthenticated = true;
-        }
+      // Check admin flags (additional backup)
+      if (!isAuthenticated && (
+        localStorage.getItem('admin_access_enabled') === 'true' ||
+        localStorage.getItem('superuser_override') === 'true'
+      )) {
+        isAuthenticated = true;
       }
       
       // If authenticated, always force online mode
@@ -838,6 +971,7 @@ const apiUtils = {
       logError('[ApiClient] Error in isOfflineMode, defaulting to online mode:', error);
       return false;
     }
+    */
   },
   
   /**

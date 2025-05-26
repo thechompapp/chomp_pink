@@ -255,172 +255,191 @@ export function setupInterceptors(axiosInstance, options = {}) {
     includeAuth = true,
     trackLoading = true,
     handleErrors = true,
-    logRequests = process.env.NODE_ENV !== 'production',
-    enableRetry = true,
-    maxRetries = 2,
-    retryDelay = 1000,
-    retryStatusCodes = [408, 429, 500, 502, 503, 504],
-    offlineMode = {}
+    enableLogging = process.env.NODE_ENV === 'development',
+    enableLoadingState = true,
+    retryConfig = {
+      maxRetries: 3,
+      retryDelay: 1000,
+      retryStatusCodes: [408, 429, 500, 502, 503, 504]
+    }
   } = options;
   
-  // Configure offline mode options
-  const offlineModeConfig = {
-    allowCertainRequests: offlineMode.allowCertainRequests || false,
-    allowedEndpoints: offlineMode.allowedEndpoints || [],
-    mockResponses: offlineMode.mockResponses || {}
-  };
+  // Initialize retry counts for each request
+  const retryCounts = new Map();
+
+  // Configure default headers for CORS and content type
+  axiosInstance.defaults.headers.common['Content-Type'] = 'application/json';
+  axiosInstance.defaults.headers.common['Accept'] = 'application/json';
   
+  // In development, ensure we're using credentials and proper CORS headers
+  if (process.env.NODE_ENV === 'development') {
+    axiosInstance.defaults.withCredentials = true;
+    axiosInstance.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
+  }
+
   // Request interceptor
   axiosInstance.interceptors.request.use(
     (config) => {
-      // Add unique request ID for tracking
-      config._requestId = config._requestId || `req-${Date.now()}-${Math.random().toString(36).substr(2, 10)}`;
-      config._requestStartTime = Date.now();
-      
-      // Add auth headers if needed
-      if (includeAuth) {
-        config = addAuthHeaders(config);
-      }
-      
-      // Ensure config object is properly initialized
-      config = config || {};
-      
-      // Track loading state if needed
-      if (trackLoading) {
-        startLoading(config);
-      }
-      
-      // Log request if needed
-      if (logRequests) {
-        logRequest(config);
-      }
-      
-      // Check if we're in offline mode
-      if (checkOfflineMode()) {
-        // Cancel the request if we're in offline mode
-        const source = axios.CancelToken.source();
-        config.cancelToken = source.token;
-        source.cancel(CONFIG.ERROR_MESSAGES.OFFLINE_MODE);
+      try {
+        // Add timestamp to prevent caching
+        config.params = {
+          ...config.params,
+          _t: Date.now()
+        };
+
+        // In development, ensure we're using relative URLs to leverage Vite proxy
+        if (process.env.NODE_ENV === 'development' && config.url && config.url.startsWith('http')) {
+          const url = new URL(config.url);
+          config.url = url.pathname + url.search;
+          logDebug(`[HttpInterceptor] Converted URL to relative: ${config.url}`);
+        }
+
+        // Add auth headers if enabled
+        if (includeAuth) {
+          config = addAuthHeaders(config);
+        }
+
+        // Track loading state if enabled
+        if (enableLoadingState) {
+          startLoading(config);
+        }
+
+        // Log request if enabled
+        if (enableLogging) {
+          logRequest(config);
+        }
+
         return config;
+      } catch (error) {
+        logError('[HttpInterceptor] Error in request interceptor:', error);
+        return Promise.reject(error);
       }
-      
-      return config;
     },
     (error) => {
-      // Handle request errors
-      logError('[HttpInterceptor] Request error:', error);
+      if (enableLoadingState && error.config) {
+        stopLoading(error.config);
+      }
+      logError('[HttpInterceptor] Request interceptor error:', {
+        message: error.message,
+        url: error.config?.url,
+        method: error.config?.method,
+        stack: error.stack
+      });
       return Promise.reject(error);
     }
   );
-  
+
   // Response interceptor
   axiosInstance.interceptors.response.use(
     (response) => {
-      // Calculate response time for performance monitoring
-      if (response.config._requestStartTime) {
-        const responseTime = Date.now() - response.config._requestStartTime;
-        response.config._responseTime = responseTime;
-        
-        // Log slow responses
-        if (responseTime > 1000) { // More than 1 second
-          logWarn(`[HttpInterceptor] Slow response: ${response.config.url} took ${responseTime}ms`);
+      try {
+        // Stop loading state if enabled
+        if (enableLoadingState) {
+          stopLoading(response.config);
         }
+
+        // Clear retry count on success
+        if (response.config?.url) {
+          retryCounts.delete(response.config.url);
+        }
+
+        // Log response if enabled
+        if (enableLogging) {
+          logResponse(response);
+        }
+
+        return response;
+      } catch (error) {
+        logError('[HttpInterceptor] Error processing response:', error);
+        return response; // Still return the response even if logging fails
       }
-      
-      // Stop tracking loading state
-      if (trackLoading) {
-        stopLoading(response.config);
-      }
-      
-      // Log successful responses in debug mode
-      if (logRequests) {
-        logResponse(response);
-      }
-      
-      return response;
     },
     async (error) => {
-      // Skip if already handled as offline error
-      if (error.isOfflineError) {
-        // If we have a mock response for offline mode, return it
-        if (error.mockResponse) {
-          logInfo(`[HttpInterceptor] Using mock response for: ${error.config.url}`);
-          return Promise.resolve({
-            data: error.mockResponse,
-            status: 200,
-            statusText: 'OK (Mocked)',
-            headers: {},
-            config: error.config,
-            _isMockResponse: true
-          });
-        }
-        return Promise.reject(error);
+      const { config, response, request } = error;
+      
+      // Stop loading state if enabled
+      if (enableLoadingState && config) {
+        stopLoading(config);
       }
       
-      // Stop tracking loading state
-      if (trackLoading && error.config) {
-        stopLoading(error.config);
-      }
+      // Log the error
+      logError('[HttpInterceptor] Request failed:', {
+        url: config?.url,
+        method: config?.method,
+        status: response?.status,
+        statusText: response?.statusText,
+        message: error.message,
+        isNetworkError: !response && request,
+        isServerError: response?.status >= 500
+      });
       
-      // Implement retry logic for certain errors
-      const config = error.config;
-      
-      // Only retry if we have a config and retry is enabled
-      if (enableRetry && config && 
-          config._retryCount < config._maxRetries) {
+      // Handle retry logic if we have a config
+      if (config) {
+        const url = config.url;
+        const retryCount = retryCounts.get(url) || 0;
         
-        // Check if this error should trigger a retry
+        // Check if we should retry
         const shouldRetry = (
-          // Retry on network errors
-          ErrorHandler.isNetworkError(error) ||
-          // Retry on specific status codes
-          (error.response && config._retryStatusCodes.includes(error.response.status))
+          retryCount < retryConfig.maxRetries &&
+          (
+            // Retry on network errors
+            (!response && request) ||
+            // Retry on specific status codes
+            (response && retryConfig.retryStatusCodes.includes(response.status))
+          )
         );
         
         if (shouldRetry) {
-          config._retryCount++;
+          const nextRetryCount = retryCount + 1;
+          retryCounts.set(url, nextRetryCount);
           
-          // Log retry attempt
-          logDebug(`[HttpInterceptor] Retrying request (${config._retryCount}/${config._maxRetries}): ${config.url}`);
+          // Calculate delay with exponential backoff
+          const delay = retryConfig.retryDelay * Math.pow(2, nextRetryCount - 1);
+          logDebug(`[HttpInterceptor] Retrying request (${nextRetryCount}/${retryConfig.maxRetries}) in ${delay}ms: ${url}`);
           
-          // Wait before retrying - use exponential backoff
-          const delay = config._retryDelay * Math.pow(2, config._retryCount - 1);
+          // Wait before retrying
           await new Promise(resolve => setTimeout(resolve, delay));
           
           // Retry the request
           return axiosInstance(config);
         }
+        
+        // Clean up retry count if we're not retrying
+        retryCounts.delete(url);
       }
       
-      // Check if we should enable offline mode due to network error
-      if (!checkOfflineMode() && ErrorHandler.isNetworkError(error)) {
-        // Set offline mode if we detect we're offline
-        setOfflineMode(true, false); // Non-persistent by default
-        
-        // Show notification once
-        toast.error(CONFIG.ERROR_MESSAGES.NETWORK_ERROR, {
-          duration: 5000,
-          id: 'offline-mode-toast', // Prevent duplicate toasts
-          icon: '📶'
+      // Handle network errors
+      if (!response && request) {
+        // Check if we should enable offline mode
+        if (!checkOfflineMode()) {
+          setOfflineMode(true, false); // Non-persistent by default
+          toast.error(CONFIG.ERROR_MESSAGES.NETWORK_ERROR, {
+            duration: 5000,
+            id: 'offline-mode-toast',
+            icon: '📶'
+          });
+        }
+      }
+      
+      // Handle server errors
+      if (response?.status >= 500) {
+        logError(`[HttpInterceptor] Server error (${response.status}):`, {
+          url: config?.url,
+          status: response.status,
+          data: response.data
         });
       }
       
-      // Check for development mode with no backend
-      if (process.env.NODE_ENV === 'development' && 
-          ErrorHandler.isNetworkError(error) && 
-          !stateCache.developmentModeNoBackend) {
-        // After multiple network errors in development, assume no backend
-        setDevelopmentModeNoBackend(true);
-        
-        // Show notification once
-        toast.error('Development mode with no backend detected. Using mock data.', {
-          duration: 8000,
-          id: 'dev-mode-no-backend-toast'
-        });
+      // Handle authentication errors
+      if (response?.status === 401 || response?.status === 403) {
+        logWarn('[HttpInterceptor] Authentication error, clearing auth state');
+        // Clear any cached auth tokens
+        _cachedAuthToken = null;
       }
       
+      // Handle the error if enabled
       if (handleErrors) {
-        handleResponseError(error);
+        return handleResponseError(error);
       }
       
       return Promise.reject(error);

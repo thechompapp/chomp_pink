@@ -53,11 +53,20 @@ function ListDetail({ listId: propListId, embedded = false }) {
     queryFn: async () => {
       logDebug(`[ListDetail] Fetching details for list ID: ${listId}`);
       try {
-        const result = await listService.getListDetails(listId);
-        if (!result || !result.list) {
+        // First get the list details
+        const listResult = await listService.getList(listId);
+        if (!listResult || !listResult.data) {
           throw new Error('Invalid or empty list data received');
         }
-        return result;
+        
+        // Then get the list items
+        const itemsResult = await listService.getListItems(listId);
+        
+        // Combine the results into the expected format
+        return {
+          list: listResult.data,
+          items: itemsResult?.data || []
+        };
       } catch (err) {
         logError(`[ListDetail] Error in query function:`, err);
         // Rethrow to let React Query handle it

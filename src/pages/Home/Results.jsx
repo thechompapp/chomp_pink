@@ -1,6 +1,12 @@
 /* src/pages/Home/Results.jsx */
 import React, { useMemo, useCallback, useEffect } from 'react';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import { useInView } from 'react-intersection-observer';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
+import AddIcon from '@mui/icons-material/Add';
+import { Link } from 'react-router-dom';
 import InfiniteScroll from 'react-infinite-scroll-component';
 import ErrorMessage from '@/components/UI/ErrorMessage.jsx';
 import { listService } from '@/services/listService.js';
@@ -63,48 +69,28 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
         logDebug(`[Results] Fetching lists with params:`, params);
         const response = await listService.getUserLists(params);
         
-        console.log('[Results] Raw API response:', JSON.stringify(response, null, 2));
-        
-        // Handle response format
-        let items = [];
-        let total = 0;
-        
-        console.log('[Results] Processing API response:', {
-          hasSuccess: response?.success,
-          hasData: !!response?.data,
-          hasDataData: !!response?.data?.data,
-          dataType: response?.data ? typeof response.data : 'undefined',
-          dataKeys: response?.data ? Object.keys(response.data) : 'no data'
+        logDebug('[Results] Received lists response:', {
+          success: response?.success,
+          itemsCount: response?.data?.length ?? 0,
+          hasPagination: !!response?.pagination,
+          message: response?.message
         });
         
-        // Handle the actual API response format
-        if (response?.success && response?.data?.data) {
-          items = Array.isArray(response.data.data) ? response.data.data : [];
-          total = response.data.total || items.length;
-          console.log(`[Results] Extracted ${items.length} items from response.data.data`);
-        } 
-        // Fallback to other possible response formats
-        else if (response?.data?.data) {
-          items = Array.isArray(response.data.data) ? response.data.data : [];
-          total = response.data.total || 0;
-          console.log(`[Results] Extracted ${items.length} items from response.data.data (fallback)`);
-        } else if (Array.isArray(response?.data)) {
-          items = response.data;
-          total = response.pagination?.total || items.length;
-          console.log(`[Results] Extracted ${items.length} items from response.data array`);
-        } else if (response?.data?.lists) {
-          items = Array.isArray(response.data.lists) ? response.data.lists : [];
-          total = response.data.total || items.length;
-          console.log(`[Results] Extracted ${items.length} items from response.data.lists`);
-        } else {
-          console.warn('[Results] Could not extract items from response:', response);
-        }
+        // Normalize the response to ensure consistent structure
+        const items = Array.isArray(response.data) ? response.data : [];
+        const total = response.pagination?.total ?? items.length;
         
         return {
-          items,
-          total,
-          page: pageParam,
-          hasMore: (pageParam * limit) < total
+          success: response.success,
+          data: items,
+          pagination: response.pagination || {
+            page: pageParam,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit)
+          },
+          hasMore: (pageParam * limit) < total,
+          page: pageParam
         };
       } 
       
@@ -123,27 +109,40 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
       logDebug(`[Results] Fetching ${contentType} with params:`, params);
       const response = await searchService.search(params);
       
-      let items = [];
-      let total = 0;
+      // Normalize search response
+      const items = Array.isArray(response?.data?.[contentType]) 
+        ? response.data[contentType] 
+        : [];
       
-      if (response?.data) {
-        items = response.data[contentType] || [];
-        total = response.data.total || items.length;
-      } else if (response?.[contentType]) {
-        items = response[contentType];
-        total = response.total || items.length;
-      }
+      const total = response?.data?.total ?? items.length;
       
       return {
-        items,
-        total,
-        page: pageParam,
-        hasMore: (pageParam * limit) < total
+        success: true,
+        data: items,
+        pagination: {
+          page: pageParam,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit)
+        },
+        hasMore: (pageParam * limit) < total,
+        page: pageParam
       };
       
     } catch (error) {
       logError(`[Results] Error in fetchFunction:`, error);
-      throw error;
+      return {
+        success: false,
+        data: [],
+        pagination: {
+          page: pageParam,
+          limit: RESULTS_PER_PAGE,
+          total: 0,
+          totalPages: 0
+        },
+        message: error.message || 'Failed to fetch data',
+        error: true
+      };
     }
   }, [contentType, searchQuery, cityId, boroughId, neighborhoodId, hashtags]);
 
@@ -224,90 +223,75 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
     refetchOnWindowFocus: false,
   });
 
-  // Process the data from the API
-  const { items, total } = useMemo(() => {
+  // Process the data to extract items and pagination info
+  const { items, total, error: queryError } = useMemo(() => {
+    // If we have an error from the query, return it
+    if (error) {
+      console.error('[Results] Error fetching data:', error);
+      return { 
+        items: [], 
+        total: 0, 
+        error: error.message || 'Failed to load data'
+      };
+    }
+    
+    // If no data yet, return empty state
     if (!data || !data.pages || data.pages.length === 0) {
+      console.log('[Results] No data or empty pages array');
       return { items: [], total: 0 };
     }
     
-    // Helper function to extract items from different response formats
-    const extractItems = (page) => {
-      if (!page) return { items: [], total: 0 };
+    // Log the first page data structure for debugging
+    console.log('[Results] First page data:', data.pages[0]);
+    
+    // Extract all items from all pages
+    const allItems = data.pages.flatMap(page => {
+      if (!page) return [];
       
-      try {
-        // Log page structure for debugging
-        logDebug('[Results] Page structure:', {
-          keys: Object.keys(page),
-          hasData: !!page.data,
-          dataType: page.data ? typeof page.data : 'undefined',
-          dataKeys: page.data ? Object.keys(page.data) : 'no data'
-        });
-        
-        // Handle different response formats
-        if (contentType === 'lists') {
-          // Format 1: { success: true, data: { data: [...], total: X } }
-          if (page.success && page.data?.data && Array.isArray(page.data.data)) {
-            return { items: page.data.data, total: page.data.total };
-          }
-          // Format 2: { data: [...] }
-          if (page.data && Array.isArray(page.data)) {
-            return { items: page.data, total: page.data.length };
-          }
-          // Format 3: Direct array
-          if (Array.isArray(page)) {
-            return { items: page, total: page.length };
-          }
-        } 
-        // Handle other content types
-        else if (page[contentType] && Array.isArray(page[contentType])) {
-          return { items: page[contentType], total: page.total || page[contentType].length };
-        }
-        
-        // Fallback to common structures
-        if (page.items && Array.isArray(page.items)) {
-          return { items: page.items, total: page.total || page.items.length };
-        }
-        if (page.data && Array.isArray(page.data)) {
-          return { items: page.data, total: page.total || page.data.length };
-        }
-      } catch (error) {
-        logError('[Results] Error in extractItems:', error);
+      // Log each page structure for debugging
+      console.log('[Results] Processing page:', {
+        pageData: page,
+        hasData: !!page.data,
+        dataType: typeof page.data,
+        isArray: Array.isArray(page.data)
+      });
+      
+      // Handle different possible response formats
+      if (Array.isArray(page.data)) {
+        return page.data;
+      } else if (page.data && Array.isArray(page.data.data)) {
+        return page.data.data;
+      } else if (page.data && Array.isArray(page.data.lists)) {
+        return page.data.lists;
+      } else if (page.data && Array.isArray(page.data.items)) {
+        return page.data.items;
+      } else if (page.data && typeof page.data === 'object') {
+        // If data is a single object, wrap it in an array
+        return [page.data];
       }
       
-      return { items: [], total: 0 };
-    };
-    
-    // Process all pages and combine results
-    let allItems = [];
-    let totalItems = 0;
-    
-    data.pages.forEach((page) => {
-      try {
-        const { items: pageItems, total: pageTotal } = extractItems(page);
-        if (pageItems && pageItems.length > 0) {
-          allItems = [...allItems, ...pageItems];
-          // Use the largest total we find (in case of pagination)
-          if (pageTotal > totalItems) {
-            totalItems = pageTotal;
-          }
-        }
-      } catch (error) {
-        logError('[Results] Error processing page:', error);
-      }
+      return [];
     });
     
-    // If we didn't get a total from any page, use the count of items
-    if (totalItems === 0) {
-      totalItems = allItems.length;
-    }
+    console.log(`[Results] Extracted ${allItems.length} items`);
     
-    logDebug(`[Results] Processed ${allItems.length} items with total ${totalItems}`);
+    // Get total from the first page if available, or use the count of all items
+    const firstPage = data.pages[0];
+    const totalItems = firstPage?.pagination?.total || 
+                      firstPage?.data?.total || 
+                      allItems.length;
+    
+    // Check for error in response
+    const pageError = data.pages.some(page => 
+      page && !page.success && page.message
+    );
     
     return {
-      items: allItems.filter(item => item && item.id !== undefined),
-      total: totalItems
+      items: allItems,
+      total: totalItems,
+      error: pageError ? (firstPage?.message || 'Error loading data') : null
     };
-  }, [data, contentType]);
+  }, [data, error, contentType]);
 
   const showInitialLoading = isLoading && !items.length;
 
@@ -319,22 +303,26 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
       try {
         // Extract all lists from all pages with proper null checking
         const allLists = data.pages.flatMap(page => {
-          if (!page || !page.data) return [];
+          if (!page) return [];
           
-          const pageData = page.data;
-          if (Array.isArray(pageData.lists)) {
-            return pageData.lists;
-          } else if (Array.isArray(pageData.items)) {
-            return pageData.items;
-          } else if (Array.isArray(pageData.data)) {
-            return pageData.data;
+          // Get lists from the standardized response format
+          if (Array.isArray(page.data)) {
+            return page.data;
           }
+          
+          // Fallback to legacy formats if needed
+          if (page.data?.data && Array.isArray(page.data.data)) {
+            return page.data.data;
+          }
+          
           return [];
-        });
+        }).filter(list => list && list.id);
         
         if (allLists.length > 0) {
           logDebug(`[Results] Initializing follow store with ${allLists.length} lists from Home page`);
           initializeFollowedLists(allLists);
+        } else {
+          logDebug('[Results] No valid lists found for follow store initialization');
         }
       } catch (error) {
         logError('[Results] Error initializing follow store:', error);
@@ -342,29 +330,65 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
     }
   }, [data?.pages, contentType, initializeFollowedLists]);
 
-  if (showInitialLoading) {
-    logDebug('[Results Render] Showing initial skeletons.');
-    console.log('[Results Render] Showing initial skeletons.'); // Debug log
-    const skeletonItems = Array(RESULTS_PER_PAGE).fill(null).map((_, index) => (
-      <ItemSkeleton key={`skeleton-${index}`} type={contentType} />
-    ));
+  // Handle loading and error states
+  if (isLoading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        {skeletonItems}
+      <div className="flex flex-col items-center justify-center p-8 space-y-4">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-chomp-blue"></div>
+        <p className="text-gray-600">Loading lists...</p>
       </div>
     );
   }
-
-  if (error) {
-    logError('[Results Render] Rendering error message:', error);
-    console.error('[Results Render] Error:', error); // Debug log
-    return <ErrorMessage message={`Failed to load ${contentType}: ${error.message || 'Unknown error'}`} />;
+  
+  // Check for errors from the API response
+  const hasError = queryError || (items.length === 0 && !isFetchingNextPage);
+  
+  if (hasError) {
+    return (
+      <div className="text-center p-8">
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mb-4">
+          <ErrorOutlineIcon className="w-8 h-8 text-red-500" />
+        </div>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">Unable to load lists</h3>
+        <p className="text-gray-600 mb-4">
+          {queryError || 'There was a problem loading the lists. Please try again.'}
+        </p>
+        <button
+          onClick={() => refetch()}
+          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-chomp-blue hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+        >
+          <RefreshIcon className="-ml-1 mr-2 h-4 w-4" />
+          Retry
+        </button>
+      </div>
+    );
   }
 
   if (!isLoading && !isFetching && items.length === 0) {
     logDebug('[Results Render] Rendering "No results found".');
     console.log('[Results Render] No results found.'); // Debug log
-    return <p className="text-gray-500 dark:text-gray-400 text-center py-8 col-span-full">No {contentType} found matching your criteria.</p>;
+    return (
+      <div className="text-center p-8">
+        <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-gray-100 mb-4">
+          <DescriptionOutlinedIcon className="h-6 w-6 text-gray-400" />
+        </div>
+        <h3 className="text-lg font-medium text-gray-900 mb-1">No lists found</h3>
+        <p className="text-gray-500 mb-6">
+          {searchQuery 
+            ? 'No lists match your search criteria.' 
+            : 'Get started by creating a new list!'}
+        </p>
+        {!searchQuery && (
+          <Link
+            to="/create"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-chomp-blue hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            <AddIcon className="-ml-1 mr-2 h-4 w-4" />
+            Create List
+          </Link>
+        )}
+      </div>
+    );
   }
 
   logDebug(`[Results Render] Rendering InfiniteScroll. Items: ${items.length}, HasNext: ${hasNextPage}, IsFetchingNext: ${isFetchingNextPage}`);

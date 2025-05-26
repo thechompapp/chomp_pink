@@ -382,6 +382,79 @@ export class ErrorHandler {
     
     return error;
   }
+  
+  /**
+   * Enhance an error with additional context and standardization
+   * 
+   * @param {Error|Object|string} error - The error to enhance
+   * @param {Object} [config] - The request config that generated the error
+   * @returns {Error} - Enhanced error object
+   */
+  static enhanceError(error, config) {
+    // If it's already an enhanced error, return as is
+    if (error?.isEnhanced) {
+      return error;
+    }
+    
+    // Create a new error object to avoid reference issues
+    const enhancedError = error instanceof Error 
+      ? new Error(error.message) 
+      : new Error(ErrorHandler.getErrorMessage(error));
+    
+    // Copy over all enumerable properties
+    Object.entries(error).forEach(([key, value]) => {
+      if (key !== 'message' && key !== 'stack') {
+        enhancedError[key] = value;
+      }
+    });
+    
+    // Add request information if available
+    if (config) {
+      enhancedError.config = {
+        url: config.url,
+        method: config.method || 'get',
+        baseURL: config.baseURL,
+        params: config.params,
+        headers: config.headers
+      };
+    }
+    
+    // Add response information if available
+    if (error.response) {
+      enhancedError.response = {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        data: error.response.data,
+        headers: error.response.headers
+      };
+    }
+    
+    // Add request information for network errors
+    if (error.request) {
+      enhancedError.request = {
+        method: error.config?.method || 'unknown',
+        url: error.config?.url || 'unknown',
+        headers: error.config?.headers || {}
+      };
+    }
+    
+    // Add error type information
+    enhancedError.isNetworkError = ErrorHandler.isNetworkError(error);
+    enhancedError.isServerError = ErrorHandler.isServerError(error);
+    enhancedError.isAuthError = ErrorHandler.isAuthError(error);
+    enhancedError.isRetriable = ErrorHandler.isRetriable(error);
+    enhancedError.isDevelopmentModeError = ErrorHandler.isDevelopmentModeError(error);
+    
+    // Mark as enhanced to prevent double enhancement
+    enhancedError.isEnhanced = true;
+    
+    // Preserve the original stack trace if available
+    if (error.stack) {
+      enhancedError.stack = error.stack;
+    }
+    
+    return enhancedError;
+  }
 }
 
 export default ErrorHandler; 
