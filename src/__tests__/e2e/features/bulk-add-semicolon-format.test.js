@@ -18,6 +18,8 @@ import { initializeDatabase } from '../../setup/db-init.js';
 import { describe, it, before, after } from 'mocha';
 import { expect } from 'chai';
 
+// Test timeout (30 seconds)
+const TEST_TIMEOUT = 30000;
 describe('Bulk Add Semicolon Format E2E Tests', function() {
   this.timeout(30000); // Set timeout to 30 seconds for API calls
   

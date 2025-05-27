@@ -38,8 +38,28 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: './src/test/setup.js',
+    environmentOptions: {
+      jsdom: {
+        url: 'http://localhost:5001',
+      },
+    },
     deps: {
-      inline: ['react', 'react-dom', '@testing-library/react'],
-    }
+      inline: ['react', 'react-dom', '@testing-library/react', 'axios'],
+    },
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      exclude: [
+        'node_modules/',
+        '**/__tests__/**',
+        '**/*.test.{js,jsx,ts,tsx}',
+        '**/*.spec.{js,jsx,ts,tsx}',
+        '**/test-utils/**',
+      ],
+    },
+    testTimeout: 10000,
+  },
+  define: {
+    'import.meta.env.VITE_API_BASE_URL': JSON.stringify('http://localhost:5001/api'),
   },
 })

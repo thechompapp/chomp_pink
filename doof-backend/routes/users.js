@@ -9,15 +9,20 @@ import optionalAuthMiddleware from '../middleware/optionalAuth.js';
 
 const router = express.Router();
 
-// GET /api/users/profile/:identifier
+// GET /api/users/profile/:identifier - Protected route
 router.get(
     '/profile/:identifier',
-    // validateIdentifierParam('identifier'), // Assuming validator exists
-    // handleValidationErrors,
-    optionalAuthMiddleware,
-    userController.getUserProfile // Access via namespace
+    requireAuth, // Require authentication for this endpoint
+    userController.getUserProfile
 );
 
-// TODO: Add other user routes
+import { requireAuth } from '../middleware/auth.js';
+
+// PUT /api/users/:id/password - Update user's password
+router.put(
+  '/:id/password',
+  requireAuth,
+  userController.updateUserPassword
+);
 
 export default router;

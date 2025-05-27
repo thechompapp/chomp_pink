@@ -5,7 +5,7 @@
  * It follows the project's rules by using real API endpoints and data.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, fail, vi } from 'vitest';
 import { config } from '../setup/config.js';
 import { tokenStorage } from '../utils/tokenStorage.js';
 import axios from 'axios';
@@ -27,24 +27,50 @@ const TEST_CREDENTIALS = {
   username: process.env.TEST_USER_USERNAME || 'testuser'
 };
 
-// Helper to conditionally run tests
+// Helper to conditionally run tests (unused but keeping for future use)
 const testIf = (condition) => condition ? it : it.skip;
 
-// Configure axios instance for tests
+// Configure axios instance for tests with shorter timeouts
 const apiClient = axios.create({
   baseURL: cleanBaseUrl,
-  timeout: 10000,
+  timeout: 5000, // Reduced from 10000 to fail faster
   headers: {
     'Content-Type': 'application/json',
-    'Accept': 'application/json'
-  }
+  },
 });
 
+// Disable request/response interceptors in test mode to reduce noise
+if (process.env.NODE_ENV !== 'test') {
+  // Add request interceptor for logging
+  apiClient.interceptors.request.use(
+    (config) => {
+      console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url}`);
+      return config;
+    },
+    (error) => {
+      console.error('[API Request Error]', error);
+      return Promise.reject(error);
+    }
+  );
+
+  // Add response interceptor for logging
+  apiClient.interceptors.response.use(
+    (response) => {
+      console.log(`[API Response] ${response.status} ${response.config.url}`);
+      return response;
+    },
+    (error) => {
+      console.error('[API Response Error]', error.message);
+      return Promise.reject(error);
+    }
+  );
+}
 // Add request interceptor to include auth token if available
 apiClient.interceptors.request.use(
   (config) => {
     const token = tokenStorage.getToken();
     if (token) {
+      config.headers = config.headers || {};
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
@@ -52,8 +78,21 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Add response interceptor to handle errors consistently
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Handle unauthorized errors
+      tokenStorage.clearToken();
+    }
+    return Promise.reject(error);
+  }
+);
+
 // Helper function to make authenticated requests
-const makeRequest = async (method, endpoint, data = null) => {
+const makeRequest = async (method, endpoint, data = null, options = {}) => {
+  const { headers = {} } = options;
   try {
     // Handle URL construction
     let url = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
@@ -61,7 +100,9 @@ const makeRequest = async (method, endpoint, data = null) => {
     const config = {
       method: method.toLowerCase(),
       url,
-      headers: {}
+      headers: {
+        ...headers
+      }
     };
     
     if (data) {
@@ -115,8 +156,18 @@ const validateHealthCheckResponse = (response) => {
 };
 
 describe('Health Check Integration Tests', () => {
+  // Force tests to run in series to prevent race conditions
+  beforeEach(() => {
+    // Reset any mocks or spies
+    vi.clearAllMocks();
+  });
+
+  afterEach(async () => {
+    // Ensure all pending promises are resolved
+    await new Promise(resolve => setImmediate(resolve));
+  });
   // Basic health check test
-  test('should return a successful health check response with expected structure', async () => {
+  it('should return a successful health check response with expected structure', async () => {
     console.log('Testing basic health check endpoint...');
     const response = await makeRequest('GET', '/health');
     
@@ -140,7 +191,7 @@ describe('Health Check Integration Tests', () => {
   }, TEST_TIMEOUT);
   
   // Test with different HTTP methods
-  test('should handle different HTTP methods appropriately', async () => {
+  it('should handle different HTTP methods appropriately', async () => {
     // HEAD request should work without body
     const headResponse = await makeRequest('HEAD', '/health');
     expect(headResponse.status).toBe(200);
@@ -159,7 +210,7 @@ describe('Health Check Integration Tests', () => {
   }, TEST_TIMEOUT);
   
   // Test error handling for non-existent endpoints
-  test('should return appropriate error for non-existent endpoints', async () => {
+  it('should return appropriate error for non-existent endpoints', async () => {
     const invalidEndpoints = [
       '/health/nonexistent',
       '/health-invalid',
@@ -178,7 +229,7 @@ describe('Health Check Integration Tests', () => {
   }, TEST_TIMEOUT);
   
   // Test with different content types
-  test('should handle different content types', async () => {
+  it('should handle different content types', async () => {
     const contentTypes = [
       'application/json',
       'application/x-www-form-urlencoded',
@@ -196,7 +247,7 @@ describe('Health Check Integration Tests', () => {
   }, TEST_TIMEOUT);
   
   // Test with various query parameters (should be ignored by health check)
-  test('should ignore query parameters', async () => {
+  it('should ignore query parameters', async () => {
     const params = [
       '?test=1',
       '?cache=false&debug=true',

@@ -52,7 +52,7 @@ export const findAllDishes = async (options = {}) => {
       COALESCE(
         (SELECT ARRAY_AGG(DISTINCT h.name ORDER BY h.name)
          FROM hashtags h
-         JOIN dish_hashtags dh ON h.id = dh.hashtag_id
+         JOIN dishhashtags dh ON h.id = dh.hashtag_id
          WHERE dh.dish_id = d.id),
         '{}'::TEXT[]
       ) AS tags
@@ -110,7 +110,7 @@ export const findAllDishes = async (options = {}) => {
         id: Number(row.id),
         name: row.name || 'Unnamed Dish',
         description: row.description || '',
-        price: this._formatPrice(row.price),
+        price: _formatPrice(row.price),
         category: row.category || 'main',
         isCommon: Boolean(row.is_common),
         adds: Number(row.adds || 0),
@@ -132,8 +132,15 @@ export const findAllDishes = async (options = {}) => {
       totalPages: Math.ceil(total / limit)
     };
   } catch (error) {
-    console.error('Error in findAllDishes model:', error);
-    throw new Error('Database error fetching dishes.');
+    console.error('Error in findAllDishes model:', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      hint: error.hint,
+      position: error.position,
+      stack: error.stack
+    });
+    throw new Error(`Database error fetching dishes: ${error.message}`);
   }
 };
 
@@ -141,30 +148,60 @@ export const findAllDishes = async (options = {}) => {
  * Format price consistently
  * @private
  * @param {string|number} price - Price to format
- * @returns {string} Formatted price
+ * @returns {string} Formatted price with 2 decimal places
  */
 function _formatPrice(price) {
-  if (price === null || price === undefined) {
+  if (price === null || price === undefined || price === '') {
     return '0.00';
   }
   
-  // If it's already a number, format it with 2 decimal places
-  if (typeof price === 'number') {
-    return price.toFixed(2);
-  }
-  
-  // If it's a string, try to parse it as a number
-  const num = parseFloat(price);
-  if (!isNaN(num)) {
-    return num.toFixed(2);
-  }
-  
-  // If we can't parse it, return the original string or a default
-  return price || '0.00';
+  // Convert to number and format with 2 decimal places
+  const num = typeof price === 'number' ? price : parseFloat(price);
+  return isNaN(num) ? '0.00' : num.toFixed(2);
 }
 
 export { _formatPrice };
-export const findDishesByRestaurantId = async (restaurantId, options = {}) => { /* ... implementation ... */ };
+/**
+ * Find all dishes for a specific restaurant
+ * @param {number} restaurantId - The ID of the restaurant
+ * @param {Object} options - Query options
+ * @param {number} options.limit - Maximum number of dishes to return
+ * @param {number} options.offset - Number of dishes to skip
+ * @returns {Promise<Array>} Array of dish objects
+ */
+export const findDishesByRestaurantId = async (restaurantId, options = {}) => {
+  try {
+    const { limit = 100, offset = 0 } = options;
+    
+    const query = `
+      SELECT d.*, r.name as restaurant_name
+      FROM dishes d
+      LEFT JOIN restaurants r ON d.restaurant_id = r.id
+      WHERE d.restaurant_id = $1
+      ORDER BY d.name
+      LIMIT $2 OFFSET $3`;
+      
+    const result = await db.query(query, [restaurantId, limit, offset]);
+    
+    return result.rows.map(row => ({
+      id: Number(row.id),
+      name: row.name || 'Unnamed Dish',
+      restaurant_id: row.restaurant_id ? Number(row.restaurant_id) : null,
+      restaurant_name: row.restaurant_name || null,
+      description: row.description || null,
+      price: row.price ? Number(row.price) : null,
+      category: row.category || 'main',
+      is_common: Boolean(row.is_common),
+      adds: Number(row.adds || 0),
+      created_by: row.created_by ? Number(row.created_by) : null,
+      created_at: row.created_at || null,
+      updated_at: row.updated_at || null
+    }));
+  } catch (error) {
+    console.error('Error in findDishesByRestaurantId:', error);
+    throw new Error(`Failed to fetch dishes for restaurant ${restaurantId}`);
+  }
+};
 export const findDishById = async (id) => {
   try {
     const query = 'SELECT * FROM dishes WHERE id = $1';

@@ -8,6 +8,8 @@ import { describe, it, expect } from 'vitest';
 import { apiClient, TEST_TIMEOUT, API_ENDPOINTS } from '../../setup/api-test-config.js';
 import { setupVitestHooks } from '../../setup/setup-vitest-hooks.js';
 
+// Test timeout (30 seconds)
+const TEST_TIMEOUT = 30000;
 // Setup Vitest hooks for capturing API request/response data
 setupVitestHooks();
 

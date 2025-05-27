@@ -55,7 +55,7 @@ export const findAllRestaurants = async (options = {}) => {
       COALESCE(
         (SELECT ARRAY_AGG(DISTINCT h.name ORDER BY h.name)
          FROM hashtags h
-         JOIN restaurant_hashtags rh ON h.id = rh.hashtag_id
+         JOIN restauranthashtags rh ON h.id = rh.hashtag_id
          WHERE rh.restaurant_id = r.id),
         '{}'::TEXT[]
       ) AS tags

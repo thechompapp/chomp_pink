@@ -4,60 +4,68 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 
 // Load environment variables from .env file
-dotenv.config({ path: path.resolve(process.cwd(), 'tests/.env') });
+dotenv.config({ path: path.resolve(process.cwd(), '.env.test') });
 
 // Workaround for __dirname in ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export default defineConfig({
-  // Use our custom test environment
-  testEnvironment: './tests/setup/test-environment.js',
   test: {
     globals: true,
-    environment: 'node',
+    environment: 'jsdom',
     setupFiles: ['./tests/setup.js'],
     setupFilesAfterEnv: ['./tests/setup/integration-setup.js'],
     include: ['tests/integration/**/*.test.js'],
-    testTimeout: 30000,
-    
-    // Configure module resolution
-    alias: {
-      '^axios$': path.resolve(__dirname, 'node_modules/axios/dist/axios.js'),
-      '^@/(.*)$': path.resolve(__dirname, './src/$1'),
+    testTimeout: 30000, // Increased to 30 seconds
+    threads: false, // Disable threads for more reliable testing
+    forceRerunTriggers: [], // Disable file watching
+    watch: false, // Disable watch mode
+    hookTimeout: 30000, // 30 second hook timeout
+    teardownTimeout: 30000, // 30 second teardown timeout,
+    environmentOptions: {
+      jsdom: {
+        resources: 'usable',
+        runScripts: 'dangerously',
+        url: 'http://localhost:5001' // Set the base URL for jsdom
+      }
     },
-    
-    // Handle ESM/CJS interop
     deps: {
-      inline: [
-        'axios',
-        'node-fetch',
-        '@testing-library/dom',
-        '@testing-library/react',
-        '@testing-library/user-event',
-        '@testing-library/jest-dom'
-      ],
-      interopDefault: true,
+      inline: ['axios']
     },
+    
+    // Module resolution
+    alias: {
+      '^@/(.*)$': path.resolve(__dirname, './src/$1'),
+      '^axios$': path.resolve(__dirname, 'node_modules/axios/dist/axios.js'),
+    },
+    
+    // Environment variables
+    env: {
+      NODE_ENV: 'test',
+      TEST: 'true',
+      API_BASE_URL: process.env.API_BASE_URL || 'http://localhost:5001/api'
+    },
+    
+    // Coverage configuration
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
+      all: true,
+      include: ['src/**/*.js'],
       exclude: [
-        'node_modules/',
         '**/*.test.js',
-        '**/*.spec.js',
-        '**/tests/**',
         '**/__mocks__/**',
-        '**/test-utils/**',
-      ],
-      include: [
-        'src/**/*.{js,jsx,ts,tsx}',
-      ],
-    },
+        '**/__tests__/**',
+        '**/node_modules/**'
+      ]
+    }
   },
+  
+  // Global resolve configuration
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
-    },
-  },
+      '^@/(.*)$': path.resolve(__dirname, './src/$1')
+    }
+  }
 });

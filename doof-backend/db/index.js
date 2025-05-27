@@ -14,10 +14,15 @@ dotenv.config(); // Ensure .env is loaded
 /**
  * Database connection configuration
  */
+// Determine database name based on environment
+const databaseName = process.env.NODE_ENV === 'test' 
+  ? 'doof_test' 
+  : (process.env.DB_DATABASE || config.db.database);
+
 const poolConfig = {
     user: process.env.DB_USER || config.db.user,
     host: process.env.DB_HOST || config.db.host,
-    database: process.env.DB_DATABASE || config.db.database,
+    database: databaseName,
     password: process.env.DB_PASSWORD || config.db.password,
     port: parseInt(process.env.DB_PORT || String(config.db.port), 10),
     // Pool optimization settings
@@ -33,6 +38,16 @@ if (!poolConfig.password && process.env.NODE_ENV !== 'test') {
     logger.error('Database password (DB_PASSWORD) is not set in environment variables or config!');
     // We'll continue but log this critical error
 }
+
+// Log database connection details for debugging
+console.log('Database connection details:', {
+  user: poolConfig.user,
+  host: poolConfig.host,
+  database: poolConfig.database,
+  port: poolConfig.port,
+  max: poolConfig.max,
+  ssl: poolConfig.ssl
+});
 
 /**
  * Create and configure connection pool

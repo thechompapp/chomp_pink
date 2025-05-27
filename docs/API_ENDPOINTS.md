@@ -86,7 +86,7 @@ Here's a list of API endpoints and their descriptions:
 /api/e2e/dishes (POST): Creates a new dish for E2E testing.
 /api/e2e/dishes/:id (PUT): Updates a dish for E2E testing.
 /api/e2e/dishes/:id (DELETE): Deletes a dish for E2E testing.
-/api/db-test: Tests the database connection.
+/api/db-test: Tests the database connection
 /api/health: Provides a health check for the backend.
 /api/metrics: Retrieves performance metrics (admin only).
 /api/metrics/reset: Resets performance metrics (admin only).

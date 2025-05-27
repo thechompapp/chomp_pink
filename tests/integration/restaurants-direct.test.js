@@ -104,9 +104,10 @@ describe('Restaurant API', () => {
       return;
     }
 
-    const response = await fetch(`${cleanBaseUrl}/restaurants/${testRestaurantId}/dishes`, {
+    const response = await fetch(`${cleanBaseUrl}/dishes?restaurant_id=${testRestaurantId}`, {
       headers: {
-        'Authorization': `Bearer ${authToken}`
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json'
       }
     });
 

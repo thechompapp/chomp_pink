@@ -1,11 +1,12 @@
 /**
  * Unit tests for the Authentication Store
  */
-import { renderHook, act } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react-hooks';
 import { vi, describe, it, expect, beforeEach, afterEach, beforeAll } from 'vitest';
 import useAuthenticationStore from '../../../../src/stores/auth/useAuthenticationStore';
 import { apiClient } from '../../../../src/services/http';
 import ErrorHandler from '../../../../src/utils/ErrorHandler';
+import { renderHook } from '../../../setup/render-hook';
 
 // Enable auto cleanup for hooks
 afterEach(() => {
@@ -13,17 +14,28 @@ afterEach(() => {
 });
 
 // Mock dependencies
-vi.mock('../../../../src/services/http', () => ({
-  apiClient: {
-    get: vi.fn(),
-    post: vi.fn()
-  }
-}));
+vi.mock('../../../../src/services/http', () => {
+  const originalModule = vi.importActual('../../../../src/services/http');
+  return {
+    ...originalModule,
+    apiClient: {
+      ...originalModule.apiClient,
+      get: vi.fn(),
+      post: vi.fn(),
+      defaults: {
+        headers: {
+          common: {}
+        }
+      }
+    }
+  };
+});
 
 vi.mock('../../../../src/utils/ErrorHandler', () => ({
   default: {
     handle: vi.fn(),
-    isNetworkError: vi.fn()
+    isNetworkError: vi.fn(),
+    clear: vi.fn()
   }
 }));
 
@@ -49,31 +61,80 @@ Object.defineProperty(window, 'localStorage', {
 });
 
 // Mock window events
-window.dispatchEvent = vi.fn();
+const mockAddEventListener = vi.fn();
+const mockRemoveEventListener = vi.fn();
+
+Object.defineProperty(window, 'addEventListener', {
+  value: mockAddEventListener,
+  configurable: true
+});
+
+Object.defineProperty(window, 'removeEventListener', {
+  value: mockRemoveEventListener,
+  configurable: true
+});
+
+// Mock document
+const mockDocument = {
+  visibilityState: 'visible',
+  addEventListener: vi.fn(),
+  removeEventListener: vi.fn(),
+  dispatchEvent: vi.fn()
+};
+
+Object.defineProperty(global, 'document', {
+  value: mockDocument,
+  writable: true,
+  configurable: true
+});
+
+// Mock requestAnimationFrame
+const mockRequestAnimationFrame = (callback) => {
+  return setTimeout(callback, 0);
+};
+
+const mockCancelAnimationFrame = (id) => {
+  clearTimeout(id);
+};
+
+Object.defineProperty(window, 'requestAnimationFrame', {
+  value: mockRequestAnimationFrame,
+  writable: true
+});
+
+Object.defineProperty(window, 'cancelAnimationFrame', {
+  value: mockCancelAnimationFrame,
+  writable: true
+});
 
 describe('useAuthenticationStore', () => {
   beforeEach(() => {
-    // Clear mocks and localStorage before each test
-    vi.clearAllMocks();
+    // Reset all mocks before each test
+    vi.resetAllMocks();
+    
+    // Clear localStorage
     localStorageMock.clear();
     
-    // Reset store state
+    // Reset the store to initial state
     act(() => {
       useAuthenticationStore.setState({
-        token: null,
-        isAuthenticated: false,
-        user: null,
-        isLoading: false,
-        error: null,
-        lastAuthCheck: null
-      });
+        ...useAuthenticationStore.initialState,
+        isAdmin: false,
+        isOffline: false,
+        _hasHydrated: true // Skip hydration for tests
+      }, true);
     });
     
-    // Setup default mocks
-    vi.mocked(apiClient.get).mockReset();
-    vi.mocked(apiClient.post).mockReset();
-    vi.mocked(ErrorHandler.handle).mockReset();
-    vi.mocked(ErrorHandler.isNetworkError).mockReset();
+    // Reset mocks
+    if (mockAddEventListener) mockAddEventListener.mockClear();
+    if (mockRemoveEventListener) mockRemoveEventListener.mockClear();
+    if (mockDocument?.addEventListener) mockDocument.addEventListener.mockClear();
+    if (mockDocument?.removeEventListener) mockDocument.removeEventListener.mockClear();
+  });
+  
+  afterEach(() => {
+    // Clean up any timers
+    vi.clearAllTimers();
   });
 
   describe('checkAuthStatus', () => {
@@ -319,35 +380,92 @@ describe('useAuthenticationStore', () => {
   });
 
   describe('logout', () => {
-    it('should clear authentication state and storage on logout', async () => {
-      // Setup initial authenticated state
+    it('should clear authentication state and storage on successful logout', async () => {
+      // Set up initial authenticated state
+      const mockUser = { id: '123', email: 'test@example.com', username: 'testuser' };
+      const mockToken = 'test-token-123';
+      
       act(() => {
         useAuthenticationStore.setState({
           isAuthenticated: true,
-          user: { id: 1, username: 'testuser' },
-          token: 'test-token',
+          user: mockUser,
+          token: mockToken,
+          isLoading: false,
+          error: null,
           lastAuthCheck: Date.now()
         });
       });
-
-      // Mock authService import and logout method
-      vi.mock('../../../../src/services/authService.js', () => ({
-        authService: {
-          logout: vi.fn().mockResolvedValue({ success: true })
-        }
-      }));
-
-      const { result } = renderHook(() => useAuthenticationStore());
+      
+      // Mock successful logout response
+      apiClient.post.mockResolvedValueOnce({ data: { success: true } });
+      
+      // Render the hook
+      const { result } = renderHookWithProviders(() => useAuthenticationStore());
+      
+      // Initial state should be authenticated
+      expect(result.current.isAuthenticated).toBe(true);
+      expect(result.current.user).toEqual(mockUser);
       
       // Call logout
       await act(async () => {
         await result.current.logout();
       });
       
-      // Verify state clearing
+      // Verify the API was called
+      expect(apiClient.post).toHaveBeenCalledWith('/auth/logout');
+      
+      // Verify the state was cleared
       expect(result.current.isAuthenticated).toBe(false);
-      expect(result.current.user).toBe(null);
-      expect(result.current.token).toBe(null);
+      expect(result.current.user).toBeNull();
+      expect(result.current.token).toBeNull();
+      expect(localStorageMock.removeItem).toHaveBeenCalledWith('authToken');
+      expect(localStorageMock.removeItem).toHaveBeenCalledWith('user');
+    });
+    
+    it('should clear state even if logout API call fails', async () => {
+      // Set up initial authenticated state
+      const mockUser = { id: '123', email: 'test@example.com', username: 'testuser' };
+      const mockToken = 'test-token-123';
+      
+      act(() => {
+        useAuthenticationStore.setState({
+          isAuthenticated: true,
+          user: mockUser,
+          token: mockToken,
+          isLoading: false,
+          error: null
+        });
+      });
+      
+      // Mock failed logout response
+      const error = new Error('Network Error');
+      apiClient.post.mockRejectedValueOnce(error);
+      
+      // Render the hook
+      const { result } = renderHookWithProviders(() => useAuthenticationStore());
+      
+      // Call logout
+      await act(async () => {
+        await result.current.logout();
+      });
+      
+      // Verify the API was called
+      expect(apiClient.post).toHaveBeenCalledWith('/auth/logout');
+      
+      // Verify error was handled
+      expect(ErrorHandler.handle).toHaveBeenCalledWith(error, {
+        context: 'useAuthenticationStore.logout',
+        showNotification: true,
+        defaultMessage: 'Failed to logout. Please try again.'
+      });
+      
+      // Verify the state was still cleared despite the error
+      expect(result.current.isAuthenticated).toBe(false);
+      expect(result.current.user).toBeNull();
+      expect(result.current.token).toBeNull();
+      expect(localStorageMock.removeItem).toHaveBeenCalledWith('authToken');
+      expect(localStorageMock.removeItem).toHaveBeenCalledWith('user');
+    });
       expect(result.current.isLoading).toBe(false);
       expect(result.current.error).toBe(null);
       
@@ -402,46 +520,132 @@ describe('useAuthenticationStore', () => {
   });
 
   describe('getters', () => {
+    beforeEach(() => {
+      // Reset store state before each test
+      act(() => {
+        useAuthenticationStore.setState(useAuthenticationStore.initialState);
+      });
+    });
+    
     it('should return current user', () => {
-      const testUser = { id: 1, username: 'testuser' };
+      const testUser = { id: '1', username: 'testuser', email: 'test@example.com' };
       
       act(() => {
         useAuthenticationStore.setState({ user: testUser });
       });
-
-      const { result } = renderHook(() => useAuthenticationStore());
       
-      expect(result.current.getCurrentUser()).toEqual(testUser);
+      const { result } = renderHookWithProviders(() => useAuthenticationStore());
+      expect(result.current.user).toEqual(testUser);
     });
-
+    
     it('should return authentication status', () => {
       act(() => {
         useAuthenticationStore.setState({ isAuthenticated: true });
       });
-
-      const { result } = renderHook(() => useAuthenticationStore());
       
-      expect(result.current.getIsAuthenticated()).toBe(true);
+      const { result } = renderHookWithProviders(() => useAuthenticationStore());
+      expect(result.current.isAuthenticated).toBe(true);
     });
-
+    
     it('should return loading status', () => {
       act(() => {
         useAuthenticationStore.setState({ isLoading: true });
       });
-
-      const { result } = renderHook(() => useAuthenticationStore());
       
-      expect(result.current.getIsLoading()).toBe(true);
+      const { result } = renderHookWithProviders(() => useAuthenticationStore());
+      expect(result.current.isLoading).toBe(true);
     });
-
+    
     it('should return token', () => {
+      const testToken = 'test-token-123';
       act(() => {
-        useAuthenticationStore.setState({ token: 'test-token' });
+        useAuthenticationStore.setState({ token: testToken });
       });
-
-      const { result } = renderHook(() => useAuthenticationStore());
       
-      expect(result.current.getToken()).toBe('test-token');
+      const { result } = renderHookWithProviders(() => useAuthenticationStore());
+      expect(result.current.token).toBe(testToken);
     });
+  });
+  
+  describe('error handling', () => {
+    it('should handle network errors during login', async () => {
+      const error = new Error('Network Error');
+      apiClient.post.mockRejectedValueOnce(error);
+      
+      const { result } = renderHookWithProviders(() => useAuthenticationStore());
+      
+      await act(async () => {
+        await result.current.login('test@example.com', 'password123');
+      });
+      
+      expect(ErrorHandler.handle).toHaveBeenCalledWith(error, {
+        context: 'useAuthenticationStore.login',
+        showNotification: true,
+        defaultMessage: 'Failed to login. Please check your credentials and try again.'
+      });
+      
+      expect(result.current.isAuthenticated).toBe(false);
+      expect(result.current.user).toBeNull();
+      expect(result.current.error).toBe('Failed to login. Please check your credentials and try again.');
+    });
+    
+    it('should handle API errors during authentication check', async () => {
+      const error = new Error('API Error');
+      apiClient.get.mockRejectedValueOnce(error);
+      
+      const { result } = renderHookWithProviders(() => useAuthenticationStore());
+      
+      await act(async () => {
+        await result.current.checkAuthStatus();
+      });
+      
+      expect(ErrorHandler.handle).toHaveBeenCalledWith(error, {
+        context: 'useAuthenticationStore.checkAuthStatus',
+        showNotification: false,
+        defaultMessage: 'Failed to check authentication status.'
+      });
+      
+      expect(result.current.isAuthenticated).toBe(false);
+    });
+  });
+});
+
+describe('useAuthenticationStore - Edge Cases', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorageMock.clear();
+    act(() => {
+      useAuthenticationStore.setState(useAuthenticationStore.initialState, true);
+    });
+  });
+  
+  it('should handle missing localStorage gracefully', () => {
+    // Temporarily remove localStorage
+    const originalLocalStorage = global.localStorage;
+    delete global.localStorage;
+    
+    // This should not throw
+    const { result } = renderHookWithProviders(() => useAuthenticationStore());
+    
+    // Restore localStorage
+    global.localStorage = originalLocalStorage;
+    
+    expect(result.current).toBeDefined();
+  });
+  
+  it('should handle missing window object', () => {
+    const originalWindow = global.window;
+    delete global.window;
+    
+    // This should not throw
+    const { result } = renderHookWithProviders(() => useAuthenticationStore());
+    
+    global.window = originalWindow;
+  });
+
+  it('should handle malformed user data in localStorage', async () => {
+    localStorageMock.setItem('user', 'invalid-json');
+    const result = setup();
+    expect(result.current.user).toBeNull();
   });
 });

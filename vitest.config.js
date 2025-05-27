@@ -50,6 +50,15 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
       exclude: [
+        '**/node_modules/**',
+        '**/tests/**',
+        '**/mocks/**',
+        '**/setupTests.js',
+        '**/*.config.js',
+        '**/*.test.js',
+        '**/test-utils/**',
+      ],
+      exclude: [
         'node_modules/',
         '**/*.test.js',
         '**/*.spec.js',
@@ -57,11 +66,20 @@ export default defineConfig({
         '**/__mocks__/**',
         '**/test-utils/**',
         '**/testUtils.*',
+        '**/setup/**',
       ],
       include: [
         'src/**/*.{js,jsx,ts,tsx}',
         '!src/__tests__/**',
       ],
+      all: true,
+      // Add thresholds for test coverage
+      thresholds: {
+        lines: 80,
+        functions: 80,
+        branches: 80,
+        statements: 80,
+      },
     },
     testTimeout: 30000, // Increase timeout for API tests
     include: [
@@ -72,9 +90,12 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      // Add any additional aliases needed for testing
     },
   },
   server: {
     port: 5173, // Match the expected port from CORS settings
+    // Enable CORS for testing
+    cors: true,
   },
 });

@@ -5,6 +5,8 @@
  */
 import { parseInputText } from '../../utils/bulkAddUtils';
 
+// Test timeout (10 seconds)
+const TEST_TIMEOUT = 10000;
 describe('bulkAddUtils', () => {
   describe('parseInputText', () => {
     it('should parse semicolon-delimited input with hashtags', () => {

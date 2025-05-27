@@ -27,7 +27,8 @@
     "test:dishes": "dotenv -e .env.test -- vitest --config vitest.integration.config.js tests/integration/simplified-dishes.test.js",
     "test:search": "dotenv -e .env.test -- vitest --config vitest.integration.config.js --testNamePattern=search",
     "test:admin": "dotenv -e .env.test -- vitest --config vitest.e2e.config.js --testNamePattern=admin",
-    "test:http": "API_BASE_URL=http://localhost:5001/api TEST_USER_EMAIL=test_user@example.com TEST_USER_PASSWORD=test_password TEST_USER_USERNAME=testuser TEST_ADMIN_EMAIL=admin_user@example.com TEST_ADMIN_PASSWORD=admin_password TEST_ADMIN_USERNAME=adminuser vitest --config vitest.config.js tests/unit/services/httpService.test.js"
+    "test:http": "API_BASE_URL=http://localhost:5001/api TEST_USER_EMAIL=test_user@example.com TEST_USER_PASSWORD=test_password TEST_USER_USERNAME=testuser TEST_ADMIN_EMAIL=admin_user@example.com TEST_ADMIN_PASSWORD=admin_password TEST_ADMIN_USERNAME=adminuser vitest --config vitest.config.js tests/unit/services/httpService.test.js",
+    "db:migrate": "node --experimental-json-modules scripts/run-migration.js"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

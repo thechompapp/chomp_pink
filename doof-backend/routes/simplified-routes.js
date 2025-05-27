@@ -14,6 +14,7 @@ const router = express.Router();
 // Restaurant routes
 router.get('/restaurants', optionalAuth, RestaurantController.getAllRestaurants);
 router.get('/restaurants/:id', optionalAuth, RestaurantController.getRestaurantById);
+router.get('/restaurants/:id/dishes', optionalAuth, RestaurantController.getRestaurantDishes);
 router.post('/restaurants', requireAuth, RestaurantController.createRestaurant);
 router.put('/restaurants/:id', requireAuth, RestaurantController.updateRestaurant);
 router.delete('/restaurants/:id', requireAuth, RestaurantController.deleteRestaurant);

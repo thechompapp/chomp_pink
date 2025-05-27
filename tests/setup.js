@@ -1,30 +1,44 @@
 // Test setup file for Vitest
-import './setup/dom'; // Setup DOM environment first
-import { vi } from 'vitest';
+import { vi, beforeAll, afterAll } from 'vitest';
 import { config } from './setup/config';
 
-// Load test environment variables first
+// Setup DOM environment first
+import './setup/dom-environment';
+
+// Load test environment variables
 import './setup/test-env';
 
 // Validate required environment variables before running any tests
 config.validate();
 
-// Mock global objects needed for testing
+// Mock global console methods
 global.console = {
   ...console,
-  // Override console methods as needed
   error: vi.fn(),
   warn: vi.fn(),
+  log: vi.fn(),
+  debug: vi.fn(),
+  info: vi.fn(),
 };
 
-// Add a global teardown function if needed
-afterAll(() => {
-  // Clean up any resources if necessary
+// Global test setup
+beforeAll(() => {
+  // Add any global test setup here
+  vi.mock('react', async () => {
+    const actual = await vi.importActual('react');
+    return {
+      ...actual,
+      useLayoutEffect: actual.useEffect,
+    };
+  });
 });
 
-// Set a longer timeout for all tests if needed
-beforeAll(() => {
-  // Setup code if needed
+// Global test teardown
+afterAll(() => {
+  // Clean up any resources if necessary
+  vi.clearAllMocks();
+  vi.resetAllMocks();
+  vi.restoreAllMocks();
 });
 
 // Export the config for use in tests

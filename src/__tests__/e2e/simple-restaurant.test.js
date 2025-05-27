@@ -7,6 +7,8 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import axios from 'axios';
 
+// Test timeout (30 seconds)
+const TEST_TIMEOUT = 30000;
 // Create a simple API client
 const apiClient = axios.create({
   baseURL: 'http://localhost:5001/api',

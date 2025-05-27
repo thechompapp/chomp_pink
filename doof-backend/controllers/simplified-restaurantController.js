@@ -1,4 +1,5 @@
 import db from '../db/index.js';
+import { findDishesByRestaurantId } from '../models/dishModel.js';
 
 /**
  * Get all restaurants (simplified for testing)
@@ -90,5 +91,37 @@ export const deleteRestaurant = async (req, res) => {
   } catch (error) {
     console.error('Error deleting restaurant:', error);
     res.status(500).json({ success: false, error: 'Failed to delete restaurant' });
+  }
+};
+
+/**
+ * Get dishes by restaurant ID (simplified for testing)
+ */
+export const getRestaurantDishes = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // First verify the restaurant exists
+    const restaurantResult = await db.query('SELECT id FROM restaurants WHERE id = $1', [id]);
+    if (restaurantResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Restaurant not found' });
+    }
+    
+    // Get dishes for the restaurant using the model function
+    const dishes = await findDishesByRestaurantId(id);
+    
+    res.json({ 
+      success: true, 
+      data: dishes,
+      pagination: {
+        totalItems: dishes.length,
+        currentPage: 1,
+        itemsPerPage: dishes.length,
+        totalPages: 1
+      }
+    });
+  } catch (error) {
+    console.error('Error getting restaurant dishes:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch restaurant dishes' });
   }
 };

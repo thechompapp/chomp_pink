@@ -1,11 +1,14 @@
 // File: doof-backend/controllers/authController.js
 
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import UserModel from '../models/userModel.js';
+import TokenBlacklist from '../models/tokenBlacklistModel.js';
 import { validationResult } from 'express-validator';
 import { sendSuccess, sendError } from '../utils/responseHandler.js';
 import { generateAuthToken } from '../utils/tokenUtils.js';
 import logger from '../utils/logger.js'; // For any specific logging not covered by sendError
+import config from '../config/config.js'; // Import config for JWT secret
 
 // User registration
 export const register = async (req, res) => {
@@ -149,17 +152,46 @@ export const login = async (req, res) => {
   }
 };
 
-// User logout (currently a simple success response as per original logic)
-// If token blocklisting or server-side session clearing were implemented,
-// this would be the place for that logic.
-export const logout = (req, res) => {
-  // Original logic: // res.clearCookie('token'); // Example if using cookies
-  // Currently, token is client-side managed. Server acknowledges logout.
+/**
+ * User logout - Invalidates the current token by adding it to the blacklist
+ */
+export const logout = async (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1] || req.cookies?.token;
+  
+  if (!token) {
+    return sendSuccess(res, {}, 'No token provided. User already logged out.');
+  }
+
   try {
-    // Perform any server-side logout actions if necessary in the future
-    // For now, just acknowledge.
-    sendSuccess(res, {}, 'Logout successful. Please clear your token on the client-side.');
+    // Verify the token to get expiration time
+    const decoded = jwt.verify(token, config.jwtSecret);
+    
+    // Add token to blacklist until it expires
+    if (decoded.exp) {
+      const expiresAt = new Date(decoded.exp * 1000); // Convert to JS timestamp
+      await TokenBlacklist.addToBlacklist(token, expiresAt);
+      console.log(`Token blacklisted until ${expiresAt}`);
+    } else {
+      // If no expiration, blacklist for 1 hour as a fallback
+      const oneHourFromNow = new Date();
+      oneHourFromNow.setHours(oneHourFromNow.getHours() + 1);
+      await TokenBlacklist.addToBlacklist(token, oneHourFromNow);
+      console.log(`Token blacklisted for 1 hour`);
+    }
+    
+    // Clear the token cookie if it exists
+    if (req.cookies?.token) {
+      res.clearCookie('token');
+    }
+    
+    sendSuccess(res, {}, 'Logout successful. Your session has been terminated.');
   } catch (error) {
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+      // If the token is invalid or expired, we can still consider the logout successful
+      // since the token is effectively invalidated
+      return sendSuccess(res, {}, 'Logout successful. Your session has been terminated.');
+    }
+    console.error('Error during logout:', error);
     sendError(res, 'Error during logout.', 500, 'LOGOUT_FAILED', error);
   }
 };
@@ -167,16 +199,24 @@ export const logout = (req, res) => {
 // Get current user profile (example of a protected route)
 export const getMe = async (req, res) => {
   try {
+    console.log('getMe - Request user:', req.user); // Log the user object from the request
+    
     // req.user is attached by authMiddleware
     if (!req.user || !req.user.id) {
+      console.error('getMe - Missing or invalid user in request');
       return sendError(res, 'User not authenticated or user ID missing.', 401, 'NOT_AUTHENTICATED');
     }
     
-    const user = await UserModel.findById(req.user.id);
+    console.log(`getMe - Looking up user with ID: ${req.user.id}`);
+    const user = await UserModel.findUserById(req.user.id);
+    
     if (!user) {
+      console.error(`getMe - User not found with ID: ${req.user.id}`);
       return sendError(res, 'User not found.', 404, 'USER_NOT_FOUND');
     }
 
+    console.log('getMe - Found user:', { id: user.id, email: user.email });
+    
     // Send back a safe subset of user information
     const userProfile = {
       id: user.id,
@@ -185,9 +225,13 @@ export const getMe = async (req, res) => {
       role: user.role,
       created_at: user.created_at,
     };
+    
+    console.log('getMe - Sending response with user profile');
     sendSuccess(res, userProfile, 'User profile fetched successfully.');
 
   } catch (error) {
+    console.error('getMe - Error:', error);
+    console.error('Error stack:', error.stack);
     sendError(res, 'Error fetching user profile.', 500, 'PROFILE_FETCH_FAILED', error);
   }
 };

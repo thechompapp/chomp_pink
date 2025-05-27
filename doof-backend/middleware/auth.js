@@ -2,6 +2,7 @@
 import jwt from 'jsonwebtoken';
 import config from '../config/config.js';
 import UserModel from '../models/userModel.js';
+import TokenBlacklist from '../models/tokenBlacklistModel.js';
 import db from '../db/index.js';
 import { ListModel } from '../models/listModel.js';
 
@@ -77,8 +78,24 @@ export const requireAuth = async (req, res, next) => {
         console.error('[requireAuth] JWT_SECRET is not configured!');
         return res.status(500).json({ success: false, message: 'Internal server error: JWT secret not configured.' });
     }
+    
+    console.log('[requireAuth] Verifying token...');
     const decoded = jwt.verify(token, config.jwtSecret);
-    console.log('Decoded token in requireAuth:', JSON.stringify(decoded, null, 2));
+    console.log('[requireAuth] Token verified. Decoded:', JSON.stringify(decoded, null, 2));
+    
+    // Verify the token is not blacklisted
+    console.log('[requireAuth] Checking if token is blacklisted...');
+    const isBlacklisted = await TokenBlacklist.isTokenBlacklisted(token);
+    console.log(`[requireAuth] Token blacklist check result: ${isBlacklisted}`);
+    
+    if (isBlacklisted) {
+      console.log('[requireAuth] Attempted access with blacklisted token');
+      return res.status(401).json({ 
+        success: false, 
+        message: 'This token has been invalidated. Please log in again.',
+        error: 'token_revoked'
+      });
+    }
     
     // Check if the token has the expected structure
     if (!decoded.user) {

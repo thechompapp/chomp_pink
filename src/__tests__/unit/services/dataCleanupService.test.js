@@ -1,6 +1,8 @@
 import { dataCleanupService } from './dataCleanupService';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
+// Test timeout (10 seconds)
+const TEST_TIMEOUT = 10000;
 
 
 describe('DataCleanupService', () => {

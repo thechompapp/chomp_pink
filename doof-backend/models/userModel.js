@@ -170,6 +170,29 @@ const UserModel = {
         }
         
         return formattedUser;
+    },
+    
+    /**
+     * Update a user's password
+     * @param {number} userId - ID of the user
+     * @param {string} newHashedPassword - The new hashed password
+     * @returns {Promise<boolean>} True if update was successful
+     */
+    async updateUserPassword(userId, newHashedPassword) {
+        const query = `
+            UPDATE users 
+            SET password_hash = $1, updated_at = NOW()
+            WHERE id = $2
+            RETURNING id;
+        `;
+        
+        try {
+            const result = await db.query(query, [newHashedPassword, userId]);
+            return result.rows.length > 0;
+        } catch (error) {
+            console.error('Error updating user password:', error);
+            throw new Error('Failed to update user password');
+        }
     }
 };
 

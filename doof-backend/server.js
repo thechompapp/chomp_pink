@@ -35,6 +35,7 @@ import db from './db/index.js';
 import { errorHandlerMiddleware } from './utils/errorHandler.js';
 import logger from './utils/logger.js';
 import { trackResponseTime, getMetrics, resetMetrics } from './middleware/performanceMetrics.js';
+import { startTokenCleanupJob } from './utils/tokenCleanup.js';
 
 dotenv.config();
 
@@ -212,9 +213,14 @@ class AppServer {
       { path: '/api/trending', router: trendingRoutes },
       { path: '/api/neighborhoods', router: neighborhoodRoutes },
       { path: '/api/analytics', router: analyticsRoutes },
-      // Add simplified routes for E2E testing
-      { path: '/api/e2e', router: simplifiedRoutes },
+      { path: '/api/test', router: simplifiedRoutes } // Test routes for E2E testing
     ];
+    
+    // Start the token cleanup job (in non-test environments)
+    if (process.env.NODE_ENV !== 'test') {
+      startTokenCleanupJob();
+      console.log('Token cleanup job started');
+    }
     
     // Register each route
     routes.forEach(({ path, router }) => {

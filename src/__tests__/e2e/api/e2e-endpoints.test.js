@@ -8,7 +8,9 @@
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import { 
-  apiClient, 
+
+// Test timeout (30 seconds)
+const TEST_TIMEOUT = 30000;  apiClient, 
   verifyBackendServer, 
   API_ENDPOINTS,
   TEST_TIMEOUT 
