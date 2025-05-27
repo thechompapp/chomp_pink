@@ -51,49 +51,125 @@ describe('Dish Endpoints', () => {
   
   describe('Dish Listing', () => {
     it('should list dishes', async () => {
-      const result = await getDishes();
-      
-      console.log('Dish listing result:', {
-        success: result.success,
-        status: result.status,
-        count: Array.isArray(result.data) ? result.data.length : 'N/A'
-      });
-      
-      // If the endpoint doesn't exist or returns an error, log it but don't fail the test
-      if (!result.success) {
-        console.warn('Dish listing failed:', result.error);
-        console.warn('This might be expected if the endpoint is not implemented');
-        return;
+      try {
+        console.log('Attempting to list dishes...');
+        
+        // Use the getDishes helper function - this returns the full Axios response
+        const response = await getDishes();
+        
+        // Log the actual API payload for debugging
+        console.log('Dish listing API response:', {
+          status: response.status,
+          data: response.data ? {
+            success: response.data.success,
+            message: response.data.message,
+            dataLength: response.data.data ? response.data.data.length : 'no data array',
+            hasPagination: !!response.data.pagination
+          } : 'no data'
+        });
+        
+        // Check HTTP status
+        expect(response.status).toBe(200);
+
+        // Check the success flag from the API payload
+        expect(response.data.success).toBe(true);
+        
+        // Check that the 'data' property in the API payload is an array (this holds the dishes)
+        expect(Array.isArray(response.data.data)).toBe(true);
+        
+        // Verify the success message
+        expect(response.data.message).toBe("Dishes retrieved successfully.");
+
+        // Verify structure of at least one dish if the array is not empty
+        if (response.data.data.length > 0) {
+          const firstDish = response.data.data[0];
+          console.log('First dish:', JSON.stringify(firstDish, null, 2));
+          expect(firstDish).toHaveProperty('id');
+          expect(firstDish).toHaveProperty('name');
+          expect(firstDish).toHaveProperty('category');
+          expect(firstDish).toHaveProperty('price');
+          expect(firstDish).toHaveProperty('restaurant');
+        }
+        
+        // Check pagination structure if present
+        if (response.data.pagination) {
+          console.log('Pagination data:', response.data.pagination);
+          expect(typeof response.data.pagination).toBe('object');
+          expect(response.data.pagination).toHaveProperty('currentPage');
+          expect(response.data.pagination).toHaveProperty('totalPages');
+          expect(response.data.pagination).toHaveProperty('totalItems');
+          expect(response.data.pagination).toHaveProperty('itemsPerPage');
+        }
+      } catch (error) {
+        console.error('Dish listing test failed:', {
+          message: error.message,
+          stack: error.stack,
+          response: error.response?.data || 'No response data',
+          fullError: JSON.stringify(error, Object.getOwnPropertyNames(error))
+        });
+        throw error;
       }
-      
-      expect(result.success).toBe(true);
-      expect(result.status).toBe(200);
-      expect(Array.isArray(result.data)).toBe(true);
     }, TEST_TIMEOUT);
     
     it('should support pagination for dishes', async () => {
-      const result = await getDishes({ page: 1, limit: 5 });
-      
-      console.log('Paginated dish listing result:', {
-        success: result.success,
-        status: result.status,
-        count: Array.isArray(result.data) ? result.data.length : 'N/A'
-      });
-      
-      // If the endpoint doesn't support pagination, log it but don't fail the test
-      if (!result.success) {
-        console.warn('Paginated dish listing failed:', result.error);
-        console.warn('This might be expected if pagination is not supported');
-        return;
-      }
-      
-      expect(result.success).toBe(true);
-      expect(result.status).toBe(200);
-      expect(Array.isArray(result.data)).toBe(true);
-      
-      // If pagination is working, we should get at most 5 dishes
-      if (Array.isArray(result.data)) {
-        expect(result.data.length).toBeLessThanOrEqual(5);
+      try {
+        console.log('Attempting to list dishes with pagination...');
+        
+        // Use the getDishes helper function with pagination
+        const response = await getDishes({ page: 1, limit: 5 });
+        
+        // Log the actual API payload for debugging
+        console.log('Paginated dish listing API response:', {
+          status: response.status,
+          data: response.data ? {
+            success: response.data.success,
+            message: response.data.message,
+            dataLength: response.data.data ? response.data.data.length : 'no data array',
+            hasPagination: !!response.data.pagination
+          } : 'no data'
+        });
+        
+        // Check HTTP status
+        expect(response.status).toBe(200);
+
+        // Check the success flag from the API payload
+        expect(response.data.success).toBe(true);
+        
+        // Check that the 'data' property in the API payload is an array (this holds the dishes)
+        expect(Array.isArray(response.data.data)).toBe(true);
+        
+        // Verify the success message
+        expect(response.data.message).toContain("Dishes retrieved successfully");
+
+        // Verify pagination structure
+        expect(response.data.pagination).toBeDefined();
+        expect(typeof response.data.pagination).toBe('object');
+        expect(response.data.pagination).toHaveProperty('currentPage', 1);
+        expect(response.data.pagination).toHaveProperty('itemsPerPage');
+        expect(response.data.pagination).toHaveProperty('totalItems');
+        expect(response.data.pagination).toHaveProperty('totalPages');
+        
+        // Verify the number of items returned matches the requested limit
+        expect(response.data.data.length).toBeLessThanOrEqual(5);
+        
+        // Verify structure of at least one dish if the array is not empty
+        if (response.data.data.length > 0) {
+          const firstDish = response.data.data[0];
+          console.log('First paginated dish:', JSON.stringify(firstDish, null, 2));
+          expect(firstDish).toHaveProperty('id');
+          expect(firstDish).toHaveProperty('name');
+          expect(firstDish).toHaveProperty('category');
+          expect(firstDish).toHaveProperty('price');
+          expect(firstDish).toHaveProperty('restaurant');
+        }
+      } catch (error) {
+        console.error('Dish pagination test failed:', {
+          message: error.message,
+          stack: error.stack,
+          response: error.response?.data || 'No response data',
+          fullError: JSON.stringify(error, Object.getOwnPropertyNames(error))
+        });
+        throw error;
       }
     }, TEST_TIMEOUT);
   });

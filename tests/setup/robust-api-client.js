@@ -42,30 +42,64 @@ const apiClient = axios.create({
  * @param {Function} requestFn - The API request function to execute
  * @param {number} maxRetries - Maximum number of retry attempts (default: 3)
  * @param {number} delay - Delay between retries in milliseconds (default: 1000)
+ * @param {string} [description] - Optional description for logging purposes
  * @returns {Promise<any>} The API response
  */
-const handleApiRequest = async (requestFn, maxRetries = 3, delay = 1000) => {
+const handleApiRequest = async (requestFn, maxRetries = 3, delay = 1000, description = 'API Request') => {
   let lastError;
   
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
+      console.log(`[${description}] Attempt ${attempt} of ${maxRetries}...`);
       const response = await requestFn();
       return response;
     } catch (error) {
+      console.error(`[${description}] Attempt ${attempt} failed:`, error.message);
       lastError = error;
       
       // If this is the last attempt or the error is not retryable, break the loop
       if (attempt === maxRetries || !isRetryableError(error)) {
+        console.error(`[${description}] All retries exhausted`);
         break;
       }
       
       // Wait before retrying
+      console.log(`[${description}] Retrying in ${delay}ms...`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
   
   // If we get here, all retries failed
-  throw lastError;
+  const errorMessage = lastError?.message || 'Unknown error';
+  const error = new Error(`[${description}] Failed after ${maxRetries} attempts: ${errorMessage}`);
+  
+  // Enhanced error details
+  error.details = {
+    originalError: lastError,
+    requestConfig: lastError?.config ? {
+      method: lastError.config.method,
+      url: lastError.config.url,
+      baseURL: lastError.config.baseURL,
+      headers: lastError.config.headers,
+      data: lastError.config.data
+    } : null,
+    response: lastError?.response ? {
+      status: lastError.response.status,
+      statusText: lastError.response.statusText,
+      data: lastError.response.data
+    } : null,
+    code: lastError?.code,
+    stack: lastError?.stack
+  };
+  
+  console.error('API Request Failed:', {
+    description,
+    attempts: maxRetries,
+    error: errorMessage,
+    ...error.details
+  });
+  
+  throw error;
 };
 
 /**
@@ -287,8 +321,10 @@ export const getRestaurantById = async (id) => {
  */
 export const getDishes = async (params = {}) => {
   return handleApiRequest(
-    () => apiClient.get('/e2e/dishes', { params }),
-    'Get Dishes'
+    () => apiClient.get('/dishes', { params }),
+    3, // maxRetries
+    1000, // delay
+    'Get Dishes' // description (custom parameter)
   );
 };
 

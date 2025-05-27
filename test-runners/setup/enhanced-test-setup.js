@@ -43,7 +43,11 @@ export function withAuth(options = {}) {
     ...options,
     headers: {
       ...options.headers,
-      ...tokenStorage.getAuthHeader()
+      ...tokenStorage.getAuthHeader(),
+      // Add test mode headers for local development and testing
+      'X-Test-Mode': 'true',
+      'X-Bypass-Auth': 'true',
+      'X-Test-Request': 'true'
     }
   };
 }

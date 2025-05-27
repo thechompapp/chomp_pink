@@ -38,16 +38,54 @@ export const getRestaurantById = async (req, res) => {
  */
 export const createRestaurant = async (req, res) => {
   try {
+    console.log('Request body:', req.body);
     const { name, address } = req.body;
-    const result = await db.query(
-      'INSERT INTO restaurants (name, address) VALUES ($1, $2) RETURNING id, name, address',
-      [name, address]
-    );
     
-    res.status(201).json({ success: true, data: result.rows[0] });
+    if (!name || !address) {
+      console.error('Missing required fields:', { name, address });
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Name and address are required',
+        received: { name, address }
+      });
+    }
+    
+    const query = 'INSERT INTO restaurants (name, address) VALUES ($1, $2) RETURNING id, name, address';
+    console.log('Executing query:', query, 'with params:', [name, address]);
+    
+    const result = await db.query(query, [name, address]);
+    
+    if (!result.rows || result.rows.length === 0) {
+      console.error('No data returned from insert');
+      return res.status(500).json({ 
+        success: false, 
+        error: 'No data returned after insert' 
+      });
+    }
+    
+    console.log('Successfully created restaurant:', result.rows[0]);
+    res.status(201).json({ 
+      success: true, 
+      data: result.rows[0] 
+    });
+    
   } catch (error) {
-    console.error('Error creating restaurant:', error);
-    res.status(500).json({ success: false, error: 'Failed to create restaurant' });
+    console.error('Error creating restaurant:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code,
+      detail: error.detail,
+      table: error.table,
+      constraint: error.constraint,
+      query: error.query,
+      parameters: error.parameters
+    });
+    
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to create restaurant',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 

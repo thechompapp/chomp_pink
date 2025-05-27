@@ -2,7 +2,8 @@
  * Tests for the authentication store logic
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { create } from 'zustand/vanilla';
+import { renderHook, act } from '@testing-library/react';
+import { create } from 'zustand';
 import useAuthenticationStore from '../../../../src/stores/auth/useAuthenticationStore';
 
 // Mock dependencies
