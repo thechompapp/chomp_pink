@@ -23,6 +23,19 @@ import App from './App.jsx'; // Keep relative for App root
 import './index.css'; // Keep relative for global CSS
 import { queryClient } from '@/queryClient'; // Use alias for consistency
 import { logError, logInfo } from '@/utils/logger';
+import { Toaster } from 'react-hot-toast';
+import { BrowserRouter } from 'react-router-dom';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { DevModeManager } from './utils/development-mode/DevModeManager';
+import { AdminAuthSetup } from './utils/adminAuthSetup';
+
+// Initialize development mode
+DevModeManager.init();
+
+// Auto-setup admin authentication in development
+if (import.meta.env.DEV) {
+  AdminAuthSetup.setupDevelopmentAuth();
+}
 
 // Safe environment check for development mode
 const isDevelopmentMode = (() => {
@@ -40,24 +53,26 @@ const isDevelopmentMode = (() => {
 
 // Import development tools utility - using dynamic import to avoid initialization issues
 if (isDevelopmentMode) {
-  // Auto-fix offline mode issues on startup
-  setTimeout(async () => {
-    try {
-      const fixes = await autoFixOfflineMode();
-      if (fixes.length > 0) {
-        console.log('🔧 Auto-fixed offline mode issues:', fixes);
-      }
-    } catch (error) {
-      console.warn('Failed to auto-fix offline mode issues:', error);
-    }
-  }, 500);
+  // Check if auto-fix has already run using localStorage to persist across HMR
+  const AUTO_FIX_KEY = 'doof-autofix-disabled';
+  const autoFixDisabled = localStorage.getItem(AUTO_FIX_KEY) === 'true';
   
-  // Use setTimeout to ensure the app loads first
-  setTimeout(() => {
-    import('@/utils/devTools')
-      .then(() => console.log('Development tools loaded successfully'))
-      .catch(err => console.error('Error loading development tools:', err));
-  }, 1000);
+  if (!autoFixDisabled) {
+    // Disable auto-fix permanently to prevent loops
+    localStorage.setItem(AUTO_FIX_KEY, 'true');
+    console.log('🚫 Auto-fix disabled to prevent refresh loops');
+  }
+  
+  // Load development tools but don't run auto-fix
+  let devToolsLoaded = false;
+  if (!devToolsLoaded) {
+    devToolsLoaded = true;
+    setTimeout(() => {
+      import('@/utils/devTools')
+        .then(() => console.log('Development tools loaded successfully'))
+        .catch(err => console.error('Error loading development tools:', err));
+    }, 2000); // Increased delay to 2000ms
+  }
 }
 
 // Global error handler for uncaught JavaScript errors
@@ -124,7 +139,11 @@ const Root = () => {
     return (
       <React.StrictMode>
         <QueryClientProvider client={queryClient}>
-          <App />
+          <Toaster />
+          <BrowserRouter>
+            <App />
+          </BrowserRouter>
+          <ReactQueryDevtools initialIsOpen={false} />
         </QueryClientProvider>
       </React.StrictMode>
     );

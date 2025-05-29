@@ -69,7 +69,7 @@ const mockModules = {
 };
 
 // Add mocks to alias
-mockModules.forEach((mockPath, modulePath) => {
+Object.entries(mockModules).forEach(([modulePath, mockPath]) => {
   baseConfig.test.alias.push({
     find: modulePath,
     replacement: path.resolve(__dirname, mockPath),

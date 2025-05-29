@@ -207,6 +207,11 @@ export async function testApiConnectivity(apiBaseUrl = null) {
 export async function autoFixOfflineMode() {
   logInfo('[OfflineModeControl] Auto-fixing offline mode issues...');
   
+  // Temporarily disable auto-fix to prevent refresh loops
+  logInfo('[OfflineModeControl] Auto-fix disabled to prevent refresh loops');
+  return ['Auto-fix disabled to prevent refresh loops'];
+  
+  /* Disabled to prevent loops - uncomment if needed
   const status = getOfflineModeStatus();
   let fixesApplied = [];
   
@@ -239,6 +244,7 @@ export async function autoFixOfflineMode() {
   
   logInfo('[OfflineModeControl] Auto-fix completed. Fixes applied:', fixesApplied);
   return fixesApplied;
+  */
 }
 
 /**

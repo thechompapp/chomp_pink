@@ -18,6 +18,7 @@ import {
 import { Link } from 'react-router-dom';
 import { engagementService } from '@/services/engagementService';
 import useAuthStore from '@/stores/useAuthStore';
+import { CARD_SPECS } from '@/models/cardModels';
 
 // Animation variants for better UX - fixed to prevent border clipping
 const dishCardVariants = {
@@ -32,7 +33,7 @@ const tagVariants = {
 };
 
 // Enhanced badge component for dish metadata
-const DishBadge = ({ icon: Icon, text, color = "gray", size = "sm" }) => {
+const DishBadge = ({ icon: Icon, text, color = "gray", size = "sm", testId }) => {
   const colorClasses = {
     gray: "bg-gray-100 text-gray-700",
     blue: "bg-blue-100 text-blue-700",
@@ -52,6 +53,7 @@ const DishBadge = ({ icon: Icon, text, color = "gray", size = "sm" }) => {
     <motion.span
       variants={tagVariants}
       className={`inline-flex items-center rounded-full font-medium ${colorClasses[color]} ${sizeClasses[size]}`}
+      data-testid={testId}
     >
       <Icon size={size === 'xs' ? 8 : 10} className="mr-1" />
       {text}
@@ -82,8 +84,10 @@ const AddToListButton = ({ dish, onAddToList }) => {
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
       onClick={handleAddToList}
-      className="absolute top-2 right-2 p-2 bg-black text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 opacity-0 group-hover:opacity-100"
-      title="Add to list"
+      className="absolute top-2 right-2 z-10 w-8 h-8 bg-black text-white rounded-full flex items-center justify-center hover:bg-gray-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400"
+      title={`Add ${dish.name} to list`}
+      aria-label={`Add ${dish.name} to list`}
+      data-testid="add-to-list-button"
     >
       <Plus size={14} />
     </motion.button>
@@ -107,6 +111,7 @@ const DishCard = ({
   is_vegan = false,
   prep_time,
   image_url,
+  price,
   className = ""
 }) => {
   const [isHovered, setIsHovered] = useState(false);
@@ -159,9 +164,12 @@ const DishCard = ({
       onHoverStart={() => setIsHovered(true)}
       onHoverEnd={() => setIsHovered(false)}
       className={`group relative ${className}`}
+      data-testid={`dish-card-${id}`}
+      role="article"
+      aria-label={`Dish: ${cleanName}`}
     >
       <Link to={linkDestination} onClick={handleCardClick} className="block">
-        <div className="bg-white rounded-lg border border-black p-4 h-64 overflow-hidden relative hover:shadow-lg transition-all duration-200">
+        <div className={CARD_SPECS.FULL_CLASS}>
           {/* Add to List Button */}
           <div className="add-to-list-button">
             <AddToListButton
@@ -177,6 +185,7 @@ const DishCard = ({
               text="Dish" 
               color="green"
               size="xs" 
+              testId="dish-type-badge"
             />
           </div>
 
@@ -217,6 +226,7 @@ const DishCard = ({
                     onClick={handleRestaurantClick}
                     className="truncate hover:text-orange-600 hover:underline transition-colors"
                     title={`View ${cleanRestaurant}`}
+                    data-testid="restaurant-link"
                   >
                     at {cleanRestaurant}
                   </Link>
@@ -229,7 +239,11 @@ const DishCard = ({
               <div className="flex items-center justify-between text-sm">
                 <div className="flex items-center space-x-3">
                   {ratingDisplay && (
-                    <div className="flex items-center text-yellow-600">
+                    <div 
+                      className="flex items-center text-yellow-600"
+                      data-testid="rating-display"
+                      aria-label={`Rating: ${ratingDisplay} stars`}
+                    >
                       <Star size={12} className="mr-1 fill-current" />
                       <span className="font-medium">{ratingDisplay}</span>
                     </div>
@@ -243,6 +257,13 @@ const DishCard = ({
                   </div>
                 )}
               </div>
+
+              {/* Price */}
+              {price && (
+                <div className="flex items-center text-sm text-green-600 font-semibold" data-testid="price-display">
+                  <span>{price}</span>
+                </div>
+              )}
 
               {/* Popularity */}
               <div className="flex items-center text-sm text-gray-600">
@@ -264,6 +285,7 @@ const DishCard = ({
                   text="Featured" 
                   color="purple"
                   size="xs" 
+                  testId="featured-badge"
                 />
               )}
               
@@ -273,6 +295,7 @@ const DishCard = ({
                   text="Trending" 
                   color="red"
                   size="xs" 
+                  testId="trending-badge"
                 />
               )}
               
@@ -282,6 +305,7 @@ const DishCard = ({
                   text="Spicy" 
                   color="red"
                   size="xs" 
+                  testId="spicy-badge"
                 />
               )}
               
@@ -291,6 +315,7 @@ const DishCard = ({
                   text="Vegan" 
                   color="green"
                   size="xs" 
+                  testId="vegan-badge"
                 />
               )}
               
@@ -300,6 +325,7 @@ const DishCard = ({
                   text="Vegetarian" 
                   color="green"
                   size="xs" 
+                  testId="vegetarian-badge"
                 />
               )}
             </motion.div>
@@ -356,6 +382,7 @@ DishCard.propTypes = {
   is_vegan: PropTypes.bool,
   prep_time: PropTypes.string,
   image_url: PropTypes.string,
+  price: PropTypes.string,
   className: PropTypes.string,
 };
 

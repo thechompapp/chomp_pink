@@ -1,0 +1,86 @@
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "name": "Joe's Pizza Palace",
+      "neighborhood_name": "Brooklyn",
+      "city_name": "New York",
+      "tags": ["italian", "pizza", "family-friendly"],
+      "adds": 127,
+      "rating": 4.5,
+      "description": "Authentic New York style pizza since 1952",
+      "website": "https://joespizza.com",
+      "phone": "+1234567890",
+      "is_trending": true,
+      "is_featured": false,
+      "hours": "Open until 11 PM",
+      "image_url": "https://example.com/joe-pizza.jpg"
+    },
+    {
+      "id": 2,
+      "name": "Sakura Sushi Bar",
+      "neighborhood_name": "Manhattan",
+      "city_name": "New York",
+      "tags": ["japanese", "sushi", "fresh"],
+      "adds": 89,
+      "rating": 4.7,
+      "description": "Fresh sushi and authentic Japanese cuisine",
+      "website": "https://sakurasushi.com",
+      "is_trending": false,
+      "is_featured": true,
+      "hours": "Open until 10 PM",
+      "image_url": "https://example.com/sakura-sushi.jpg"
+    },
+    {
+      "id": 3,
+      "name": "The Burger Spot",
+      "neighborhood_name": "Queens",
+      "city_name": "New York",
+      "tags": ["american", "burgers", "casual"],
+      "adds": 156,
+      "rating": 4.2,
+      "description": "Gourmet burgers made with locally sourced ingredients",
+      "phone": "+1987654321",
+      "is_trending": false,
+      "is_featured": false,
+      "hours": "Open until 9 PM"
+    },
+    {
+      "id": 4,
+      "name": "Chez Laurent",
+      "neighborhood_name": "SoHo",
+      "city_name": "New York",
+      "tags": ["french", "fine-dining", "romantic"],
+      "adds": 203,
+      "rating": 4.8,
+      "description": "Elegant French cuisine in an intimate setting",
+      "website": "https://chezlaurent.com",
+      "phone": "+1555123456",
+      "is_trending": true,
+      "is_featured": true,
+      "hours": "Open until 11 PM",
+      "image_url": "https://example.com/chez-laurent.jpg"
+    },
+    {
+      "id": 5,
+      "name": "Taco Libre",
+      "neighborhood_name": "Williamsburg",
+      "city_name": "Brooklyn",
+      "tags": ["mexican", "tacos", "spicy"],
+      "adds": 98,
+      "rating": 4.3,
+      "description": "Authentic Mexican street food and craft cocktails",
+      "website": "https://tacolibre.com",
+      "is_trending": false,
+      "is_featured": false,
+      "hours": "Open until 12 AM"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 25,
+    "total": 5,
+    "totalPages": 1
+  }
+} 

@@ -19,6 +19,7 @@ import { Flame, Utensils, Bookmark, Star, Clock, SortAsc, List as ListIcon, Tren
 import { useQuickAdd } from '@/contexts/QuickAddContext';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
 import AddToListModal from '@/components/AddToListModal';
+import { GRID_LAYOUTS, CONTAINER, TYPOGRAPHY } from '@/utils/layoutConstants';
 
 // FIX: Use correct icon (SortAsc)
 const SORT_OPTIONS = [
@@ -231,7 +232,8 @@ const Trending = () => {
       return restaurantsQuery.isLoading || dishesQuery.isLoading || listsQuery.isLoading;
   }, [restaurantsQuery.isLoading, dishesQuery.isLoading, listsQuery.isLoading]);
 
-  const gridClasses = "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3";
+  // Use standardized grid layout
+  const gridClasses = GRID_LAYOUTS.PRIMARY;
 
   const LoadingComponent = useMemo(() => {
     // Determine which skeleton to show based on the active tab
@@ -262,8 +264,8 @@ const Trending = () => {
    // Show a general error message if any of the initial queries failed
    if (initialError && !isInitialLoading) { // Check !isInitialLoading to avoid showing error during load
        return (
-           <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
-               <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-6">Trending</h1>
+           <div className={`${CONTAINER.MAX_WIDTH} mx-auto ${CONTAINER.PADDING} ${CONTAINER.VERTICAL_SPACING}`}>
+               <h1 className={TYPOGRAPHY.PAGE_TITLE}>Trending</h1>
                 <ErrorMessage
                    message={initialError.message || 'Failed to load some trending data.'}
                    onRetry={() => { // Retry all initial queries
@@ -282,9 +284,9 @@ const Trending = () => {
 
   // Main content render once initial load/error states are passed
   return (
-    <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
+    <div className={`${CONTAINER.SECTION_SPACING} ${CONTAINER.MAX_WIDTH} mx-auto ${CONTAINER.PADDING} ${CONTAINER.VERTICAL_SPACING}`}>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100">Trending</h1>
+        <h1 className={TYPOGRAPHY.PAGE_TITLE}>Trending</h1>
          {/* Maybe add a global refresh button here? */}
       </div>
 

@@ -17,6 +17,7 @@ import {
 import { Link } from 'react-router-dom';
 import { engagementService } from '@/services/engagementService';
 import useAuthStore from '@/stores/useAuthStore';
+import { CARD_SPECS } from '@/models/cardModels';
 
 // Animation variants for better UX - fixed to prevent border clipping
 const restaurantCardVariants = {
@@ -31,30 +32,30 @@ const tagVariants = {
 };
 
 // Enhanced badge component for restaurant metadata
-const RestaurantBadge = ({ icon: Icon, text, color = "gray", size = "sm" }) => {
+const RestaurantBadge = ({ icon: Icon, text, color = "gray", size = "sm", testId }) => {
   const colorClasses = {
     gray: "bg-gray-100 text-gray-700",
+    orange: "bg-orange-100 text-orange-700",
     blue: "bg-blue-100 text-blue-700",
     green: "bg-green-100 text-green-700",
     purple: "bg-purple-100 text-purple-700",
-    red: "bg-red-100 text-red-700",
-    yellow: "bg-yellow-100 text-yellow-700",
-    orange: "bg-orange-100 text-orange-700"
+    red: "bg-red-100 text-red-700"
   };
 
   const sizeClasses = {
-    sm: "px-2 py-1 text-xs",
-    xs: "px-1.5 py-0.5 text-xs"
+    xs: "px-1.5 py-0.5 text-xs",
+    sm: "px-2 py-1 text-sm",
+    md: "px-3 py-1 text-base"
   };
 
   return (
-    <motion.span
-      variants={tagVariants}
+    <span 
       className={`inline-flex items-center rounded-full font-medium ${colorClasses[color]} ${sizeClasses[size]}`}
+      data-testid={testId}
     >
-      <Icon size={size === 'xs' ? 8 : 10} className="mr-1" />
+      <Icon size={size === 'xs' ? 10 : size === 'sm' ? 12 : 14} className="mr-1" />
       {text}
-    </motion.span>
+    </span>
   );
 };
 
@@ -81,8 +82,10 @@ const AddToListButton = ({ restaurant, onAddToList }) => {
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
       onClick={handleAddToList}
-      className="absolute top-2 right-2 p-2 bg-black text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 opacity-0 group-hover:opacity-100"
-      title="Add to list"
+      className="absolute top-2 right-2 z-10 w-8 h-8 bg-black text-white rounded-full flex items-center justify-center hover:bg-gray-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400"
+      title={`Add ${restaurant.name} to list`}
+      aria-label={`Add ${restaurant.name} to list`}
+      data-testid="add-to-list-button"
     >
       <Plus size={14} />
     </motion.button>
@@ -163,9 +166,12 @@ const RestaurantCard = ({
       onHoverStart={() => setIsHovered(true)}
       onHoverEnd={() => setIsHovered(false)}
       className={`group relative ${className}`}
+      data-testid={`restaurant-card-${id}`}
+      role="article"
+      aria-label={`Restaurant: ${cleanName}`}
     >
       <Link to={linkDestination} onClick={handleCardClick} className="block">
-        <div className="bg-white rounded-lg border border-black p-4 h-64 overflow-hidden relative hover:shadow-lg transition-all duration-200">
+        <div className={CARD_SPECS.FULL_CLASS}>
           {/* Add to List Button */}
           <div className="add-to-list-button">
             <AddToListButton
@@ -181,6 +187,7 @@ const RestaurantCard = ({
               text="Restaurant" 
               color="orange"
               size="xs" 
+              testId="restaurant-type-badge"
             />
 
             {/* External Link Button */}
@@ -191,6 +198,7 @@ const RestaurantCard = ({
                 onClick={handleExternalLinkClick}
                 className="external-link-button p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-all duration-200"
                 title="Visit website"
+                data-testid="external-link-button"
               >
                 <Globe size={14} />
               </motion.button>
@@ -237,7 +245,11 @@ const RestaurantCard = ({
               <div className="flex items-center justify-between text-sm">
                 <div className="flex items-center space-x-3">
                   {ratingDisplay && (
-                    <div className="flex items-center text-yellow-600">
+                    <div 
+                      className="flex items-center text-yellow-600"
+                      data-testid="rating-display"
+                      aria-label={`Rating: ${ratingDisplay} stars`}
+                    >
                       <Star size={12} className="mr-1 fill-current" />
                       <span className="font-medium">{ratingDisplay}</span>
                     </div>
@@ -277,6 +289,7 @@ const RestaurantCard = ({
                   text="Featured" 
                   color="purple"
                   size="xs" 
+                  testId="featured-badge"
                 />
               )}
               
@@ -286,6 +299,7 @@ const RestaurantCard = ({
                   text="Trending" 
                   color="red"
                   size="xs" 
+                  testId="trending-badge"
                 />
               )}
               
@@ -295,6 +309,7 @@ const RestaurantCard = ({
                   text={hours.includes('Open') ? 'Open' : 'Hours'} 
                   color={hours.includes('Open') ? 'green' : 'gray'}
                   size="xs" 
+                  testId={hours.includes('Open') ? 'open-badge' : 'hours-badge'}
                 />
               )}
             </motion.div>

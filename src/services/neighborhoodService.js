@@ -73,7 +73,7 @@ export const neighborhoodService = {
     logDebug(`[NeighborhoodService] Fetching boroughs for city ID: ${safeId}`);
     
     const result = await handleApiResponse(
-      () => apiClient.get('/api/locations/boroughs', {
+      () => apiClient.get('/locations/boroughs', {
         params: { city_id: safeId }
       }),
       'NeighborhoodService.getBoroughs'
@@ -109,7 +109,7 @@ export const neighborhoodService = {
     logDebug(`[NeighborhoodService] Fetching neighborhoods for borough ID: ${safeId}`);
     
     const result = await handleApiResponse(
-      () => apiClient.get('/api/locations/neighborhoods', {
+      () => apiClient.get('/locations/neighborhoods', {
         params: { parent_id: safeId }
       }),
       'NeighborhoodService.getNeighborhoods'
@@ -145,7 +145,7 @@ export const neighborhoodService = {
     logDebug(`[NeighborhoodService] Fetching neighborhood with ID: ${safeId}`);
     
     const result = await handleApiResponse(
-      () => apiClient.get(`/api/locations/neighborhood/${safeId}`),
+      () => apiClient.get(`/locations/neighborhood/${safeId}`),
       'NeighborhoodService.getNeighborhoodById'
     );
     
@@ -188,7 +188,7 @@ export const neighborhoodService = {
     }
     
     const result = await handleApiResponse(
-      () => apiClient.get(`/api/locations/zipcode/${zipcode}`),
+      () => apiClient.get(`/locations/zipcode/${zipcode}`),
       'NeighborhoodService.getNeighborhoodByZipcode'
     );
     

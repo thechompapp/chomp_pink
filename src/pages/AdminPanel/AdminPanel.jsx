@@ -235,54 +235,6 @@ const AdminPanel = () => {
   
   const navigate = useNavigate();
   
-  // Verify authentication status
-  useEffect(() => {
-    verifyAuth();
-  }, [isAuthenticated, user]);
-  
-  // Update verifyAuth function to use the new auth system
-  const verifyAuth = async () => {
-    if (isLoading) return;
-    
-    // Wait for superuser status to be ready before proceeding
-    if (!isSuperuserStatusReady) {
-      setIsVerifyingAuth(true);
-      return;
-    }
-    
-    setIsVerifyingAuth(true);
-    
-    try {
-      if (!isAuthenticated) {
-        navigate('/login', { 
-          state: { 
-            from: '/admin', 
-            message: 'You must be logged in to access the admin panel' 
-          } 
-        });
-        return;
-      }
-      
-      if (!isSuperuser) {
-        toast.error('You do not have permission to access the admin panel');
-        navigate('/');
-        return;
-      }
-      
-      // Ensure admin authentication is properly set up
-      if (process.env.NODE_ENV === 'development') {
-        AuthManager.syncAdminAuth();
-      }
-      
-      setIsVerifyingAuth(false);
-      setIsInitializing(true);
-      refetch(); // Use refetch directly instead of fetchData
-    } catch (error) {
-      toast.error('Error verifying authentication: ' + error.message);
-      navigate('/');
-    }
-  };
-  
   // Fetch admin data
   const { 
     data: adminData, 
@@ -291,9 +243,9 @@ const AdminPanel = () => {
     isFetching,
     isError
   } = useQuery({
-    queryKey: ['adminData', user],
+    queryKey: ['adminData', user?.id], // Use user.id instead of entire user object
     queryFn: DataProcessor.fetchAllAdminData,
-    enabled: Boolean(isAuthenticated), // Ensure this is a boolean value
+    enabled: Boolean(isAuthenticated && isSuperuser), // Only fetch when authenticated AND superuser
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchOnWindowFocus: false,
     retry: 1,
@@ -443,6 +395,54 @@ const AdminPanel = () => {
       toast.error(`Failed to reject changes: ${error.message || 'Unknown error'}`);
     }
   };
+
+  // Update verifyAuth function to use the new auth system - MEMOIZED
+  const verifyAuth = useCallback(async () => {
+    if (isLoading) return;
+    
+    // Wait for superuser status to be ready before proceeding
+    if (!isSuperuserStatusReady) {
+      setIsVerifyingAuth(true);
+      return;
+    }
+    
+    setIsVerifyingAuth(true);
+    
+    try {
+      if (!isAuthenticated) {
+        navigate('/login', { 
+          state: { 
+            from: '/admin', 
+            message: 'You must be logged in to access the admin panel' 
+          } 
+        });
+        return;
+      }
+      
+      if (!isSuperuser) {
+        toast.error('You do not have permission to access the admin panel');
+        navigate('/');
+        return;
+      }
+      
+      // Ensure admin authentication is properly set up
+      if (process.env.NODE_ENV === 'development') {
+        AuthManager.syncAdminAuth();
+      }
+      
+      setIsVerifyingAuth(false);
+      setIsInitializing(true);
+      // Don't call refetch here to prevent loops - let the query handle it
+    } catch (error) {
+      toast.error('Error verifying authentication: ' + error.message);
+      navigate('/');
+    }
+  }, [isLoading, isSuperuserStatusReady, isAuthenticated, isSuperuser, navigate]); // Removed refetch dependency
+
+  // Verify authentication status - FIXED DEPENDENCIES
+  useEffect(() => {
+    verifyAuth();
+  }, [verifyAuth]); // Only depend on the memoized verifyAuth function
 
   // Add a loading state while waiting for superuser status
   if (isVerifyingAuth || !isSuperuserStatusReady) {

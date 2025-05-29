@@ -49,6 +49,14 @@ const DesktopAdminNavbarLinks = memo(() => {
         )}
       </Link>
       
+      <Link 
+        to="/admin-enhanced" 
+        className="text-primary-foreground hover:text-primary-foreground/90 transition-colors"
+      >
+        Admin Enhanced
+        <span className="ml-1 text-xs bg-green-500 text-white px-1 rounded">NEW</span>
+      </Link>
+      
       {canManageContent && (
         <Link 
           to="/bulk-add" 
@@ -88,6 +96,15 @@ const MobileAdminNavbarLinks = memo(({ onItemClick }) => {
         {isSuperuser && (
           <CheckCircle size={14} className="ml-1 inline text-green-400" title="Verified Superuser" />
         )}
+      </Link>
+      
+      <Link
+        to="/admin-enhanced"
+        className="block py-2 px-4 text-primary-foreground hover:bg-primary-foreground/10 transition-colors"
+        onClick={onItemClick}
+      >
+        Admin Enhanced
+        <span className="ml-1 text-xs bg-green-500 text-white px-1 rounded">NEW</span>
       </Link>
       
       {canManageContent && (

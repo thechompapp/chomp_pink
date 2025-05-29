@@ -18,88 +18,67 @@ const Home = () => {
   // State for content type toggle (moved from Results)
   const [contentType, setContentType] = useState('lists'); // Default to lists
 
-  // State for search query (moved from Results)
-  const [searchQuery, setSearchQuery] = useState('');
-
-  // Callback for FilterContainer to update the state
-  const handleFiltersChange = useCallback((newFilters) => {
-    setFilters(prevFilters => {
-      // Basic check to prevent unnecessary re-renders if filters haven't changed
-      if (
-        prevFilters.cityId === newFilters.cityId &&
-        prevFilters.boroughId === newFilters.boroughId &&
-        prevFilters.neighborhoodId === newFilters.neighborhoodId &&
-        prevFilters.hashtags.length === newFilters.hashtags.length &&
-        prevFilters.hashtags.every((tag, i) => tag === newFilters.hashtags[i])
-      ) {
-        return prevFilters;
-      }
-      logDebug('[Home] Filters changed:', newFilters);
-      return newFilters;
-    });
+  // Filter change handler
+  const handleFilterChange = useCallback((newFilters) => {
+    logDebug('[Home] Filter changed:', newFilters);
+    setFilters(newFilters);
   }, []);
 
-  // Callback for SearchBar
-  const handleSearch = useCallback((query) => {
-    logDebug('[Home] Search triggered:', query);
-    setSearchQuery(query);
-  }, []);
-
-  // Callback for ToggleSwitch
+  // Content type toggle handler
   const handleContentTypeChange = useCallback((type) => {
-    logDebug('[Home] Content type changed:', type);
+    logDebug('[Home] Content type changed to:', type);
     setContentType(type);
   }, []);
 
   return (
-    <div className="space-y-6 max-w-full mx-auto px-4 sm:px-6 md:px-8 py-6">
-      {/* Centered Search Bar */}
-      <div className="flex justify-center mb-6">
-        <div className="w-full max-w-2xl">
-          <SearchBar
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery} // Pass setter directly if SearchBar modifies it
-            onSearch={handleSearch} // Or pass a handler if SearchBar only calls on submit
-            contentType={contentType} // Pass current type for placeholder
-          />
+    <div className="min-h-screen bg-gray-50">
+      {/* Search Section */}
+      <div className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="text-center mb-6">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Discover Amazing Food
+            </h1>
+            <p className="text-gray-600">
+              Find restaurants, dishes, and curated lists from food lovers
+            </p>
+          </div>
+          
+          <SearchBar className="mb-6" />
+          
+          {/* Content Type Toggle */}
+          <div className="flex justify-center">
+            <ToggleSwitch
+              options={[
+                { value: 'lists', label: 'Lists' },
+                { value: 'restaurants', label: 'Restaurants' },
+                { value: 'dishes', label: 'Dishes' }
+              ]}
+              selected={contentType}
+              onChange={handleContentTypeChange}
+              className="mb-4"
+            />
+          </div>
         </div>
       </div>
 
-      {/* Centered Toggle Switch */}
-      <div className="flex justify-center mb-6">
-        <ToggleSwitch
-          options={[
-            { value: 'lists', label: 'Lists' },
-            { value: 'restaurants', label: 'Restaurants' },
-            { value: 'dishes', label: 'Dishes' },
-          ]}
-          selected={contentType}
-          onChange={handleContentTypeChange}
-        />
-      </div>
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Filters Section - Now on Top */}
+        <div className="mb-8">
+          <FilterContainer 
+            filters={filters}
+            onFilterChange={handleFilterChange}
+          />
+        </div>
 
-      {/* Filter Container */}
-      <div className="mb-6 lg:mb-8">
-        {/* Pass selected filters and the update callback */}
-        <FilterContainer
-          initialFilters={filters}
-          onChange={handleFiltersChange}
-          showNeighborhoodFilter={true}
-          showCuisineFilter={true}
-        />
-      </div>
-
-      {/* Results Display Area */}
-      <div>
-        {/* Pass filters, search query, and content type to Results */}
-        <Results
-          cityId={filters.cityId}
-          boroughId={filters.boroughId} // Pass boroughId
-          neighborhoodId={filters.neighborhoodId}
-          hashtags={filters.hashtags}
-          contentType={contentType}
-          searchQuery={searchQuery} // Pass search query
-        />
+        {/* Results Section - Full Width */}
+        <div className="w-full">
+          <Results 
+            filters={filters}
+            contentType={contentType}
+          />
+        </div>
       </div>
     </div>
   );

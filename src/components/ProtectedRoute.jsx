@@ -42,8 +42,8 @@ const ProtectedRoute = ({
   
   // If admin-only route, check for admin permissions
   if (adminOnly) {
-    // Use the can method instead of hasPermission
-    const hasAdminAccess = useAdminAuth().can('admin.access');
+    // Use the adminAuth object that was already declared at the top level
+    const hasAdminAccess = adminAuth.can('admin.access');
     
     if (!hasAdminAccess) {
       logInfo(`[ProtectedRoute] User lacks admin permissions, redirecting to home from ${location.pathname}`);

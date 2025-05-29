@@ -9,14 +9,22 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 
-const ToggleSwitch = ({ options, selected, onChange }) => {
+const ToggleSwitch = ({ options = [], selected, onChange }) => {
+  // Defensive programming: ensure options is always an array
+  const safeOptions = Array.isArray(options) ? options : [];
+  
+  if (safeOptions.length === 0) {
+    console.warn('ToggleSwitch: No options provided');
+    return null;
+  }
+
   return (
     <div className="inline-flex rounded-full border border-black bg-white p-1" role="radiogroup">
-      {options.map((option) => (
+      {safeOptions.map((option) => (
         <button
           key={option.value}
           type="button"
-          onClick={() => onChange(option.value)}
+          onClick={() => onChange?.(option.value)}
           className={cn(
             'px-4 py-1 text-sm font-medium rounded-full',
             selected === option.value

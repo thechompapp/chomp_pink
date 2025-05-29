@@ -10,7 +10,7 @@
  * - Offline mode support
  * - Admin/superuser role management
  */
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import PropTypes from 'prop-types';
 import authService from '@/services/authService';
 import { logDebug, logError, logInfo } from '@/utils/logger';
@@ -43,10 +43,27 @@ export const AuthProvider = ({ children }) => {
   // Refresh token state
   const [isRefreshing, setIsRefreshing] = useState(false);
   
+  // Use ref to prevent infinite loops
+  const authCheckInProgress = useRef(false);
+  const mounted = useRef(true);
+
   /**
    * Check authentication status
    */
   const checkAuthStatus = useCallback(async (forceCheck = false) => {
+    // Prevent concurrent auth checks
+    if (authCheckInProgress.current && !forceCheck) {
+      logDebug('[AuthContext] Auth check already in progress, skipping');
+      return false;
+    }
+    
+    // Check if component is still mounted
+    if (!mounted.current) {
+      return false;
+    }
+    
+    authCheckInProgress.current = true;
+    
     try {
       setIsLoading(true);
       setError(null);
@@ -57,61 +74,57 @@ export const AuthProvider = ({ children }) => {
         logDebug('[AuthContext] User explicitly logged out, skipping auth check');
         setIsAuthenticated(false);
         setUser(null);
-        setIsLoading(false);
-        return false;
-      }
-      
-      // Development mode bypass
-      if (process.env.NODE_ENV === 'development' && localStorage.getItem('bypass_auth_check') === 'true') {
-        logInfo('[AuthContext] Using development mode auth bypass');
-        const devUser = {
-          id: 1,
-          email: 'admin@example.com',
-          name: 'Admin User',
-          account_type: 'superuser',
-          role: 'admin',
-          permissions: ['admin', 'create', 'edit', 'delete', 'read']
-        };
-        
-        setUser(devUser);
-        setIsAuthenticated(true);
-        setIsSuperuser(true);
-        setIsAdmin(true);
-        setRoles(['admin', 'superuser']);
-        setPermissions(devUser.permissions);
+        setIsSuperuser(false);
+        setIsAdmin(false);
+        setRoles([]);
+        setPermissions([]);
         setSuperuserStatusReady(true);
         setIsLoading(false);
-        
-        // Store user in localStorage for persistence
-        localStorage.setItem('current_user', JSON.stringify(devUser));
-        return true;
+        return false;
       }
       
       // Check if we have a valid token
       const token = localStorage.getItem('token');
+      const savedUser = localStorage.getItem('current_user');
+      
       if (!token) {
         logDebug('[AuthContext] No auth token found');
         setIsAuthenticated(false);
         setUser(null);
+        setIsSuperuser(false);
+        setIsAdmin(false);
+        setRoles([]);
+        setPermissions([]);
+        setSuperuserStatusReady(true);
         setIsLoading(false);
         return false;
       }
       
+      // If we have saved user data, use it immediately for UI responsiveness
+      if (savedUser && !forceCheck) {
+        try {
+          const parsedUser = JSON.parse(savedUser);
+          setUser(parsedUser);
+          setIsAuthenticated(true);
+          updateUserRoles(parsedUser);
+          setIsLoading(false);
+          logDebug('[AuthContext] Using cached user data');
+          return true;
+        } catch (error) {
+          logError('[AuthContext] Error parsing saved user data:', error);
+          localStorage.removeItem('current_user');
+        }
+      }
+      
+      // For force checks or when no cached data, validate with server
       try {
-        // Try to get current user from API
         const currentUser = await authService.getCurrentUser();
         
-        if (currentUser) {
-          // Update user state
+        if (currentUser && mounted.current) {
           setUser(currentUser);
           setIsAuthenticated(true);
-          
-          // Update role-based states
-          updateUserRolesAndPermissions(currentUser);
-          
-          // Store user in localStorage for persistence
+          updateUserRoles(currentUser);
           localStorage.setItem('current_user', JSON.stringify(currentUser));
-          
           logDebug('[AuthContext] User authenticated:', currentUser.email);
           setIsLoading(false);
           return true;
@@ -123,37 +136,44 @@ export const AuthProvider = ({ children }) => {
           localStorage.removeItem('token');
           localStorage.removeItem('current_user');
         }
-        setIsAuthenticated(false);
-        setUser(null);
-        setIsLoading(false);
-        return false;
       }
       
       // If we get here, authentication failed
-      setIsAuthenticated(false);
-      setUser(null);
-      setIsLoading(false);
+      if (mounted.current) {
+        setIsAuthenticated(false);
+        setUser(null);
+        setIsSuperuser(false);
+        setIsAdmin(false);
+        setRoles([]);
+        setPermissions([]);
+        setSuperuserStatusReady(true);
+        setIsLoading(false);
+      }
       return false;
       
     } catch (error) {
       logError('[AuthContext] Error checking auth status:', error);
-      setError({
-        code: 'AUTH_CHECK_ERROR',
-        message: 'Failed to check authentication status',
-        details: error.message,
-        timestamp: Date.now()
-      });
-      setIsAuthenticated(false);
-      setUser(null);
-      setIsLoading(false);
+      if (mounted.current) {
+        setError({
+          code: 'AUTH_CHECK_ERROR',
+          message: 'Failed to check authentication status',
+          details: error.message,
+          timestamp: Date.now()
+        });
+        setIsAuthenticated(false);
+        setUser(null);
+        setIsLoading(false);
+      }
       return false;
+    } finally {
+      authCheckInProgress.current = false;
     }
   }, []);
-  
+
   /**
-   * Update user roles and permissions
+   * Update user roles and permissions (inline function to avoid dependencies)
    */
-  const updateUserRolesAndPermissions = useCallback((user) => {
+  const updateUserRoles = (user) => {
     if (!user) return;
     
     const userRoles = [];
@@ -194,14 +214,7 @@ export const AuthProvider = ({ children }) => {
     setRoles([...new Set(userRoles)]);
     setPermissions([...new Set(userPermissions)]);
     setSuperuserStatusReady(true);
-    
-    logDebug('[AuthContext] Updated user roles and permissions:', {
-      roles: [...new Set(userRoles)],
-      permissions: [...new Set(userPermissions)],
-      isAdmin: isAdminUser || isSuperuserUser,
-      isSuperuser: isSuperuserUser
-    });
-  }, []);
+  };
   
   /**
    * Login handler
@@ -393,7 +406,7 @@ export const AuthProvider = ({ children }) => {
     const handleStorageChange = (event) => {
       if (event.key === 'auth-storage') {
         logDebug('[AuthContext] Auth storage changed in another tab/window');
-        checkAuthStatus();
+        checkAuthStatus(true); // Force check when storage changes
       }
       
       if (event.key === 'offline_mode') {
@@ -440,8 +453,9 @@ export const AuthProvider = ({ children }) => {
       setIsOffline(false);
       localStorage.removeItem('offline_mode');
       
-      // Check auth status when coming back online
-      checkAuthStatus();
+      // Don't check auth status when coming back online to prevent loops
+      // The auth status should already be correct from the initial check
+      logDebug('[AuthContext] Skipping auth check on online event to prevent loops');
     };
     
     const handleOffline = () => {
@@ -457,24 +471,23 @@ export const AuthProvider = ({ children }) => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, [checkAuthStatus]);
+  }, []); // Remove checkAuthStatus dependency to prevent re-creation
   
   /**
-   * Check auth status on mount
+   * Check auth status on mount and cleanup
    */
   useEffect(() => {
+    // Set mounted flag
+    mounted.current = true;
+    
+    // Run initial auth check
     checkAuthStatus();
     
-    // Set up periodic auth check (every 5 minutes)
-    const authCheckInterval = setInterval(() => {
-      if (isAuthenticated) {
-        checkAuthStatus(true);
-      }
-    }, 5 * 60 * 1000);
-    
-    // Clean up interval on unmount
-    return () => clearInterval(authCheckInterval);
-  }, [checkAuthStatus, isAuthenticated]);
+    return () => {
+      // Cleanup on unmount
+      mounted.current = false;
+    };
+  }, [checkAuthStatus]);
   
   // Memoize context value to prevent unnecessary re-renders
   const value = useMemo(

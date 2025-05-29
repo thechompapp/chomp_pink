@@ -16,6 +16,7 @@ import ErrorMessage from '@/components/UI/ErrorMessage';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
 import AddToListModal from '@/components/AddToListModal';
 import { cn } from '@/lib/utils'; // Assuming cn utility exists
+import { GRID_LAYOUTS, CONTAINER, TYPOGRAPHY } from '@/utils/layoutConstants';
 
 const skeletonMap = {
     restaurants: RestaurantCardSkeleton,
@@ -114,8 +115,8 @@ const SearchResultsPage = () => {
 
         return (
             <div className="mb-8">
-                <h2 className="text-xl font-semibold text-foreground mb-3">{title} ({items.length})</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <h2 className={TYPOGRAPHY.SECTION_TITLE}>{title} ({items.length})</h2>
+                <div className={GRID_LAYOUTS.SEARCH}>
                     {items.map(item => {
                         const props = { 
                             key: `${sectionKey}-${item.id}`, 
@@ -142,7 +143,7 @@ const SearchResultsPage = () => {
         return (
             <div className="mb-8">
                  <div className="h-6 bg-muted rounded w-1/4 mb-3 animate-pulse"></div> {/* Skeleton for title */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <div className={GRID_LAYOUTS.SEARCH}>
                     {Array.from({ length: 4 }).map((_, index) => ( // Show 4 skeletons
                         <SkeletonComponent key={`skel-${sectionKey}-${index}`} />
                     ))}
@@ -152,7 +153,7 @@ const SearchResultsPage = () => {
     }
 
     return (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <div className={`${CONTAINER.MAX_WIDTH} mx-auto ${CONTAINER.PADDING} ${CONTAINER.VERTICAL_SPACING} ${CONTAINER.SECTION_SPACING}`}>
             {/* Keep SearchBar at the top */}
             <SearchBar onSearch={handleSearch} initialQuery={searchQuery} />
 

@@ -104,6 +104,11 @@ export const COLUMN_CONFIG = {
     { accessor: 'name', header: 'Name', isEditable: true, isSortable: true, isFilterable: true },
     { accessor: 'count', header: 'Usage Count', isEditable: false, isSortable: true },
   ],
+  restaurant_chains: [
+    { accessor: 'id', header: 'ID', isEditable: false, isSortable: true },
+    { accessor: 'name', header: 'Name', isEditable: true, isSortable: true, isFilterable: true },
+    { accessor: 'restaurant_count', header: 'Restaurant Count', isEditable: false, isSortable: true },
+  ],
   chains: [
     { accessor: 'id', header: 'ID', isEditable: false, isSortable: true },
     { accessor: 'name', header: 'Name', isEditable: true, isSortable: true, isFilterable: true },

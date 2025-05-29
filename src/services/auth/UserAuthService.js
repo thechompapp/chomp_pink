@@ -24,6 +24,8 @@ const UserAuthService = {
   async login(credentials) {
     logDebug('[UserAuthService] Attempting login for:', credentials.email);
     
+    const apiClient = getDefaultApiClient();
+    
     const result = await handleApiResponse(
       () => apiClient.post(`${API_ENDPOINT}/login`, credentials),
       'UserAuthService.login'
@@ -35,6 +37,12 @@ const UserAuthService = {
         token: result.data.token,
         refreshToken: result.data.refreshToken
       });
+      
+      // Store user data in localStorage for context to find
+      if (result.data.user) {
+        localStorage.setItem('current_user', JSON.stringify(result.data.user));
+        localStorage.setItem('token', result.data.token);
+      }
       
       // Dispatch login event
       if (typeof window !== 'undefined') {
@@ -57,6 +65,8 @@ const UserAuthService = {
     logDebug('[UserAuthService] Attempting logout');
     
     try {
+      const apiClient = getDefaultApiClient();
+      
       // Call logout API if we have a token
       if (TokenService.hasTokens()) {
         const result = await handleApiResponse(
@@ -72,6 +82,10 @@ const UserAuthService = {
       
       // Clear tokens
       TokenService.clearTokens();
+      
+      // Clear auth context storage
+      localStorage.removeItem('current_user');
+      localStorage.removeItem('token');
       
       // Set explicit logout flag
       localStorage.setItem('user_explicitly_logged_out', 'true');
@@ -122,6 +136,8 @@ const UserAuthService = {
       logDebug('[UserAuthService] No valid token available');
       return { success: false, error: 'Not authenticated' };
     }
+    
+    const apiClient = getDefaultApiClient();
     
     const result = await handleApiResponse(
       () => apiClient.get(`${API_ENDPOINT}/me`),

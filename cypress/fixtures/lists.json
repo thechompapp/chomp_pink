@@ -1,0 +1,105 @@
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "name": "Best Italian Spots",
+      "description": "My favorite Italian restaurants in NYC",
+      "items_count": 8,
+      "created_at": "2024-01-15T10:30:00Z",
+      "updated_at": "2024-01-20T14:45:00Z",
+      "user": {
+        "id": 1,
+        "name": "John Doe"
+      },
+      "items": [
+        {
+          "id": 1,
+          "name": "Joe's Pizza Palace",
+          "item_type": "restaurant"
+        },
+        {
+          "id": 2,
+          "name": "Margherita Pizza",
+          "item_type": "dish"
+        }
+      ],
+      "is_public": true,
+      "is_following": false
+    },
+    {
+      "id": 2,
+      "name": "Healthy Choices",
+      "description": "Nutritious and delicious options around the city",
+      "items_count": 12,
+      "created_at": "2024-01-10T08:15:00Z",
+      "updated_at": "2024-01-22T16:20:00Z",
+      "user": {
+        "id": 2,
+        "name": "Jane Smith"
+      },
+      "items": [
+        {
+          "id": 6,
+          "name": "Quinoa Buddha Bowl",
+          "item_type": "dish"
+        }
+      ],
+      "is_public": true,
+      "is_following": true
+    },
+    {
+      "id": 3,
+      "name": "Date Night Spots",
+      "description": "Romantic restaurants perfect for special occasions",
+      "items_count": 6,
+      "created_at": "2024-01-05T19:00:00Z",
+      "updated_at": "2024-01-18T12:30:00Z",
+      "user": {
+        "id": 3,
+        "name": "Mike Johnson"
+      },
+      "items": [
+        {
+          "id": 4,
+          "name": "Chez Laurent",
+          "item_type": "restaurant"
+        }
+      ],
+      "is_public": true,
+      "is_following": false
+    },
+    {
+      "id": 4,
+      "name": "Spicy Food Adventures",
+      "description": "For those who love the heat!",
+      "items_count": 15,
+      "created_at": "2024-01-12T13:45:00Z",
+      "updated_at": "2024-01-21T09:15:00Z",
+      "user": {
+        "id": 4,
+        "name": "Sarah Wilson"
+      },
+      "items": [
+        {
+          "id": 2,
+          "name": "Dragon Roll",
+          "item_type": "dish"
+        },
+        {
+          "id": 5,
+          "name": "Carnitas Tacos",
+          "item_type": "dish"
+        }
+      ],
+      "is_public": true,
+      "is_following": true
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 25,
+    "total": 4,
+    "totalPages": 1
+  }
+} 

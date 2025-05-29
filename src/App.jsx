@@ -44,7 +44,9 @@ const Lists = enhancedLazy(() => import('./pages/Lists'), 'Lists');
 const MyLists = enhancedLazy(() => import('./pages/Lists/MyLists'), 'MyLists');
 import BulkAdd from './pages/BulkAdd'; // Direct import for BulkAdd
 import AdminPanel from './pages/AdminPanel/AdminPanel'; // Direct import for AdminPanel
+import EnhancedAdminPanelDemo from './pages/AdminPanel/EnhancedAdminPanelDemo'; // Import enhanced admin panel demo
 import AuthTestPage from './pages/AuthTest'; // Direct import for AuthTest
+import AdminAuthDebug from './pages/AdminAuthDebug'; // Import admin auth debug page
 
 /**
  * Create and configure query client with default options
@@ -168,6 +170,14 @@ function App() {
                             </ProtectedRoute>
                           } 
                         />
+                        <Route 
+                          path="/admin-enhanced" 
+                          element={
+                            <ProtectedRoute adminOnly>
+                              <EnhancedAdminPanelDemo />
+                            </ProtectedRoute>
+                          } 
+                        />
                         
                         <Route 
                           path="/bulk-add" 
@@ -181,6 +191,11 @@ function App() {
                         {/* Auth test route - only in development */}
                         {process.env.NODE_ENV === 'development' && (
                           <Route path="/auth-test" element={<AuthTestPage />} />
+                        )}
+                        
+                        {/* Admin auth debug route - only in development */}
+                        {process.env.NODE_ENV === 'development' && (
+                          <Route path="/admin-auth-debug" element={<AdminAuthDebug />} />
                         )}
                         
                         {/* Fallback for unknown routes */}

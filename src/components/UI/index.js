@@ -1,17 +1,20 @@
 // src/components/UI/index.js
 
-// List Cards
+// Main Card Components (Standardized)
+export { default as RestaurantCard } from './RestaurantCard';
+export { default as DishCard } from './DishCard';
 export { default as ListCard } from './ListCard';
+export { default as CardFactory } from './CardFactory';
+
+// List Cards
 export { default as ListCardSkeleton } from './ListCardSkeleton';
 export { default as CompactListCard } from './CompactListCard';
 
 // Restaurant Cards
-export { default as RestaurantCard } from './RestaurantCard';
 export { default as RestaurantCardSkeleton } from './RestaurantCardSkeleton';
 export { default as CompactRestaurantCard } from './CompactRestaurantCard';
 
 // Dish Cards
-export { default as DishCard } from './DishCard';
 export { default as DishCardSkeleton } from './DishCardSkeleton';
 export { default as CompactDishCard } from './CompactDishCard';
 

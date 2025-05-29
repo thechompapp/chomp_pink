@@ -5,6 +5,7 @@ import ListCard from './ListCard';
 import useAuthStore from '@/stores/useAuthStore';
 import { listService } from '@/services/listService';
 import { Loader2 } from 'lucide-react';
+import { GRID_LAYOUTS, CONTAINER, TYPOGRAPHY } from '@/utils/layoutConstants';
 
 // Lists component for My Lists page
 const Lists = () => {
@@ -143,8 +144,8 @@ const Lists = () => {
   const currentLists = activeTab === 'created' ? createdLists : followedLists;
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h2 className="text-2xl font-bold mb-6 text-center text-black">My Lists</h2>
+    <div className={`${CONTAINER.MAX_WIDTH} mx-auto ${CONTAINER.PADDING} ${CONTAINER.VERTICAL_SPACING}`}>
+      <h2 className={TYPOGRAPHY.PAGE_TITLE.replace('dark:text-gray-100', '').replace('text-gray-800', 'text-black')} style={{textAlign: 'center', marginBottom: '1.5rem'}}>My Lists</h2>
       
       <div className="flex justify-center mb-8">
         <div className="flex space-x-4 border-b border-gray-200">
@@ -188,7 +189,7 @@ const Lists = () => {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className={GRID_LAYOUTS.FULL_WIDTH}>
           {currentLists.map(list => (
             <ListCard 
               key={list.id} 

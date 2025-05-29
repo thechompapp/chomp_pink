@@ -26,6 +26,7 @@ import ListCardSkeleton from '@/pages/Lists/ListCardSkeleton.jsx';
 import RestaurantCardSkeleton from '@/components/UI/RestaurantCardSkeleton.jsx';
 import DishCardSkeleton from '@/components/UI/DishCardSkeleton.jsx';
 import AddToListModal from '@/components/AddToListModal';
+import { GRID_LAYOUTS } from '@/utils/layoutConstants';
 
 const ItemSkeleton = ({ type }) => {
   switch (type) {
@@ -359,7 +360,7 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
 
   const renderSkeletons = () => {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className={GRID_LAYOUTS.PRIMARY}>
         {[...Array(10)].map((_, i) => (
           <ItemSkeleton key={`skeleton-${contentType}-${i}`} type={contentType} />
         ))}
@@ -456,7 +457,7 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
         next={fetchNextPage}
         hasMore={hasNextPage ?? false}
         loader={
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 col-span-full pt-4">
+          <div className={`${GRID_LAYOUTS.PRIMARY} col-span-full pt-4`}>
             {[...Array(RESULTS_PER_PAGE > items.length ? Math.min(5, RESULTS_PER_PAGE - items.length % RESULTS_PER_PAGE) : 5)].map((_, i) => (
               <ItemSkeleton key={`loader-skeleton-${contentType}-${i}`} type={contentType} />
             ))}
@@ -469,7 +470,7 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
             </p>
           ) : null
         }
-        className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4"
+        className={GRID_LAYOUTS.PRIMARY}
         scrollThreshold={0.95} 
       >
         {items.map((item) => {
