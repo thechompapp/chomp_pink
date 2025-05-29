@@ -25,6 +25,7 @@ import CardFactory from '@/components/UI/CardFactory.jsx';
 import ListCardSkeleton from '@/pages/Lists/ListCardSkeleton.jsx';
 import RestaurantCardSkeleton from '@/components/UI/RestaurantCardSkeleton.jsx';
 import DishCardSkeleton from '@/components/UI/DishCardSkeleton.jsx';
+import AddToListModal from '@/components/AddToListModal';
 
 const ItemSkeleton = ({ type }) => {
   switch (type) {
@@ -56,6 +57,10 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
 
   // Track API errors for better user feedback
   const [apiError, setApiError] = useState(null);
+
+  // AddToList modal state
+  const [isAddToListModalOpen, setIsAddToListModalOpen] = useState(false);
+  const [itemToAdd, setItemToAdd] = useState(null);
 
   // Enhanced fetch function with better error handling
   const fetchFunction = useCallback(async ({ pageParam = 1 }) => {
@@ -257,6 +262,29 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
     };
   }, [contentType, queryClient]);
 
+  // AddToList handlers
+  const handleAddToList = useCallback((item) => {
+    console.log('[Results] Opening AddToList modal for:', item);
+    setItemToAdd({
+      id: item.id,
+      name: item.name,
+      type: item.type
+    });
+    setIsAddToListModalOpen(true);
+  }, []);
+
+  const handleCloseModal = useCallback(() => {
+    setIsAddToListModalOpen(false);
+    setItemToAdd(null);
+  }, []);
+
+  const handleItemAdded = useCallback((listId, listItemId) => {
+    console.log(`[Results] Item added to list ${listId} with ID ${listItemId}`);
+    setIsAddToListModalOpen(false);
+    setItemToAdd(null);
+    // Optional: Show success notification
+  }, []);
+
   const {
     data, 
     error: infiniteQueryError, // Error from the useInfiniteQuery hook itself
@@ -452,6 +480,7 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
                 type={contentType}
                 data={item}
                 onQuickAdd={openQuickAdd}
+                onAddToList={handleAddToList}
               />
             ) : (
               logWarn('[Results] Attempted to render a null item or item without ID.', item) && null
@@ -476,7 +505,19 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
   };
 
   logDebug(`[Results Render] Displaying content for ${contentType}`);
-  return renderContent();
+  return (
+    <div>
+      {renderContent()}
+      
+      {/* AddToList Modal */}
+      <AddToListModal
+        isOpen={isAddToListModalOpen}
+        onClose={handleCloseModal}
+        itemToAdd={itemToAdd}
+        onItemAdded={handleItemAdded}
+      />
+    </div>
+  );
 };
 
 export default Results;

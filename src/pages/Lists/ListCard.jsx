@@ -3,7 +3,20 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, ChevronUp, Star, Loader2, Eye } from 'lucide-react';
+import { 
+  ChevronDown, 
+  ChevronUp, 
+  Star, 
+  Loader2, 
+  Eye, 
+  Clock, 
+  Users, 
+  Hash,
+  TrendingUp,
+  MessageSquare,
+  Share2,
+  BookOpen
+} from 'lucide-react';
 import { useListDetail } from '@/contexts/ListDetailContext';
 import { engagementService } from '@/services/engagementService';
 import { listService } from '@/services/listService';
@@ -18,9 +31,44 @@ import { logDebug, logError } from '@/utils/logger';
 // Maximum items to show in preview mode
 const PREVIEW_ITEM_LIMIT = 5;
 
+// Animation variants for better UX
+const cardVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0 },
+  hover: { y: -2, boxShadow: "0 8px 25px rgba(0,0,0,0.15)" }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, x: -10 },
+  visible: { opacity: 1, x: 0 }
+};
+
+// Enhanced badge component for list metadata
+const ListBadge = ({ icon: Icon, text, color = "gray" }) => {
+  const colorClasses = {
+    gray: "bg-gray-100 text-gray-700",
+    blue: "bg-blue-100 text-blue-700",
+    green: "bg-green-100 text-green-700",
+    purple: "bg-purple-100 text-purple-700",
+    red: "bg-red-100 text-red-700"
+  };
+
+  return (
+    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${colorClasses[color]}`}>
+      <Icon size={10} className="mr-1" />
+      {text}
+    </span>
+  );
+};
+
 // Separate component for empty/error state
 const EmptyListCard = ({ error }) => (
-  <BaseCard className="bg-white rounded-lg border border-black p-4 h-full">
+  <motion.div
+    initial="hidden"
+    animate="visible"
+    variants={cardVariants}
+    className="bg-white rounded-lg border border-black p-4 h-full"
+  >
     <div className="flex flex-col items-center justify-center h-full">
       <div className="text-sm text-gray-500 text-center">
         <p>Unable to display this list.</p>
@@ -31,11 +79,11 @@ const EmptyListCard = ({ error }) => (
         )}
       </div>
     </div>
-  </BaseCard>
+  </motion.div>
 );
 
-// Spotify-like list item display within the card
-const ListItemDisplay = ({ item, listType, onQuickAdd, showQuickAdd = true }) => {
+// Enhanced list item display with better styling and metadata
+const ListItemDisplay = ({ item, listType, onQuickAdd, showQuickAdd = true, index }) => {
   try {
     // Check if user is authenticated
     const { isAuthenticated } = useAuthStore();
@@ -44,6 +92,7 @@ const ListItemDisplay = ({ item, listType, onQuickAdd, showQuickAdd = true }) =>
     let linkTo = '#';
     let secondaryText = '';
     let priceDisplay = '';
+    let itemIcon = null;
     
     if (item.item_type === 'restaurant') {
       linkTo = `/restaurants/${item.id}`;
@@ -51,12 +100,14 @@ const ListItemDisplay = ({ item, listType, onQuickAdd, showQuickAdd = true }) =>
       if (item.price_range) {
         priceDisplay = item.price_range;
       }
+      itemIcon = <Hash size={10} className="text-orange-500" />;
     } else if (item.item_type === 'dish') {
       linkTo = `/dishes/${item.id}`;
       secondaryText = item.restaurant_name || '';
       if (item.price) {
         priceDisplay = `$${parseFloat(item.price).toFixed(2)}`;
       }
+      itemIcon = <BookOpen size={10} className="text-green-500" />;
     }
 
     const handleQuickAdd = (e) => {
@@ -73,32 +124,47 @@ const ListItemDisplay = ({ item, listType, onQuickAdd, showQuickAdd = true }) =>
     };
 
     return (
-      <li className="flex items-center justify-between py-1.5 hover:bg-gray-50 rounded px-1 group" title={item.name}>
-        <div className="flex-1 min-w-0">
-          <span className="text-black hover:underline text-xs font-medium block truncate">
-            {item.name}
-          </span>
-          {secondaryText && (
-            <span className="text-black text-xs block truncate opacity-70">
-              {secondaryText}
+      <motion.li
+        initial="hidden"
+        animate="visible"
+        variants={itemVariants}
+        transition={{ delay: index * 0.05 }}
+        className="flex items-center justify-between py-2 hover:bg-gray-50 rounded-lg px-2 group transition-all duration-200" 
+        title={item.name}
+      >
+        <div className="flex items-center flex-1 min-w-0 space-x-2">
+          {itemIcon}
+          <div className="flex-1 min-w-0">
+            <span className="text-black hover:underline text-sm font-medium block truncate">
+              {item.name}
+            </span>
+            {secondaryText && (
+              <span className="text-gray-500 text-xs block truncate">
+                {secondaryText}
+              </span>
+            )}
+          </div>
+        </div>
+        
+        <div className="flex items-center space-x-2">
+          {priceDisplay && (
+            <span className="text-xs text-gray-600 font-medium bg-gray-100 px-2 py-1 rounded">
+              {priceDisplay}
             </span>
           )}
+          {isAuthenticated && onQuickAdd && showQuickAdd && (
+            <motion.button 
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleQuickAdd}
+              className="text-xs bg-black text-white px-3 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-gray-800"
+              title="Add to a list"
+            >
+              Add
+            </motion.button>
+          )}
         </div>
-        {priceDisplay && (
-          <span className="text-xs text-gray-600 font-medium mx-2">
-            {priceDisplay}
-          </span>
-        )}
-        {isAuthenticated && onQuickAdd && showQuickAdd && (
-          <button 
-            onClick={handleQuickAdd}
-            className="text-xs bg-black text-white px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-            title="Add to a list"
-          >
-            Add
-          </button>
-        )}
-      </li>
+      </motion.li>
     );
   } catch (error) {
     console.error('[ListItemDisplay] Error rendering item:', error);
@@ -115,23 +181,31 @@ const SimpleListCard = ({ list, onClick }) => {
   const updatedText = formatRelativeDate(updatedAt) || 'Updated recently';
 
   return (
-    <BaseCard 
-      onClick={onClick}
-      className="bg-white rounded-lg border border-black p-4 flex flex-col h-full overflow-hidden relative w-full cursor-pointer"
+    <motion.div
+      initial="hidden"
+      animate="visible"
+      whileHover="hover"
+      variants={cardVariants}
+      transition={{ duration: 0.2 }}
     >
-      <div className="flex-grow min-h-0 overflow-hidden flex flex-col">
-        <h3 className="text-base font-semibold text-black line-clamp-2 flex-shrink-0 mb-1">
-          {listName}
-        </h3>
-        <p className="text-xs text-black mb-1 flex-shrink-0">
-          {itemCount} {itemCount === 1 ? 'item' : 'items'}
-        </p>
-        <p className="text-xs text-black mb-2 flex-shrink-0">{updatedText}</p>
-        <div className="flex-grow min-h-0 overflow-y-auto no-scrollbar max-h-28">
-          <p className="text-xs text-gray-500">Click to view details</p>
+      <BaseCard 
+        onClick={onClick}
+        className="bg-white rounded-lg border border-black p-4 flex flex-col h-full overflow-hidden relative w-full cursor-pointer"
+      >
+        <div className="flex-grow min-h-0 overflow-hidden flex flex-col">
+          <h3 className="text-base font-semibold text-black line-clamp-2 flex-shrink-0 mb-1">
+            {listName}
+          </h3>
+          <p className="text-xs text-black mb-1 flex-shrink-0">
+            {itemCount} {itemCount === 1 ? 'item' : 'items'}
+          </p>
+          <p className="text-xs text-black mb-2 flex-shrink-0">{updatedText}</p>
+          <div className="flex-grow min-h-0 overflow-y-auto no-scrollbar max-h-28">
+            <p className="text-xs text-gray-500">Click to view details</p>
+          </div>
         </div>
-      </div>
-    </BaseCard>
+      </BaseCard>
+    </motion.div>
   );
 };
 
@@ -150,6 +224,7 @@ const ListCard = (props) => {
   // All hooks must always be called unconditionally, at the top level
   const [followStatus, setFollowStatus] = useState(Boolean(list.is_following));
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const { user, isAuthenticated } = useAuthStore() || {};
   const { isFollowing } = useFollowStore() || {};
 
@@ -266,6 +341,70 @@ const ListCard = (props) => {
     }
   }, [safeListId]);
 
+  // Enhanced share functionality
+  const handleShare = useCallback(async (e) => {
+    try {
+      e.stopPropagation();
+      e.preventDefault();
+      
+      if (navigator.share) {
+        await navigator.share({
+          title: list.name,
+          text: list.description || `Check out this list: ${list.name}`,
+          url: `${window.location.origin}/lists/${safeListId}`
+        });
+      } else {
+        // Fallback to clipboard
+        await navigator.clipboard.writeText(`${window.location.origin}/lists/${safeListId}`);
+        // Could add a toast notification here
+      }
+    } catch (error) {
+      console.error('[ListCard] Error sharing list:', error);
+    }
+  }, [list.name, list.description, safeListId]);
+
+  // Enhanced follow handler with better UX
+  const handleToggleFollow = useCallback((e) => {
+    try {
+      if (e) {
+        e.stopPropagation();
+        e.preventDefault();
+      }
+      setFollowStatus((prev) => !prev);
+      
+      // Optimistic update with better state management
+      const newFollowStatus = !followStatus;
+      
+      try {
+        const key = `follow_state_${safeListId}`;
+        localStorage.setItem(
+          key,
+          JSON.stringify({
+            isFollowing: newFollowStatus,
+            updatedAt: new Date().toISOString(),
+          })
+        );
+        
+        // Log engagement
+        engagementService.logEngagement({
+          item_id: parseInt(safeListId, 10),
+          item_type: 'list',
+          engagement_type: newFollowStatus ? 'follow' : 'unfollow',
+        });
+        
+        logDebug(
+          `[ListCard] List ${safeListId} ${newFollowStatus ? 'followed' : 'unfollowed'}`
+        );
+      } catch (err) {
+        console.error('[ListCard] Error updating follow state:', err);
+        // Revert optimistic update on error
+        setFollowStatus(followStatus);
+      }
+    } catch (clickError) {
+      console.error('[ListCard] Error in follow button click handler:', clickError);
+    }
+  }, [followStatus, safeListId]);
+
   // Render
   const listName = list.name || 'Unnamed List';
   const updatedAt = list.updated_at ? new Date(list.updated_at) : new Date();
@@ -283,162 +422,194 @@ const ListCard = (props) => {
 
   const hasMoreItems = itemCount > PREVIEW_ITEM_LIMIT;
 
+  // Enhanced metadata display
+  const getListTypeColor = (type) => {
+    const typeColors = {
+      'restaurant': 'blue',
+      'dish': 'green',
+      'recipe': 'purple',
+      'mixed': 'gray'
+    };
+    return typeColors[type] || 'gray';
+  };
+
   return (
     <>
-      <BaseCard
-        onClick={handleCardClick}
-        className="bg-white rounded-lg border border-black p-4 flex flex-col h-full overflow-hidden relative w-full cursor-pointer hover:shadow-lg transition-shadow"
+      <motion.div
+        initial="hidden"
+        animate="visible"
+        whileHover="hover"
+        variants={cardVariants}
+        transition={{ duration: 0.2 }}
+        onHoverStart={() => setIsHovered(true)}
+        onHoverEnd={() => setIsHovered(false)}
       >
-        {/* Main Content Area */}
-        <div className="flex-grow min-h-0 overflow-hidden flex flex-col">
-          <div className="flex justify-between items-start mb-1">
-            <div className="flex-1 min-w-0">
-              <h3 className="text-base font-semibold text-black line-clamp-2 flex-shrink-0">
-                {listName}
-              </h3>
-              {list.description && (
-                <p className="text-xs text-gray-600 mt-1 line-clamp-2">
-                  {list.description}
-                </p>
-              )}
-            </div>
-            {/* Only show follow button for authenticated users and not their own lists */}
-            {user && !isOwnList && (
-              <div className="ml-2 relative z-50 flex-shrink-0">
-                <button
-                  id={`follow-btn-${safeListId}`}
-                  className={`inline-flex items-center px-2 py-1 text-xs rounded-sm relative transition-colors ${
-                    followStatus 
-                      ? 'bg-black text-white' 
-                      : 'bg-white text-black border border-black hover:bg-gray-50'
-                  }`}
-                  style={{
-                    cursor: 'pointer',
-                    pointerEvents: 'auto',
-                    position: 'relative',
-                    zIndex: 9999,
-                  }}
-                  onClick={function (e) {
-                    try {
-                      if (e) {
-                        e.stopPropagation();
-                        e.preventDefault();
-                      }
-                      setFollowStatus((prev) => !prev);
-                      try {
-                        const btn = document.getElementById(`follow-btn-${safeListId}`);
-                        if (!btn) {
-                          console.warn(`[ListCard] Button element for list ${safeListId} not found in DOM`);
-                          return;
-                        }
-                        const isCurrentlyFollowing = btn.classList.contains('bg-black');
-                        const textLabel = btn.querySelector('.text-label');
-                        if (isCurrentlyFollowing) {
-                          btn.classList.remove('bg-black', 'text-white');
-                          btn.classList.add('bg-white', 'text-black', 'border', 'border-black');
-                          if (textLabel) textLabel.textContent = 'Follow';
-                        } else {
-                          btn.classList.remove('bg-white', 'text-black', 'border', 'border-black');
-                          btn.classList.add('bg-black', 'text-white');
-                          if (textLabel) textLabel.textContent = 'Following';
-                        }
-                        try {
-                          const key = `follow_state_${safeListId}`;
-                          localStorage.setItem(
-                            key,
-                            JSON.stringify({
-                              isFollowing: !isCurrentlyFollowing,
-                              updatedAt: new Date().toISOString(),
-                            })
-                          );
-                        } catch (storageErr) {
-                          console.warn('[ListCard] Error updating localStorage:', storageErr);
-                        }
-                        logDebug(
-                          `[ListCard] Button for list ${safeListId} clicked and toggled to: ${!isCurrentlyFollowing}`
-                        );
-                      } catch (err) {
-                        console.error('[ListCard] Follow button DOM manipulation error:', err);
-                      }
-                    } catch (clickError) {
-                      console.error('[ListCard] Error in follow button click handler:', clickError);
-                    }
-                  }}
-                >
-                  <Star className={`mr-1 ${followStatus ? 'fill-white' : ''}`} size={12} />
-                  <span className="text-label">{followStatus ? 'Following' : 'Follow'}</span>
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center space-x-3">
-              <p className="text-xs text-black flex-shrink-0">
-                {itemCount} {itemCount === 1 ? 'item' : 'items'}
-              </p>
-              {list.list_type && (
-                <span className="text-xs text-gray-500 capitalize">
-                  {list.list_type} list
-                </span>
-              )}
-            </div>
-            <p className="text-xs text-black flex-shrink-0">{updatedText}</p>
-          </div>
-
-          {/* Items Preview List (takes remaining space) */}
-          <div className="flex-grow min-h-0 overflow-hidden">
-            {isLoading ? (
-              <div className="flex items-center justify-center h-full">
-                <Loader2 className="animate-spin text-gray-500" size={20} />
-              </div>
-            ) : (
-              <ul className="space-y-1">
-                {Array.isArray(displayItems) &&
-                  displayItems.map((item, index) =>
-                    item && item.id ? (
-                      <ListItemDisplay
-                        key={`${item.id}-${item.item_type || 'unknown'}`}
-                        item={item}
-                        listType={list.type}
-                        onQuickAdd={onQuickAdd}
-                        showQuickAdd={true}
-                      />
-                    ) : null
-                  )}
-                {displayItems.length === 0 && (
-                  <li className="text-xs text-gray-500 italic py-2">
-                    This list is empty
-                  </li>
+        <BaseCard
+          onClick={handleCardClick}
+          className="bg-white rounded-lg border border-black p-4 flex flex-col h-full overflow-hidden relative w-full cursor-pointer hover:shadow-lg transition-all duration-200"
+        >
+          {/* Enhanced Header with Better Visual Hierarchy */}
+          <div className="flex-grow min-h-0 overflow-hidden flex flex-col">
+            <div className="flex justify-between items-start mb-2">
+              <div className="flex-1 min-w-0">
+                <h3 className="text-lg font-bold text-black line-clamp-2 flex-shrink-0 mb-1">
+                  {listName}
+                </h3>
+                {list.description && (
+                  <p className="text-sm text-gray-600 mt-1 line-clamp-2 leading-relaxed">
+                    {list.description}
+                  </p>
                 )}
-              </ul>
-            )}
-          </div>
-        </div>
+              </div>
+              
+              {/* Enhanced Action Buttons */}
+              <div className="ml-3 flex items-center space-x-2 flex-shrink-0">
+                {/* Share Button */}
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={handleShare}
+                  className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-all duration-200"
+                  title="Share this list"
+                >
+                  <Share2 size={14} />
+                </motion.button>
+                
+                {/* Enhanced Follow Button */}
+                {shouldShowFollowButton && (
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleToggleFollow}
+                    className={`inline-flex items-center px-3 py-1.5 text-xs rounded-full font-medium transition-all duration-200 ${
+                      followStatus 
+                        ? 'bg-black text-white shadow-md' 
+                        : 'bg-white text-black border border-gray-300 hover:bg-gray-50 hover:border-gray-400'
+                    }`}
+                    title={followStatus ? 'Unfollow this list' : 'Follow this list'}
+                  >
+                    <Star className={`mr-1.5 ${followStatus ? 'fill-white' : ''}`} size={12} />
+                    <span>{followStatus ? 'Following' : 'Follow'}</span>
+                  </motion.button>
+                )}
+              </div>
+            </div>
 
-        {/* Show More Button */}
-        {hasMoreItems && (
-          <div className="flex justify-center mt-3 pt-2 border-t border-gray-100">
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="text-black/70 hover:text-black p-2 rounded-lg transition-colors flex items-center text-xs font-medium hover:bg-gray-50"
-              onClick={handleShowMore}
-            >
-              <Eye size={14} className="mr-1" />
-              Show all {itemCount} items
-            </motion.button>
+            {/* Enhanced Metadata Section */}
+            <div className="flex items-center flex-wrap gap-2 mb-3">
+              <div className="flex items-center space-x-1 text-xs text-gray-600">
+                <Users size={12} />
+                <span>{itemCount} {itemCount === 1 ? 'item' : 'items'}</span>
+              </div>
+              
+              <div className="flex items-center space-x-1 text-xs text-gray-600">
+                <Clock size={12} />
+                <span>{updatedText}</span>
+              </div>
+              
+              {list.list_type && (
+                <ListBadge 
+                  icon={Hash} 
+                  text={`${list.list_type} list`} 
+                  color={getListTypeColor(list.list_type)} 
+                />
+              )}
+              
+              {list.is_trending && (
+                <ListBadge 
+                  icon={TrendingUp} 
+                  text="Trending" 
+                  color="red" 
+                />
+              )}
+              
+              {list.comment_count > 0 && (
+                <ListBadge 
+                  icon={MessageSquare} 
+                  text={`${list.comment_count} comments`} 
+                  color="blue" 
+                />
+              )}
+            </div>
+
+            {/* Enhanced Items Preview List */}
+            <div className="flex-grow min-h-0 overflow-hidden">
+              {isLoading ? (
+                <div className="flex items-center justify-center h-24">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  >
+                    <Loader2 className="text-gray-400" size={20} />
+                  </motion.div>
+                </div>
+              ) : (
+                <AnimatePresence>
+                  <ul className="space-y-1">
+                    {Array.isArray(displayItems) &&
+                      displayItems.map((item, index) =>
+                        item && item.id ? (
+                          <ListItemDisplay
+                            key={`${item.id}-${item.item_type || 'unknown'}`}
+                            item={item}
+                            listType={list.type}
+                            onQuickAdd={onQuickAdd}
+                            showQuickAdd={true}
+                            index={index}
+                          />
+                        ) : null
+                      )}
+                    {displayItems.length === 0 && (
+                      <motion.li
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="text-sm text-gray-400 italic py-4 text-center border border-dashed border-gray-200 rounded-lg"
+                      >
+                        This list is empty
+                      </motion.li>
+                    )}
+                  </ul>
+                </AnimatePresence>
+              )}
+            </div>
           </div>
-        )}
-      </BaseCard>
+
+          {/* Enhanced Show More Button */}
+          <AnimatePresence>
+            {hasMoreItems && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="flex justify-center mt-4 pt-3 border-t border-gray-100"
+              >
+                <motion.button
+                  whileHover={{ scale: 1.02, y: -1 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="text-black/70 hover:text-black px-4 py-2 rounded-lg transition-all duration-200 flex items-center text-sm font-medium hover:bg-gray-50 border border-transparent hover:border-gray-200"
+                  onClick={handleShowMore}
+                >
+                  <Eye size={16} className="mr-2" />
+                  <span>Show all {itemCount} items</span>
+                  <ChevronDown size={16} className="ml-2" />
+                </motion.button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </BaseCard>
+      </motion.div>
 
       {/* List Detail Modal */}
-      <ListDetailModal
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
-        listId={safeListId}
-        onQuickAdd={onQuickAdd}
-      />
+      <AnimatePresence>
+        {isModalOpen && (
+          <ListDetailModal
+            isOpen={isModalOpen}
+            onClose={handleCloseModal}
+            listId={safeListId}
+            onQuickAdd={onQuickAdd}
+          />
+        )}
+      </AnimatePresence>
     </>
   );
 };
@@ -453,6 +624,8 @@ ListCard.propTypes = {
     items_count: PropTypes.number,
     updated_at: PropTypes.string,
     is_following: PropTypes.bool,
+    is_trending: PropTypes.bool,
+    comment_count: PropTypes.number,
     user_id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     created_by_user: PropTypes.bool,
     creator_handle: PropTypes.string,

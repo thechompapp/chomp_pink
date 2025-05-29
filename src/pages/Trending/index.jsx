@@ -18,6 +18,7 @@ import QueryResultDisplay from '@/components/QueryResultDisplay';
 import { Flame, Utensils, Bookmark, Star, Clock, SortAsc, List as ListIcon, TrendingUp } from 'lucide-react';
 import { useQuickAdd } from '@/contexts/QuickAddContext';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
+import AddToListModal from '@/components/AddToListModal';
 
 // FIX: Use correct icon (SortAsc)
 const SORT_OPTIONS = [
@@ -53,6 +54,7 @@ const fetchTrendingRestaurants = async () => {
         return [];
     }
 };
+
 const fetchTrendingDishes = async () => {
      try {
         const data = await trendingService.getTrendingDishes();
@@ -73,6 +75,7 @@ const fetchTrendingDishes = async () => {
         return [];
     }
 };
+
 const fetchTrendingLists = async () => {
      try {
         const data = await trendingService.getTrendingLists();
@@ -102,6 +105,10 @@ const Trending = () => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const { openQuickAdd } = useQuickAdd();
   const queryClient = useQueryClient();
+  
+  // AddToList modal state
+  const [isAddToListModalOpen, setIsAddToListModalOpen] = useState(false);
+  const [itemToAdd, setItemToAdd] = useState(null);
   
   // Access the follow store to track followed lists
   const { initializeFollowedLists } = useFollowStore();
@@ -161,6 +168,29 @@ const Trending = () => {
     return sorted;
   }, [sortMethod]);
 
+  // AddToList handlers
+  const handleAddToList = useCallback((item) => {
+    console.log('[TrendingPage] Opening AddToList modal for:', item);
+    setItemToAdd({
+      id: item.id,
+      name: item.name,
+      type: item.type
+    });
+    setIsAddToListModalOpen(true);
+  }, []);
+
+  const handleCloseModal = useCallback(() => {
+    setIsAddToListModalOpen(false);
+    setItemToAdd(null);
+  }, []);
+
+  const handleItemAdded = useCallback((listId, listItemId) => {
+    console.log(`[TrendingPage] Item added to list ${listId} with ID ${listItemId}`);
+    setIsAddToListModalOpen(false);
+    setItemToAdd(null);
+    // Optional: Show success notification
+  }, []);
+
   const handleQuickAdd = useCallback((item, type) => {
         if (!isAuthenticated) {
             console.log("User not authenticated, cannot quick add.");
@@ -184,7 +214,6 @@ const Trending = () => {
              description: item.description,
         });
     }, [openQuickAdd, isAuthenticated]);
-
 
   const tabs = useMemo(() => [
     { id: "restaurants", label: "Restaurants", Icon: Flame, query: restaurantsQuery },
@@ -353,7 +382,7 @@ const Trending = () => {
                                 return <RestaurantCard 
                                     key={key} 
                                     {...item} 
-                                    onQuickAdd={() => handleQuickAdd(item, 'restaurant')} 
+                                    onAddToList={() => handleAddToList({ ...item, type: 'restaurant' })}
                                 />;
                             }
                             if (activeTab === "dishes") {
@@ -362,7 +391,7 @@ const Trending = () => {
                                     key={key} 
                                     {...item} 
                                     restaurant={item.restaurant || item.restaurant_name} 
-                                    onQuickAdd={() => handleQuickAdd(item, 'dish')} 
+                                    onAddToList={() => handleAddToList({ ...item, type: 'dish' })}
                                 />;
                             }
                            if (activeTab === "lists") {
@@ -380,6 +409,14 @@ const Trending = () => {
             }}
         </QueryResultDisplay>
       </div>
+
+      {/* AddToList Modal */}
+      <AddToListModal
+        isOpen={isAddToListModalOpen}
+        onClose={handleCloseModal}
+        itemToAdd={itemToAdd}
+        onItemAdded={handleItemAdded}
+      />
     </div>
   );
 };

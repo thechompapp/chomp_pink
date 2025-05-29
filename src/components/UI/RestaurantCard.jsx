@@ -1,33 +1,133 @@
 // src/components/UI/RestaurantCard.jsx
-import React from 'react';
-import { MapPin, Users, ExternalLink } from 'lucide-react'; // Added ExternalLink
-import BaseCard from '@/components/UI/BaseCard';
+import React, { useState, useCallback, useMemo } from 'react';
+import PropTypes from 'prop-types';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  MapPin, 
+  Users, 
+  Star, 
+  Clock,
+  TrendingUp,
+  Award,
+  Globe,
+  Phone,
+  Hash,
+  Plus
+} from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { engagementService } from '@/services/engagementService';
-import { Link } from 'react-router-dom'; // Import Link
+import useAuthStore from '@/stores/useAuthStore';
 
-// Update props to expect *_name
+// Animation variants for better UX - fixed to prevent border clipping
+const restaurantCardVariants = {
+  hidden: { opacity: 0, y: 10 },
+  visible: { opacity: 1, y: 0 },
+  hover: { y: -2, boxShadow: "0 8px 25px rgba(0,0,0,0.15)" }
+};
+
+const tagVariants = {
+  hidden: { opacity: 0, scale: 0.8 },
+  visible: { opacity: 1, scale: 1 }
+};
+
+// Enhanced badge component for restaurant metadata
+const RestaurantBadge = ({ icon: Icon, text, color = "gray", size = "sm" }) => {
+  const colorClasses = {
+    gray: "bg-gray-100 text-gray-700",
+    blue: "bg-blue-100 text-blue-700",
+    green: "bg-green-100 text-green-700",
+    purple: "bg-purple-100 text-purple-700",
+    red: "bg-red-100 text-red-700",
+    yellow: "bg-yellow-100 text-yellow-700",
+    orange: "bg-orange-100 text-orange-700"
+  };
+
+  const sizeClasses = {
+    sm: "px-2 py-1 text-xs",
+    xs: "px-1.5 py-0.5 text-xs"
+  };
+
+  return (
+    <motion.span
+      variants={tagVariants}
+      className={`inline-flex items-center rounded-full font-medium ${colorClasses[color]} ${sizeClasses[size]}`}
+    >
+      <Icon size={size === 'xs' ? 8 : 10} className="mr-1" />
+      {text}
+    </motion.span>
+  );
+};
+
+// Add to List button component
+const AddToListButton = ({ restaurant, onAddToList }) => {
+  const { isAuthenticated } = useAuthStore();
+
+  const handleAddToList = useCallback((e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (onAddToList) {
+      onAddToList({
+        id: restaurant.id,
+        name: restaurant.name,
+        type: 'restaurant'
+      });
+    }
+  }, [onAddToList, restaurant]);
+
+  if (!isAuthenticated || !onAddToList) return null;
+
+  return (
+    <motion.button
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      onClick={handleAddToList}
+      className="absolute top-2 right-2 p-2 bg-black text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 opacity-0 group-hover:opacity-100"
+      title="Add to list"
+    >
+      <Plus size={14} />
+    </motion.button>
+  );
+};
+
 const RestaurantCard = ({
   id,
   name,
-  neighborhood_name, // Changed from neighborhood
-  city_name,         // Changed from city
+  neighborhood_name,
+  city_name,
   tags = [],
   adds = 0,
-  onQuickAdd, // Assuming this comes from parent/context if needed
-  website // Add website prop
+  onAddToList,
+  website,
+  phone,
+  rating,
+  is_trending = false,
+  is_featured = false,
+  hours,
+  image_url,
+  description,
+  className = ""
 }) => {
+  const [isHovered, setIsHovered] = useState(false);
+  const { isAuthenticated } = useAuthStore();
+  
   // Keep name cleaning logic
   const cleanName = name?.split(',')[0].trim() || 'Unnamed Restaurant';
-  const linkDestination = `/restaurant/${id}`; // Link to restaurant detail page
+  const linkDestination = `/restaurant/${id}`;
   const safeTags = Array.isArray(tags) ? tags : [];
 
   // Combine location parts, handling nulls gracefully
-  const locationParts = [neighborhood_name, city_name].filter(Boolean); // Filter out null/empty values
+  const locationParts = [neighborhood_name, city_name].filter(Boolean);
   const locationString = locationParts.join(', ') || 'Unknown Location';
 
-  const handleCardClick = (e) => {
-    // Prevent navigation if clicking on the external link icon
-    if (e.target.closest('.external-link-button')) {
+  // Rating display
+  const ratingDisplay = useMemo(() => {
+    if (!rating) return null;
+    return parseFloat(rating).toFixed(1);
+  }, [rating]);
+
+  const handleCardClick = useCallback((e) => {
+    // Prevent navigation if clicking on action buttons
+    if (e.target.closest('.add-to-list-button') || e.target.closest('.external-link-button')) {
       return;
     }
 
@@ -37,82 +137,220 @@ const RestaurantCard = ({
         item_type: 'restaurant',
         engagement_type: 'click',
       });
-      // Navigation happens via BaseCard's Link wrapper now
     }
-  };
+  }, [id]);
 
-   const handleExternalLinkClick = (e) => {
-       e.preventDefault(); // Prevent Link navigation
-       e.stopPropagation(); // Prevent card click handler
-       if (website) {
-           window.open(website, '_blank', 'noopener,noreferrer');
-           // Optionally log this specific interaction
-           engagementService.logEngagement({
-               item_id: parseInt(id, 10),
-               item_type: 'restaurant',
-               engagement_type: 'website_click', // Example custom type
-           });
-       }
-   };
+  const handleExternalLinkClick = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (website) {
+      window.open(website, '_blank', 'noopener,noreferrer');
+      engagementService.logEngagement({
+        item_id: parseInt(id, 10),
+        item_type: 'restaurant',
+        engagement_type: 'website_click',
+      });
+    }
+  }, [website, id]);
 
   return (
-    // BaseCard handles the Link wrapping if linkTo is provided
-    <BaseCard
-      linkTo={linkDestination}
-      onClick={handleCardClick} // Handles logging, navigation is via Link
-      onQuickAdd={onQuickAdd ? () => onQuickAdd({ id, name: cleanName, type: 'restaurant' }) : undefined}
-      quickAddLabel={`Add ${cleanName} to list`}
-      className="w-full group relative" // Added group and relative for positioning icon
-      showQuickAdd={!!onQuickAdd}
+    <motion.div
+      initial="hidden"
+      animate="visible"
+      whileHover="hover"
+      variants={restaurantCardVariants}
+      transition={{ duration: 0.2 }}
+      onHoverStart={() => setIsHovered(true)}
+      onHoverEnd={() => setIsHovered(false)}
+      className={`group relative ${className}`}
     >
-      {/* Main Content Area */}
-      <div className="flex-grow min-h-0 overflow-hidden">
-         {/* Website link icon - positioned top-right */}
-         {website && (
-             <button
-                 onClick={handleExternalLinkClick}
-                 className="external-link-button absolute top-1 right-1 p-1 text-gray-400 hover:text-gray-600 z-10" // Positioned top-right
-                 aria-label={`Visit website for ${cleanName}`}
-                 title="Visit website"
-             >
-                 <ExternalLink size={14} />
-             </button>
-         )}
+      <Link to={linkDestination} onClick={handleCardClick} className="block">
+        <div className="bg-white rounded-lg border border-black p-4 h-64 overflow-hidden relative hover:shadow-lg transition-all duration-200">
+          {/* Add to List Button */}
+          <div className="add-to-list-button">
+            <AddToListButton
+              restaurant={{ id, name: cleanName }}
+              onAddToList={onAddToList}
+            />
+          </div>
 
-        {/* Use h-full text-base */}
-        <h3 className="text-sm font-semibold text-black mb-1 line-clamp-2 pr-6"> {/* Black text for better visibility */}
-          {cleanName}
-        </h3>
-        {/* Use locationString derived from *_name props */}
-        <div className="flex items-center text-black text-xs mb-1">
-          <MapPin size={12} className="mr-1 flex-shrink-0 text-black" />
-          <span className="truncate" title={locationString}> {/* Add title for full text on hover */}
-            {locationString}
-          </span>
-        </div>
-        <div className="flex items-center text-black text-xs">
-          <Users size={12} className="mr-1 flex-shrink-0 text-black" />
-          <span>{adds?.toLocaleString() ?? 0} adds</span> {/* Handle potential null adds */}
-        </div>
-      </div>
+          {/* Restaurant Type Label */}
+          <div className="flex justify-between items-start mb-2">
+            <RestaurantBadge 
+              icon={Hash} 
+              text="Restaurant" 
+              color="orange"
+              size="xs" 
+            />
 
-      {/* Footer Area (Tags) */}
-      {safeTags.length > 0 && (
-        <div className="mt-2 pt-2 border-t border-black flex flex-wrap gap-1 flex-shrink-0">
-          {safeTags.slice(0, 3).map((tag) => (
-            <span key={tag} className="px-1.5 py-0.5 bg-white border border-black rounded-full text-[10px] text-black whitespace-nowrap">
-              #{tag}
-            </span>
-          ))}
-          {safeTags.length > 3 && (
-            <span className="px-1.5 py-0.5 bg-white border border-black rounded-full text-[10px] text-black">
-              +{safeTags.length - 3}
-            </span>
+            {/* External Link Button */}
+            {website && (
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={handleExternalLinkClick}
+                className="external-link-button p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-all duration-200"
+                title="Visit website"
+              >
+                <Globe size={14} />
+              </motion.button>
+            )}
+          </div>
+
+          {/* Enhanced Header with Image Support */}
+          <div className="flex-grow min-h-0 overflow-hidden flex flex-col">
+            {/* Image Section (if available) */}
+            {image_url && (
+              <div className="mb-3 rounded-lg overflow-hidden bg-gray-100 h-32">
+                <img 
+                  src={image_url} 
+                  alt={cleanName}
+                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  loading="lazy"
+                />
+              </div>
+            )}
+
+            {/* Main Content */}
+            <div className="mb-2">
+              <h3 className="text-lg font-bold text-black line-clamp-2 mb-1">
+                {cleanName}
+              </h3>
+              {description && (
+                <p className="text-sm text-gray-600 line-clamp-2 mb-2 leading-relaxed">
+                  {description}
+                </p>
+              )}
+            </div>
+
+            {/* Enhanced Metadata Section */}
+            <div className="space-y-2 mb-3">
+              {/* Location */}
+              <div className="flex items-center text-sm text-gray-600">
+                <MapPin size={14} className="mr-2 flex-shrink-0 text-orange-500" />
+                <span className="truncate" title={locationString}>
+                  {locationString}
+                </span>
+              </div>
+
+              {/* Rating and Phone */}
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center space-x-3">
+                  {ratingDisplay && (
+                    <div className="flex items-center text-yellow-600">
+                      <Star size={12} className="mr-1 fill-current" />
+                      <span className="font-medium">{ratingDisplay}</span>
+                    </div>
+                  )}
+                </div>
+
+                {phone && (
+                  <motion.a
+                    whileHover={{ scale: 1.05 }}
+                    href={`tel:${phone}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="p-1 text-blue-600 hover:text-blue-700 rounded"
+                    title={`Call ${phone}`}
+                  >
+                    <Phone size={12} />
+                  </motion.a>
+                )}
+              </div>
+
+              {/* Popularity */}
+              <div className="flex items-center text-sm text-gray-600">
+                <Users size={14} className="mr-2 flex-shrink-0 text-blue-500" />
+                <span>{adds?.toLocaleString() ?? 0} adds</span>
+              </div>
+            </div>
+
+            {/* Enhanced Badges Section */}
+            <motion.div 
+              className="flex items-center flex-wrap gap-1.5 mb-3"
+              initial="hidden"
+              animate="visible"
+              variants={{ visible: { transition: { staggerChildren: 0.05 } } }}
+            >
+              {is_featured && (
+                <RestaurantBadge 
+                  icon={Award} 
+                  text="Featured" 
+                  color="purple"
+                  size="xs" 
+                />
+              )}
+              
+              {is_trending && (
+                <RestaurantBadge 
+                  icon={TrendingUp} 
+                  text="Trending" 
+                  color="red"
+                  size="xs" 
+                />
+              )}
+              
+              {hours && (
+                <RestaurantBadge 
+                  icon={Clock} 
+                  text={hours.includes('Open') ? 'Open' : 'Hours'} 
+                  color={hours.includes('Open') ? 'green' : 'gray'}
+                  size="xs" 
+                />
+              )}
+            </motion.div>
+          </div>
+
+          {/* Enhanced Tags Footer */}
+          {safeTags.length > 0 && (
+            <motion.div 
+              className="mt-auto pt-3 border-t border-black flex flex-wrap gap-1.5"
+              initial="hidden"
+              animate="visible"
+              variants={{ visible: { transition: { staggerChildren: 0.02 } } }}
+            >
+              {safeTags.slice(0, 3).map((tag, index) => (
+                <motion.span
+                  key={tag}
+                  variants={tagVariants}
+                  className="px-1.5 py-0.5 bg-white border border-black rounded-full text-xs text-black font-medium whitespace-nowrap"
+                >
+                  #{tag}
+                </motion.span>
+              ))}
+              {safeTags.length > 3 && (
+                <motion.span
+                  variants={tagVariants}
+                  className="px-1.5 py-0.5 bg-white border border-black rounded-full text-xs text-black font-medium"
+                  title={`${safeTags.length - 3} more tags: ${safeTags.slice(3).join(', ')}`}
+                >
+                  +{safeTags.length - 3}
+                </motion.span>
+              )}
+            </motion.div>
           )}
         </div>
-      )}
-    </BaseCard>
+      </Link>
+    </motion.div>
   );
 };
 
-export default RestaurantCard;
+RestaurantCard.propTypes = {
+  id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  name: PropTypes.string.isRequired,
+  neighborhood_name: PropTypes.string,
+  city_name: PropTypes.string,
+  tags: PropTypes.array,
+  adds: PropTypes.number,
+  onAddToList: PropTypes.func,
+  website: PropTypes.string,
+  phone: PropTypes.string,
+  rating: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  is_trending: PropTypes.bool,
+  is_featured: PropTypes.bool,
+  hours: PropTypes.string,
+  image_url: PropTypes.string,
+  description: PropTypes.string,
+  className: PropTypes.string,
+};
+
+export default React.memo(RestaurantCard);

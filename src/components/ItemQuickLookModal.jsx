@@ -13,6 +13,7 @@ import DishCard from '@/components/UI/DishCard';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
 import ErrorMessage from '@/components/UI/ErrorMessage';
 import Button from '@/components/UI/Button'; // Corrected import path
+import AddToListModal from '@/components/AddToListModal';
 import { Link } from 'react-router-dom';
 
 // Fetcher function using specific services
@@ -42,6 +43,10 @@ const ItemQuickLookModal = ({ isOpen, onClose, item }) => {
   const [details, setDetails] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // AddToList modal state
+  const [isAddToListModalOpen, setIsAddToListModalOpen] = useState(false);
+  const [itemToAdd, setItemToAdd] = useState(null);
 
   // Memoize fetch parameters to prevent unnecessary refetches if item prop is stable
   const fetchParams = useMemo(() => {
@@ -87,6 +92,29 @@ const ItemQuickLookModal = ({ isOpen, onClose, item }) => {
           isMounted = false;
       };
   }, [fetchParams]); // Effect runs only when fetchParams change
+
+  // AddToList handlers
+  const handleAddToList = useCallback((item) => {
+    console.log('[ItemQuickLookModal] Opening AddToList modal for:', item);
+    setItemToAdd({
+      id: item.id,
+      name: item.name,
+      type: item.type
+    });
+    setIsAddToListModalOpen(true);
+  }, []);
+
+  const handleCloseAddToListModal = useCallback(() => {
+    setIsAddToListModalOpen(false);
+    setItemToAdd(null);
+  }, []);
+
+  const handleItemAdded = useCallback((listId, listItemId) => {
+    console.log(`[ItemQuickLookModal] Item added to list ${listId} with ID ${listItemId}`);
+    setIsAddToListModalOpen(false);
+    setItemToAdd(null);
+    // Optional: Show success notification
+  }, []);
 
   // Retry fetching data
   const handleRetry = useCallback(() => {
@@ -139,16 +167,17 @@ const ItemQuickLookModal = ({ isOpen, onClose, item }) => {
         {details.type === 'restaurant' && (
              <RestaurantCard
                 {...commonCardProps}
-                city={details.city_name} // Use city_name if available
-                neighborhood={details.neighborhood_name} // Use neighborhood_name if available
-                onQuickAdd={null} // Disable quick add within the quick look
+                city_name={details.city_name} // Use city_name if available
+                neighborhood_name={details.neighborhood_name} // Use neighborhood_name if available
+                onAddToList={() => handleAddToList({ ...details, type: 'restaurant' })}
             />
         )}
         {details.type === 'dish' && (
              <DishCard
                 {...commonCardProps}
                 restaurant={details.restaurant_name} // Use restaurant_name if available
-                onQuickAdd={null} // Disable quick add within the quick look
+                restaurant_id={details.restaurant_id}
+                onAddToList={() => handleAddToList({ ...details, type: 'dish' })}
             />
         )}
 
@@ -164,7 +193,7 @@ const ItemQuickLookModal = ({ isOpen, onClose, item }) => {
         </div>
       </div>
     );
-  }, [isLoading, error, details, handleRetry, onClose]); // Dependencies for renderContent
+  }, [isLoading, error, details, handleRetry, onClose, handleAddToList]); // Dependencies for renderContent
 
   // Determine modal title based on state
   const modalTitle = useMemo(() => {
@@ -175,10 +204,20 @@ const ItemQuickLookModal = ({ isOpen, onClose, item }) => {
   }, [isLoading, error, details, item]);
 
   return (
-    // Use the Modal component
-    <Modal isOpen={isOpen} onClose={onClose} title={modalTitle}>
-      {renderContent()}
-    </Modal>
+    <>
+      {/* Use the Modal component */}
+      <Modal isOpen={isOpen} onClose={onClose} title={modalTitle}>
+        {renderContent()}
+      </Modal>
+
+      {/* AddToList Modal */}
+      <AddToListModal
+        isOpen={isAddToListModalOpen}
+        onClose={handleCloseAddToListModal}
+        itemToAdd={itemToAdd}
+        onItemAdded={handleItemAdded}
+      />
+    </>
   );
 };
 

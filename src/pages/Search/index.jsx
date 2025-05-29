@@ -1,7 +1,7 @@
 // src/pages/Search/index.jsx
 /* FIXED: Changed useUIStateStore import to named import */
 /* FIXED: Changed useSearch import to default import */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import SearchBar from '@/components/UI/SearchBar';
 import { useUIStateStore } from '@/stores/useUIStateStore'; // Correct named import
@@ -14,6 +14,7 @@ import DishCardSkeleton from '@/components/UI/DishCardSkeleton';
 import ListCardSkeleton from '@/pages/Lists/ListCardSkeleton'; // Assuming ListCardSkeleton exists
 import ErrorMessage from '@/components/UI/ErrorMessage';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
+import AddToListModal from '@/components/AddToListModal';
 import { cn } from '@/lib/utils'; // Assuming cn utility exists
 
 const skeletonMap = {
@@ -40,6 +41,10 @@ const SearchResultsPage = () => {
     const [searchType, setSearchType] = useState(initialType);
     const [searchTriggered, setSearchTriggered] = useState(!!initialQuery); // Trigger search immediately if query exists
 
+    // AddToList modal state
+    const [isAddToListModalOpen, setIsAddToListModalOpen] = useState(false);
+    const [itemToAdd, setItemToAdd] = useState(null);
+
     const { data, isLoading, isError, error, refetch } = useSearch(searchQuery, {
         type: searchType,
         enabled: searchTriggered && searchQuery.length > 0, // Only run query if triggered and query exists
@@ -56,7 +61,6 @@ const SearchResultsPage = () => {
         setSearchTriggered(!!urlQuery); // Trigger if query in URL
     }, [location.search]); // Re-run when URL search string changes
 
-
     const handleSearch = (query, type = 'all') => {
         console.log(`[SearchPage] handleSearch called with query: "${query}", type: "${type}"`);
         setSearchQuery(query);
@@ -70,6 +74,29 @@ const SearchResultsPage = () => {
         // Example using window.history (useNavigate is preferred in React Router v6+)
         window.history.pushState({}, '', `${location.pathname}?${newSearchParams.toString()}`);
     };
+
+    // AddToList handlers
+    const handleAddToList = useCallback((item) => {
+        console.log('[SearchPage] Opening AddToList modal for:', item);
+        setItemToAdd({
+            id: item.id,
+            name: item.name,
+            type: item.type
+        });
+        setIsAddToListModalOpen(true);
+    }, []);
+
+    const handleCloseModal = useCallback(() => {
+        setIsAddToListModalOpen(false);
+        setItemToAdd(null);
+    }, []);
+
+    const handleItemAdded = useCallback((listId, listItemId) => {
+        console.log(`[SearchPage] Item added to list ${listId} with ID ${listItemId}`);
+        setIsAddToListModalOpen(false);
+        setItemToAdd(null);
+        // Optional: Show success notification
+    }, []);
 
      // Determine if there are any results across all types
      const hasResults = data && (
@@ -89,9 +116,21 @@ const SearchResultsPage = () => {
             <div className="mb-8">
                 <h2 className="text-xl font-semibold text-foreground mb-3">{title} ({items.length})</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {items.map(item => (
-                        <CardComponent key={`${sectionKey}-${item.id}`} {...item} />
-                    ))}
+                    {items.map(item => {
+                        const props = { 
+                            key: `${sectionKey}-${item.id}`, 
+                            ...item 
+                        };
+                        
+                        // Add onAddToList for restaurant and dish cards
+                        if (sectionKey === 'restaurants') {
+                            props.onAddToList = () => handleAddToList({ ...item, type: 'restaurant' });
+                        } else if (sectionKey === 'dishes') {
+                            props.onAddToList = () => handleAddToList({ ...item, type: 'dish' });
+                        }
+                        
+                        return <CardComponent {...props} />;
+                    })}
                 </div>
             </div>
         );
@@ -160,6 +199,14 @@ const SearchResultsPage = () => {
                      Enter a search term above to find restaurants, dishes, lists, or users.
                  </p>
              )}
+
+            {/* AddToList Modal */}
+            <AddToListModal
+                isOpen={isAddToListModalOpen}
+                onClose={handleCloseModal}
+                itemToAdd={itemToAdd}
+                onItemAdded={handleItemAdded}
+            />
         </div>
     );
 };
