@@ -5,7 +5,7 @@
  */
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { apiClient } from '@/services/http';
+import { getDefaultApiClient } from '@/services/http';
 import { logInfo, logWarn, logError } from '@/utils/logger.js';
 import ErrorHandler from '@/utils/ErrorHandler';
 
@@ -52,6 +52,16 @@ const throttledSet = (originalSet) => (newState) => {
 
 // Initialize with window.__INITIAL_AUTH_STATE__ if available (for early hydration)
 const getInitialState = () => {
+  if (process.env.NODE_ENV === 'test') {
+    return {
+      token: null,
+      isAuthenticated: false,
+      user: null,
+      isLoading: false,
+      error: null,
+      lastAuthCheck: null
+    };
+  }
   const windowState = typeof window !== 'undefined' && window.__INITIAL_AUTH_STATE__;
   
   if (windowState) {
@@ -80,14 +90,47 @@ const getInitialState = () => {
  * 
  * Handles core authentication functionality (login/logout/tokens)
  */
-const useAuthenticationStore = create(
-  persist(
-    (set, get) => ({
+// Export the store initializer separately for vanilla (non-React) testing
+export function authStoreInitializer(set, get) {
+  return {
       // Initial state
       ...getInitialState(),
       
       // Use throttled set to prevent excessive re-renders
       set: throttledSet(set),
+
+      /**
+       * Set the authentication token
+       * @param {string|null} token
+       */
+      setToken: (token) => {
+        set({ token });
+        if (typeof localStorage !== 'undefined') {
+          try {
+            const storage = localStorage.getItem(STORAGE_KEY);
+            const parsed = storage ? JSON.parse(storage) : { state: {} };
+            parsed.state.token = token;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+          } catch { /* ignore */ }
+        }
+      },
+
+      /**
+       * Set an error message in state
+       * @param {string|null} error
+       */
+      setError: (error) => set({ error }),
+
+      /**
+       * Clear any error message in state
+       */
+      clearError: () => set({ error: null }),
+
+      /**
+       * Set the current user in state
+       * @param {object|null} user
+       */
+      setUser: (user) => set({ user, isAuthenticated: !!user }),
 
       /**
        * Check authentication status
@@ -234,12 +277,22 @@ const useAuthenticationStore = create(
             
             try {
               const response = await Promise.race([
-                apiClient.get('/auth/status'),
+                getDefaultApiClient().get('/auth/status'),
                 timeoutPromise
               ]);
               
-              logInfo('[AuthenticationStore checkAuthStatus] API responded quickly, using actual response');
-              return response;
+              logInfo('[AuthenticationStore checkAuthStatus] API response:', response.data);
+              
+              if (response.data.isAuthenticated && response.data.user) {
+                set({
+                  isAuthenticated: true,
+                  user: response.data.user,
+                  lastAuthCheck: Date.now(),
+                  isLoading: false,
+                  error: null
+                });
+                return true;
+              }
             } catch (e) {
               if (parsedAuthData?.state?.user && parsedAuthData?.state?.token) {
                 logWarn('[AuthenticationStore checkAuthStatus] Using cached auth data in DEV mode');
@@ -264,7 +317,7 @@ const useAuthenticationStore = create(
           );
           
           const response = await Promise.race([
-            apiClient.get('/auth/status'),
+            getDefaultApiClient().get('/auth/status'),
             timeoutPromise
           ]);
           
@@ -372,12 +425,15 @@ const useAuthenticationStore = create(
       },
 
       /**
-       * Login with credentials
-       * @param {Object} formData - Login credentials
+       * Login with email and password
+       * @param {{email: string, password: string}} formData - User credentials
        * @returns {Promise<boolean>} - Whether login was successful
        */
       login: async (formData) => {
         set({ isLoading: true, error: null });
+        
+        // DEBUG: Log login call and credentials
+        console.log('[DEBUG][AuthStore] login() called with:', formData);
         
         // CRITICAL: Aggressively clear ALL offline mode flags
         if (typeof localStorage !== 'undefined') {
@@ -396,7 +452,9 @@ const useAuthenticationStore = create(
           logInfo('[AuthenticationStore login] Attempting login with formData:', formData);
           
           if (!formData || typeof formData.email !== 'string' || typeof formData.password !== 'string') {
-            throw new Error('Invalid formData format: Email and password must be strings.');
+            const error = new Error('Invalid formData format: Email and password must be strings.');
+            logError('[AuthenticationStore login] Validation error:', error);
+            throw error;
           }
 
           const isAdminLogin = process.env.NODE_ENV === 'development' && 
@@ -405,14 +463,13 @@ const useAuthenticationStore = create(
           
           if (process.env.NODE_ENV === 'development') {
             logInfo('[AuthenticationStore login] Development mode: Setting admin flags immediately');
-            
             localStorage.removeItem('user_explicitly_logged_out');
             localStorage.setItem('bypass_auth_check', 'true');
           }
 
-          const response = await apiClient.post('/auth/login', formData);
-          
-          logInfo('[AuthenticationStore login] Response.data:', response.data);
+          logInfo('[AuthenticationStore login] Making API call to /auth/login');
+          const response = await getDefaultApiClient().post('/auth/login', formData);
+          logInfo('[AuthenticationStore login] API Response received:', response.data);
 
           if (response.data && response.data.success && response.data.data) {
             const userData = response.data.data;
@@ -431,14 +488,17 @@ const useAuthenticationStore = create(
             }
             
             // Set authentication state
-            set({
+            const newState = {
               isAuthenticated: true,
               user: userData,
               isLoading: false,
               token: response.data.token || userData.token || null,
               error: null,
               lastAuthCheck: Date.now()
-            });
+            };
+            
+            logInfo('[AuthenticationStore login] Updating state with:', newState);
+            set(newState);
             
             // Dispatch events to notify components of login completion
             if (typeof window !== 'undefined') {
@@ -456,10 +516,24 @@ const useAuthenticationStore = create(
             logInfo('[AuthenticationStore login] Login successful');
             return true;
           } else {
-            throw new Error(response.data?.message || 'Login failed: Unexpected response from server.');
+            const errorMsg = response.data?.message || 'Login failed: Unexpected response from server.';
+            logError('[AuthenticationStore login] Login failed:', errorMsg);
+            throw new Error(errorMsg);
           }
         } catch (error) {
-          return handleAuthError(error, 'login', set);
+          logError('[AuthenticationStore login] Error during login:', error);
+          const errorState = {
+            isAuthenticated: false,
+            user: null,
+            token: null,
+            isLoading: false,
+            error: error.message || 'Login failed'
+          };
+          logError('[AuthenticationStore login] Setting error state:', errorState);
+          set(errorState);
+          
+          // Still return a boolean from the login function
+          return false;
         }
       },
 
@@ -468,6 +542,9 @@ const useAuthenticationStore = create(
        * @returns {Promise<void>}
        */
       logout: async () => {
+  const apiUrl = (typeof window !== 'undefined' && window.__API_BASE_URL__) || (global && global.API_BASE_URL) || 'NOT_SET';
+  console.log('[DEBUG][AuthStore] logout() called. API URL:', apiUrl);
+
         set({ isLoading: true, error: null });
         try {
           // Skip API call in development mode if bypass_auth_check is enabled
@@ -486,6 +563,8 @@ const useAuthenticationStore = create(
             isLoading: false, 
             error: null 
           });
+          // Debug: Log the state after clearing
+          console.log('[DEBUG] State after clearing in logout:', get());
           
           logInfo('[AuthenticationStore logout] Logout successful.');
         } catch (error) {
@@ -566,23 +645,23 @@ const useAuthenticationStore = create(
        * @returns {string|null} - Authentication token or null if not authenticated
        */
       getToken: () => get().token,
+    };
+}
+
+const useAuthenticationStore = create(
+  persist(authStoreInitializer, {
+    name: STORAGE_KEY,
+    storage: createJSONStorage(() => localStorage),
+    partialize: (state) => ({
+      token: state.token,
+      isAuthenticated: state.isAuthenticated,
+      user: state.user,
+      lastAuthCheck: state.lastAuthCheck
     }),
-    {
-      name: STORAGE_KEY,
-      storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({
-        token: state.token,
-        isAuthenticated: state.isAuthenticated,
-        user: state.user,
-        lastAuthCheck: state.lastAuthCheck
-      }),
-    }
-  )
+  })
 );
 
-// Add named exports for better IDE support
+export default useAuthenticationStore;
 export const getIsAuthenticated = () => useAuthenticationStore.getState().getIsAuthenticated();
 export const getCurrentUser = () => useAuthenticationStore.getState().getCurrentUser();
 export const getToken = () => useAuthenticationStore.getState().getToken();
-
-export default useAuthenticationStore;

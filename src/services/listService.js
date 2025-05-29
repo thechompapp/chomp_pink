@@ -97,9 +97,37 @@ const listService = {
           result.data = response.data;
           result.pagination.total = response.data.length;
           result.pagination.totalPages = Math.ceil(response.data.length / result.pagination.limit);
+        } else if (response.data.data && response.data.data.data && response.data.data.data.data && Array.isArray(response.data.data.data.data)) {
+          // Case 2a: Backend service wrapper creates quadruple-nested structure
+          logger.debug('[listService] Using Case 2a: quadruple-nested structure (response.data.data.data.data)');
+          result.data = response.data.data.data.data; // Extract the actual list items from response.data.data.data.data
+          
+          // Handle total/pagination from the triple-nested level
+          if (response.data.data.data.total !== undefined) {
+            result.pagination.total = response.data.data.data.total;
+            result.pagination.totalPages = Math.ceil(response.data.data.data.total / result.pagination.limit);
+          } else {
+            result.pagination.total = result.data.length;
+            result.pagination.totalPages = Math.ceil(result.data.length / result.pagination.limit);
+          }
+          
+        } else if (response.data.data && response.data.data.data && Array.isArray(response.data.data.data)) {
+          // Case 2b: Backend service wrapper creates triple-nested structure
+          logger.debug('[listService] Using Case 2b: triple-nested structure (response.data.data.data)');
+          result.data = response.data.data.data; // Extract the actual list items from response.data.data.data
+          
+          // Handle total/pagination from the double-nested level
+          if (response.data.data.total !== undefined) {
+            result.pagination.total = response.data.data.total;
+            result.pagination.totalPages = Math.ceil(response.data.data.total / result.pagination.limit);
+          } else {
+            result.pagination.total = result.data.length;
+            result.pagination.totalPages = Math.ceil(result.data.length / result.pagination.limit);
+          }
+          
         } else if (response.data.data && Array.isArray(response.data.data)) {
-          // Case 2: Response has data property containing the array
-          result.data = response.data.data;
+          // Case 2c: Response has double-nested data property containing the array
+          result.data = response.data.data; // Extract the actual list items
           
           // Handle pagination if available
           if (response.data.pagination) {
@@ -113,7 +141,7 @@ const listService = {
                          Math.ceil((response.data.pagination.total || response.data.data.length) / (response.data.pagination.limit || result.pagination.limit))
             };
           } else {
-            // Default pagination if not provided
+            // Use total from the response.data if available, otherwise use array length
             result.pagination.total = response.data.total || response.data.data.length;
             result.pagination.totalPages = Math.ceil(result.pagination.total / result.pagination.limit);
           }
@@ -125,7 +153,7 @@ const listService = {
         }
       }
 
-      logger.debug('[listService] Processed response:', {
+      logger.debug('[listService] Final result:', {
         success: result.success,
         dataLength: result.data.length,
         pagination: result.pagination

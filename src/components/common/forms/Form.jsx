@@ -48,6 +48,7 @@ const Form = ({
       className={formClasses}
       onSubmit={handleSubmit}
       noValidate
+      aria-label="Form"
       {...rest}
     >
       {children}

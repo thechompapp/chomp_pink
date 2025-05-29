@@ -6,14 +6,21 @@ export default defineConfig({
   plugins: [react()],
   test: {
     globals: true,
-    environment: 'jsdom', // Using jsdom for browser-like environment
+    environment: 'jsdom',
     setupFiles: [
-      './tests/setup.js',
-      './tests/setup/react-testing.js' // Add React testing setup
+      './tests/setup/vitest.setup.js', // Our new setup file
+      '@testing-library/jest-dom/vitest',
     ],
     setupFilesAfterEnv: [
-      './tests/setup/integration-setup.js',
-      '@testing-library/jest-dom/vitest' // Add jest-dom matchers
+      './tests/setup/test-utils.jsx', // Our test utilities
+    ],
+    include: ['**/*.{test,spec}.{js,jsx,ts,tsx}'],
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/cypress/**',
+      '**/.{idea,git,cache,output,temp}/**',
+      '**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build}.config.*',
     ],
     // Mock browser globals
     environmentOptions: {
@@ -23,18 +30,12 @@ export default defineConfig({
     },
     // Mock modules
     alias: [
-      {
-        find: '@/services/http/OfflineModeHandler',
-        replacement: path.resolve(__dirname, './tests/setup/mocks/OfflineModeHandler.js'),
-      },
+
       {
         find: 'react-hot-toast',
         replacement: path.resolve(__dirname, './tests/setup/mocks/react-hot-toast.js'),
       },
-      {
-        find: './OfflineModeHandler',
-        replacement: path.resolve(__dirname, './tests/setup/mocks/OfflineModeHandler.js'),
-      },
+
     ],
     server: {
       deps: {

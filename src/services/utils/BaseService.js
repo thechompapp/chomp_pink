@@ -4,7 +4,7 @@
  * Provides a foundation for all service classes with standardized
  * error handling, response processing, and logging.
  */
-import { apiClient } from '@/services/http';
+import { getDefaultApiClient } from '@/services/http';
 import { logDebug, logError, logInfo } from '@/utils/logger';
 
 /**

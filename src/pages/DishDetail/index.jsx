@@ -8,7 +8,7 @@ import { engagementService } from '@/services/engagementService';
 import useAuthStore from '@/stores/useAuthStore';
 import Button from '@/components/UI/Button';
 import PillButton from '@/components/UI/PillButton'; // Import PillButton
-import { useQuickAdd } from '@/context/QuickAddContext';
+import { useQuickAdd } from '@/contexts/QuickAddContext';
 import ErrorMessage from '@/components/UI/ErrorMessage';
 import QueryResultDisplay from '@/components/QueryResultDisplay';
 

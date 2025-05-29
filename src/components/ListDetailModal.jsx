@@ -9,7 +9,7 @@ import { listService } from '@/services/listService.js';
 import Button from '@/components/UI/Button';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
 import { formatRelativeDate } from '@/utils/formatting';
-import { useQuickAdd } from '@/context/QuickAddContext';
+import { useQuickAdd } from '@/contexts/QuickAddContext';
 import ConfirmationDialog from '@/components/UI/ConfirmationDialog';
 import useApiErrorHandler from '@/hooks/useApiErrorHandler';
 import useAuthStore from '@/stores/useAuthStore';

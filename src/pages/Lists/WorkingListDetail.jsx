@@ -11,7 +11,7 @@ import ErrorMessage from '@/components/UI/ErrorMessage';
 import Button from '@/components/UI/Button';
 import PageContainer from '@/layouts/PageContainer';
 import { formatRelativeDate } from '@/utils/formatting';
-import { useQuickAdd } from '@/context/QuickAddContext';
+import { useQuickAdd } from '@/contexts/QuickAddContext';
 import ConfirmationDialog from '@/components/UI/ConfirmationDialog';
 import useApiErrorHandler from '@/hooks/useApiErrorHandler';
 import useAuthStore from '@/stores/useAuthStore';

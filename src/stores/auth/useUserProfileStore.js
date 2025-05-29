@@ -5,7 +5,7 @@
  */
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { apiClient } from '@/services/http';
+import { getDefaultApiClient } from '@/services/http';
 import { logInfo, logWarn, logError } from '@/utils/logger.js';
 import ErrorHandler from '@/utils/ErrorHandler';
 import useAuthenticationStore from './useAuthenticationStore';
@@ -33,10 +33,10 @@ const handleProfileError = (error, operation, setFn) => {
   
   setFn({ 
     isLoading: false, 
-    error: errorInfo.message
+    error: errorInfo?.message || errorInfo || 'Unknown error'
   });
-  
-  return errorInfo.message;
+  // Always return a string for error message
+  return (errorInfo && errorInfo.message) || errorInfo || 'Unknown error';
 };
 
 // Function to throttle state updates
@@ -98,7 +98,7 @@ const useUserProfileStore = create(
         set({ isLoading: true, error: null });
         
         try {
-          const response = await apiClient.get('/users/profile');
+          const response = await getDefaultApiClient().get('/users/profile');
           
           if (response.data && response.data.success && response.data.data) {
             const profileData = response.data.data;
@@ -142,7 +142,7 @@ const useUserProfileStore = create(
         set({ isLoading: true, error: null });
         
         try {
-          const response = await apiClient.put('/users/profile', profileData);
+          const response = await getDefaultApiClient().put('/users/profile', profileData);
           
           if (response.data && response.data.success && response.data.data) {
             const updatedProfile = response.data.data;
@@ -194,7 +194,7 @@ const useUserProfileStore = create(
         set({ isLoading: true, error: null });
         
         try {
-          const response = await apiClient.put('/users/preferences', preferencesData);
+          const response = await getDefaultApiClient().put('/users/preferences', preferencesData);
           
           if (response.data && response.data.success && response.data.data) {
             const updatedPreferences = response.data.data;
@@ -235,7 +235,7 @@ const useUserProfileStore = create(
           const formData = new FormData();
           formData.append('avatar', avatarFile);
           
-          const response = await apiClient.post('/users/avatar', formData, {
+          const response = await getDefaultApiClient().post('/users/avatar', formData, {
             headers: {
               'Content-Type': 'multipart/form-data'
             }

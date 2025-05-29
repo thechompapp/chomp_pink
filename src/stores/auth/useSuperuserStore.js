@@ -5,7 +5,7 @@
  */
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { apiClient } from '@/services/http';
+import { getDefaultApiClient } from '@/services/http';
 import { logInfo, logWarn, logError } from '@/utils/logger.js';
 import ErrorHandler from '@/utils/ErrorHandler';
 import useAuthenticationStore from './useAuthenticationStore';

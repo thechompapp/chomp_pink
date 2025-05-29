@@ -7,7 +7,7 @@ import Button from '@/components/UI/Button';
 import Input from '@/components/UI/Input';
 import PillButton from '@/components/UI/PillButton';
 import Select from '@/components/UI/Select';
-import { useQuickAdd } from '@/context/QuickAddContext';
+import { useQuickAdd } from '@/contexts/QuickAddContext';
 import useFormHandler from '@/hooks/useFormHandler';
 import useApiErrorHandler from '@/hooks/useApiErrorHandler';
 import useUserListStore from '@/stores/useUserListStore';

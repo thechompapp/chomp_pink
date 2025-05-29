@@ -93,3 +93,118 @@
 * **Uniform Error Handling**: Implement a consistent and predictable error handling strategy across the application.
 * **Clear Documentation**: Document APIs, complex logic, and architectural decisions to aid understanding and future development.
 * **CI/CD & Code Reviews**: Leverage Continuous Integration/Continuous Deployment (CI/CD) pipelines and participate in thorough code review processes.
+
+Codebase Cleanup & Testing Standards
+Version 1.1 – Last Updated: [Insert Date]
+
+Objective
+This initiative aims to aggressively clean, refactor, and streamline the codebase with zero functional regressions. All changes must improve internal maintainability, reduce unnecessary weight, and keep behavior and output fully stable across environments.
+
+Primary Goals
+Improve readability and maintainability by simplifying structure and naming. Eliminate all redundant files, logic, or assets. Maintain current performance and UX by ensuring that refactors do not slow down build times or user interactions.
+
+Core Cleanup Tasks
+Identification and Removal: Locate and justify unused functions, components, services, assets, deprecated config files, and dev-only scratchpads. Remove large commented-out code unless mission-critical (in which case, extract to documentation). Flag oversized or uncompressed media for optimization or deletion.
+
+Reorganization: Structure files into clear, purpose-driven directories (preferably feature-based). Avoid nested bloat—keep hierarchy shallow and predictable. Standardize naming (camelCase for JS/TS, kebab-case for filenames).
+
+Hard Constraints
+No Mock Data
+All testing and development must use live or staging environments with real endpoints. Remove any mock or stub directories unless they're justified and isolated unit snapshots.
+
+No Mock Server Testing
+Do not use MSW, Mirage, or any fake servers. Validate real API responses via curl, Postman, or real UI interaction.
+
+No Functional Changes
+Do not change behavior, logic, or visuals. This is a structural and organizational pass only.
+
+No Style Edits
+Do not touch CSS, layout, or visual styling unless deleting unused files. Visual regression is not acceptable.
+
+Process and Deliverables
+Analysis Phase:
+Submit a markdown doc or spreadsheet outlining files to delete, rename, or move. Include reasons for each action.
+
+Implementation Phase:
+Apply changes via small, single-purpose PRs with descriptive commit messages like:
+
+Remove deprecated filterHelpers.js
+
+Group dish logic under /features/dishes/
+
+Verification Phase:
+Run full end-to-end checks with real APIs. Use logs, response validation, and UI flows to confirm nothing is broken.
+
+Final Report:
+Submit a changelog of deleted files, moved folders, renamed assets, and any removed dependencies.
+
+Code & Structure Rules
+Only edit files you’re assigned or scoped for.
+
+Always provide complete file updates, not diffs.
+
+Do not create placeholder files.
+
+Never delete live code unless explicitly confirmed.
+
+Follow global imports (e.g., @/components/...).
+
+Reuse, don’t rewrite. Match the design system and Tailwind conventions.
+
+React Rules
+Memoize any derived values. Avoid infinite loops by managing useEffect dependencies carefully. Use stable props, React.memo, and useCallback for performance and reliability.
+
+Testing Standards
+Global Requirements:
+All tests must be compact, performant, and operate only against real APIs and endpoints. Mocking is disallowed. Testing scope should reflect real usage while remaining fast and self-contained.
+
+Unit Tests
+Limit to pure logic only (e.g., helper functions).
+
+Max: 30 lines per test file.
+
+No API, DB, or network interaction.
+
+Group multiple related functions in a single test file.
+
+Avoid repetitive inputs—cover edge cases only.
+
+Integration Tests
+Cover real API/service/database flow.
+
+Max: 50 lines per test file.
+
+Use seeded data and real endpoints only.
+
+Validate side effects, cleanup state afterward.
+
+Must finish under 2 seconds per test.
+
+End-to-End Tests
+Simulate key user flows like login, CRUD, or search.
+
+Max: 75 lines per test file.
+
+One user journey per test.
+
+Always hit the full stack (frontend to DB).
+
+Tests must complete in under 5 seconds.
+
+Use direct selectors and skip animations/delays.
+
+Debugging and QA
+If a frontend action breaks:
+
+Check server logs first.
+
+Confirm API schema and endpoint behavior.
+
+Only then, investigate frontend UI issues.
+
+Validate all fixes with curl or Postman. Do not claim a task as complete unless the real response is verified and matches spec.
+
+Final Notes
+Be surgical. Every deletion must be confirmed. Every test must be optimized. If a test runs long, reduce scope or split into smaller tests. Always verify against live systems—never assume.
+
+If in doubt, ask. If confident, verify. If uncertain, halt and clarify.

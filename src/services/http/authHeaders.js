@@ -1,0 +1,196 @@
+/**
+ * Authentication Headers Manager
+ * 
+ * Handles authentication header management for HTTP requests including:
+ * - Token retrieval and caching
+ * - Header injection
+ * - Token validation
+ */
+
+import { logDebug, logWarn } from '@/utils/logger';
+import { HTTP_CONFIG } from './httpConfig';
+
+// Cache for authentication token to reduce localStorage reads
+const tokenCache = {
+  value: null,
+  timestamp: 0
+};
+
+/**
+ * Get the authentication token from cache or storage
+ * @param {boolean} forceRefresh - Force refresh from storage
+ * @returns {string|null} Authentication token
+ */
+export function getAuthToken(forceRefresh = false) {
+  const now = Date.now();
+  
+  // Check if we have a valid cached token
+  if (!forceRefresh && 
+      tokenCache.value && 
+      (now - tokenCache.timestamp) < HTTP_CONFIG.TOKEN_CACHE_TTL) {
+    return tokenCache.value;
+  }
+  
+  // Try to get token from various storage locations
+  let token = null;
+  
+  try {
+    // First try localStorage auth-token
+    token = localStorage.getItem(HTTP_CONFIG.STORAGE_KEYS.AUTH_TOKEN);
+    
+    // If not found, try auth-storage (Zustand store)
+    if (!token) {
+      const authStorage = localStorage.getItem(HTTP_CONFIG.STORAGE_KEYS.AUTH_STORAGE);
+      if (authStorage) {
+        const authData = JSON.parse(authStorage);
+        token = authData?.state?.token;
+      }
+    }
+    
+    // Update cache
+    tokenCache.value = token;
+    tokenCache.timestamp = now;
+    
+    if (token) {
+      logDebug('[AuthHeaders] Token retrieved and cached');
+    } else {
+      logDebug('[AuthHeaders] No token found in storage');
+    }
+    
+  } catch (error) {
+    logWarn('[AuthHeaders] Error retrieving token:', error);
+    token = null;
+  }
+  
+  return token;
+}
+
+/**
+ * Validate if a token appears to be valid
+ * @param {string} token - Token to validate
+ * @returns {boolean} Whether token appears valid
+ */
+export function validateToken(token) {
+  if (!token || typeof token !== 'string') {
+    return false;
+  }
+  
+  // Basic validation - token should not be empty and should be reasonable length
+  const trimmedToken = token.trim();
+  if (trimmedToken.length < 10) {
+    return false;
+  }
+  
+  // Additional validation can be added here (JWT format, expiration, etc.)
+  return true;
+}
+
+/**
+ * Add authentication headers to request config
+ * @param {Object} config - Axios request config
+ * @returns {Object} Modified config with auth headers
+ */
+export function addAuthHeaders(config) {
+  if (!config) {
+    logWarn('[AuthHeaders] No config provided');
+    return config;
+  }
+  
+  // Ensure headers object exists
+  if (!config.headers) {
+    config.headers = {};
+  }
+  
+  // Get authentication token
+  const token = getAuthToken();
+  
+  if (token && validateToken(token)) {
+    // Add Authorization header
+    config.headers.Authorization = `Bearer ${token}`;
+    logDebug('[AuthHeaders] Added Authorization header to request');
+  } else {
+    logDebug('[AuthHeaders] No valid token available for request');
+  }
+  
+  // Add default headers
+  Object.assign(config.headers, HTTP_CONFIG.DEFAULT_HEADERS);
+  
+  return config;
+}
+
+/**
+ * Remove authentication headers from config
+ * @param {Object} config - Axios request config
+ * @returns {Object} Modified config without auth headers
+ */
+export function removeAuthHeaders(config) {
+  if (!config?.headers) {
+    return config;
+  }
+  
+  delete config.headers.Authorization;
+  logDebug('[AuthHeaders] Removed Authorization header from request');
+  
+  return config;
+}
+
+/**
+ * Check if request requires authentication
+ * @param {Object} config - Axios request config
+ * @returns {boolean} Whether request requires auth
+ */
+export function requiresAuth(config) {
+  // Skip auth for certain endpoints
+  const skipAuthPaths = [
+    '/auth/login',
+    '/auth/register',
+    '/auth/forgot-password',
+    '/health',
+    '/public/'
+  ];
+  
+  const url = config?.url || '';
+  return !skipAuthPaths.some(path => url.includes(path));
+}
+
+/**
+ * Clear token cache (useful when user logs out)
+ */
+export function clearTokenCache() {
+  tokenCache.value = null;
+  tokenCache.timestamp = 0;
+  logDebug('[AuthHeaders] Token cache cleared');
+}
+
+/**
+ * Set token in cache and storage
+ * @param {string} token - Token to set
+ */
+export function setAuthToken(token) {
+  try {
+    if (token) {
+      localStorage.setItem(HTTP_CONFIG.STORAGE_KEYS.AUTH_TOKEN, token);
+      tokenCache.value = token;
+      tokenCache.timestamp = Date.now();
+      logDebug('[AuthHeaders] Token set and cached');
+    } else {
+      localStorage.removeItem(HTTP_CONFIG.STORAGE_KEYS.AUTH_TOKEN);
+      clearTokenCache();
+      logDebug('[AuthHeaders] Token removed from storage and cache');
+    }
+  } catch (error) {
+    logWarn('[AuthHeaders] Error setting token:', error);
+  }
+}
+
+/**
+ * Get token cache statistics
+ * @returns {Object} Cache statistics
+ */
+export function getTokenCacheStats() {
+  return {
+    hasToken: !!tokenCache.value,
+    cacheAge: Date.now() - tokenCache.timestamp,
+    isExpired: (Date.now() - tokenCache.timestamp) > HTTP_CONFIG.TOKEN_CACHE_TTL
+  };
+} 

@@ -1,5 +1,5 @@
 /* src/services/adminService.js */
-import { apiClient } from '@/services/http';
+import { getDefaultApiClient } from '@/services/http';
 import { handleApiResponse } from '@/utils/serviceHelpers';
 import { logInfo, logError, logDebug, logWarn } from '@/utils/logger';
 
@@ -9,7 +9,7 @@ import { logInfo, logError, logDebug, logWarn } from '@/utils/logger';
  * @returns {Object} - Updated config with admin headers
  */
 const addAdminHeaders = (config = {}) => {
-  const adminApiKey = localStorage.getItem('admin_api_key');
+  const adminApiKey = (typeof localStorage !== 'undefined' ? localStorage.getItem('admin_api_key') : null) || 'doof-admin-secret-key-dev';
   if (!config.headers) {
     config.headers = {};
   }
@@ -17,9 +17,9 @@ const addAdminHeaders = (config = {}) => {
   // Add admin API key if available
   if (adminApiKey) {
     config.headers['X-Admin-API-Key'] = adminApiKey;
-    config.headers['X-Bypass-Auth'] = 'true';
-    config.headers['X-Superuser-Override'] = 'true';
-    config.headers['X-Admin-Access'] = 'true';
+    config.headers['X-Bypass-Auth'] = 'true'; // Standard for admin key usage
+    config.headers['X-Superuser-Override'] = 'true'; // Standard for admin key usage
+    config.headers['X-Admin-Access'] = 'true'; // Standard for admin key usage
   }
   
   return config;

@@ -20,7 +20,7 @@
  * @module services/dataCleanupService
  */
 
-import { apiClient } from '@/services/http';
+import { getDefaultApiClient } from '@/services/http';
 import { logError, logDebug, logWarn, logInfo } from '@/utils/logger';
 import { handleApiResponse, formatResponse, formatErrorResponse } from '@/utils/serviceHelpers';
 

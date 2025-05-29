@@ -7,7 +7,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import { QuickAddProvider } from '@/context/QuickAddContext';
+import { QuickAddProvider } from '@/contexts/QuickAddContext';
 import QuickAddPopup from '@/components/QuickAddPopup';
 import RestaurantCard from '@/components/UI/RestaurantCard';
 

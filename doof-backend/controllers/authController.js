@@ -32,6 +32,9 @@ export const register = async (req, res) => {
 
   const { username, email, password, role } = req.body;
 
+// DEBUG: Log plain password received (remove after confirming hashing works)
+console.log('[DEBUG] Plain password received:', password);
+
   try {
     let user = await UserModel.findUserByEmail(email);
     if (user) {
@@ -52,7 +55,15 @@ export const register = async (req, res) => {
       role: role || 'user', // Default role to 'user' if not provided
     };
 
+    // DEBUG: Log before hashing
+    console.log('[DEBUG] About to hash password for:', email);
     const createdUser = await UserModel.create(newUser);
+    // DEBUG: After user creation, check if hash was generated (do not log hash directly for security)
+    if (createdUser) {
+      console.log('[DEBUG] User created with ID:', createdUser.id, 'and email:', createdUser.email);
+    } else {
+      console.log('[DEBUG] User creation failed for email:', email);
+    }
     
     // Ensure createdUser contains id and role for token generation
     if (!createdUser || typeof createdUser.id === 'undefined' || typeof createdUser.role === 'undefined') {
@@ -71,6 +82,7 @@ export const register = async (req, res) => {
     };
 
     sendSuccess(res, { token, user: userResponse }, 'User registered successfully.', 201);
+console.log('[DEBUG] Registration process completed for:', email);
 
   } catch (error) {
     console.error('Registration error:', error);

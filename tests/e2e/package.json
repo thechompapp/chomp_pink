@@ -1,0 +1,66 @@
+{
+  "name": "doof-e2e-tests",
+  "version": "1.0.0",
+  "description": "End-to-End testing suite for the Doof restaurant discovery application",
+  "main": "cypress.config.js",
+  "scripts": {
+    "cy:open": "cypress open",
+    "cy:run": "cypress run",
+    "cy:run:chrome": "cypress run --browser chrome",
+    "cy:run:firefox": "cypress run --browser firefox",
+    "cy:run:edge": "cypress run --browser edge",
+    "cy:run:headless": "cypress run --headless",
+    "cy:run:record": "cypress run --record --key $CYPRESS_RECORD_KEY",
+    "test:e2e": "cypress run --headless",
+    "test:e2e:ci": "cypress run --headless --reporter junit --reporter-options mochaFile=results/e2e-results.xml",
+    "test:bulk-add": "cypress run --spec 'workflows/bulk-add-complete/**'",
+    "test:restaurant-discovery": "cypress run --spec 'workflows/restaurant-discovery/**'",
+    "test:admin": "cypress run --spec 'workflows/admin-workflows/**'",
+    "test:mobile": "cypress run --config viewportWidth=375,viewportHeight=667",
+    "test:accessibility": "cypress run --env includeA11yTests=true",
+    "test:performance": "cypress run --env measurePerformance=true",
+    "cy:verify": "cypress verify",
+    "cy:info": "cypress info",
+    "cy:cache:clear": "cypress cache clear",
+    "setup": "npm install && cypress verify"
+  },
+  "dependencies": {
+    "cypress": "^13.6.0",
+    "cypress-axe": "^1.5.0",
+    "cypress-real-events": "^1.10.3",
+    "cypress-file-upload": "^5.0.8"
+  },
+  "devDependencies": {
+    "@cypress/webpack-preprocessor": "^6.0.1",
+    "cypress-mochawesome-reporter": "^3.8.1",
+    "mochawesome": "^7.1.3",
+    "mochawesome-merge": "^4.3.0",
+    "mochawesome-report-generator": "^6.2.0"
+  },
+  "keywords": [
+    "cypress",
+    "e2e",
+    "testing",
+    "restaurant",
+    "discovery",
+    "automation"
+  ],
+  "author": "Doof Development Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/doof/doof-app.git"
+  },
+  "cypress": {
+    "baseUrl": "http://localhost:3000",
+    "supportFile": "support/e2e.js",
+    "specPattern": [
+      "workflows/**/*.cy.js",
+      "features/**/*.cy.js"
+    ],
+    "fixturesFolder": "fixtures",
+    "videosFolder": "videos",
+    "screenshotsFolder": "screenshots",
+    "downloadsFolder": "downloads"
+  }
+} 

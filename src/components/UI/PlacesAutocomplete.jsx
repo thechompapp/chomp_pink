@@ -6,8 +6,8 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '@/services/http'; // Remove ApiError import
-import { usePlacesApi } from '@/context/PlacesApiContext';
+import { getDefaultApiClient } from '@/services/http'; // Remove ApiError import
+import { usePlacesApi } from '@/contexts/PlacesApiContext';
 import Button from './Button';
 import Input from './Input';
 import { AlertCircle, Loader2 } from 'lucide-react';

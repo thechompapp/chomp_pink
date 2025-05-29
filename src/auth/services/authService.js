@@ -4,7 +4,7 @@
  * Provides a clean API for authentication-related operations.
  * Handles token management, refresh logic, and API calls.
  */
-import { apiClient } from '@/services/http';
+import { getDefaultApiClient } from '@/services/http';
 import { handleApiResponse } from '@/services/utils/serviceHelpers';
 import { logDebug, logError, logInfo, logWarn } from '@/utils/logger';
 import { offlineAuthService } from './offlineAuthService';

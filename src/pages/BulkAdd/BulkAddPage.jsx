@@ -7,8 +7,8 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Box, Typography, Paper, Tabs, Tab, Alert, CircularProgress, Stepper, Step, StepLabel } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import InputMode from './InputMode';
-import ReviewMode from './ReviewMode';
+import BulkInputForm from '@/components/BulkAdd/BulkInputForm';
+import BulkReviewTable from '@/components/BulkAdd/BulkReviewTable';
 import PlaceSelectionDialog from './PlaceSelectionDialog';
 import useInputParser from '@/hooks/useInputParser';
 import usePlaceResolver from '@/hooks/usePlaceResolver';
@@ -244,7 +244,7 @@ const BulkAddPage = () => {
       
       {/* Content based on mode */}
       {!isParsing && mode === 'input' && (
-        <InputMode
+        <BulkInputForm
           inputText={inputText}
           onInputChange={handleInputChange}
           onProcess={handleProcess}
@@ -264,7 +264,7 @@ const BulkAddPage = () => {
       )}
       
       {mode === 'review' && !isResolving && (
-        <ReviewMode
+        <BulkReviewTable
           items={resolvedItems}
           onSubmit={handleSubmit}
           onReset={handleReset}

@@ -3,7 +3,7 @@
  * Enhanced service for fetching hashtag-related data with improved error handling
  * and API client integration.
  */
-import { apiClient } from '@/services/http';
+import { getDefaultApiClient } from '@/services/http';
 import { logDebug, logError, logWarn } from '@/utils/logger.js';
 import { handleApiResponse, createQueryParams } from '@/utils/serviceHelpers.js';
 
@@ -84,7 +84,7 @@ const hashtagService = {
     
     // Make API request using handleApiResponse helper
     const result = await handleApiResponse(
-      () => apiClient.get(endpoint, { params }),
+      () => getDefaultApiClient().get(endpoint, { params }),
       'HashtagService.getTopHashtags'
     );
     
@@ -138,7 +138,7 @@ const hashtagService = {
     
     // Make API request using handleApiResponse helper
     const result = await handleApiResponse(
-      () => apiClient.get('/hashtags/search', {
+      () => getDefaultApiClient().get('/hashtags/search', {
         params: {
           query: safeQuery,
           limit: String(safeLimit)

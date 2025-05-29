@@ -3,7 +3,7 @@
  * 
  * Handles user registration and email verification
  */
-import { apiClient } from '@/services/http';
+import { getDefaultApiClient } from '@/services/http';
 import { logDebug, logError } from '@/utils/logger';
 import { handleApiResponse } from '@/utils/serviceHelpers.js';
 import TokenService from './TokenService';

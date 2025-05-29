@@ -7,7 +7,7 @@ import bcrypt from 'bcryptjs'; // Use import for packages
 const DEFAULT_ROLE = 'user';
 
 // List of valid user roles
-const USER_ROLES = ['user', 'contributor', 'admin'];
+const USER_ROLES = ['user', 'contributor', 'superuser'];
 
 const UserModel = {
     /**
@@ -16,6 +16,11 @@ const UserModel = {
      * @returns {Promise<Object>} Created user object
      */
     async create(userData) {
+        // Enhanced: Check for required fields before proceeding
+        if (!userData.username || !userData.email || !userData.password) {
+            console.error('[UserModel.create] Missing required fields:', userData);
+            throw new Error('Missing required registration fields.');
+        }
         // Hash the password before storing
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(userData.password, salt);
@@ -26,20 +31,30 @@ const UserModel = {
             VALUES ($1, $2, $3, $4, NOW(), NOW())
             RETURNING id, username, email, role, created_at, updated_at;
         `;
-        
         try {
+            // Enhanced: Log attempted insert data (mask password)
+            console.log('[UserModel.create] Attempting to insert user:', {
+                username: userData.username,
+                email: userData.email,
+                role: role
+            });
             const result = await db.query(query, [
                 userData.username, 
                 userData.email, 
                 passwordHash,
                 role
             ]);
-            
             if (result.rows.length > 0) {
                 return this._formatUser(result.rows[0]);
             }
             return null;
         } catch (error) {
+            // Enhanced: Log full error object
+            console.error('[UserModel.create] Error creating user:', error, {
+                username: userData.username,
+                email: userData.email,
+                role: role
+            });
             // Handle potential errors like duplicate username/email
             if (error.code === '23505') { // Unique violation code in PostgreSQL
                 if (error.constraint === 'users_username_key') {
@@ -48,7 +63,6 @@ const UserModel = {
                     throw new Error('Email already registered.');
                 }
             }
-            console.error('Error creating user:', error);
             throw new Error('Failed to create user.');
         }
     },

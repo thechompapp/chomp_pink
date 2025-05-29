@@ -4,7 +4,7 @@
  * This is a template for standardized service implementation.
  * Copy this file and customize it for each service.
  */
-import { apiClient } from '@/services/http';
+import { getDefaultApiClient } from '@/services/http';
 import { validateId, createQueryParams, handleApiResponse } from './serviceHelpers';
 import { logDebug } from '@/utils/logger';
 

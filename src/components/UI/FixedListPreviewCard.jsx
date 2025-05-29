@@ -7,8 +7,8 @@ import { Star, Loader2 } from 'lucide-react';
 
 import { listService } from '@/services/listService';
 import { logDebug, logError } from '@/utils/logger';
-import { useQuickAdd } from '@/context/QuickAddContext';
-import { useListDetail } from '@/context/ListDetailContext';
+import { useQuickAdd } from '@/contexts/QuickAddContext';
+import { useListDetail } from '@/contexts/ListDetailContext';
 import useAuthStore from '@/stores/useAuthStore';
 import useFollowStore from '@/stores/useFollowStore';
 import { formatRelativeDate } from '@/utils/formatting';

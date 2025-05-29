@@ -4,7 +4,7 @@
  * Standardized service for restaurant-related API endpoints.
  * Uses the new HTTP service and service helpers for consistent behavior.
  */
-import { apiClient } from '@/services/http';
+import { getDefaultApiClient } from '@/services/http';
 import { validateId, createQueryParams, handleApiResponse } from '@/services/utils/serviceHelpers';
 import { logDebug } from '@/utils/logger';
 

@@ -7,7 +7,7 @@ import PlacesAutocomplete from '@/components/UI/PlacesAutocomplete.jsx';
 import RestaurantAutocomplete from '@/components/UI/RestaurantAutocomplete.jsx'; // Ensure import
 import NeighborhoodAutocomplete from '@/components/UI/NeighborhoodAutocomplete.jsx'; // Import our new component
 import CityAutocomplete from '@/components/UI/CityAutocomplete.jsx'; // Import city autocomplete
-import { usePlacesApi } from '@/context/PlacesApiContext.jsx';
+import { usePlacesApi } from '@/contexts/PlacesApiContext.jsx';
 import Input from '@/components/UI/Input.jsx';
 import Select from '@/components/UI/Select.jsx';
 import { Edit, Loader2 } from 'lucide-react';

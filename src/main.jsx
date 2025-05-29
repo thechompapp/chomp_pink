@@ -7,6 +7,9 @@ import './utils/DevModeManager';
 import AuthManager from './utils/AuthManager';
 import offlineModeGuard from './utils/offlineModeGuard';
 
+// Import offline mode control and auto-fix
+import { autoFixOfflineMode, enableOfflineModeDebugControls } from '@/utils/offlineModeControl';
+
 // Initialize AuthManager early
 if (typeof window !== 'undefined' && !AuthManager.initialized) {
   AuthManager.initialize();
@@ -21,8 +24,34 @@ import './index.css'; // Keep relative for global CSS
 import { queryClient } from '@/queryClient'; // Use alias for consistency
 import { logError, logInfo } from '@/utils/logger';
 
+// Safe environment check for development mode
+const isDevelopmentMode = (() => {
+  // Check Vite environment variables first (import.meta is always available in ES modules)
+  if (import.meta && import.meta.env) {
+    return import.meta.env.MODE === 'development' || import.meta.env.DEV;
+  }
+  // Check process.env if available (Node.js/webpack environments)
+  if (typeof process !== 'undefined' && process.env) {
+    return process.env.NODE_ENV === 'development';
+  }
+  // Default to development if unable to determine
+  return true;
+})();
+
 // Import development tools utility - using dynamic import to avoid initialization issues
-if (process.env.NODE_ENV === 'development') {
+if (isDevelopmentMode) {
+  // Auto-fix offline mode issues on startup
+  setTimeout(async () => {
+    try {
+      const fixes = await autoFixOfflineMode();
+      if (fixes.length > 0) {
+        console.log('🔧 Auto-fixed offline mode issues:', fixes);
+      }
+    } catch (error) {
+      console.warn('Failed to auto-fix offline mode issues:', error);
+    }
+  }, 500);
+  
   // Use setTimeout to ensure the app loads first
   setTimeout(() => {
     import('@/utils/devTools')

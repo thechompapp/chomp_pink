@@ -1,0 +1,61 @@
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "name": "Lower East Side",
+      "zipcode": "10002",
+      "borough": "Manhattan",
+      "description": "Historic neighborhood known for its diverse dining scene and nightlife"
+    },
+    {
+      "id": 2,
+      "name": "Greenwich Village", 
+      "zipcode": "10014",
+      "borough": "Manhattan",
+      "description": "Bohemian neighborhood with tree-lined streets and historic charm"
+    },
+    {
+      "id": 3,
+      "name": "East Village",
+      "zipcode": "10003", 
+      "borough": "Manhattan",
+      "description": "Vibrant neighborhood known for its restaurants, bars, and cultural scene"
+    },
+    {
+      "id": 4,
+      "name": "Chelsea",
+      "zipcode": "10001",
+      "borough": "Manhattan", 
+      "description": "Trendy neighborhood with art galleries, restaurants, and the High Line"
+    },
+    {
+      "id": 5,
+      "name": "Williamsburg",
+      "zipcode": "11211",
+      "borough": "Brooklyn",
+      "description": "Hip Brooklyn neighborhood known for its artisanal food scene and nightlife"
+    },
+    {
+      "id": 6,
+      "name": "SoHo",
+      "zipcode": "10013",
+      "borough": "Manhattan",
+      "description": "Shopping and dining destination with cast-iron architecture"
+    },
+    {
+      "id": 7,
+      "name": "Nolita",
+      "zipcode": "10012", 
+      "borough": "Manhattan",
+      "description": "Boutique shopping and dining area north of Little Italy"
+    },
+    {
+      "id": 8,
+      "name": "West Village",
+      "zipcode": "10014",
+      "borough": "Manhattan",
+      "description": "Historic neighborhood with cobblestone streets and intimate restaurants"
+    }
+  ]
+} 

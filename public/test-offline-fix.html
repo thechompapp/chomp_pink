@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline Mode Fix Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; line-height: 1.6; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background-color: #d4edda; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; border: 1px solid #f5c6cb; }
+        .info { background-color: #d1ecf1; border: 1px solid #bee5eb; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        pre { background-color: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Offline Mode Fix Test</h1>
+    
+    <div class="info">
+        <strong>Instructions:</strong>
+        <ol>
+            <li>Open browser developer console (F12)</li>
+            <li>Check the console for any errors</li>
+            <li>Click the buttons below to test offline mode controls</li>
+            <li>Verify that debug controls are available</li>
+        </ol>
+    </div>
+
+    <div id="status"></div>
+
+    <h2>🛠️ Offline Mode Controls</h2>
+    <button onclick="testAutoFix()">Auto-Fix Offline Mode</button>
+    <button onclick="testForceOnline()">Force Online Mode</button>
+    <button onclick="testGetStatus()">Get Status</button>
+    <button onclick="testApiConnectivity()">Test API</button>
+    
+    <h2>📊 Status Output</h2>
+    <pre id="output">Click a button to see results...</pre>
+
+    <script>
+        function updateStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = `status ${type}`;
+            statusDiv.innerHTML = message;
+        }
+
+        function updateOutput(content) {
+            document.getElementById('output').textContent = JSON.stringify(content, null, 2);
+        }
+
+        // Check if debug controls are available
+        function checkDebugControls() {
+            if (window.offlineModeDebug) {
+                updateStatus('✅ Offline Mode Debug Controls are available!', 'success');
+                return true;
+            } else {
+                updateStatus('❌ Offline Mode Debug Controls not found. Make sure the main app is loaded.', 'error');
+                return false;
+            }
+        }
+
+        async function testAutoFix() {
+            if (!checkDebugControls()) return;
+            
+            try {
+                console.log('Testing auto-fix...');
+                const result = await window.offlineModeDebug.autoFix();
+                updateStatus('✅ Auto-fix completed successfully!', 'success');
+                updateOutput({ fixes: result });
+            } catch (error) {
+                updateStatus('❌ Auto-fix failed: ' + error.message, 'error');
+                updateOutput({ error: error.message });
+            }
+        }
+
+        function testForceOnline() {
+            if (!checkDebugControls()) return;
+            
+            try {
+                console.log('Testing force online...');
+                const result = window.offlineModeDebug.forceOnline();
+                updateStatus('✅ Force online completed!', 'success');
+                updateOutput({ success: result });
+            } catch (error) {
+                updateStatus('❌ Force online failed: ' + error.message, 'error');
+                updateOutput({ error: error.message });
+            }
+        }
+
+        function testGetStatus() {
+            if (!checkDebugControls()) return;
+            
+            try {
+                console.log('Getting offline mode status...');
+                const status = window.offlineModeDebug.getStatus();
+                updateStatus('✅ Status retrieved successfully!', 'success');
+                updateOutput(status);
+            } catch (error) {
+                updateStatus('❌ Get status failed: ' + error.message, 'error');
+                updateOutput({ error: error.message });
+            }
+        }
+
+        async function testApiConnectivity() {
+            if (!checkDebugControls()) return;
+            
+            try {
+                console.log('Testing API connectivity...');
+                const result = await window.offlineModeDebug.testApi();
+                updateStatus(`✅ API connectivity test completed! Connected: ${result}`, 'success');
+                updateOutput({ connected: result });
+            } catch (error) {
+                updateStatus('❌ API test failed: ' + error.message, 'error');
+                updateOutput({ error: error.message });
+            }
+        }
+
+        // Initial check when page loads
+        setTimeout(() => {
+            checkDebugControls();
+        }, 1000);
+
+        // Log helpful information to console
+        console.log('🔧 Offline Mode Fix Test Page loaded');
+        console.log('Available test functions:');
+        console.log('- testAutoFix()');
+        console.log('- testForceOnline()');
+        console.log('- testGetStatus()');
+        console.log('- testApiConnectivity()');
+    </script>
+</body>
+</html> 

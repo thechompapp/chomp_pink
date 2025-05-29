@@ -4,7 +4,7 @@
  * Handles user-specific authentication operations including login, registration,
  * and profile management.
  */
-import { apiClient } from '@/services/http';
+import { getDefaultApiClient } from '@/services/http';
 import { tokenService } from './tokenService';
 import { offlineAuthService } from './offlineAuthService';
 import { logDebug, logError, logInfo } from '@/utils/logger';

@@ -34,17 +34,54 @@ export const validateGetListPreviewItems = [
 // Controller Functions
 export const getUserLists = async (req, res) => {
   try {
-    const { view = 'all', page = 1, limit = 10 } = req.query;
+    const { 
+      view = 'all', 
+      page = 1, 
+      limit = 10,
+      sortBy = 'newest',
+      sortOrder = 'desc',
+      isPublic,
+      cityId,
+      query: searchQuery,
+      hashtags
+    } = req.query;
     const userId = req.user?.id;
     
-    logDebug(`[listController] Getting lists for user ${userId} with view: ${view}`);
+    logDebug(`[listController] Getting lists for user ${userId} with parameters:`, {
+      view, page, limit, sortBy, sortOrder, isPublic, cityId, searchQuery, hashtags
+    });
     
-    const result = await listService.getUserLists(userId, { view, page, limit });
+    // If isPublic is explicitly true and no user is authenticated, get public lists
+    const shouldGetPublicLists = isPublic === 'true' && !userId;
     
+    // Prepare options for the model
+    const options = {
+      view,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      sortBy,
+      sortOrder,
+      cityId: cityId ? parseInt(cityId) : undefined,
+      query: searchQuery,
+      hashtags: hashtags ? (Array.isArray(hashtags) ? hashtags : [hashtags]) : [],
+      // For public lists, use allLists view
+      ...(shouldGetPublicLists ? { allLists: true } : {})
+    };
+    
+    const result = await listService.getUserLists(userId, options);
+    
+    logDebug(`[listController] Service returned:`, {
+      success: result?.success,
+      dataLength: result?.data?.length,
+      hasTotal: 'total' in result,
+      hasPagination: 'pagination' in result
+    });
+    
+    // The service already returns the correct structure with data and total
     res.status(200).json({
       success: true,
       message: 'Lists retrieved successfully',
-      data: result.data,
+      data: result, // Don't wrap again - service already returns {data: [...], total: N}
       pagination: result.pagination
     });
   } catch (error) {

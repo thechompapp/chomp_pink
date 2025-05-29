@@ -18,7 +18,7 @@ import { isOfflineMode } from '@/services/api';
 
 // Import stores and context
 import useFollowStore from '@/stores/useFollowStore';
-import { useQuickAdd } from '@/context/QuickAddContext';
+import { useQuickAdd } from '@/contexts/QuickAddContext';
 
 // Import UI components
 import CardFactory from '@/components/UI/CardFactory.jsx';
@@ -91,17 +91,19 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
 
       if (contentType === 'lists') {
         const params = {
-          view: 'all', 
           page: pageParam, 
           limit, 
           cityId, 
           boroughId, 
           neighborhoodId, 
           hashtags: hashtags || [], // Ensure hashtags is an array
-          query: searchQuery
+          searchTerm: searchQuery, // Use searchTerm instead of query for consistency
+          isPublic: true, // Ensure we get public lists for home page
+          sortBy: 'popularity', // Sort by popularity for trending lists
+          sortOrder: 'desc'
         };
         
-        logDebug('[Results] Fetching lists with params:', params);
+        logDebug('[Results] Fetching public lists with params:', params);
         
         // Add timeout to prevent hanging requests
         const timeoutPromise = new Promise((_, reject) => {
@@ -110,7 +112,7 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
         
         // Race between the actual request and the timeout
         response = await Promise.race([
-          listService.getUserLists(params),
+          listService.getLists(params), // Use getLists instead of getUserLists for public lists
           timeoutPromise
         ]);
         
@@ -124,17 +126,23 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
 
       } else { // Handle restaurants and dishes (or other types via searchService)
         const offset = (pageParam - 1) * limit;
+        
+        // Filter out null/undefined values to avoid sending invalid parameters
+        const cleanFilters = {};
+        if (cityId != null) cleanFilters.cityId = cityId;
+        if (boroughId != null) cleanFilters.boroughId = boroughId;
+        if (neighborhoodId != null) cleanFilters.neighborhoodId = neighborhoodId;
+        if (hashtags && hashtags.length > 0) cleanFilters.hashtags = hashtags;
+        
         const params = { 
           q: searchQuery, 
           type: contentType, 
           limit, 
-          offset, 
-          cityId, 
-          boroughId, 
-          neighborhoodId, 
-          hashtags: hashtags || []
+          offset,
+          ...cleanFilters // Only include non-null filter values
         };
         
+        logDebug(`[Results] Raw filter values - cityId: ${cityId}, boroughId: ${boroughId}, neighborhoodId: ${neighborhoodId}, hashtags:`, hashtags);
         logDebug(`[Results] Fetching ${contentType} with searchService params:`, params);
         
         // Add timeout to prevent hanging requests
@@ -150,11 +158,15 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
         
         logDebug(`[Results] Received ${contentType} service response:`, response);
         
-        // Assuming searchService response is { success: true, data: { [contentType]: [], total: N } } or similar
-        success = response?.success ?? (response?.data != null); // Consider successful if data is present
+        // The searchService now returns data directly at the top level:
+        // { restaurants: [...], dishes: [...], lists: [...], totalRestaurants: N, totalDishes: N, totalLists: N, success: true }
+        success = response?.success ?? (response?.[contentType] != null); // Consider successful if the content type array exists
         message = response?.message || (success ? `${contentType} fetched` : `Failed to fetch ${contentType}`);
-        items = Array.isArray(response?.data?.[contentType]) ? response.data[contentType] : [];
-        total = response?.data?.total ?? items.length;
+        items = Array.isArray(response?.[contentType]) ? response[contentType] : [];
+        
+        // Get the total count from the response using the pattern total + capitalizedContentType
+        const totalKey = `total${contentType.charAt(0).toUpperCase() + contentType.slice(1)}`;
+        total = response?.[totalKey] ?? items.length;
         
         // searchService might not return pagination in the same structure as listService
         responsePagination = { 
@@ -170,14 +182,25 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
         logWarn(`[Results] Received empty ${contentType} results on first page`);
       }
         
-      return {
+      const returnValue = {
         success,
-        data: items,
+        data: items, // This should be the array of list items, not the entire response
         pagination: responsePagination || { page: pageParam, limit, total, totalPages: Math.ceil(total / limit) },
         hasMore: (pageParam * limit) < total,
         page: pageParam,
         message
       };
+      
+      // Debug: Log the exact return value
+      logDebug('[Results] fetchFunction returning:', {
+        success: returnValue.success,
+        dataType: Array.isArray(returnValue.data) ? 'array' : typeof returnValue.data,
+        dataLength: Array.isArray(returnValue.data) ? returnValue.data.length : 'not array',
+        firstItemKeys: Array.isArray(returnValue.data) && returnValue.data.length > 0 ? 
+          Object.keys(returnValue.data[0]).slice(0, 5) : 'no items'
+      });
+        
+      return returnValue;
       
     } catch (error) {
       // Store the error for UI feedback
@@ -244,7 +267,7 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
     isFetchingNextPage,
     refetch // For the retry button
   } = useInfiniteQuery({
-    queryKey: ['results', contentType, searchQuery, cityId, boroughId, neighborhoodId, JSON.stringify(hashtags || [])],
+    queryKey: ['results', contentType, searchQuery, cityId, boroughId, neighborhoodId, JSON.stringify(hashtags || [])], // Remove Date.now() that was causing infinite loop
     queryFn: fetchFunction,
     getNextPageParam: (lastPage) => {
       if (lastPage && lastPage.success && lastPage.hasMore) {
@@ -255,8 +278,8 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
       return undefined;
     },
     initialPageParam: 1,
-    staleTime: 1 * 60 * 1000, // 1 minute staleTime for potentially frequently changing home page results
-    refetchOnWindowFocus: true, // Re-evaluate if this is desired for home page
+    staleTime: 5 * 60 * 1000, // 5 minutes cache instead of 0
+    refetchOnWindowFocus: false, // Disable refetch on window focus to prevent excessive requests
   });
 
   const { items, totalItems, processedPageError } = useMemo(() => {
@@ -280,6 +303,7 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
         logWarn('[Results:useMemo] Encountered an undefined page.');
         continue;
       }
+      
       if (page.success === false) {
         if (!pageLevelErrorMessage) {
           pageLevelErrorMessage = page.message || `An error occurred while loading some ${contentType}.`;
@@ -315,6 +339,61 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
     );
   };
 
+  const renderError = () => {
+    const errorMessage = apiError?.message || 
+                        infiniteQueryError?.message || 
+                        processedPageError || 
+                        `Failed to load ${contentType}. Please try again.`;
+    
+    return (
+      <div className="text-center py-8 px-4 max-w-lg mx-auto">
+        <ErrorOutlineIcon className="h-10 w-10 text-red-400 mx-auto mb-3" />
+        <p className="text-red-600 mb-4">{errorMessage}</p>
+        <button
+          onClick={() => {
+            setApiError(null);
+            refetch();
+          }}
+          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-chomp-blue hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+        >
+          <RefreshIcon className="-ml-1 mr-2 h-4 w-4" />
+          Try Again
+        </button>
+      </div>
+    );
+  };
+
+  const renderEmpty = () => {
+    const isSearch = searchQuery && searchQuery.length > 0;
+    const hasFilters = cityId || boroughId || neighborhoodId || (hashtags && hashtags.length > 0);
+    
+    return (
+      <div className="text-center py-12 px-4">
+        <DescriptionOutlinedIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+          {isSearch || hasFilters ? `No ${contentType} found` : `No ${contentType} yet`}
+        </h3>
+        <p className="text-gray-500 dark:text-gray-400 mb-6">
+          {isSearch || hasFilters 
+            ? `Try adjusting your search or filters to find ${contentType}.`
+            : contentType === 'lists' 
+              ? `Create your first list to get started!`
+              : `Be the first to add ${contentType} to this area.`
+          }
+        </p>
+        {contentType === 'lists' && !isSearch && !hasFilters && (
+          <Link 
+            to="/lists/new" 
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-chomp-blue hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            <AddIcon className="-ml-1 mr-2 h-4 w-4" />
+            Create Your First List
+          </Link>
+        )}
+      </div>
+    );
+  };
+
   const renderContent = () => {
     // Show error state if we have an API error
     if (apiError) {
@@ -325,7 +404,7 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
       return renderSkeletons();
     }
 
-    if (isError) {
+    if (infiniteQueryError) {
       return renderError();
     }
 
@@ -338,9 +417,8 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
       return renderEmpty();
     }
 
-    const allItems = data.pages.flatMap(page => page.data || []);
-
-    if (allItems.length === 0) {
+    // Use the correctly processed items from useMemo, not a separate calculation
+    if (items.length === 0) {
       return renderEmpty();
     }
     
@@ -366,18 +444,20 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
         className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4"
         scrollThreshold={0.95} 
       >
-        {items.map((item) => (
-          item && item.id != null ? (
-            <CardFactory
-              key={`${contentType}-${item.id}-${item.name}`}
-              type={contentType}
-              data={item}
-              onQuickAdd={openQuickAdd}
-            />
-          ) : (
-            logWarn('[Results] Attempted to render a null item or item without ID.', item) && null
-          )
-        ))}
+        {items.map((item) => {
+          return (
+            item && item.id != null ? (
+              <CardFactory
+                key={`${contentType}-${item.id}-${item.name}`}
+                type={contentType}
+                data={item}
+                onQuickAdd={openQuickAdd}
+              />
+            ) : (
+              logWarn('[Results] Attempted to render a null item or item without ID.', item) && null
+            )
+          );
+        })}
         {processedPageError && items.length > 0 && (
           <div className="col-span-full text-center p-4 text-red-500 dark:text-red-400">
             <ErrorOutlineIcon className="inline-block mr-2" />

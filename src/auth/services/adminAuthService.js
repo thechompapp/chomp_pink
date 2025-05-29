@@ -4,7 +4,7 @@
  * Handles admin-specific authentication operations including
  * role verification and admin-only functionality.
  */
-import { apiClient } from '@/services/http';
+import { getDefaultApiClient } from '@/services/http';
 import { tokenService } from './tokenService';
 import { userAuthService } from './userAuthService';
 import { logDebug, logError, logInfo } from '@/utils/logger';

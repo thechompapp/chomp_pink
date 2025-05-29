@@ -4,7 +4,7 @@
  * Handles automatic token refresh for expired tokens.
  * Implements interceptors for axios to handle token refresh.
  */
-import { apiClient } from '@/services/http';
+import { getDefaultApiClient } from '@/services/http';
 import { authService } from './authService';
 import { logDebug, logError } from '@/utils/logger';
 

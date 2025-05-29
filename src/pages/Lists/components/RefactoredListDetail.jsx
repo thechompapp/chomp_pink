@@ -8,7 +8,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { useParams } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
-import { useQuickAdd } from '@/context/QuickAddContext';
+import { useQuickAdd } from '@/contexts/QuickAddContext';
 import useAuthStore from '@/stores/useAuthStore';
 import PageContainer from '@/layouts/PageContainer';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';

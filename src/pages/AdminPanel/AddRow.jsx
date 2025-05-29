@@ -6,7 +6,7 @@ import apiClient from '@/services/apiClient.js'; // Use .js
 import EditableCell from './EditableCell.jsx'; // Use .jsx
 // Updated import to use named export following API standardization pattern
 import { filterService } from '@/services/filterService.js'; // Consistent with other service imports
-import { usePlacesApi } from '@/context/PlacesApiContext'; // Use .jsx
+import { usePlacesApi } from '@/contexts/PlacesApiContext'; // Use .jsx
 
 // --- REMOVED: TypeScript interfaces ---
 

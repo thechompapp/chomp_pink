@@ -3,16 +3,20 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, ChevronUp, Star, Loader2 } from 'lucide-react';
-import { useListDetail } from '@/context/ListDetailContext';
+import { ChevronDown, ChevronUp, Star, Loader2, Eye } from 'lucide-react';
+import { useListDetail } from '@/contexts/ListDetailContext';
 import { engagementService } from '@/services/engagementService';
 import { listService } from '@/services/listService';
 import useAuthStore from '@/stores/useAuthStore';
 import useFollowStore from '@/stores/useFollowStore';
 import BaseCard from '@/components/UI/BaseCard';
 import Button from '@/components/UI/Button';
+import ListDetailModal from '@/components/UI/ListDetailModal';
 import { formatRelativeDate } from '@/utils/formatting';
 import { logDebug, logError } from '@/utils/logger';
+
+// Maximum items to show in preview mode
+const PREVIEW_ITEM_LIMIT = 5;
 
 // Separate component for empty/error state
 const EmptyListCard = ({ error }) => (
@@ -31,7 +35,7 @@ const EmptyListCard = ({ error }) => (
 );
 
 // Spotify-like list item display within the card
-const ListItemDisplay = ({ item, listType, onQuickAdd }) => {
+const ListItemDisplay = ({ item, listType, onQuickAdd, showQuickAdd = true }) => {
   try {
     // Check if user is authenticated
     const { isAuthenticated } = useAuthStore();
@@ -39,12 +43,20 @@ const ListItemDisplay = ({ item, listType, onQuickAdd }) => {
     if (!item || item.id == null) return null;
     let linkTo = '#';
     let secondaryText = '';
+    let priceDisplay = '';
+    
     if (item.item_type === 'restaurant') {
       linkTo = `/restaurants/${item.id}`;
       secondaryText = item.city || item.neighborhood || '';
+      if (item.price_range) {
+        priceDisplay = item.price_range;
+      }
     } else if (item.item_type === 'dish') {
       linkTo = `/dishes/${item.id}`;
       secondaryText = item.restaurant_name || '';
+      if (item.price) {
+        priceDisplay = `$${parseFloat(item.price).toFixed(2)}`;
+      }
     }
 
     const handleQuickAdd = (e) => {
@@ -66,9 +78,18 @@ const ListItemDisplay = ({ item, listType, onQuickAdd }) => {
           <span className="text-black hover:underline text-xs font-medium block truncate">
             {item.name}
           </span>
-          {secondaryText && <span className="text-black text-xs block truncate opacity-70">{secondaryText}</span>}
+          {secondaryText && (
+            <span className="text-black text-xs block truncate opacity-70">
+              {secondaryText}
+            </span>
+          )}
         </div>
-        {isAuthenticated && onQuickAdd && (
+        {priceDisplay && (
+          <span className="text-xs text-gray-600 font-medium mx-2">
+            {priceDisplay}
+          </span>
+        )}
+        {isAuthenticated && onQuickAdd && showQuickAdd && (
           <button 
             onClick={handleQuickAdd}
             className="text-xs bg-black text-white px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
@@ -127,9 +148,8 @@ const ListCard = (props) => {
   const safeListId = String(list.id);
 
   // All hooks must always be called unconditionally, at the top level
-  const [isExpanded, setIsExpanded] = useState(false);
   const [followStatus, setFollowStatus] = useState(Boolean(list.is_following));
-  const { openListDetail } = useListDetail() || {};
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const { user, isAuthenticated } = useAuthStore() || {};
   const { isFollowing } = useFollowStore() || {};
 
@@ -151,29 +171,29 @@ const ListCard = (props) => {
     }
   });
 
-  // Load list items when expanded - with error handling
+  // Load preview items (first 5) for the card
   const {
     data: itemsData,
     isLoading,
     isError
   } = useQuery({
-    queryKey: ['list-items', safeListId, isExpanded],
+    queryKey: ['list-items-preview', safeListId],
     queryFn: async () => {
-      return listService.getListItems(safeListId);
+      return listService.getListItems(safeListId, { limit: PREVIEW_ITEM_LIMIT });
     },
-    enabled: isExpanded && Boolean(safeListId),
+    enabled: Boolean(safeListId),
     staleTime: 60000,
     retry: 1,
     onError: (error) => {
-      console.error(`[ListCard] Error fetching items for list ${safeListId}:`, error);
+      console.error(`[ListCard] Error fetching preview items for list ${safeListId}:`, error);
     }
   });
 
   const displayItems = useMemo(() => {
     if (isError || !itemsData?.data) {
-      return Array.isArray(list.items) ? list.items : [];
+      return Array.isArray(list.items) ? list.items.slice(0, PREVIEW_ITEM_LIMIT) : [];
     }
-    return itemsData.data;
+    return itemsData.data.slice(0, PREVIEW_ITEM_LIMIT);
   }, [itemsData, isError, list.items]);
 
   const isOwnList = useMemo(() => {
@@ -208,52 +228,43 @@ const ListCard = (props) => {
     }
   }, [list.is_following, safeListId, isFollowing]);
 
-  useEffect(() => {
-    setIsExpanded(false);
-  }, [safeListId]);
-
   const shouldShowFollowButton = isAuthenticated && !isOwnList;
 
   // Handlers (can use try/catch inside these)
   const handleCardClick = useCallback(() => {
     try {
-      if (!openListDetail) {
-        console.error('[ListCard] openListDetail function not available');
-        return;
-      }
-      
-      // Log the click with the ID to help diagnose issues
-      console.log(`[ListCard] Card clicked for list ID: ${safeListId}`);
-      
-      // Ensure we're passing a string ID
-      const idToOpen = String(safeListId);
-      openListDetail(idToOpen);
+      setIsModalOpen(true);
     } catch (error) {
       console.error('[ListCard] Error in card click handler:', error);
     }
-  }, [safeListId, openListDetail]);
+  }, []);
 
-  const handleToggleExpand = useCallback((e) => {
+  const handleCloseModal = useCallback(() => {
+    setIsModalOpen(false);
+  }, []);
+
+  const handleShowMore = useCallback((e) => {
     try {
       if (e) {
         e.stopPropagation();
         e.preventDefault();
       }
-      const newExpandedState = !isExpanded;
+      setIsModalOpen(true);
+      
+      // Log engagement
       try {
         engagementService.logEngagement({
           item_id: parseInt(safeListId, 10),
           item_type: 'list',
-          engagement_type: newExpandedState ? 'expand' : 'collapse',
+          engagement_type: 'view_full',
         });
       } catch (error) {
         console.error('[ListCard] Error logging engagement:', error);
       }
-      setIsExpanded(newExpandedState);
     } catch (error) {
-      console.error('[ListCard] Error in toggle expand handler:', error);
+      console.error('[ListCard] Error in show more handler:', error);
     }
-  }, [isExpanded, safeListId]);
+  }, [safeListId]);
 
   // Render
   const listName = list.name || 'Unnamed List';
@@ -270,150 +281,183 @@ const ListCard = (props) => {
     return list.items?.length || list.items_count || 0;
   }, [list.items, list.items_count, listDetailsData?.items]);
 
+  const hasMoreItems = itemCount > PREVIEW_ITEM_LIMIT;
+
   return (
-    <BaseCard
-      onClick={handleCardClick}
-      className="bg-white rounded-lg border border-black p-4 flex flex-col h-full overflow-hidden relative w-full cursor-pointer"
-    >
-      {/* Main Content Area */}
-      <div className="flex-grow min-h-0 overflow-hidden flex flex-col">
-        <div className="flex justify-between items-center mb-1">
-          <h3 className="text-base font-semibold text-black line-clamp-2 flex-shrink-0">
-            {listName}
-          </h3>
-          {/* Only show follow button for authenticated users and not their own lists */}
-          {user && !isOwnList && (
-            <div className="ml-2 relative z-50">
-              {/* Plain HTML button for maximum reliability */}
-              <button
-                id={`follow-btn-${safeListId}`}
-                className={`inline-flex items-center px-2 py-1 text-xs rounded-sm relative ${followStatus ? 'bg-black text-white' : 'bg-white text-black border border-black'}`}
-                style={{
-                  cursor: 'pointer',
-                  pointerEvents: 'auto',
-                  position: 'relative',
-                  zIndex: 9999,
-                }}
-                onClick={function (e) {
-                  try {
-                    if (e) {
-                      e.stopPropagation();
-                      e.preventDefault();
-                    }
-                    setFollowStatus((prev) => !prev);
+    <>
+      <BaseCard
+        onClick={handleCardClick}
+        className="bg-white rounded-lg border border-black p-4 flex flex-col h-full overflow-hidden relative w-full cursor-pointer hover:shadow-lg transition-shadow"
+      >
+        {/* Main Content Area */}
+        <div className="flex-grow min-h-0 overflow-hidden flex flex-col">
+          <div className="flex justify-between items-start mb-1">
+            <div className="flex-1 min-w-0">
+              <h3 className="text-base font-semibold text-black line-clamp-2 flex-shrink-0">
+                {listName}
+              </h3>
+              {list.description && (
+                <p className="text-xs text-gray-600 mt-1 line-clamp-2">
+                  {list.description}
+                </p>
+              )}
+            </div>
+            {/* Only show follow button for authenticated users and not their own lists */}
+            {user && !isOwnList && (
+              <div className="ml-2 relative z-50 flex-shrink-0">
+                <button
+                  id={`follow-btn-${safeListId}`}
+                  className={`inline-flex items-center px-2 py-1 text-xs rounded-sm relative transition-colors ${
+                    followStatus 
+                      ? 'bg-black text-white' 
+                      : 'bg-white text-black border border-black hover:bg-gray-50'
+                  }`}
+                  style={{
+                    cursor: 'pointer',
+                    pointerEvents: 'auto',
+                    position: 'relative',
+                    zIndex: 9999,
+                  }}
+                  onClick={function (e) {
                     try {
-                      const btn = document.getElementById(`follow-btn-${safeListId}`);
-                      if (!btn) {
-                        console.warn(`[ListCard] Button element for list ${safeListId} not found in DOM`);
-                        return;
+                      if (e) {
+                        e.stopPropagation();
+                        e.preventDefault();
                       }
-                      const isCurrentlyFollowing = btn.classList.contains('bg-black');
-                      const textLabel = btn.querySelector('.text-label');
-                      if (isCurrentlyFollowing) {
-                        btn.classList.remove('bg-black', 'text-white');
-                        btn.classList.add('bg-white', 'text-black', 'border', 'border-black');
-                        if (textLabel) textLabel.textContent = 'Follow';
-                      } else {
-                        btn.classList.remove('bg-white', 'text-black', 'border', 'border-black');
-                        btn.classList.add('bg-black', 'text-white');
-                        if (textLabel) textLabel.textContent = 'Following';
-                      }
+                      setFollowStatus((prev) => !prev);
                       try {
-                        const key = `follow_state_${safeListId}`;
-                        localStorage.setItem(
-                          key,
-                          JSON.stringify({
-                            isFollowing: !isCurrentlyFollowing,
-                            updatedAt: new Date().toISOString(),
-                          })
+                        const btn = document.getElementById(`follow-btn-${safeListId}`);
+                        if (!btn) {
+                          console.warn(`[ListCard] Button element for list ${safeListId} not found in DOM`);
+                          return;
+                        }
+                        const isCurrentlyFollowing = btn.classList.contains('bg-black');
+                        const textLabel = btn.querySelector('.text-label');
+                        if (isCurrentlyFollowing) {
+                          btn.classList.remove('bg-black', 'text-white');
+                          btn.classList.add('bg-white', 'text-black', 'border', 'border-black');
+                          if (textLabel) textLabel.textContent = 'Follow';
+                        } else {
+                          btn.classList.remove('bg-white', 'text-black', 'border', 'border-black');
+                          btn.classList.add('bg-black', 'text-white');
+                          if (textLabel) textLabel.textContent = 'Following';
+                        }
+                        try {
+                          const key = `follow_state_${safeListId}`;
+                          localStorage.setItem(
+                            key,
+                            JSON.stringify({
+                              isFollowing: !isCurrentlyFollowing,
+                              updatedAt: new Date().toISOString(),
+                            })
+                          );
+                        } catch (storageErr) {
+                          console.warn('[ListCard] Error updating localStorage:', storageErr);
+                        }
+                        logDebug(
+                          `[ListCard] Button for list ${safeListId} clicked and toggled to: ${!isCurrentlyFollowing}`
                         );
-                      } catch (storageErr) {
-                        console.warn('[ListCard] Error updating localStorage:', storageErr);
+                      } catch (err) {
+                        console.error('[ListCard] Follow button DOM manipulation error:', err);
                       }
-                      console.debug(
-                        `[ListCard] Button for list ${safeListId} clicked and toggled to: ${!isCurrentlyFollowing}`
-                      );
-                    } catch (err) {
-                      console.error('[ListCard] Follow button DOM manipulation error:', err);
+                    } catch (clickError) {
+                      console.error('[ListCard] Error in follow button click handler:', clickError);
                     }
-                  } catch (clickError) {
-                    console.error('[ListCard] Error in follow button click handler:', clickError);
-                  }
-                }}
-              >
-                <Star className={`mr-1 ${followStatus ? 'fill-white' : ''}`} size={12} />
-                <span className="text-label">{followStatus ? 'Following' : 'Follow'}</span>
-              </button>
+                  }}
+                >
+                  <Star className={`mr-1 ${followStatus ? 'fill-white' : ''}`} size={12} />
+                  <span className="text-label">{followStatus ? 'Following' : 'Follow'}</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center space-x-3">
+              <p className="text-xs text-black flex-shrink-0">
+                {itemCount} {itemCount === 1 ? 'item' : 'items'}
+              </p>
+              {list.list_type && (
+                <span className="text-xs text-gray-500 capitalize">
+                  {list.list_type} list
+                </span>
+              )}
             </div>
-          )}
-        </div>
-        {/* Fixed: Make item count consistent with the modal */}
-        <p className="text-xs text-black mb-1 flex-shrink-0">
-          {itemCount} {itemCount === 1 ? 'item' : 'items'}
-        </p>
-        <p className="text-xs text-black mb-2 flex-shrink-0">{updatedText}</p>
-        {/* Items List (takes remaining space, scrollable if expanded) - Spotify Playlist Style */}
-        <div
-          className={`flex-grow min-h-0 overflow-y-auto no-scrollbar transition-all duration-300 ${isExpanded ? 'max-h-64' : 'max-h-28'}`}
-        >
-          {isLoading && isExpanded ? (
-            <div className="flex items-center justify-center h-full">
-              <Loader2 className="animate-spin text-gray-500" size={24} />
-            </div>
-          ) : (
-            <ul className="space-y-1">
-              {Array.isArray(displayItems) &&
-                displayItems.map((item) =>
-                  item && item.id ? (
-                    <ListItemDisplay
-                      key={`${item.id}-${item.item_type || 'unknown'}`}
-                      item={item}
-                      listType={list.type}
-                      onQuickAdd={onQuickAdd}
-                    />
-                  ) : null
+            <p className="text-xs text-black flex-shrink-0">{updatedText}</p>
+          </div>
+
+          {/* Items Preview List (takes remaining space) */}
+          <div className="flex-grow min-h-0 overflow-hidden">
+            {isLoading ? (
+              <div className="flex items-center justify-center h-full">
+                <Loader2 className="animate-spin text-gray-500" size={20} />
+              </div>
+            ) : (
+              <ul className="space-y-1">
+                {Array.isArray(displayItems) &&
+                  displayItems.map((item, index) =>
+                    item && item.id ? (
+                      <ListItemDisplay
+                        key={`${item.id}-${item.item_type || 'unknown'}`}
+                        item={item}
+                        listType={list.type}
+                        onQuickAdd={onQuickAdd}
+                        showQuickAdd={true}
+                      />
+                    ) : null
+                  )}
+                {displayItems.length === 0 && (
+                  <li className="text-xs text-gray-500 italic py-2">
+                    This list is empty
+                  </li>
                 )}
-            </ul>
-          )}
+              </ul>
+            )}
+          </div>
         </div>
-      </div>
-      {/* Expand/Collapse Button */}
-      <div className="flex justify-center mt-2">
-        <button
-          className="text-black/70 hover:text-black p-1 rounded-full transition-colors flex items-center text-xs font-medium"
-          onClick={handleToggleExpand}
-        >
-          {isExpanded ? (
-            <>
-              <ChevronUp size={16} className="mr-1" />
-              Show less
-            </>
-          ) : (
-            <>
-              <ChevronDown size={16} className="mr-1" />
-              Show more
-            </>
-          )}
-        </button>
-      </div>
-    </BaseCard>
+
+        {/* Show More Button */}
+        {hasMoreItems && (
+          <div className="flex justify-center mt-3 pt-2 border-t border-gray-100">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="text-black/70 hover:text-black p-2 rounded-lg transition-colors flex items-center text-xs font-medium hover:bg-gray-50"
+              onClick={handleShowMore}
+            >
+              <Eye size={14} className="mr-1" />
+              Show all {itemCount} items
+            </motion.button>
+          </div>
+        )}
+      </BaseCard>
+
+      {/* List Detail Modal */}
+      <ListDetailModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        listId={safeListId}
+        onQuickAdd={onQuickAdd}
+      />
+    </>
   );
 };
 
 ListCard.propTypes = {
   list: PropTypes.shape({
-    id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
     name: PropTypes.string,
-    user_id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    description: PropTypes.string,
+    list_type: PropTypes.string,
+    items: PropTypes.array,
+    items_count: PropTypes.number,
+    updated_at: PropTypes.string,
+    is_following: PropTypes.bool,
+    user_id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     created_by_user: PropTypes.bool,
     creator_handle: PropTypes.string,
-    is_following: PropTypes.bool,
-    items_count: PropTypes.number,
-    items: PropTypes.array,
-    updated_at: PropTypes.string,
-    tags: PropTypes.array
-  }),
-  onQuickAdd: PropTypes.func
+  }).isRequired,
+  onQuickAdd: PropTypes.func,
 };
 
 export default ListCard;

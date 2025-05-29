@@ -7,7 +7,7 @@ import { toast } from 'react-hot-toast';
 import { logDebug, logError, logWarn } from '@/utils/logger';
 import ErrorHandler from '@/utils/ErrorHandler';
 import { createMockResponseFromError } from '@/services/mockApi';
-import OfflineModeHandler from './OfflineModeHandler';
+import offlineModeHandler from '@/services/http/OfflineModeHandler';
 
 // Constants for configuration
 const CONFIG = {
@@ -30,7 +30,7 @@ const CONFIG = {
  */
 class ErrorInterceptor {
   constructor() {
-    this.offlineModeHandler = new OfflineModeHandler();
+    this.offlineModeHandler = offlineModeHandler;
   }
   
   /**
@@ -173,7 +173,7 @@ class ErrorInterceptor {
     
     // Use ErrorHandler utility if available
     try {
-      ErrorHandler.handleApiError(error);
+      ErrorHandler.handle(error, 'HttpErrorInterceptor');
     } catch (handlerError) {
       logError('[ErrorInterceptor] Error in ErrorHandler:', handlerError);
     }

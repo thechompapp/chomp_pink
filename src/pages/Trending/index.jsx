@@ -16,7 +16,7 @@ import Button from '@/components/UI/Button';
 import QueryResultDisplay from '@/components/QueryResultDisplay';
 // FIX: Corrected icon import from SortAlphaDown to SortAsc
 import { Flame, Utensils, Bookmark, Star, Clock, SortAsc, List as ListIcon, TrendingUp } from 'lucide-react';
-import { useQuickAdd } from '@/context/QuickAddContext';
+import { useQuickAdd } from '@/contexts/QuickAddContext';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
 
 // FIX: Use correct icon (SortAsc)

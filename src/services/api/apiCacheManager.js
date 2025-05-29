@@ -8,7 +8,7 @@
  */
 
 import { logDebug } from '@/utils/logger';
-import CacheManager from '@/utils/CacheManager';
+import { CacheManager } from '@/utils/CacheManager';
 
 // Create a dedicated cache instance for API requests
 const apiCache = new CacheManager('api-cache');

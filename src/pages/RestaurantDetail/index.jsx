@@ -11,7 +11,7 @@ import { restaurantService } from '@/services/restaurantService'; // Changed to 
 import { dishService } from '@/services/dishService'; // Changed to named import
 // Hooks
 import useAuthStore from '@/stores/useAuthStore';
-// import { useQuickAdd } from '@/context/QuickAddContext'; // Keep if Quick Add button is needed
+// import { useQuickAdd } from '@/contexts/QuickAddContext'; // Keep if Quick Add button is needed
 import useApiErrorHandler from '@/hooks/useApiErrorHandler';
 // Components
 import LoadingSpinner from '@/components/UI/LoadingSpinner';

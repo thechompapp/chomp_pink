@@ -9,7 +9,7 @@ import { XMarkIcon as XMarkHeroIcon, PencilIcon, TrashIcon, PlusIcon as PlusHero
 import { Loader2, AlertCircle, X as XLucideIcon, PlusCircle } from 'lucide-react'; // Added PlusCircle for consistency
 import { listService } from '@/services/listService';
 import { formatRelativeDate } from '@/utils/formatting';
-import { useQuickAdd } from '@/context/QuickAddContext'; // Assuming this context provides openQuickAddModal
+import { useQuickAdd } from '@/contexts/QuickAddContext'; // Assuming this context provides openQuickAddModal
 import useAuthStore from '@/stores/useAuthStore';
 import useFollowStore from '@/stores/useFollowStore';
 import Button from '@/components/UI/Button';

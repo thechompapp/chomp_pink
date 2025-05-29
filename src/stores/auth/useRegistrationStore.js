@@ -4,7 +4,7 @@
  * Handles user registration logic
  */
 import { create } from 'zustand';
-import { apiClient } from '@/services/http';
+import { getDefaultApiClient } from '@/services/http';
 import { logInfo, logWarn, logError } from '@/utils/logger.js';
 import ErrorHandler from '@/utils/ErrorHandler';
 import useAuthenticationStore from './useAuthenticationStore';
@@ -29,10 +29,10 @@ const handleRegistrationError = (error, operation, setFn) => {
   
   setFn({ 
     isLoading: false, 
-    error: errorInfo.message
+    error: errorInfo?.message || errorInfo || 'Unknown error'
   });
-  
-  return errorInfo.message;
+  // Always return a string for error message
+  return (errorInfo && errorInfo.message) || errorInfo || 'Unknown error';
 };
 
 // Function to throttle state updates

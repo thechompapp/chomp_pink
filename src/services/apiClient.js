@@ -20,7 +20,7 @@
 
 // Import from new modular HTTP service structure
 import { 
-  apiClient, 
+  getDefaultApiClient, 
   createApiClient,
   getLoadingState,
   subscribeToLoadingState,
@@ -37,6 +37,9 @@ patchGlobalAxios(axios);
 
 // Apply XHR-level fixes for browser environments
 applyXhrFixes();
+
+// Get the API client instance
+const apiClient = getDefaultApiClient();
 
 /**
  * Wrapper functions to maintain backward compatibility

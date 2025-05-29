@@ -9,7 +9,22 @@
  */
 
 import { logInfo, logDebug, logWarn, logError } from './logger';
-import useAuthStore from '@/stores/useAuthStore';
+import useAuthenticationStore from '@/stores/auth/useAuthenticationStore';
+import useSuperuserStore from '@/stores/auth/useSuperuserStore';
+
+// Safe environment check
+const isDevelopmentMode = () => {
+  // Check Vite environment variables first (import.meta is always available in ES modules)
+  if (import.meta && import.meta.env) {
+    return import.meta.env.MODE === 'development' || import.meta.env.DEV;
+  }
+  // Check process.env if available (Node.js/webpack environments)
+  if (typeof process !== 'undefined' && process.env) {
+    return process.env.NODE_ENV === 'development';
+  }
+  // Default to development if unable to determine
+  return true;
+};
 
 // AuthManager events
 export const AUTH_EVENTS = {
@@ -39,39 +54,31 @@ class AuthManager {
     // Clear offline mode flags immediately
     this.clearOfflineMode();
     
-    // Setup listeners for auth store changes
-    const unsubscribe = useAuthStore.subscribe(
-      (state) => ({ 
-        isAuthenticated: state.isAuthenticated,
-        isSuperuser: state.isSuperuser,
-        user: state.user 
-      }),
-      (newState, oldState) => {
-        // Check for auth state changes
-        if (newState.isAuthenticated !== oldState.isAuthenticated) {
-          logInfo('[AuthManager] Authentication state changed:', newState.isAuthenticated);
-          
-          // Clear offline mode when authentication state changes
-          this.clearOfflineMode();
-          
-          if (newState.isAuthenticated) {
-            this.handleLogin(newState.user);
-          } else {
-            this.handleLogout();
-          }
-        }
-        
-        // Check for superuser status changes
-        if (newState.isSuperuser !== oldState.isSuperuser) {
-          logInfo('[AuthManager] Superuser status changed:', newState.isSuperuser);
-          this.handleSuperuserStatusChange(newState.isSuperuser);
-        }
-      }
-    );
+    // Setup listeners for auth store changes using the modular stores
+    try {
+      // Subscribe to authentication store changes
+      const authUnsubscribe = useAuthenticationStore.subscribe((state) => {
+        // Handle authentication state changes
+        this.handleAuthStateChange(state);
+      });
+      
+      // Subscribe to superuser store changes  
+      const superuserUnsubscribe = useSuperuserStore.subscribe((state) => {
+        // Handle superuser state changes
+        this.handleSuperuserStateChange(state);
+      });
+      
+      // Store unsubscribe functions for cleanup
+      this.authUnsubscribe = authUnsubscribe;
+      this.superuserUnsubscribe = superuserUnsubscribe;
+      
+    } catch (error) {
+      logError('[AuthManager] Error setting up store subscriptions:', error);
+    }
     
     // Listen for storage events to sync across tabs
     window.addEventListener('storage', (event) => {
-      if (event.key === 'auth-storage') {
+      if (event.key === 'auth-storage' || event.key === 'auth-authentication-storage') {
         this.syncAuthStateAcrossTabs();
       }
       
@@ -89,9 +96,13 @@ class AuthManager {
     
     // Set up interval to periodically check and clear offline mode if authenticated
     this.offlineModeCheckInterval = setInterval(() => {
-      const isAuthenticated = useAuthStore.getState().isAuthenticated;
-      if (isAuthenticated) {
-        this.clearOfflineMode();
+      try {
+        const authState = useAuthenticationStore.getState();
+        if (authState && authState.isAuthenticated) {
+          this.clearOfflineMode();
+        }
+      } catch (error) {
+        logError('[AuthManager] Error in offline mode check:', error);
       }
     }, 5000); // Check every 5 seconds
     
@@ -100,7 +111,47 @@ class AuthManager {
     // Dispatch initialized event
     this.dispatchAuthEvent(AUTH_EVENTS.INITIALIZED, { initialized: true });
     
-    return unsubscribe;
+    return () => {
+      // Cleanup function
+      if (this.authUnsubscribe) this.authUnsubscribe();
+      if (this.superuserUnsubscribe) this.superuserUnsubscribe();
+      if (this.offlineModeCheckInterval) clearInterval(this.offlineModeCheckInterval);
+    };
+  }
+  
+  /**
+   * Handle authentication state changes
+   * @param {Object} authState - New authentication state
+   */
+  static handleAuthStateChange(authState) {
+    try {
+      logDebug('[AuthManager] Auth state changed:', authState);
+      
+      // Clear offline mode when authentication state changes
+      this.clearOfflineMode();
+      
+      if (authState.isAuthenticated && authState.user) {
+        this.handleLogin(authState.user);
+      } else if (!authState.isAuthenticated) {
+        this.handleLogout();
+      }
+    } catch (error) {
+      logError('[AuthManager] Error handling auth state change:', error);
+    }
+  }
+  
+  /**
+   * Handle superuser state changes
+   * @param {Object} superuserState - New superuser state
+   */
+  static handleSuperuserStateChange(superuserState) {
+    try {
+      logDebug('[AuthManager] Superuser state changed:', superuserState);
+      
+      this.handleSuperuserStatusChange(superuserState.isSuperuser);
+    } catch (error) {
+      logError('[AuthManager] Error handling superuser state change:', error);
+    }
   }
   
   /**
@@ -127,8 +178,8 @@ class AuthManager {
       }
       
       // Set admin flags in development mode
-      if (process.env.NODE_ENV === 'development') {
-        const isAuthenticated = useAuthStore.getState().isAuthenticated;
+      if (isDevelopmentMode()) {
+        const isAuthenticated = useAuthenticationStore.getState().isAuthenticated;
         if (isAuthenticated) {
           localStorage.setItem('admin_access_enabled', 'true');
           localStorage.setItem('superuser_override', 'true');
@@ -168,7 +219,7 @@ class AuthManager {
     // Dispatch login complete event
     this.dispatchAuthEvent(AUTH_EVENTS.LOGIN_COMPLETE, { 
       user,
-      isSuperuser: useAuthStore.getState().isSuperuser 
+      isSuperuser: useAuthenticationStore.getState().isSuperuser 
     });
   }
   
@@ -185,7 +236,7 @@ class AuthManager {
       localStorage.removeItem('admin_api_key');
       
       // In development mode, set explicit logout flag
-      if (process.env.NODE_ENV === 'development') {
+      if (isDevelopmentMode()) {
         localStorage.setItem('user_explicitly_logged_out', 'true');
       }
     }
@@ -211,7 +262,7 @@ class AuthManager {
     logInfo('[AuthManager] Handling superuser status change:', isSuperuser);
     
     // Update auth store if needed
-    const authState = useAuthStore.getState();
+    const authState = useAuthenticationStore.getState();
     
     // Check if we need to update the user object to match superuser status
     if (isSuperuser && authState.user && 
@@ -224,7 +275,7 @@ class AuthManager {
     
     // Update superuserStatusReady flag if not already set
     if (!authState.superuserStatusReady) {
-      useAuthStore.setState({ superuserStatusReady: true });
+      useAuthenticationStore.setState({ superuserStatusReady: true });
     }
     
     // Dispatch superuser status changed event
@@ -238,11 +289,11 @@ class AuthManager {
    */
   static checkAndApplySuperuserStatus(user = null) {
     if (!user) {
-      user = useAuthStore.getState().user;
+      user = useAuthenticationStore.getState().user;
       if (!user) return false;
     }
     
-    const authState = useAuthStore.getState();
+    const authState = useAuthenticationStore.getState();
     
     // Determine if user should have superuser status
     const shouldBeSuperuser = this.shouldHaveSuperuserStatus(user);
@@ -251,7 +302,7 @@ class AuthManager {
     if (shouldBeSuperuser !== authState.isSuperuser) {
       logInfo('[AuthManager] Updating isSuperuser flag to:', shouldBeSuperuser);
       
-      useAuthStore.setState({ 
+      useAuthenticationStore.setState({ 
         isSuperuser: shouldBeSuperuser,
         superuserStatusReady: true
       });
@@ -266,7 +317,7 @@ class AuthManager {
     
     // Ensure superuserStatusReady is set
     if (!authState.superuserStatusReady) {
-      useAuthStore.setState({ superuserStatusReady: true });
+      useAuthenticationStore.setState({ superuserStatusReady: true });
     }
     
     return authState.isSuperuser;
@@ -276,7 +327,7 @@ class AuthManager {
    * Update the user object in auth store with superuser status
    */
   static updateUserWithSuperuserStatus() {
-    const authState = useAuthStore.getState();
+    const authState = useAuthenticationStore.getState();
     if (!authState.user) return;
     
     // Create enhanced user with superuser permissions
@@ -292,7 +343,7 @@ class AuthManager {
     };
     
     // Update user in store
-    useAuthStore.setState({ user: enhancedUser });
+    useAuthenticationStore.setState({ user: enhancedUser });
     
     // Update persisted auth state
     try {
@@ -319,7 +370,7 @@ class AuthManager {
     if (!user) return false;
     
     // In development mode, everyone is a superuser by default
-    if (process.env.NODE_ENV === 'development') {
+    if (isDevelopmentMode()) {
       return true;
     }
     
@@ -339,7 +390,7 @@ class AuthManager {
   static syncAdminAuth() {
     logInfo('[AuthManager] Synchronizing admin authentication');
     
-    const authState = useAuthStore.getState();
+    const authState = useAuthenticationStore.getState();
     
     // Only sync if authenticated
     if (!authState.isAuthenticated || !authState.user) {
@@ -348,7 +399,7 @@ class AuthManager {
     }
     
     // In development mode, ensure admin flags are set
-    if (process.env.NODE_ENV === 'development') {
+    if (isDevelopmentMode()) {
       this.setDevelopmentAdminFlags();
     }
     
@@ -357,7 +408,7 @@ class AuthManager {
     
     // Ensure superuserStatusReady is set
     if (!authState.superuserStatusReady) {
-      useAuthStore.setState({ superuserStatusReady: true });
+      useAuthenticationStore.setState({ superuserStatusReady: true });
     }
     
     return isSuperuser;
@@ -375,7 +426,7 @@ class AuthManager {
       if (!parsed.state) return;
       
       // Get current state to compare
-      const currentState = useAuthStore.getState();
+      const currentState = useAuthenticationStore.getState();
       
       // Only update if there are actual changes
       if (parsed.state.isAuthenticated !== currentState.isAuthenticated ||
@@ -384,7 +435,7 @@ class AuthManager {
         logInfo('[AuthManager] Syncing auth state across tabs');
         
         // Update auth store with storage values
-        useAuthStore.setState({
+        useAuthenticationStore.setState({
           isAuthenticated: parsed.state.isAuthenticated,
           user: parsed.state.user,
           isSuperuser: parsed.state.isSuperuser,
@@ -400,7 +451,7 @@ class AuthManager {
    * Set development mode admin flags in localStorage
    */
   static setDevelopmentAdminFlags() {
-    if (process.env.NODE_ENV !== 'development') return;
+    if (!isDevelopmentMode()) return;
     
     localStorage.setItem('admin_api_key', 'doof-admin-secret-key-dev');
     localStorage.setItem('bypass_auth_check', 'true');
@@ -415,7 +466,7 @@ class AuthManager {
    * Clear development mode admin flags from localStorage
    */
   static clearDevelopmentAdminFlags() {
-    if (process.env.NODE_ENV !== 'development') return;
+    if (!isDevelopmentMode()) return;
     
     localStorage.removeItem('admin_api_key');
     localStorage.removeItem('bypass_auth_check');

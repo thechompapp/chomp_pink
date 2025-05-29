@@ -16,7 +16,21 @@
 import { useMemo, useEffect, useState } from 'react';
 import useAuthStore from '@/stores/useAuthStore';
 import { logDebug, logError } from '@/utils/logger';
-import { apiClient } from '@/services/http';
+import { getDefaultApiClient } from '@/services/http';
+
+// Safe environment check
+const isDevelopmentMode = () => {
+  // Check Vite environment variables first (import.meta is always available in ES modules)
+  if (import.meta && import.meta.env) {
+    return import.meta.env.MODE === 'development' || import.meta.env.DEV;
+  }
+  // Check process.env if available (Node.js/webpack environments)
+  if (typeof process !== 'undefined' && process.env) {
+    return process.env.NODE_ENV === 'development';
+  }
+  // Default to development if unable to determine
+  return true;
+};
 
 /**
  * Enhanced permission check with robust error handling
@@ -30,7 +44,7 @@ export function hasPermission(user, permission) {
     if (!user) return false;
     
     // Development mode override
-    if (process.env.NODE_ENV === 'development' && 
+    if (isDevelopmentMode() && 
         typeof localStorage !== 'undefined' && 
         (localStorage.getItem('admin_access_enabled') === 'true' || 
          localStorage.getItem('superuser_override') === 'true')) {
@@ -85,7 +99,7 @@ export function useAdminAuth() {
   useEffect(() => {
     try {
       // Only apply admin override in development mode when authenticated
-      if (process.env.NODE_ENV === 'development' && isAuthenticated) {
+      if (isDevelopmentMode() && isAuthenticated) {
         logDebug('[useAdminAuth] Applying development mode admin override');
         
         // Force admin flags in localStorage
@@ -106,11 +120,6 @@ export function useAdminAuth() {
         if (typeof sessionStorage !== 'undefined') {
           sessionStorage.removeItem('offline-mode');
           sessionStorage.removeItem('offline_mode');
-        }
-        
-        // Force disable offline mode in apiClient
-        if (apiClient && typeof apiClient.setOfflineMode === 'function') {
-          apiClient.setOfflineMode(false, true);
         }
         
         // Dispatch events to force UI refresh
@@ -159,7 +168,7 @@ export function useAdminAuth() {
     try {
       // IMPORTANT: Always force admin access in development mode when authenticated
       // This ensures admin features are visible regardless of other conditions
-      const forceAdminAccess = process.env.NODE_ENV === 'development' && 
+      const forceAdminAccess = isDevelopmentMode() && 
                               (isAuthenticated || localAdminState.adminOverrideApplied);
       
       // Check for admin flags in localStorage as a backup
@@ -205,7 +214,7 @@ export function useAdminAuth() {
         canManageContent: forceAdminAccess || hasPermission(user, 'manage_content'),
         
         // Development mode helpers
-        isDevelopment: process.env.NODE_ENV === 'development',
+        isDevelopment: isDevelopmentMode(),
         adminOverrideApplied: localAdminState.adminOverrideApplied
       };
     } catch (error) {
@@ -213,17 +222,17 @@ export function useAdminAuth() {
       
       // Return a safe fallback object if there's an error
       return {
-        isAdmin: process.env.NODE_ENV === 'development',
-        isSuperuser: process.env.NODE_ENV === 'development',
-        hasAdminAccess: process.env.NODE_ENV === 'development',
+        isAdmin: isDevelopmentMode(),
+        isSuperuser: isDevelopmentMode(),
+        hasAdminAccess: isDevelopmentMode(),
         isReady: true,
         isLoading: false,
         user: null,
-        can: () => process.env.NODE_ENV === 'development',
-        hasRole: () => process.env.NODE_ENV === 'development',
-        canManageUsers: process.env.NODE_ENV === 'development',
-        canManageContent: process.env.NODE_ENV === 'development',
-        isDevelopment: process.env.NODE_ENV === 'development',
+        can: () => isDevelopmentMode(),
+        hasRole: () => isDevelopmentMode(),
+        canManageUsers: isDevelopmentMode(),
+        canManageContent: isDevelopmentMode(),
+        isDevelopment: isDevelopmentMode(),
         adminOverrideApplied: false
       };
     }

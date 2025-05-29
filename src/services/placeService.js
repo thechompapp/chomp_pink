@@ -25,10 +25,13 @@ export const placeService = {
     
     while (attempts < maxRetries) {
       try {
-        // Use the backend proxy for Google Places API
-        const response = await apiClient.get('/places/search', {
+        // Use the backend proxy for Google Places API autocomplete
+        const response = await apiClient.get('/places/autocomplete', {
           params: {
-            query: searchTerm
+            input: searchTerm,
+            types: 'establishment',
+            components: 'country:us',
+            sessiontoken: '1234567890' // Add a session token for billing purposes
           },
           headers: {
             'X-Places-Api-Request': 'true', // Signal that this is a places API request
@@ -42,14 +45,24 @@ export const placeService = {
           'PlaceService Search'
         );
         
-        if (!result || !result.results || result.results.length === 0) {
+        if (!result || !result.data || result.data.length === 0) {
           logWarn(`[PlaceService] No places found for query "${searchTerm}"`);
           return { results: [] };
         }
         
+        // Transform autocomplete predictions to match expected format
+        const predictions = result.data.map(prediction => ({
+          place_id: prediction.place_id,
+          description: prediction.description,
+          structured_formatting: {
+            main_text: prediction.structured_formatting?.main_text || prediction.description.split(',')[0],
+            secondary_text: prediction.structured_formatting?.secondary_text || prediction.description.split(',').slice(1).join(',').trim()
+          }
+        }));
+        
         // Return in a format compatible with the existing code
         return { 
-          results: result.results
+          results: predictions
         };
       } catch (error) {
         lastError = error;
@@ -203,7 +216,8 @@ export const placeService = {
         // Use a direct API call with custom headers
         const response = await apiClient.get(`/places/details`, {
           params: {
-            place_id: placeId
+            place_id: placeId,
+            fields: 'place_id,name,formatted_address,geometry,address_components,types,vicinity'
           },
           headers
         });
@@ -217,11 +231,11 @@ export const placeService = {
         const googleStatus = response.data.status || 'UNKNOWN_STATUS';
 
         if (googleStatus === 'OK') {
-          // Safely access the data object
-          const result = response.data.result || {};
+          // The backend returns the formatted data in the 'data' property
+          const details = response.data.data || {};
           
-          logDebug(`[PlaceService] Successfully retrieved details for place ID: ${placeId}`);
-          return { details: result, status: 'OK', source: 'google' };
+          logDebug(`[PlaceService] Successfully retrieved details for place ID: ${placeId}`, details);
+          return { details, status: 'OK', source: 'google' };
         } else {
           // Google returned a non-OK status (e.g., ZERO_RESULTS, REQUEST_DENIED)
           throw new Error(`Google API returned status: ${googleStatus}`);

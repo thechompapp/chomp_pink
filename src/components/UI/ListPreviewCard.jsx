@@ -4,7 +4,7 @@ import PropTypes from 'prop-types';
 import { PlusIcon } from '@heroicons/react/24/solid';
 import { Star, ChevronUp, ChevronDown, MessageSquare } from 'lucide-react';
 import { useListDetailModal } from '@/hooks/useListDetailModal';
-import { useQuickAdd } from '@/context/QuickAddContext';
+import { useQuickAdd } from '@/contexts/QuickAddContext';
 import useAuthStore from '@/stores/useAuthStore';
 import { formatRelativeDate } from '@/utils/formatters';
 import Button from '@/components/UI/Button';

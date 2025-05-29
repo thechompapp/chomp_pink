@@ -3,7 +3,7 @@
  * 
  * Handles user authentication operations (login, logout, getCurrentUser)
  */
-import { apiClient } from '@/services/http';
+import { getDefaultApiClient } from '@/services/http';
 import { logDebug, logError } from '@/utils/logger';
 import { handleApiResponse } from '@/utils/serviceHelpers.js';
 import TokenService from './TokenService';

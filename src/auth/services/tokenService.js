@@ -4,7 +4,7 @@
  * Handles all token-related operations including storage, retrieval,
  * validation, and refresh functionality.
  */
-import { apiClient } from '@/services/http';
+import { getDefaultApiClient } from '@/services/http';
 import { logDebug, logError, logInfo } from '@/utils/logger';
 
 /**

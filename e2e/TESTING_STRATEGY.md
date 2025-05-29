@@ -1,63 +1,97 @@
 # Doof E2E Testing Strategy
 
-## Overview
+_Last updated: May 28, 2025_
 
-This document outlines the strategy for end-to-end (E2E) testing of the Doof application. The goal is to ensure that all functionalities are thoroughly tested against the real API while optimizing test execution speed and reliability.
+## Philosophy & Principles
 
-## Current Status
+- **All tests use real API endpoints.** No mocks, stubs, or fake servers are permitted for core flows.
+- **Multi-level coverage:** API contract, service integration, and full user journey E2E tests.
+- **Idempotency:** Each test is self-contained, cleans up after itself, and uses unique data.
+- **Performance:** Tests are fast (under 5s per E2E test) and run in parallel where possible.
+- **Reliability:** Tests run against a dedicated PostgreSQL test database and real backend server.
+- **No functional regressions:** Refactors and test improvements must not change app behavior.
 
-As of May 23, 2025, we have:
+## Test Environment
 
-1. **Working Endpoints**:
-   - Health endpoint (`/api/health`) - Fully functional and tested
+- **Backend:** Runs on port 5001 (test mode)
+- **Frontend:** Vite dev server forced to port 5173 (matches backend CORS config)
+- **Database:** PostgreSQL (`doof_test`, user: `naf`), configured in `.env.test`
+- **Test runner:** [Vitest](https://vitest.dev/) (all tests migrated from Jest)
+- **API base URL:** `http://localhost:5001/api/`
 
-2. **Non-Working Endpoints**:
-   - Authentication endpoints - Issues with registration (500 error) and login (401 error)
-   - Other endpoints - Not yet tested or implemented
+## Test Data & Cleanup
 
-3. **Infrastructure**:
-   - Backend server runs on port 5001
-   - Frontend runs on port 5173
-   - Test suite is configured to connect to the correct backend port
+- Each test suite creates its own users, lists, restaurants, and other entities as needed
+- Data is seeded at test start and deleted/rolled back after
+- No shared global state between tests
+- Authentication uses real flows (admin: `admin@example.com` / `doof123`)
 
-## Testing Approach
+## Testing Levels
 
-### 1. Layered Testing
+### 1. API Contract & Backend Integration
+- Health check, CRUD for users/restaurants/dishes/lists
+- Auth endpoints (register, login, token refresh, role checks)
+- Error handling and response validation
 
-We'll implement a layered approach to testing:
+### 2. Frontend Service/API Integration
+- Service layer calls (apiClient, serviceHelpers)
+- Parameter and error handling (e.g., `createQueryParams`, `handleApiResponse`)
+- CORS and port mismatch tests
+- Quick add, bulk add, and offline mode flows
 
-- **Level 1: API Availability Tests** - Verify that endpoints exist and respond with the correct status codes
-- **Level 2: Functional Tests** - Test the business logic and functionality of each endpoint
-- **Level 3: Integration Tests** - Test the interaction between different endpoints and features
-- **Level 4: End-to-End Flows** - Test complete user journeys across multiple endpoints
+### 3. End-to-End (E2E) User Flows
+- Full user journeys: login, create/list/follow, admin actions
+- Bulk add with Google Places integration (real API)
+- Offline mode: reconnection, sync, quick add retry
+- UI-driven flows (via browser automation or direct API + UI checks)
 
-### 2. Test Data Management
+## Coverage Summary
 
-- Use a dedicated test database that is reset before each test run
-- Create test users and data programmatically as part of the test setup
-- Clean up all test data after tests complete
+- **Authentication:** Registration, login, token, admin/user roles, error cases
+- **CRUD:** Users, restaurants, dishes, lists (create, update, delete, search)
+- **Bulk Add:** Google Places integration, ambiguous entry handling, ZIP/neighborhood lookup, validation
+- **Quick Add:** Retry logic, offline storage, sync after reconnect
+- **Offline Mode:** Simulated disconnect/reconnect, state sync, local storage
+- **CORS/Port:** Ensures frontend and backend ports match (5173), CORS errors surfaced if not
+- **Admin:** Admin-only endpoints, role-based access
+- **Error Handling:** Invalid input, expired tokens, permission denied, 404/500s
 
-### 3. Authentication Strategy
+## Notable Technical Standards
 
-- Test both authenticated and unauthenticated access to endpoints
-- Verify token generation, validation, and expiration
-- Test different user roles and permissions
+- **No mocks:** All API calls hit real endpoints. No MSW, Mirage, or similar allowed.
+- **No mock data:** All test data is created via real API calls or DB seed scripts.
+- **Test duration:**
+  - Unit: ≤30 lines, pure logic only
+  - Integration: ≤50 lines, real endpoints, ≤2s per test
+  - E2E: ≤75 lines, full stack, ≤5s per test
+- **Cleanup:** All tests must clean up test data and restore state
 
-### 4. Performance Considerations
+## Recent Improvements
 
-- Keep test timeouts reasonable (3-5 seconds for most tests)
-- Use parallel test execution where possible
-- Minimize database operations during tests
+- Unified service layer with standardized helpers (`handleApiResponse`, `validateId`)
+- Consolidated axios fixes into `axios-fix.js`
+- Refactored all service files for consistency and error handling
+- Migrated all tests to Vitest; removed all Jest/mocks
+- Test DB and backend health checks automated
+- CORS/port mismatch detection and dev-server script
 
-## Implementation Plan
+## Known Gaps & Next Steps
 
-### Phase 1: Basic API Connectivity (Completed)
+- Expand coverage for offline mode and quick add edge cases
+- Add more admin and role-based tests
+- Improve teardown for flaky DB state
+- Add browser automation for full UI E2E flows (currently mostly API-driven)
+- Continue to enforce "no mocks" policy and review for accidental mock usage
 
-- ✅ Configure test suite to connect to the correct backend port
-- ✅ Implement health endpoint tests
-- ✅ Create script to start the backend server
+## References
 
-### Phase 2: Authentication Testing (In Progress)
+- See `MULTI_COMM.md` for detailed multi-level test philosophy
+- See `.env.test` for DB config
+- Admin credentials: `admin@example.com` / `doof123`
+
+---
+
+_This document is updated as testing practices evolve. For questions or to propose changes, contact the core team._
 
 - ✅ Create basic authentication endpoint tests
 - 🔄 Debug and fix authentication issues

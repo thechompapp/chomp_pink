@@ -222,4 +222,31 @@ class OfflineModeHandler {
 // Create and export singleton instance
 const offlineModeHandler = new OfflineModeHandler();
 
+// Test-only: allow resetting singleton state for unit tests
+// Safe environment check for browser compatibility
+const isTestEnvironment = (() => {
+  // Check various ways NODE_ENV might be set
+  if (typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'test') {
+    return true;
+  }
+  if (typeof import !== 'undefined' && import.meta && import.meta.env && import.meta.env.NODE_ENV === 'test') {
+    return true;
+  }
+  if (typeof window !== 'undefined' && window.__ENV__ && window.__ENV__.NODE_ENV === 'test') {
+    return true;
+  }
+  return false;
+})();
+
+if (isTestEnvironment) {
+  offlineModeHandler.__resetForTest = function () {
+    this._offlineMode = null;
+    this._lastOfflineCheck = 0;
+    // Remove and re-add event listeners
+    window.removeEventListener('online', this.handleOnlineEvent);
+    window.removeEventListener('offline', this.handleOfflineEvent);
+    this.initialize();
+  };
+}
+
 export default offlineModeHandler;

@@ -13,7 +13,7 @@ import * as config from '@/config';
 import { logDebug } from '@/utils/logger';
 import customAdapter from '@/services/customAdapter';
 import { applyInterceptors } from './apiInterceptors';
-import { setupAuthInterceptors } from '@/services/authService';
+
 
 // Store reference to auth store to avoid circular dependency
 let authStoreRef = null;
@@ -92,7 +92,7 @@ const apiClient = axios.create({
 
 // Apply patches and interceptors
 patchAxiosInstance(apiClient);
-setupAuthInterceptors(apiClient);
+applyInterceptors(apiClient);
 
 // Apply our new interceptors
 applyInterceptors(apiClient, {

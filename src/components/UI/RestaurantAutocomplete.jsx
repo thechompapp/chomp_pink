@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { MapPin, Loader2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { searchService } from '@/services/searchService';
-import { usePlacesApi } from '@/context/PlacesApiContext';
+import { usePlacesApi } from '@/contexts/PlacesApiContext';
 
 const RestaurantAutocomplete = ({
   initialValue = '',

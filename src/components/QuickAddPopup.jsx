@@ -2,7 +2,7 @@
 /* REFACTORED: Uses React Query to fetch cuisines/tags instead of Zustand */
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query'; // Import useQuery
-import { useQuickAdd } from '@/context/QuickAddContext';
+import { useQuickAdd } from '@/contexts/QuickAddContext';
 import useAuthStore from '@/stores/useAuthStore';
 // import { useUIStateStore } from '@/stores/useUIStateStore'; // No longer needed for cuisines
 // import { useShallow } from 'zustand/react/shallow'; // No longer needed

@@ -3,7 +3,7 @@ import axios from 'axios';
 import config from '../config/config.js';
 
 // Constants
-const GOOGLE_PLACES_API_BASE_URL = config.PLACES_API_BASE_URL || 'https://maps.googleapis.com/maps/api/place';
+const GOOGLE_PLACES_API_BASE_URL = 'https://maps.googleapis.com/maps/api/place';
 const DEFAULT_ERROR_MESSAGE = 'Failed to fetch data from Places API.';
 
 /**
@@ -26,6 +26,9 @@ const handleApiError = (error, defaultMessage) => {
  */
 export const proxyAutocomplete = async (req, res, next) => {
     try {
+        console.log('=== proxyAutocomplete called ===');
+        console.log('Request query params:', req.query);
+        
         // Always use real API data as per user preference
         // Check if we have a valid API key
         if (!config.googlePlacesApiKey) {
@@ -39,6 +42,9 @@ export const proxyAutocomplete = async (req, res, next) => {
                 status: 'OK'
             });
         }
+        
+        console.log('Using Google Places API key:', config.googlePlacesApiKey ? '***' + config.googlePlacesApiKey.slice(-4) : 'Not set');
+        console.log('Making request to:', `${GOOGLE_PLACES_API_BASE_URL}/autocomplete/json`);
         
         // Production mode - use actual API
         const response = await axios.get(`${GOOGLE_PLACES_API_BASE_URL}/autocomplete/json`, { 
@@ -79,9 +85,16 @@ const formatPlaceDetails = (result = {}) => ({
  * @param {Function} next - Express next middleware function
  */
 export const proxyDetails = async (req, res, next) => {
+    console.log('=== proxyDetails called ===');
+    console.log('Request query params:', req.query);
+    
     // Extract and normalize place ID parameter
     const { placeId, place_id, ...otherParams } = req.query;
     const actualPlaceId = placeId || place_id;
+    
+    console.log('Using placeId:', actualPlaceId);
+    console.log('Using Google Places API key:', config.googlePlacesApiKey ? '***' + config.googlePlacesApiKey.slice(-4) : 'Not set');
+    console.log('Making request to:', `${GOOGLE_PLACES_API_BASE_URL}/details/json`);
     
     // Validate required parameters
     if (!actualPlaceId) {

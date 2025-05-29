@@ -1,7 +1,7 @@
 /* src/context/PlacesApiContext.jsx */
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { apiClient } from '@/services/http';
-import useAuthStore from '@/stores/useAuthStore.js';
+import { getDefaultApiClient } from '@/services/http';
+import useAuthenticationStore from '@/stores/auth/useAuthenticationStore';
 import { IS_DEVELOPMENT } from '@/config';
 
 // Create context with a meaningful default value to help with type checking
@@ -41,7 +41,7 @@ export const PlacesApiProvider = ({ children }) => {
    * Check if the Places API is available
    */
   const checkApiAvailability = useCallback(async () => {
-    const authState = useAuthStore.getState();
+    const authState = useAuthenticationStore.getState();
     const isAuthenticated = authState.isAuthenticated;
     const token = authState.token;
     

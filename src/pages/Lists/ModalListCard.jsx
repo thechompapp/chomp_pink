@@ -8,7 +8,7 @@ import { engagementService } from '@/services/engagementService';
 import { listService } from '@/services/listService';
 import useAuthStore from '@/stores/useAuthStore';
 import useFollowStore from '@/stores/useFollowStore';
-import { useListDetail } from '@/context/ListDetailContext';
+import { useListDetail } from '@/contexts/ListDetailContext';
 import Button from '@/components/UI/Button';
 import { formatRelativeDate } from '@/utils/formatting';
 import { logDebug } from '@/utils/logger';
