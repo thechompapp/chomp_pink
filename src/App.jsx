@@ -142,7 +142,7 @@ function App() {
                   <div className="app-container">
                     <Navbar />
                     
-                    <main className="main-content">
+                    <main className="main-content pt-16">
                       <Suspense fallback={<div>Loading...</div>}>
                         <Routes>
                           <Route path="/" element={<Home />} />

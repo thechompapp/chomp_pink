@@ -62,11 +62,15 @@ const VALIDATION_RULES = {
  */
 const addAdminHeaders = (config = {}) => {
   const adminApiKey = localStorage.getItem('admin_api_key') || 'doof-admin-secret-key-dev';
+  const authToken = localStorage.getItem('auth-token');
   
   return {
     ...config,
     headers: {
       ...config.headers,
+      // Primary authentication via JWT token
+      ...(authToken && { 'Authorization': `Bearer ${authToken}` }),
+      // Additional admin headers for legacy support
       'X-Admin-API-Key': adminApiKey,
       'X-Bypass-Auth': 'true',
       'X-Superuser-Override': 'true',

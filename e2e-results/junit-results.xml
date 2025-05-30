@@ -1,0 +1,376 @@
+<testsuites id="" name="" tests="70" failures="0" skipped="51" errors="0" time="22.731944">
+<testsuite name="incremental-flows.spec.js" timestamp="2025-05-30T02:23:39.994Z" hostname="chromium" tests="14" failures="0" skipped="4" time="20.611" errors="0">
+<testcase name="DOOF Incremental Flows - Level 1: Basic User Interactions › should display homepage content and featured lists" classname="incremental-flows.spec.js" time="1.033">
+<system-out>
+<![CDATA[🧪 Testing homepage content loading
+Found 0 list/content elements
+Found 5 category buttons
+✓ Homepage content loaded successfully
+]]>
+</system-out>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 1: Basic User Interactions › should navigate between different content categories" classname="incremental-flows.spec.js" time="2.707">
+<system-out>
+<![CDATA[🧪 Testing category navigation
+✓ Clicked Lists category
+✓ Clicked Restaurants category
+✓ Clicked Dishes category
+✓ Category navigation completed
+]]>
+</system-out>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 1: Basic User Interactions › should handle external links and modal interactions" classname="incremental-flows.spec.js" time="1.298">
+<system-out>
+<![CDATA[🧪 Testing modal and popup interactions
+Found 1 potential modal triggers
+✓ Modal interaction testing completed
+]]>
+</system-out>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 2: Content Discovery › should access search page and perform basic search" classname="incremental-flows.spec.js" time="1.102">
+<system-out>
+<![CDATA[🧪 Testing search page access
+ℹ️ Search input not found - may not be implemented
+✓ Search functionality tested
+]]>
+</system-out>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 2: Content Discovery › should access and interact with trending content" classname="incremental-flows.spec.js" time="1.093">
+<system-out>
+<![CDATA[🧪 Testing trending page
+Found 0 trending items
+Found 1 filter/sort options
+✓ Trending page tested
+]]>
+</system-out>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 2: Content Discovery › should explore public lists and list details" classname="incremental-flows.spec.js" time="1.073">
+<system-out>
+<![CDATA[🧪 Testing lists page exploration
+Found 50 list cards
+✓ Lists exploration completed
+]]>
+</system-out>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 3: User Registration › should validate registration form fields" classname="incremental-flows.spec.js" time="1.121">
+<system-out>
+<![CDATA[🧪 Testing registration form validation
+ℹ️ Registration not available - may be disabled
+✓ Registration validation tested
+]]>
+</system-out>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 3: User Registration › should complete user registration flow" classname="incremental-flows.spec.js" time="0.969">
+<system-out>
+<![CDATA[🧪 Testing complete registration flow
+✓ Registration flow completed
+]]>
+</system-out>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 4: Authenticated Features › should test protected route behavior" classname="incremental-flows.spec.js" time="2.071">
+<system-out>
+<![CDATA[🧪 Testing protected route access
+Accessing /my-lists redirected to: http://localhost:5174/login
+✓ Correctly redirected to login
+✓ Protected route access tested
+]]>
+</system-out>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 4: Authenticated Features › should test admin panel access with proper credentials" classname="incremental-flows.spec.js" time="4.302">
+<system-out>
+<![CDATA[🧪 Testing admin panel access
+Admin panel access URL: http://localhost:5174/login
+✓ Admin panel access tested
+]]>
+</system-out>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 4: Authenticated Features › should access user profile and settings" classname="incremental-flows.spec.js" time="3.842">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 5: Advanced Interactions › should perform complex cross-page navigation" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 5: Advanced Interactions › should test responsive behavior on mobile viewport" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 5: Advanced Interactions › should handle loading states and error conditions" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="incremental-flows.spec.js" timestamp="2025-05-30T02:23:39.994Z" hostname="firefox" tests="14" failures="0" skipped="5" time="19.909" errors="0">
+<testcase name="DOOF Incremental Flows - Level 1: Basic User Interactions › should display homepage content and featured lists" classname="incremental-flows.spec.js" time="1.953">
+<system-out>
+<![CDATA[🧪 Testing homepage content loading
+Found 0 list/content elements
+Found 5 category buttons
+✓ Homepage content loaded successfully
+]]>
+</system-out>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 1: Basic User Interactions › should navigate between different content categories" classname="incremental-flows.spec.js" time="3.169">
+<system-out>
+<![CDATA[🧪 Testing category navigation
+✓ Clicked Lists category
+✓ Clicked Restaurants category
+✓ Clicked Dishes category
+✓ Category navigation completed
+]]>
+</system-out>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 1: Basic User Interactions › should handle external links and modal interactions" classname="incremental-flows.spec.js" time="1.597">
+<system-out>
+<![CDATA[🧪 Testing modal and popup interactions
+Found 1 potential modal triggers
+✓ Modal interaction testing completed
+]]>
+</system-out>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 2: Content Discovery › should access search page and perform basic search" classname="incremental-flows.spec.js" time="1.836">
+<system-out>
+<![CDATA[🧪 Testing search page access
+ℹ️ Search input not found - may not be implemented
+✓ Search functionality tested
+]]>
+</system-out>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 2: Content Discovery › should access and interact with trending content" classname="incremental-flows.spec.js" time="1.748">
+<system-out>
+<![CDATA[🧪 Testing trending page
+Found 0 trending items
+Found 0 filter/sort options
+✓ Trending page tested
+]]>
+</system-out>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 2: Content Discovery › should explore public lists and list details" classname="incremental-flows.spec.js" time="1.183">
+<system-out>
+<![CDATA[🧪 Testing lists page exploration
+Found 50 list cards
+✓ Lists exploration completed
+]]>
+</system-out>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 3: User Registration › should validate registration form fields" classname="incremental-flows.spec.js" time="1.29">
+<system-out>
+<![CDATA[🧪 Testing registration form validation
+ℹ️ Registration not available - may be disabled
+✓ Registration validation tested
+]]>
+</system-out>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 3: User Registration › should complete user registration flow" classname="incremental-flows.spec.js" time="1.155">
+<system-out>
+<![CDATA[🧪 Testing complete registration flow
+✓ Registration flow completed
+]]>
+</system-out>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 4: Authenticated Features › should test protected route behavior" classname="incremental-flows.spec.js" time="2.501">
+<system-out>
+<![CDATA[🧪 Testing protected route access
+Accessing /my-lists redirected to: http://localhost:5174/login
+✓ Correctly redirected to login
+✓ Protected route access tested
+]]>
+</system-out>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 4: Authenticated Features › should test admin panel access with proper credentials" classname="incremental-flows.spec.js" time="3.477">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 4: Authenticated Features › should access user profile and settings" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 5: Advanced Interactions › should perform complex cross-page navigation" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 5: Advanced Interactions › should test responsive behavior on mobile viewport" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 5: Advanced Interactions › should handle loading states and error conditions" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="incremental-flows.spec.js" timestamp="2025-05-30T02:23:39.994Z" hostname="webkit" tests="14" failures="0" skipped="14" time="0" errors="0">
+<testcase name="DOOF Incremental Flows - Level 1: Basic User Interactions › should display homepage content and featured lists" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 1: Basic User Interactions › should navigate between different content categories" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 1: Basic User Interactions › should handle external links and modal interactions" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 2: Content Discovery › should access search page and perform basic search" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 2: Content Discovery › should access and interact with trending content" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 2: Content Discovery › should explore public lists and list details" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 3: User Registration › should validate registration form fields" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 3: User Registration › should complete user registration flow" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 4: Authenticated Features › should test protected route behavior" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 4: Authenticated Features › should test admin panel access with proper credentials" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 4: Authenticated Features › should access user profile and settings" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 5: Advanced Interactions › should perform complex cross-page navigation" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 5: Advanced Interactions › should test responsive behavior on mobile viewport" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 5: Advanced Interactions › should handle loading states and error conditions" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="incremental-flows.spec.js" timestamp="2025-05-30T02:23:39.994Z" hostname="Mobile Chrome" tests="14" failures="0" skipped="14" time="0" errors="0">
+<testcase name="DOOF Incremental Flows - Level 1: Basic User Interactions › should display homepage content and featured lists" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 1: Basic User Interactions › should navigate between different content categories" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 1: Basic User Interactions › should handle external links and modal interactions" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 2: Content Discovery › should access search page and perform basic search" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 2: Content Discovery › should access and interact with trending content" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 2: Content Discovery › should explore public lists and list details" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 3: User Registration › should validate registration form fields" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 3: User Registration › should complete user registration flow" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 4: Authenticated Features › should test protected route behavior" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 4: Authenticated Features › should test admin panel access with proper credentials" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 4: Authenticated Features › should access user profile and settings" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 5: Advanced Interactions › should perform complex cross-page navigation" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 5: Advanced Interactions › should test responsive behavior on mobile viewport" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 5: Advanced Interactions › should handle loading states and error conditions" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="incremental-flows.spec.js" timestamp="2025-05-30T02:23:39.994Z" hostname="Mobile Safari" tests="14" failures="0" skipped="14" time="0" errors="0">
+<testcase name="DOOF Incremental Flows - Level 1: Basic User Interactions › should display homepage content and featured lists" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 1: Basic User Interactions › should navigate between different content categories" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 1: Basic User Interactions › should handle external links and modal interactions" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 2: Content Discovery › should access search page and perform basic search" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 2: Content Discovery › should access and interact with trending content" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 2: Content Discovery › should explore public lists and list details" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 3: User Registration › should validate registration form fields" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 3: User Registration › should complete user registration flow" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 4: Authenticated Features › should test protected route behavior" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 4: Authenticated Features › should test admin panel access with proper credentials" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 4: Authenticated Features › should access user profile and settings" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 5: Advanced Interactions › should perform complex cross-page navigation" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 5: Advanced Interactions › should test responsive behavior on mobile viewport" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="DOOF Incremental Flows - Level 5: Advanced Interactions › should handle loading states and error conditions" classname="incremental-flows.spec.js" time="0">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+</testsuites>

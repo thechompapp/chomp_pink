@@ -1,0 +1,2181 @@
+{
+  "config": {
+    "configFile": "/Users/naf/Downloads/doof/playwright.config.js",
+    "rootDir": "/Users/naf/Downloads/doof/e2e",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": "/Users/naf/Downloads/doof/e2e/global-setup.js",
+    "globalTeardown": "/Users/naf/Downloads/doof/e2e/global-teardown.js",
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 2
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "html",
+        {
+          "outputFolder": "e2e-results/html-report"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "e2e-results/test-results.json"
+        }
+      ],
+      [
+        "junit",
+        {
+          "outputFile": "e2e-results/junit-results.xml"
+        }
+      ],
+      [
+        "list",
+        null
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "/Users/naf/Downloads/doof/e2e-results/test-artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 2
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/Users/naf/Downloads/doof/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/naf/Downloads/doof/e2e-results/test-artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 2
+        },
+        "id": "firefox",
+        "name": "firefox",
+        "testDir": "/Users/naf/Downloads/doof/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/naf/Downloads/doof/e2e-results/test-artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 2
+        },
+        "id": "webkit",
+        "name": "webkit",
+        "testDir": "/Users/naf/Downloads/doof/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/naf/Downloads/doof/e2e-results/test-artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 2
+        },
+        "id": "Mobile Chrome",
+        "name": "Mobile Chrome",
+        "testDir": "/Users/naf/Downloads/doof/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/naf/Downloads/doof/e2e-results/test-artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 2
+        },
+        "id": "Mobile Safari",
+        "name": "Mobile Safari",
+        "testDir": "/Users/naf/Downloads/doof/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "shard": null,
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.52.0",
+    "workers": 2,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "incremental-flows.spec.js",
+      "file": "incremental-flows.spec.js",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "DOOF Incremental Flows - Level 1: Basic User Interactions",
+          "file": "incremental-flows.spec.js",
+          "line": 76,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should display homepage content and featured lists",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1033,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing homepage content loading\n"
+                        },
+                        {
+                          "text": "Found 0 list/content elements\n"
+                        },
+                        {
+                          "text": "Found 5 category buttons\n"
+                        },
+                        {
+                          "text": "✓ Homepage content loaded successfully\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T02:23:40.431Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-3fea7477feb8a8f756d0",
+              "file": "incremental-flows.spec.js",
+              "line": 90,
+              "column": 3
+            },
+            {
+              "title": "should navigate between different content categories",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2707,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing category navigation\n"
+                        },
+                        {
+                          "text": "✓ Clicked Lists category\n"
+                        },
+                        {
+                          "text": "✓ Clicked Restaurants category\n"
+                        },
+                        {
+                          "text": "✓ Clicked Dishes category\n"
+                        },
+                        {
+                          "text": "✓ Category navigation completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T02:23:41.575Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-041f65de7361e7119988",
+              "file": "incremental-flows.spec.js",
+              "line": 111,
+              "column": 3
+            },
+            {
+              "title": "should handle external links and modal interactions",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1298,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing modal and popup interactions\n"
+                        },
+                        {
+                          "text": "Found 1 potential modal triggers\n"
+                        },
+                        {
+                          "text": "✓ Modal interaction testing completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T02:23:44.283Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-d535fb8c9f4bde560380",
+              "file": "incremental-flows.spec.js",
+              "line": 141,
+              "column": 3
+            },
+            {
+              "title": "should display homepage content and featured lists",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1953,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing homepage content loading\n"
+                        },
+                        {
+                          "text": "Found 0 list/content elements\n"
+                        },
+                        {
+                          "text": "Found 5 category buttons\n"
+                        },
+                        {
+                          "text": "✓ Homepage content loaded successfully\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T02:23:40.432Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-d39eeea3c9ec40c54340",
+              "file": "incremental-flows.spec.js",
+              "line": 90,
+              "column": 3
+            },
+            {
+              "title": "should navigate between different content categories",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 3169,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing category navigation\n"
+                        },
+                        {
+                          "text": "✓ Clicked Lists category\n"
+                        },
+                        {
+                          "text": "✓ Clicked Restaurants category\n"
+                        },
+                        {
+                          "text": "✓ Clicked Dishes category\n"
+                        },
+                        {
+                          "text": "✓ Category navigation completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T02:23:43.178Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-4992827bca697213a03a",
+              "file": "incremental-flows.spec.js",
+              "line": 111,
+              "column": 3
+            },
+            {
+              "title": "should handle external links and modal interactions",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1597,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing modal and popup interactions\n"
+                        },
+                        {
+                          "text": "Found 1 potential modal triggers\n"
+                        },
+                        {
+                          "text": "✓ Modal interaction testing completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T02:23:46.348Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-5c86eac664f73d637b10",
+              "file": "incremental-flows.spec.js",
+              "line": 141,
+              "column": 3
+            },
+            {
+              "title": "should display homepage content and featured lists",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-56a61fadd360acf2a02e",
+              "file": "incremental-flows.spec.js",
+              "line": 90,
+              "column": 3
+            },
+            {
+              "title": "should navigate between different content categories",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-0bdeb594429a860a5f36",
+              "file": "incremental-flows.spec.js",
+              "line": 111,
+              "column": 3
+            },
+            {
+              "title": "should handle external links and modal interactions",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-fccfc0c2a2c9cb3eda48",
+              "file": "incremental-flows.spec.js",
+              "line": 141,
+              "column": 3
+            },
+            {
+              "title": "should display homepage content and featured lists",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-dd0070eb95a49c067e9b",
+              "file": "incremental-flows.spec.js",
+              "line": 90,
+              "column": 3
+            },
+            {
+              "title": "should navigate between different content categories",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-99821f2de3ed8345b971",
+              "file": "incremental-flows.spec.js",
+              "line": 111,
+              "column": 3
+            },
+            {
+              "title": "should handle external links and modal interactions",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-24fed77b4207dd7d16fb",
+              "file": "incremental-flows.spec.js",
+              "line": 141,
+              "column": 3
+            },
+            {
+              "title": "should display homepage content and featured lists",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-7472ab41382af4b714ff",
+              "file": "incremental-flows.spec.js",
+              "line": 90,
+              "column": 3
+            },
+            {
+              "title": "should navigate between different content categories",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-cded2e0e45f7a727c98f",
+              "file": "incremental-flows.spec.js",
+              "line": 111,
+              "column": 3
+            },
+            {
+              "title": "should handle external links and modal interactions",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-d30c983473296d19ac8b",
+              "file": "incremental-flows.spec.js",
+              "line": 141,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "DOOF Incremental Flows - Level 2: Content Discovery",
+          "file": "incremental-flows.spec.js",
+          "line": 159,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should access search page and perform basic search",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1102,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing search page access\n"
+                        },
+                        {
+                          "text": "ℹ️ Search input not found - may not be implemented\n"
+                        },
+                        {
+                          "text": "✓ Search functionality tested\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T02:23:45.582Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-2f28512767b8bbde80cd",
+              "file": "incremental-flows.spec.js",
+              "line": 173,
+              "column": 3
+            },
+            {
+              "title": "should access and interact with trending content",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1093,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing trending page\n"
+                        },
+                        {
+                          "text": "Found 0 trending items\n"
+                        },
+                        {
+                          "text": "Found 1 filter/sort options\n"
+                        },
+                        {
+                          "text": "✓ Trending page tested\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T02:23:46.686Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-b32cdcf4df442f113dd9",
+              "file": "incremental-flows.spec.js",
+              "line": 212,
+              "column": 3
+            },
+            {
+              "title": "should explore public lists and list details",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1073,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing lists page exploration\n"
+                        },
+                        {
+                          "text": "Found 50 list cards\n"
+                        },
+                        {
+                          "text": "✓ Lists exploration completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T02:23:47.781Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-45d7dff856795666493c",
+              "file": "incremental-flows.spec.js",
+              "line": 241,
+              "column": 3
+            },
+            {
+              "title": "should access search page and perform basic search",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1836,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing search page access\n"
+                        },
+                        {
+                          "text": "ℹ️ Search input not found - may not be implemented\n"
+                        },
+                        {
+                          "text": "✓ Search functionality tested\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T02:23:47.950Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-98634c314315c93f4d70",
+              "file": "incremental-flows.spec.js",
+              "line": 173,
+              "column": 3
+            },
+            {
+              "title": "should access and interact with trending content",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1748,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing trending page\n"
+                        },
+                        {
+                          "text": "Found 0 trending items\n"
+                        },
+                        {
+                          "text": "Found 0 filter/sort options\n"
+                        },
+                        {
+                          "text": "✓ Trending page tested\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T02:23:49.787Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-e0c888309a6bec543fc5",
+              "file": "incremental-flows.spec.js",
+              "line": 212,
+              "column": 3
+            },
+            {
+              "title": "should explore public lists and list details",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1183,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing lists page exploration\n"
+                        },
+                        {
+                          "text": "Found 50 list cards\n"
+                        },
+                        {
+                          "text": "✓ Lists exploration completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T02:23:51.538Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-2de06cfae887b3f737f5",
+              "file": "incremental-flows.spec.js",
+              "line": 241,
+              "column": 3
+            },
+            {
+              "title": "should access search page and perform basic search",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-f3d6f022cd41866c648a",
+              "file": "incremental-flows.spec.js",
+              "line": 173,
+              "column": 3
+            },
+            {
+              "title": "should access and interact with trending content",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-91da42a09558687be0ec",
+              "file": "incremental-flows.spec.js",
+              "line": 212,
+              "column": 3
+            },
+            {
+              "title": "should explore public lists and list details",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-94086a8897053a548219",
+              "file": "incremental-flows.spec.js",
+              "line": 241,
+              "column": 3
+            },
+            {
+              "title": "should access search page and perform basic search",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-ae3ff67940f7c0a9fb7a",
+              "file": "incremental-flows.spec.js",
+              "line": 173,
+              "column": 3
+            },
+            {
+              "title": "should access and interact with trending content",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-c17a92f4a70c9d37bd4d",
+              "file": "incremental-flows.spec.js",
+              "line": 212,
+              "column": 3
+            },
+            {
+              "title": "should explore public lists and list details",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-9d7b089e76cff4fae2ba",
+              "file": "incremental-flows.spec.js",
+              "line": 241,
+              "column": 3
+            },
+            {
+              "title": "should access search page and perform basic search",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-48c6926b56defa0f0a83",
+              "file": "incremental-flows.spec.js",
+              "line": 173,
+              "column": 3
+            },
+            {
+              "title": "should access and interact with trending content",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-1a6fef16c816dddb0fbb",
+              "file": "incremental-flows.spec.js",
+              "line": 212,
+              "column": 3
+            },
+            {
+              "title": "should explore public lists and list details",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-7ff044a8292995a40e74",
+              "file": "incremental-flows.spec.js",
+              "line": 241,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "DOOF Incremental Flows - Level 3: User Registration",
+          "file": "incremental-flows.spec.js",
+          "line": 272,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should validate registration form fields",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1121,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing registration form validation\n"
+                        },
+                        {
+                          "text": "ℹ️ Registration not available - may be disabled\n"
+                        },
+                        {
+                          "text": "✓ Registration validation tested\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T02:23:48.857Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-1d2f154a3e70019b6fcb",
+              "file": "incremental-flows.spec.js",
+              "line": 283,
+              "column": 3
+            },
+            {
+              "title": "should complete user registration flow",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 969,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing complete registration flow\n"
+                        },
+                        {
+                          "text": "✓ Registration flow completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T02:23:49.981Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-7f6227650afa756a00d8",
+              "file": "incremental-flows.spec.js",
+              "line": 312,
+              "column": 3
+            },
+            {
+              "title": "should validate registration form fields",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1290,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing registration form validation\n"
+                        },
+                        {
+                          "text": "ℹ️ Registration not available - may be disabled\n"
+                        },
+                        {
+                          "text": "✓ Registration validation tested\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T02:23:52.723Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-22c786cb19260e1fbc8c",
+              "file": "incremental-flows.spec.js",
+              "line": 283,
+              "column": 3
+            },
+            {
+              "title": "should complete user registration flow",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1155,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing complete registration flow\n"
+                        },
+                        {
+                          "text": "✓ Registration flow completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T02:23:54.016Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-c7df981922bfd04ecb3e",
+              "file": "incremental-flows.spec.js",
+              "line": 312,
+              "column": 3
+            },
+            {
+              "title": "should validate registration form fields",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-1ead8d7ddc829c009dd2",
+              "file": "incremental-flows.spec.js",
+              "line": 283,
+              "column": 3
+            },
+            {
+              "title": "should complete user registration flow",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-b12f87ab83705ec0592f",
+              "file": "incremental-flows.spec.js",
+              "line": 312,
+              "column": 3
+            },
+            {
+              "title": "should validate registration form fields",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-be08d1bae7153fdeda25",
+              "file": "incremental-flows.spec.js",
+              "line": 283,
+              "column": 3
+            },
+            {
+              "title": "should complete user registration flow",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-6519205f81fc64a2b89b",
+              "file": "incremental-flows.spec.js",
+              "line": 312,
+              "column": 3
+            },
+            {
+              "title": "should validate registration form fields",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-9488d6d91223caba5c04",
+              "file": "incremental-flows.spec.js",
+              "line": 283,
+              "column": 3
+            },
+            {
+              "title": "should complete user registration flow",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-ad3fd33ef063950eff77",
+              "file": "incremental-flows.spec.js",
+              "line": 312,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "DOOF Incremental Flows - Level 4: Authenticated Features",
+          "file": "incremental-flows.spec.js",
+          "line": 348,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should test protected route behavior",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2071,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing protected route access\n"
+                        },
+                        {
+                          "text": "Accessing /my-lists redirected to: http://localhost:5174/login\n"
+                        },
+                        {
+                          "text": "✓ Correctly redirected to login\n"
+                        },
+                        {
+                          "text": "✓ Protected route access tested\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T02:23:50.954Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-4379e4e64f234cf6d480",
+              "file": "incremental-flows.spec.js",
+              "line": 359,
+              "column": 3
+            },
+            {
+              "title": "should test admin panel access with proper credentials",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 4302,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing admin panel access\n"
+                        },
+                        {
+                          "text": "Admin panel access URL: http://localhost:5174/login\n"
+                        },
+                        {
+                          "text": "✓ Admin panel access tested\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T02:23:53.027Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-0f99c8f4c0b55ec81304",
+              "file": "incremental-flows.spec.js",
+              "line": 383,
+              "column": 3
+            },
+            {
+              "title": "should access user profile and settings",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "interrupted",
+                      "duration": 3842,
+                      "error": {
+                        "message": "Error: page.waitForTimeout: Test ended.",
+                        "stack": "Error: page.waitForTimeout: Test ended.\n    at /Users/naf/Downloads/doof/e2e/incremental-flows.spec.js:424:16",
+                        "location": {
+                          "file": "/Users/naf/Downloads/doof/e2e/incremental-flows.spec.js",
+                          "column": 16,
+                          "line": 424
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 422 |\u001b[39m     \u001b[90m// Go to homepage and look for profile access\u001b[39m\n \u001b[90m 423 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgoto(\u001b[32m'/'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 424 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForTimeout(\u001b[35m1000\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 425 |\u001b[39m     \n \u001b[90m 426 |\u001b[39m     \u001b[90m// Look for profile dropdown or menu\u001b[39m\n \u001b[90m 427 |\u001b[39m     \u001b[36mconst\u001b[39m profileTrigger \u001b[33m=\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'[id*=\"user-menu\"], .profile, [aria-haspopup=\"true\"]'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/naf/Downloads/doof/e2e/incremental-flows.spec.js",
+                            "column": 16,
+                            "line": 424
+                          },
+                          "message": "Error: page.waitForTimeout: Test ended.\n\n\u001b[0m \u001b[90m 422 |\u001b[39m     \u001b[90m// Go to homepage and look for profile access\u001b[39m\n \u001b[90m 423 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgoto(\u001b[32m'/'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 424 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForTimeout(\u001b[35m1000\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 425 |\u001b[39m     \n \u001b[90m 426 |\u001b[39m     \u001b[90m// Look for profile dropdown or menu\u001b[39m\n \u001b[90m 427 |\u001b[39m     \u001b[36mconst\u001b[39m profileTrigger \u001b[33m=\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'[id*=\"user-menu\"], .profile, [aria-haspopup=\"true\"]'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at /Users/naf/Downloads/doof/e2e/incremental-flows.spec.js:424:16\u001b[22m"
+                        }
+                      ],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing user profile access\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T02:23:57.331Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/naf/Downloads/doof/e2e-results/test-artifacts/incremental-flows-DOOF-Inc-9f15b-s-user-profile-and-settings-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/naf/Downloads/doof/e2e-results/test-artifacts/incremental-flows-DOOF-Inc-9f15b-s-user-profile-and-settings-chromium/video.webm"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/naf/Downloads/doof/e2e/incremental-flows.spec.js",
+                        "column": 16,
+                        "line": 424
+                      }
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-25e6008ab56793376405",
+              "file": "incremental-flows.spec.js",
+              "line": 412,
+              "column": 3
+            },
+            {
+              "title": "should test protected route behavior",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 2501,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing protected route access\n"
+                        },
+                        {
+                          "text": "Accessing /my-lists redirected to: http://localhost:5174/login\n"
+                        },
+                        {
+                          "text": "✓ Correctly redirected to login\n"
+                        },
+                        {
+                          "text": "✓ Protected route access tested\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T02:23:55.173Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-02ed19d5d2097362b1cf",
+              "file": "incremental-flows.spec.js",
+              "line": 359,
+              "column": 3
+            },
+            {
+              "title": "should test admin panel access with proper credentials",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "interrupted",
+                      "duration": 3477,
+                      "error": {
+                        "message": "Error: page.waitForTimeout: Test ended.",
+                        "stack": "Error: page.waitForTimeout: Test ended.\n    at /Users/naf/Downloads/doof/e2e/incremental-flows.spec.js:391:16",
+                        "location": {
+                          "file": "/Users/naf/Downloads/doof/e2e/incremental-flows.spec.js",
+                          "column": 16,
+                          "line": 391
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 389 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mfill(\u001b[32m'input[name=\"password\"], input[type=\"password\"]'\u001b[39m\u001b[33m,\u001b[39m \u001b[33mCONFIG\u001b[39m\u001b[33m.\u001b[39m\u001b[33mADMIN_USER\u001b[39m\u001b[33m.\u001b[39mpassword)\u001b[33m;\u001b[39m\n \u001b[90m 390 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mclick(\u001b[32m'button[type=\"submit\"], button:has-text(\"Login\"), button:has-text(\"Sign In\")'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 391 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForTimeout(\u001b[35m2000\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 392 |\u001b[39m     \n \u001b[90m 393 |\u001b[39m     \u001b[90m// Try to access admin panel\u001b[39m\n \u001b[90m 394 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgoto(\u001b[32m'/admin'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/naf/Downloads/doof/e2e/incremental-flows.spec.js",
+                            "column": 16,
+                            "line": 391
+                          },
+                          "message": "Error: page.waitForTimeout: Test ended.\n\n\u001b[0m \u001b[90m 389 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mfill(\u001b[32m'input[name=\"password\"], input[type=\"password\"]'\u001b[39m\u001b[33m,\u001b[39m \u001b[33mCONFIG\u001b[39m\u001b[33m.\u001b[39m\u001b[33mADMIN_USER\u001b[39m\u001b[33m.\u001b[39mpassword)\u001b[33m;\u001b[39m\n \u001b[90m 390 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mclick(\u001b[32m'button[type=\"submit\"], button:has-text(\"Login\"), button:has-text(\"Sign In\")'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 391 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForTimeout(\u001b[35m2000\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 392 |\u001b[39m     \n \u001b[90m 393 |\u001b[39m     \u001b[90m// Try to access admin panel\u001b[39m\n \u001b[90m 394 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgoto(\u001b[32m'/admin'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at /Users/naf/Downloads/doof/e2e/incremental-flows.spec.js:391:16\u001b[22m"
+                        }
+                      ],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing admin panel access\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T02:23:57.677Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/naf/Downloads/doof/e2e-results/test-artifacts/incremental-flows-DOOF-Inc-2a612-ess-with-proper-credentials-firefox/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/naf/Downloads/doof/e2e-results/test-artifacts/incremental-flows-DOOF-Inc-2a612-ess-with-proper-credentials-firefox/video.webm"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/naf/Downloads/doof/e2e/incremental-flows.spec.js",
+                        "column": 16,
+                        "line": 391
+                      }
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-849ea56ef9ec24ecbb4f",
+              "file": "incremental-flows.spec.js",
+              "line": 383,
+              "column": 3
+            },
+            {
+              "title": "should access user profile and settings",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-ee2edafcf145cef361c0",
+              "file": "incremental-flows.spec.js",
+              "line": 412,
+              "column": 3
+            },
+            {
+              "title": "should test protected route behavior",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-80a822dbd57b5accf3c0",
+              "file": "incremental-flows.spec.js",
+              "line": 359,
+              "column": 3
+            },
+            {
+              "title": "should test admin panel access with proper credentials",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-34c266a4ee1b2f20f2c2",
+              "file": "incremental-flows.spec.js",
+              "line": 383,
+              "column": 3
+            },
+            {
+              "title": "should access user profile and settings",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-57945f49e0260e3ebb75",
+              "file": "incremental-flows.spec.js",
+              "line": 412,
+              "column": 3
+            },
+            {
+              "title": "should test protected route behavior",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-8c642d2798100d820165",
+              "file": "incremental-flows.spec.js",
+              "line": 359,
+              "column": 3
+            },
+            {
+              "title": "should test admin panel access with proper credentials",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-d9798023ac259fd67bac",
+              "file": "incremental-flows.spec.js",
+              "line": 383,
+              "column": 3
+            },
+            {
+              "title": "should access user profile and settings",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-fc16822ad018b8f1de4f",
+              "file": "incremental-flows.spec.js",
+              "line": 412,
+              "column": 3
+            },
+            {
+              "title": "should test protected route behavior",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-33a74ec252231c15c765",
+              "file": "incremental-flows.spec.js",
+              "line": 359,
+              "column": 3
+            },
+            {
+              "title": "should test admin panel access with proper credentials",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-d0dcddf0796c4326a1ab",
+              "file": "incremental-flows.spec.js",
+              "line": 383,
+              "column": 3
+            },
+            {
+              "title": "should access user profile and settings",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-0b521372bc4006bc1866",
+              "file": "incremental-flows.spec.js",
+              "line": 412,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "DOOF Incremental Flows - Level 5: Advanced Interactions",
+          "file": "incremental-flows.spec.js",
+          "line": 441,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should perform complex cross-page navigation",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-223948378459ed18c197",
+              "file": "incremental-flows.spec.js",
+              "line": 452,
+              "column": 3
+            },
+            {
+              "title": "should test responsive behavior on mobile viewport",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-b77204079e0e0cfbbe5f",
+              "file": "incremental-flows.spec.js",
+              "line": 475,
+              "column": 3
+            },
+            {
+              "title": "should handle loading states and error conditions",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-b258e715cbfe8dd20ecb",
+              "file": "incremental-flows.spec.js",
+              "line": 501,
+              "column": 3
+            },
+            {
+              "title": "should perform complex cross-page navigation",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-f6b0f07221d673981134",
+              "file": "incremental-flows.spec.js",
+              "line": 452,
+              "column": 3
+            },
+            {
+              "title": "should test responsive behavior on mobile viewport",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-b58ad537632a98b9632f",
+              "file": "incremental-flows.spec.js",
+              "line": 475,
+              "column": 3
+            },
+            {
+              "title": "should handle loading states and error conditions",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-21048758e461bd07ddbb",
+              "file": "incremental-flows.spec.js",
+              "line": 501,
+              "column": 3
+            },
+            {
+              "title": "should perform complex cross-page navigation",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-625d360cf01f2d42cedf",
+              "file": "incremental-flows.spec.js",
+              "line": 452,
+              "column": 3
+            },
+            {
+              "title": "should test responsive behavior on mobile viewport",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-20f34a0cc036ce963a55",
+              "file": "incremental-flows.spec.js",
+              "line": 475,
+              "column": 3
+            },
+            {
+              "title": "should handle loading states and error conditions",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-2166cad65f72316c1ef4",
+              "file": "incremental-flows.spec.js",
+              "line": 501,
+              "column": 3
+            },
+            {
+              "title": "should perform complex cross-page navigation",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-a46b505108bc6b13b74c",
+              "file": "incremental-flows.spec.js",
+              "line": 452,
+              "column": 3
+            },
+            {
+              "title": "should test responsive behavior on mobile viewport",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-e8775a8415b197ef6363",
+              "file": "incremental-flows.spec.js",
+              "line": 475,
+              "column": 3
+            },
+            {
+              "title": "should handle loading states and error conditions",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-99a754f70966d7557834",
+              "file": "incremental-flows.spec.js",
+              "line": 501,
+              "column": 3
+            },
+            {
+              "title": "should perform complex cross-page navigation",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-56eca56403c2316ea876",
+              "file": "incremental-flows.spec.js",
+              "line": 452,
+              "column": 3
+            },
+            {
+              "title": "should test responsive behavior on mobile viewport",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-772b453ef69d5bb1216e",
+              "file": "incremental-flows.spec.js",
+              "line": 475,
+              "column": 3
+            },
+            {
+              "title": "should handle loading states and error conditions",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a5cbd020b127cbeac4b6-324424674ec70537d26a",
+              "file": "incremental-flows.spec.js",
+              "line": 501,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2025-05-30T02:23:38.875Z",
+    "duration": 22731.944,
+    "expected": 19,
+    "skipped": 51,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

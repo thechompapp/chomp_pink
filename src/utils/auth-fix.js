@@ -1,120 +1,123 @@
 // src/utils/auth-fix.js
-// This script fixes authentication issues by adding the necessary headers to all API requests
+// Development mode authentication setup that automatically logs in as admin
 
 /**
- * Authentication configuration constants 
- * @typedef {Object} AuthConfig
- * @property {string} token - JWT token for authentication
- * @property {Object} user - User information
- * @property {number} user.id - User ID
- * @property {string} user.username - Username
- * @property {string} user.email - User email
- * @property {string} user.account_type - User account type
+ * Development mode authentication configuration
  */
-const AUTH_CONFIG = {
-  token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJlbWFpbCI6ImFkbWluQGV4YW1wbGUuY29tIiwiYWNjb3VudF90eXBlIjoic3VwZXJ1c2VyIn0sImlhdCI6MTc0NzQzMTkwMCwiZXhwIjoxNzQ3NDM1NTAwfQ.EDcX-C4zG2mZH8nUbBJwExR8cj2h1hqjShIFbFEWLdM",
+const DEV_AUTH_CONFIG = {
+  adminCredentials: {
+    email: "admin@example.com",
+    password: "doof123"
+  },
   user: {
     id: 2, 
     username: "admin",
     email: "admin@example.com",
-    account_type: "superuser"
+    account_type: "superuser",
+    role: "admin"
   }
 };
 
 /**
  * Storage keys used for authentication
- * @type {Object}
  */
 const STORAGE_KEYS = {
   AUTH_TOKEN: 'auth-token',
   AUTH_STORAGE: 'auth-storage',
-  BYPASS_AUTH_CHECK: 'bypass_auth_check'
+  BYPASS_AUTH_CHECK: 'bypass_auth_check',
+  ADMIN_ACCESS: 'admin_access_enabled',
+  SUPERUSER_OVERRIDE: 'superuser_override',
+  ADMIN_API_KEY: 'admin_api_key'
 };
 
 /**
- * Sets up authentication in local storage
+ * Get a fresh admin token from the backend
  */
-function setupAuthStorage() {
-  // Store the authentication token
-  localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, AUTH_CONFIG.token);
-  
-  // Set up the auth storage state
-  const authData = {
-    state: {
-      token: AUTH_CONFIG.token,
-      isAuthenticated: true,
-      user: AUTH_CONFIG.user
+async function getFreshAdminToken() {
+  try {
+    const response = await fetch('http://localhost:5001/api/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(DEV_AUTH_CONFIG.adminCredentials)
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data.success && data.data.token) {
+        console.log('[Auth Fix] Fresh admin token obtained');
+        return data.data.token;
+      }
     }
-  };
+  } catch (error) {
+    console.warn('[Auth Fix] Failed to get fresh token:', error);
+  }
+  return null;
+}
+
+/**
+ * Sets up development mode authentication
+ */
+async function setupDevelopmentAuth() {
+  if (import.meta.env.PROD) {
+    console.log('[Auth Fix] Production mode, skipping auth setup');
+    return;
+  }
   
-  // Store auth data in localStorage for persistence
-  localStorage.setItem(STORAGE_KEYS.AUTH_STORAGE, JSON.stringify(authData));
+  console.log('[Auth Fix] Setting up development mode authentication');
   
-  // Enable bypass for authentication checks in development mode
+  // Get fresh token from backend
+  const freshToken = await getFreshAdminToken();
+  
+  if (freshToken) {
+    // Store the authentication token
+    localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, freshToken);
+    
+    // Set up the auth storage state
+    const authData = {
+      state: {
+        token: freshToken,
+        isAuthenticated: true,
+        user: DEV_AUTH_CONFIG.user,
+        isSuperuser: true,
+        isAdmin: true
+      }
+    };
+    
+    // Store auth data in localStorage for persistence
+    localStorage.setItem(STORAGE_KEYS.AUTH_STORAGE, JSON.stringify(authData));
+  }
+  
+  // Set development mode flags
   localStorage.setItem(STORAGE_KEYS.BYPASS_AUTH_CHECK, 'true');
+  localStorage.setItem(STORAGE_KEYS.ADMIN_ACCESS, 'true');
+  localStorage.setItem(STORAGE_KEYS.SUPERUSER_OVERRIDE, 'true');
+  localStorage.setItem(STORAGE_KEYS.ADMIN_API_KEY, 'doof-admin-secret-key-dev');
+  
+  // Clear any logout flags
+  localStorage.removeItem('user_explicitly_logged_out');
+  
+  console.log('[Auth Fix] Development authentication configured');
 }
 
 /**
- * Creates a fake auth store for the API client to use
+ * Initialize development authentication
  */
-function setupAuthStore() {
-  window.authStore = {
-    getState: () => ({
-      isAuthenticated: true,
-      token: AUTH_CONFIG.token,
-      user: AUTH_CONFIG.user
-    })
-  };
-}
-
-/**
- * Adds authentication headers to request options
- * @param {Object} options - Request options
- * @param {string} url - Request URL
- * @returns {Object} Modified request options with auth headers
- */
-function addAuthHeaders(options, url) {
-  const newOptions = { ...options };
-  newOptions.headers = newOptions.headers || {};
-  
-  // Set authentication headers
-  newOptions.headers['Authorization'] = `Bearer ${AUTH_CONFIG.token}`;
-  newOptions.headers['X-Auth-Authenticated'] = 'true';
-  
-  // Add endpoint-specific headers
-  if (url.includes('/admin')) {
-    newOptions.headers['X-Bypass-Auth'] = 'true';
+async function initializeAuthentication() {
+  if (import.meta.env.DEV) {
+    await setupDevelopmentAuth();
+    
+    // Dispatch event to notify components of authentication
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('auth:login_complete', {
+        detail: { 
+          isAuthenticated: true,
+          user: DEV_AUTH_CONFIG.user
+        }
+      }));
+    }
   }
-  
-  if (url.includes('/places')) {
-    newOptions.headers['X-Places-API-Request'] = 'true';
-    newOptions.headers['X-Bypass-Auth'] = 'true';
-  }
-  
-  return newOptions;
-}
-
-/**
- * Intercepts fetch requests to add auth headers
- */
-function setupFetchInterceptor() {
-  const originalFetch = window.fetch;
-  
-  window.fetch = function(url, options = {}) {
-    // Add auth headers to all fetch requests
-    const newOptions = addAuthHeaders(options, url);
-    return originalFetch(url, newOptions);
-  };
-}
-
-/**
- * Initialize authentication by setting up storage, store, and interceptor
- */
-function initializeAuthentication() {
-  setupAuthStorage();
-  setupAuthStore();
-  setupFetchInterceptor();
-  console.log('[Auth Fix] Authentication headers configured for all API requests');
 }
 
 // Execute authentication initialization

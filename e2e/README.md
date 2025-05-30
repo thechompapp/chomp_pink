@@ -1,165 +1,170 @@
-# Doof E2E Testing Suite
+# DOOF Application E2E Test Suite
 
-This directory contains end-to-end (E2E) tests for the Doof application. These tests verify that the entire system works correctly from the user's perspective by simulating real user interactions with the API.
+This directory contains end-to-end (E2E) tests for the DOOF application using Playwright. These tests validate complete user flows through the actual UI, backend APIs, and state management systems with **no mocking**.
 
-## Overview
+## 🎯 **Test Coverage**
 
-The E2E tests are designed to run against the real backend API, ensuring that all functionalities are thoroughly tested in an environment that closely resembles production. The tests cover authentication, restaurant management, dish management, search functionality, and more.
+### Core Flows (`core-flows.spec.js`)
+- ✅ Application loading and basic UI elements
+- ✅ Navigation between main pages
+- ✅ Login/logout authentication flow
+- ✅ Backend API connectivity verification
+- ✅ Protected route access
+- ✅ Search functionality
+- ✅ Session state management
 
-## Test Structure
+### Complete Flows (`doof-e2e-test-suite.spec.js`)
+- 🔐 User registration with unique accounts
+- 🔑 Login/logout with cross-tab synchronization
+- 📝 List creation and management
+- ❤️ Follow/unfollow functionality
+- ➕ Quick add items to lists
+- 🧭 Complete navigation testing
+- 🔍 Search with result navigation
+- ⏰ Session expiry handling
+- 🔗 Cross-tab logout verification
 
-The E2E test suite is organized as follows:
+## 🚀 **Getting Started**
+
+### Prerequisites
+1. **Backend running** on `http://localhost:5001`
+2. **Frontend running** on `http://localhost:5174`
+3. **Database** accessible and seeded with test data
+
+### Installation
+```bash
+# Install Playwright (already done)
+npm install --save-dev @playwright/test
+
+# Install browsers
+npx playwright install chromium
+
+# Or install all browsers
+npx playwright install
+```
+
+### Running Tests
+
+#### Quick Start
+```bash
+# Run core functionality tests
+npm run e2e:core
+
+# Run all E2E tests
+npm run e2e
+
+# Run with browser UI visible
+npm run e2e:headed
+
+# Debug mode with pause/step through
+npm run e2e:debug
+
+# Interactive UI mode
+npm run e2e:ui
+```
+
+#### Incremental Testing (NEW!)
+Progressive test levels that build upon each other:
+
+```bash
+# Run all incremental tests
+npm run e2e:incremental
+
+# Level 1: Basic User Interactions
+npm run e2e:level1
+
+# Level 2: Content Discovery & Navigation  
+npm run e2e:level2
+
+# Level 3: User Registration & Profile
+npm run e2e:level3
+
+# Level 4: Authenticated Features
+npm run e2e:level4
+
+# Level 5: Advanced Interactions
+npm run e2e:level5
+
+# Progressive testing (Level 1-3 in sequence)
+npm run e2e:progressive
+```
+
+#### Full Test Suites
+```bash
+# Complete comprehensive test suite
+npm run e2e:full
+```
+
+## �� **Configuration**
+
+### Test Environment
+- **Frontend URL**: `http://localhost:5174`
+- **Backend URL**: `http://localhost:5001`
+- **Test User**: `admin@example.com` / `doof123`
+
+## 📁 **File Structure**
 
 ```
 e2e/
-├── setup/                 # Test setup utilities
-│   ├── api-client.js      # API client for making requests
-│   ├── config.js          # Test configuration
-│   ├── db-utils.js        # Database utilities
-│   └── global-setup.js    # Global setup/teardown
-├── tests/                 # Test files
-│   ├── admin.e2e.test.js  # Admin functionality tests
-│   ├── auth.e2e.test.js   # Authentication tests
-│   ├── dishes.e2e.test.js # Dish-related tests
-│   └── ...                # Other test files
-├── vitest.config.js       # Vitest configuration
-└── run-e2e-tests.js       # Test runner script
+├── README.md                    # This file
+├── global-setup.js             # Pre-test environment setup
+├── global-teardown.js          # Post-test cleanup
+├── auth-helpers.js             # Authentication utilities
+├── core-flows.spec.js          # Essential tests (recommended)
+└── doof-e2e-test-suite.spec.js # Complete test suite
 ```
 
-## Test Coverage
+## 🧪 **Test Philosophy**
 
-The E2E tests cover the following areas:
+### Real Integration Testing
+- **No mocking** - tests run against live APIs
+- **Actual browser** automation with real user interactions
+- **Real database** operations
+- **Complete state management** testing including localStorage
 
-1. **Authentication**
-   - Login/logout flows
-   - JWT token handling
-   - Authorization checks
+## 🔍 **Debugging Tests**
 
-2. **Restaurants**
-   - Fetching restaurant details
-   - Filtering restaurants
-   - Restaurant submissions
+### Visual Debugging
+```bash
+# Run with browser visible
+npm run e2e:headed
 
-3. **Dishes**
-   - Fetching dish details
-   - Filtering dishes
-   - Dish submissions
+# Debug mode with pause
+npm run e2e:debug
 
-4. **Lists**
-   - Creating and managing lists
-   - Adding items to lists
-   - Sharing lists
+# Interactive UI
+npm run e2e:ui
+```
 
-5. **Search**
-   - Searching for restaurants, dishes, and lists
-   - Search filters and sorting
+### Troubleshooting Common Issues
 
-6. **Admin**
-   - User management
-   - Content moderation
-   - System configuration
+#### "Backend not accessible"
+```bash
+# Check backend is running
+curl http://localhost:5001/api/health
 
-7. **Engagement**
-   - Likes and favorites
-   - User interactions
+# Start backend
+cd doof-backend && npm run dev
+```
 
-8. **Locations**
-   - City and neighborhood functionality
-   - Location-based filtering
+#### "Frontend not accessible"
+```bash
+# Check frontend is running
+curl http://localhost:5174
 
-9. **Hashtags**
-   - Hashtag retrieval and filtering
-   - Trending hashtags
+# Start frontend
+npm run dev
+```
 
-## Running the Tests
-
-### Prerequisites
-
-Before running the tests, make sure you have:
-
-1. Node.js installed (v14 or higher)
-2. The Doof API server running
-3. A test database configured
-
-### Installation
-
-Install the required dependencies:
+## 💡 **Quick Test Run**
 
 ```bash
-npm install
+# Make sure both servers are running
+cd doof-backend && npm run dev &
+npm run dev &
+
+# Run the core E2E tests
+npm run e2e:core
 ```
 
-### Configuration
-
-Update the configuration in `setup/config.js` with your test environment details:
-
-- API base URL
-- Test user credentials
-- Test data
-
-### Running All Tests
-
-To run all E2E tests:
-
-```bash
-node e2e/run-e2e-tests.js
-```
-
-Or using npm script (if configured):
-
-```bash
-npm run test:e2e
-```
-
-### Running Specific Tests
-
-To run specific test files:
-
-```bash
-npx vitest run e2e/tests/auth.e2e.test.js
-```
-
-## Test Reports
-
-After running the tests, a JSON report will be generated in `e2e/test-results.json`. This report contains detailed information about test results, including:
-
-- Test status (passed/failed)
-- Execution time
-- Error details for failed tests
-
-## Extending the Tests
-
-To add new tests:
-
-1. Create a new test file in the `tests` directory following the naming convention `*.e2e.test.js`
-2. Import the necessary utilities from the `setup` directory
-3. Use the standard Vitest test structure with `describe` and `it` blocks
-4. Use the `handleApiRequest` function for making API requests
-
-Example:
-
-```javascript
-import { describe, it, expect } from 'vitest';
-import apiClient, { handleApiRequest } from '../setup/api-client.js';
-
-describe('My Feature', () => {
-  it('should do something', async () => {
-    const result = await handleApiRequest(
-      () => apiClient.get('/my-endpoint'),
-      'Get my data'
-    );
-    
-    expect(result.success).toBe(true);
-    expect(result.data).toHaveProperty('expectedProperty');
-  });
-});
-```
-
-## Best Practices
-
-1. **Isolation**: Each test should be independent and not rely on the state from other tests
-2. **Clean up**: Always clean up resources created during tests
-3. **Error handling**: Use the `handleApiRequest` function to standardize error handling
-4. **Timeouts**: Set appropriate timeouts for long-running tests
-5. **Descriptive names**: Use clear and descriptive test names
-6. **Assertions**: Make specific assertions about the expected behavior
+Happy testing! 🎉

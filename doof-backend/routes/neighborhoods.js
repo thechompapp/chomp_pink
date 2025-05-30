@@ -1,29 +1,22 @@
 // Filename: /root/doof-backend/routes/neighborhoods.js
 /* REFACTORED: Convert to ES Modules */
-/* FIXED: Use namespace import for controller */
+/* FIXED: Use named imports for controller */
 import express from 'express';
-import * as neighborhoodController from '../controllers/neighborhoodController.js'; // Use namespace import
+import { getAllNeighborhoods, getNeighborhoodsByZipcode, getBoroughsByCity, getNeighborhoodsByParent } from '../controllers/neighborhoodController.js'; // Use named imports
 import optionalAuthMiddleware from '../middleware/optionalAuth.js';
-// Import validator if needed
-// import { validateCityIdQuery, handleValidationErrors } from '../middleware/validators.js';
+import { validateIdParam, handleValidationErrors } from '../middleware/validators.js';
 
 const router = express.Router();
 
 router.get(
     '/',
     optionalAuthMiddleware,
-    // validateCityIdQuery, // Example validation
-    // handleValidationErrors,
-    neighborhoodController.getAllNeighborhoods // Access via namespace
+    getAllNeighborhoods
 );
 
-// Add endpoint for looking up neighborhoods by zipcode
-router.get(
-    '/by-zipcode/:zipcode',
-    optionalAuthMiddleware,
-    neighborhoodController.getNeighborhoodsByZipcode
-);
+// Neighborhood lookup routes
+router.get('/zip/:zipcode', getNeighborhoodsByZipcode);
+router.get('/boroughs/city/:city_id', getBoroughsByCity);
+router.get('/neighborhoods/:parent_id', getNeighborhoodsByParent);
 
-// TODO: Add GET /api/neighborhoods/:id if needed
-
-export default router;
+export default router; 

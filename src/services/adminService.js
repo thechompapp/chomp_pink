@@ -10,8 +10,15 @@ import { logInfo, logError, logDebug, logWarn } from '@/utils/logger';
  */
 const addAdminHeaders = (config = {}) => {
   const adminApiKey = (typeof localStorage !== 'undefined' ? localStorage.getItem('admin_api_key') : null) || 'doof-admin-secret-key-dev';
+  const authToken = typeof localStorage !== 'undefined' ? localStorage.getItem('auth-token') : null;
+  
   if (!config.headers) {
     config.headers = {};
+  }
+  
+  // Add primary JWT authentication
+  if (authToken) {
+    config.headers['Authorization'] = `Bearer ${authToken}`;
   }
   
   // Add admin API key if available
@@ -27,6 +34,7 @@ const addAdminHeaders = (config = {}) => {
 
 export const adminService = {
   getAdminRestaurants: async () => {
+    const apiClient = getDefaultApiClient();
     const result = await handleApiResponse(
       () => apiClient.get('/admin/restaurants'),
       'AdminService.getAdminRestaurants'
@@ -41,6 +49,7 @@ export const adminService = {
   },
 
   getAdminDishes: async () => {
+    const apiClient = getDefaultApiClient();
     const result = await handleApiResponse(
       () => apiClient.get('/admin/dishes'),
       'AdminService.getAdminDishes'
@@ -55,6 +64,7 @@ export const adminService = {
   },
 
   getAdminUsers: async () => {
+    const apiClient = getDefaultApiClient();
     const result = await handleApiResponse(
       () => apiClient.get('/admin/users'),
       'AdminService.getAdminUsers'
@@ -69,6 +79,7 @@ export const adminService = {
   },
 
   getAdminCitiesSimple: async () => {
+    const apiClient = getDefaultApiClient();
     const result = await handleApiResponse(
       () => apiClient.get('/admin/cities'),
       'AdminService.getAdminCitiesSimple'
@@ -83,6 +94,7 @@ export const adminService = {
   },
 
   getAdminNeighborhoods: async () => {
+    const apiClient = getDefaultApiClient();
     const result = await handleApiResponse(
       () => apiClient.get('/admin/neighborhoods'),
       'AdminService.getAdminNeighborhoods'
@@ -97,6 +109,7 @@ export const adminService = {
   },
 
   getAdminHashtags: async () => {
+    const apiClient = getDefaultApiClient();
     const result = await handleApiResponse(
       () => apiClient.get('/admin/hashtags'),
       'AdminService.getAdminHashtags'
@@ -118,6 +131,8 @@ export const adminService = {
    */
   getAdminData: async (endpoint, options = {}) => {
     logDebug(`[AdminService] Fetching data from ${endpoint}`);
+    
+    const apiClient = getDefaultApiClient();
     
     // Add admin headers to the config, not as URL parameters
     const requestConfig = {
@@ -146,6 +161,7 @@ export const adminService = {
   createResource: async (endpoint, data) => {
     logDebug(`[AdminService] Creating ${endpoint} resource`);
     
+    const apiClient = getDefaultApiClient();
     const requestConfig = addAdminHeaders();
     
     return handleApiResponse(
@@ -164,6 +180,7 @@ export const adminService = {
   updateResource: async (endpoint, id, data) => {
     logDebug(`[AdminService] Updating ${endpoint} resource with ID ${id}`);
     
+    const apiClient = getDefaultApiClient();
     const requestConfig = addAdminHeaders();
     
     return handleApiResponse(
@@ -181,6 +198,7 @@ export const adminService = {
   deleteResource: async (endpoint, id) => {
     logDebug(`[AdminService] Deleting ${endpoint} resource with ID ${id}`);
     
+    const apiClient = getDefaultApiClient();
     const requestConfig = addAdminHeaders();
     
     return handleApiResponse(
@@ -204,6 +222,7 @@ export const adminService = {
     
     logDebug(`[AdminService] ${action === 'approve' ? 'Approving' : 'Rejecting'} submission ${id}`);
     
+    const apiClient = getDefaultApiClient();
     const requestConfig = addAdminHeaders();
     
     return handleApiResponse(
@@ -231,6 +250,7 @@ export const adminService = {
       }
       
       // Make the API call to check for existing items
+      const apiClient = getDefaultApiClient();
       return handleApiResponse(
         () => apiClient.post(`/admin/check-existing/${resourceType}`, formattedItems),
         `AdminService CheckExisting ${resourceType}`,
@@ -322,6 +342,7 @@ export const adminService = {
 
   // Data cleanup methods
   async analyzeData(resourceType) {
+    const apiClient = getDefaultApiClient();
     return handleApiResponse(
       () => apiClient.get(`/admin/data-cleanup/${resourceType}/analyze`),
       `AdminService AnalyzeData for ${resourceType}`
@@ -332,6 +353,7 @@ export const adminService = {
   },
 
   async applyChanges(resourceType, changeIds) {
+    const apiClient = getDefaultApiClient();
     return handleApiResponse(
       () => apiClient.post(`/admin/data-cleanup/${resourceType}/apply`, { changeIds }),
       `AdminService ApplyChanges for ${resourceType}`
@@ -342,6 +364,7 @@ export const adminService = {
   },
 
   async rejectChanges(resourceType, changeIds) {
+    const apiClient = getDefaultApiClient();
     return handleApiResponse(
       () => apiClient.post(`/admin/data-cleanup/${resourceType}/reject`, { changeIds }),
       `AdminService RejectChanges for ${resourceType}`

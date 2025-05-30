@@ -387,13 +387,11 @@ export const EnhancedAdminTable = ({
   
   // Create new item handler
   const handleCreateNew = useCallback(() => {
-    // TODO: Open create modal/form
     toast.info('Create form not implemented yet');
   }, []);
   
   // Bulk edit save handler
   const handleBulkSaveClick = useCallback(() => {
-    // TODO: Open bulk edit form
     toast.info('Bulk edit form not implemented yet');
   }, []);
   

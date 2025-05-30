@@ -28,7 +28,22 @@
     "test:search": "dotenv -e .env.test -- vitest --config vitest.real.config.js --testNamePattern='search'",
     "test:admin": "dotenv -e .env.test -- vitest --config vitest.real.config.js --testNamePattern='admin'",
     "test:http": "API_BASE_URL=http://localhost:5001/api TEST_USER_EMAIL=test_user@example.com TEST_USER_PASSWORD=test_password TEST_USER_USERNAME=testuser TEST_ADMIN_EMAIL=admin_user@example.com TEST_ADMIN_PASSWORD=admin_password TEST_ADMIN_USERNAME=adminuser vitest --config vitest.config.js tests/unit/services/httpService.test.js",
-    "db:migrate": "node --experimental-json-modules scripts/run-migration.js"
+    "db:migrate": "node --experimental-json-modules scripts/run-migration.js",
+    "e2e": "playwright test",
+    "e2e:ui": "playwright test --ui",
+    "e2e:headed": "playwright test --headed",
+    "e2e:debug": "playwright test --debug",
+    "e2e:core": "playwright test e2e/core-flows.spec.js",
+    "e2e:full": "playwright test e2e/doof-e2e-test-suite.spec.js",
+    "e2e:incremental": "playwright test e2e/incremental-flows.spec.js",
+    "e2e:level1": "playwright test e2e/incremental-flows.spec.js -g \"Level 1\"",
+    "e2e:level2": "playwright test e2e/incremental-flows.spec.js -g \"Level 2\"",
+    "e2e:level3": "playwright test e2e/incremental-flows.spec.js -g \"Level 3\"",
+    "e2e:level4": "playwright test e2e/incremental-flows.spec.js -g \"Level 4\"",
+    "e2e:level5": "playwright test e2e/incremental-flows.spec.js -g \"Level 5\"",
+    "e2e:progressive": "npm run e2e:level1 && npm run e2e:level2 && npm run e2e:level3",
+    "e2e:report": "playwright show-report",
+    "e2e:install": "playwright install"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -77,6 +92,7 @@
     "zustand": "^5.0.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.52.0",
     "@tailwindcss/forms": "^0.5.10",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",

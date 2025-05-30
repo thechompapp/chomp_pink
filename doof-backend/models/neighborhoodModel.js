@@ -105,6 +105,6 @@ const neighborhoodModel = {
     getBoroughsByCity,
     getNeighborhoodsByParent,
     getNeighborhoodsByZipcode,
-    // ... other updated functions
 };
+
 export default neighborhoodModel;

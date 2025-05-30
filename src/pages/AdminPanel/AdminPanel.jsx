@@ -181,19 +181,26 @@ const AdminPanel = () => {
   } = useQuery({
     queryKey: ['enhancedAdminData'],
     queryFn: enhancedAdminService.fetchAllAdminData,
-    enabled: !isInitializing,
+    enabled: authReady && adminAccess && isAuthenticated,
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
     retry: 1,
     onSuccess: (data) => {
-      console.log('[EnhancedAdminPanel] Admin data fetched successfully');
+      logInfo('[EnhancedAdminPanel] Admin data fetched successfully');
       toast.success('Admin data loaded successfully');
     },
     onError: (error) => {
-      console.error('[EnhancedAdminPanel] Error fetching admin data:', error);
+      logError('[EnhancedAdminPanel] Error fetching admin data:', error);
       toast.error(`Failed to load admin data: ${error.message}`);
     }
   });
+  
+  // Update initialization state when auth is ready
+  useEffect(() => {
+    if (authReady && adminAccess) {
+      setIsInitializing(false);
+    }
+  }, [authReady, adminAccess]);
   
   // Show loading state while auth is being verified
   if (!authReady) {
@@ -283,7 +290,7 @@ const AdminPanel = () => {
   }
   
   // Get current data for active tab
-  const currentData = adminData?.[selectedResourceType] || [];
+  const currentData = activeTab === 'restaurants' ? adminData?.restaurants || [] : adminData?.[selectedResourceType] || [];
   const cities = adminData?.cities || [];
   const neighborhoods = adminData?.neighborhoods || [];
   const isEnhanced = TAB_CONFIG[activeTab]?.enhanced;
@@ -295,8 +302,13 @@ const AdminPanel = () => {
   
   // Render tab content
   const renderTabContent = () => {
+    console.log('[AdminPanel Debug] renderTabContent called with activeTab:', activeTab);
+    console.log('[AdminPanel Debug] adminData available:', !!adminData);
+    console.log('[AdminPanel Debug] restaurants data length:', adminData?.restaurants?.length || 0);
+    
     switch (activeTab) {
       case 'analytics':
+        console.log('[AdminPanel Debug] Rendering analytics dashboard');
         return (
           <AdminAnalyticsDashboard 
             adminData={adminData || {}}
@@ -304,6 +316,7 @@ const AdminPanel = () => {
         );
         
       case 'bulk_operations':
+        console.log('[AdminPanel Debug] Rendering bulk operations');
         return (
           <div className="space-y-6">
             {/* Resource Type Selector */}
@@ -338,6 +351,8 @@ const AdminPanel = () => {
         );
         
       case 'restaurants':
+        console.log('[AdminPanel Debug] Rendering restaurants table');
+        console.log('[AdminPanel Debug] currentData for restaurants:', currentData?.length || 0);
         return (
           <div className="space-y-6">
             {/* Enhanced Features Notice */}
@@ -378,6 +393,7 @@ const AdminPanel = () => {
         );
         
       default:
+        console.log('[AdminPanel Debug] Rendering default/legacy view for:', activeTab);
         // Legacy tables for other resource types
         const legacyData = adminData?.[activeTab] || [];
         return (

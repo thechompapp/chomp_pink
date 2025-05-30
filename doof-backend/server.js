@@ -57,6 +57,12 @@ class AppServer {
     this.registerRoutes();
     this.configureStaticFiles();
     this.configureErrorHandler();
+    
+    // Initialize token cleanup job once (in non-test environments)
+    if (process.env.NODE_ENV !== 'test') {
+      startTokenCleanupJob();
+      this.logger.info('Token cleanup job initialized');
+    }
   }
 
   /**
@@ -220,12 +226,6 @@ class AppServer {
       { path: '/api/analytics', router: analyticsRoutes },
       { path: '/api/test', router: simplifiedRoutes } // Test routes for E2E testing
     ];
-    
-    // Start the token cleanup job (in non-test environments)
-    if (process.env.NODE_ENV !== 'test') {
-      startTokenCleanupJob();
-      console.log('Token cleanup job started');
-    }
     
     // Register each route
     routes.forEach(({ path, router }) => {

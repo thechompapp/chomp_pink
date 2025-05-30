@@ -207,44 +207,9 @@ export async function testApiConnectivity(apiBaseUrl = null) {
 export async function autoFixOfflineMode() {
   logInfo('[OfflineModeControl] Auto-fixing offline mode issues...');
   
-  // Temporarily disable auto-fix to prevent refresh loops
+  // Auto-fix is currently disabled to prevent refresh loops
   logInfo('[OfflineModeControl] Auto-fix disabled to prevent refresh loops');
   return ['Auto-fix disabled to prevent refresh loops'];
-  
-  /* Disabled to prevent loops - uncomment if needed
-  const status = getOfflineModeStatus();
-  let fixesApplied = [];
-  
-  // Fix 1: Force online if browser is online and in development
-  if (status.browserOnline && status.environment.isDevelopment) {
-    forceOnlineMode();
-    fixesApplied.push('Forced online mode in development');
-  }
-  
-  // Fix 2: Clear conflicting storage flags
-  if (status.storage.localStorage?.['offline-mode'] || 
-      status.storage.sessionStorage?.['offline-mode']) {
-    forceOnlineMode();
-    fixesApplied.push('Cleared offline mode storage flags');
-  }
-  
-  // Fix 3: Test API connectivity
-  const apiConnected = await testApiConnectivity();
-  if (apiConnected) {
-    forceOnlineMode();
-    fixesApplied.push('API is reachable - forced online');
-  }
-  
-  // Fix 4: Reset auth bypass if needed
-  if (status.storage.localStorage?.['user_explicitly_logged_out'] === 'true' && 
-      status.environment.isDevelopment) {
-    localStorage.removeItem('user_explicitly_logged_out');
-    fixesApplied.push('Cleared explicit logout flag in development');
-  }
-  
-  logInfo('[OfflineModeControl] Auto-fix completed. Fixes applied:', fixesApplied);
-  return fixesApplied;
-  */
 }
 
 /**

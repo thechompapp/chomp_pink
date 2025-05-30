@@ -308,11 +308,7 @@ const FilterPanel = ({
                            {/* Direct Neighborhoods if city has no boroughs */}
                            {selectedCityId && !cityHasBoroughs && (
                                 <div className="flex flex-wrap gap-2 border-l-2 border-gray-200 dark:border-gray-600 pl-3">
-                                    {/* Assuming getNeighborhoods works with city_id if no boroughs */}
-                                    {/* Adjust query/service if needed */}
-                                    {/* Example - you might need a different query here */}
-                                    {/* renderPillButtons(neighborhoodsDirect, isLoadingNeighDirect, ..., handleNeighborhoodClick) */}
-                                     <span className="text-sm text-muted-foreground">Neighborhoods direct filter (TODO)</span>
+                                     <span className="text-sm text-muted-foreground">Neighborhoods direct filter (coming soon)</span>
                                 </div>
                            )}
 

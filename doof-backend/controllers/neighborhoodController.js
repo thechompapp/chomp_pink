@@ -52,3 +52,65 @@ export const getNeighborhoodsByZipcode = async (req, res, next) => {
         next(error);
     }
 };
+
+// Controller to get boroughs by city
+export const getBoroughsByCity = async (req, res, next) => {
+    const { city_id } = req.params;
+    
+    if (!city_id || isNaN(city_id)) {
+        return res.status(400).json({ 
+            success: false, 
+            message: 'Invalid city_id. Must be a number.' 
+        });
+    }
+    
+    try {
+        const boroughs = await NeighborhoodModel.getBoroughsByCity(parseInt(city_id, 10));
+        
+        if (!boroughs || boroughs.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: `No boroughs found for city_id: ${city_id}` 
+            });
+        }
+        
+        res.json({
+            success: true,
+            data: boroughs
+        });
+    } catch (error) {
+        console.error(`Error finding boroughs by city ${city_id}:`, error);
+        next(error);
+    }
+};
+
+// Controller to get neighborhoods by parent
+export const getNeighborhoodsByParent = async (req, res, next) => {
+    const { parent_id } = req.params;
+    
+    if (!parent_id || isNaN(parent_id)) {
+        return res.status(400).json({ 
+            success: false, 
+            message: 'Invalid parent_id. Must be a number.' 
+        });
+    }
+    
+    try {
+        const neighborhoods = await NeighborhoodModel.getNeighborhoodsByParent(parseInt(parent_id, 10));
+        
+        if (!neighborhoods || neighborhoods.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: `No neighborhoods found for parent_id: ${parent_id}` 
+            });
+        }
+        
+        res.json({
+            success: true,
+            data: neighborhoods
+        });
+    } catch (error) {
+        console.error(`Error finding neighborhoods by parent ${parent_id}:`, error);
+        next(error);
+    }
+};
