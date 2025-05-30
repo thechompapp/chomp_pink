@@ -12,8 +12,8 @@ import {
   extractAddressComponents, 
   batchProcess,
   retryWithBackoff,
-  BULK_ADD_CONFIG
-} from '@/utils/bulkAddUtils';
+  APP_CONFIG
+} from '@/utils/generalUtils';
 import { logDebug, logError, logInfo } from '@/utils/logger';
 
 /**
@@ -42,7 +42,7 @@ const usePlaceResolver = () => {
    * @param {number} cityId - City ID
    * @returns {Promise<Object>} - Neighborhood data
    */
-  const fetchNeighborhoodByZipcode = useCallback(async (zipcode, cityId = BULK_ADD_CONFIG.defaultCityId) => {
+  const fetchNeighborhoodByZipcode = useCallback(async (zipcode, cityId = APP_CONFIG.defaultCityId) => {
     if (!zipcode) {
       return getDefaultNeighborhood(cityId);
     }
@@ -78,7 +78,7 @@ const usePlaceResolver = () => {
    * @param {number} cityId - City ID
    * @returns {Promise<Object>} - Default neighborhood
    */
-  const getDefaultNeighborhood = useCallback(async (cityId = BULK_ADD_CONFIG.defaultCityId) => {
+  const getDefaultNeighborhood = useCallback(async (cityId = APP_CONFIG.defaultCityId) => {
     try {
       // Try to get neighborhoods for the city
       const neighborhoods = await retryWithBackoff(() => 
@@ -239,7 +239,7 @@ const usePlaceResolver = () => {
       // Get neighborhood by zipcode
       const neighborhood = await fetchNeighborhoodByZipcode(
         addressComponents.zipcode,
-        BULK_ADD_CONFIG.defaultCityId
+        APP_CONFIG.defaultCityId
       );
       
       // Return item with place details
@@ -252,7 +252,7 @@ const usePlaceResolver = () => {
         longitude: formattedDetails.geometry.location.lng,
         neighborhood_id: neighborhood?.id || 1,
         neighborhood: neighborhood?.name || 'Default Neighborhood',
-        city_id: neighborhood?.city_id || BULK_ADD_CONFIG.defaultCityId,
+        city_id: neighborhood?.city_id || APP_CONFIG.defaultCityId,
         status: 'ready',
         message: 'Ready for submission',
         _processed: true
@@ -369,7 +369,7 @@ const usePlaceResolver = () => {
       const resolvedResults = await batchProcess(
         itemsToResolve,
         resolvePlace,
-        BULK_ADD_CONFIG.batchSize,
+        APP_CONFIG.batchSize,
         (batchResults) => {
           // Update resolved items as each batch completes
           setResolvedItems(prev => [...prev, ...batchResults]);

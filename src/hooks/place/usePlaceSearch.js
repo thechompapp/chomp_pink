@@ -6,7 +6,7 @@
  */
 import { useState, useCallback } from 'react';
 import { placeService } from '@/services/placeService';
-import { retryWithBackoff } from '@/utils/bulkAddUtils';
+import { retryWithBackoff } from '@/utils/generalUtils';
 import { logDebug, logError } from '@/utils/logger';
 
 /**

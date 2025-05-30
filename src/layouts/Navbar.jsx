@@ -260,21 +260,6 @@ const Navbar = () => {
                           >
                             Admin Panel
                           </Link>
-                          <Link
-                            to="/admin-enhanced"
-                            className="block px-4 py-2 text-sm text-foreground hover:bg-muted"
-                            role="menuitem"
-                          >
-                            Enhanced Admin Panel
-                            <span className="ml-2 text-xs bg-green-500 text-white px-1 rounded">NEW</span>
-                          </Link>
-                          <Link
-                            to="/bulk-add"
-                            className="block px-4 py-2 text-sm text-foreground hover:bg-muted"
-                            role="menuitem"
-                          >
-                            Bulk Add
-                          </Link>
                         </>
                       )}
                       
@@ -438,27 +423,6 @@ const Navbar = () => {
                       }`}
                     >
                       Admin Panel
-                    </Link>
-                    <Link
-                      to="/admin-enhanced"
-                      className={`block px-3 py-2 rounded-md text-base font-medium ${
-                        location.pathname === '/admin-enhanced'
-                          ? 'bg-primary/10 text-primary'
-                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                      }`}
-                    >
-                      Enhanced Admin Panel
-                      <span className="ml-2 text-xs bg-green-500 text-white px-1 rounded">NEW</span>
-                    </Link>
-                    <Link
-                      to="/bulk-add"
-                      className={`block px-3 py-2 rounded-md text-base font-medium ${
-                        location.pathname === '/bulk-add'
-                          ? 'bg-primary/10 text-primary'
-                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                      }`}
-                    >
-                      Bulk Add
                     </Link>
                   </>
                 )}

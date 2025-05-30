@@ -20,7 +20,7 @@ import {
 import { useListDetail } from '@/contexts/ListDetailContext';
 import { engagementService } from '@/services/engagementService';
 import { listService } from '@/services/listService';
-import useAuthStore from '@/stores/useAuthStore';
+import { useAuth } from '@/contexts/auth/AuthContext';
 import useFollowStore from '@/stores/useFollowStore';
 import BaseCard from '@/components/UI/BaseCard';
 import Button from '@/components/UI/Button';
@@ -86,7 +86,7 @@ const EmptyListCard = ({ error }) => (
 const ListItemDisplay = ({ item, listType, onQuickAdd, showQuickAdd = true, index }) => {
   try {
     // Check if user is authenticated
-    const { isAuthenticated } = useAuthStore();
+    const { isAuthenticated } = useAuth();
     
     if (!item || item.id == null) return null;
     let linkTo = '#';
@@ -225,7 +225,7 @@ const ListCard = (props) => {
   const [followStatus, setFollowStatus] = useState(Boolean(list.is_following));
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-  const { user, isAuthenticated } = useAuthStore() || {};
+  const { user, isAuthenticated } = useAuth() || {};
   const { isFollowing } = useFollowStore() || {};
 
   // Load list details to get accurate item count

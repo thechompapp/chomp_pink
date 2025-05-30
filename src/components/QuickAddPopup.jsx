@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query'; // Import useQuery
 import { useQuickAdd } from '@/contexts/QuickAddContext';
-import useAuthStore from '@/stores/useAuthStore';
+import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
 // import { useUIStateStore } from '@/stores/useUIStateStore'; // No longer needed for cuisines
 // import { useShallow } from 'zustand/react/shallow'; // No longer needed
 import useFormHandler from '@/hooks/useFormHandler';
@@ -17,8 +17,9 @@ const debounce = (func, wait) => { /* ... debounce implementation ... */ };
 
 const QuickAddPopup = () => {
     const { isOpen, closeQuickAdd, item, userLists, addToList, fetchError } = useQuickAdd();
-    const isAuthenticated = useAuthStore((state) => state.user?.id != null); // Check for user ID specifically
-    const currentUserId = useAuthStore((state) => state.user?.id);
+    const { user } = useAuth(); // Migrated from useAuthStore
+    const isAuthenticated = user?.id != null; // Check for user ID specifically
+    const currentUserId = user?.id;
 
     // --- Local State ---
     const [selectedListId, setSelectedListId] = useState(null);

@@ -6,7 +6,7 @@
  */
 import { useState, useCallback, useRef } from 'react';
 import { logDebug, logError } from '@/utils/logger';
-import { batchProcess, BULK_ADD_CONFIG } from '@/utils/bulkAddUtils';
+import { batchProcess, APP_CONFIG } from '@/utils/generalUtils';
 import usePlaceSearch from './usePlaceSearch';
 import useNeighborhoodResolver from './useNeighborhoodResolver';
 import usePlaceSelection from './usePlaceSelection';
@@ -245,7 +245,7 @@ const useRefactoredPlaceResolver = () => {
       const results = await batchProcess(
         itemsToProcess,
         resolvePlace,
-        BULK_ADD_CONFIG.batchSize,
+        APP_CONFIG.batchSize,
         (batchResults) => {
           // Update resolved items as each batch completes
           setResolvedItems(prev => [...prev, ...batchResults]);

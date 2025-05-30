@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { useAuthStore } from '@/stores/useAuthStore'; // To get current user ID
+import { useAuth } from '@/contexts/auth/AuthContext'; // To get current user ID // Migrated from useAuthStore
 import { listService } from '@/services/listService'; // Using named import for API standardization
 import ListCard from './ListCard'; // Use standard ListCard for consistency
 import ListCardSkeleton from './ListCardSkeleton';
@@ -17,8 +17,8 @@ import { PlusCircle } from 'lucide-react';
 const MyLists = () => {
     // Fix: Select each piece of state individually to avoid creating new objects
     // This prevents the infinite loop caused by creating new object references
-    const user = useAuthStore(state => state.user);
-    const isAuthenticated = useAuthStore(state => state.isAuthenticated);
+    const { user: user } = useAuth();
+    const { isAuthenticated: isAuthenticated } = useAuth();
     const userId = user?.id;
 
     const [view, setView] = useState('created'); // 'created' or 'followed'

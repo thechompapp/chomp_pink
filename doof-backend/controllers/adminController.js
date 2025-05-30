@@ -587,3 +587,75 @@ export const rejectSubmission = async (req, res) => {
     return res.status(500).json({ success: false, message: `Failed to reject submission: ${error.message}` });
   }
 };
+
+/**
+ * Bulk add restaurants
+ */
+export const bulkAddRestaurants = async (req, res) => {
+  try {
+    const { restaurants } = req.body;
+    
+    if (!restaurants || !Array.isArray(restaurants)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid restaurants data provided'
+      });
+    }
+    
+    const results = {
+      success: 0,
+      failed: 0,
+      total: restaurants.length,
+      errors: []
+    };
+    
+    // Process each restaurant
+    for (const restaurant of restaurants) {
+      try {
+        // Validate required fields
+        if (!restaurant.name || !restaurant.address) {
+          results.failed++;
+          results.errors.push(`Missing required fields for restaurant: ${restaurant.name || 'Unknown'}`);
+          continue;
+        }
+        
+        // Create restaurant using the RestaurantModel
+        const restaurantData = {
+          name: restaurant.name,
+          address: restaurant.address,
+          city: restaurant.city || null,
+          state: restaurant.state || null,
+          zip: restaurant.zip || null,
+          phone: restaurant.phone || null,
+          website: restaurant.website || null,
+          price_range: restaurant.price_range || null,
+          created_at: new Date(),
+          updated_at: new Date()
+        };
+        
+        await RestaurantModel.create(restaurantData);
+        results.success++;
+        
+      } catch (error) {
+        console.error(`Error adding restaurant ${restaurant.name}:`, error);
+        results.failed++;
+        results.errors.push(`Failed to add ${restaurant.name}: ${error.message}`);
+      }
+    }
+    
+    console.log(`Bulk add completed: ${results.success} success, ${results.failed} failed`);
+    
+    return res.status(200).json({
+      success: true,
+      message: `Bulk add completed: ${results.success} added, ${results.failed} failed`,
+      data: results
+    });
+    
+  } catch (error) {
+    console.error('Error in bulk add restaurants:', error);
+    return res.status(500).json({
+      success: false,
+      message: `Bulk add failed: ${error.message}`
+    });
+  }
+};

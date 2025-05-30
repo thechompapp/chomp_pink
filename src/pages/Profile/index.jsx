@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, CheckCircle, List, Heart } from 'lucide-react';
 import Button from '@/components/UI/Button';
-import useAuthStore from '@/stores/useAuthStore';
+import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
 import { getDefaultApiClient } from '@/services/http';
 import QueryResultDisplay from '@/components/QueryResultDisplay';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
@@ -27,9 +27,9 @@ const fetchUserProfile = async (userId) => {
 
 const Profile = () => {
   const navigate = useNavigate();
-  const user = useAuthStore(state => state.user);
-  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
-  const isLoadingAuth = useAuthStore(state => state.isLoading);
+  const { user: user } = useAuth();
+  const { isAuthenticated: isAuthenticated } = useAuth();
+  const { isLoading: isLoadingAuth } = useAuth();
   const queryClient = useQueryClient();
 
   // Ensure userId is valid number before enabling query

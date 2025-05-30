@@ -9,7 +9,7 @@ import { listService } from '@/services/listService';
 import { logDebug, logError } from '@/utils/logger';
 import { useQuickAdd } from '@/contexts/QuickAddContext';
 import { useListDetail } from '@/contexts/ListDetailContext';
-import useAuthStore from '@/stores/useAuthStore';
+import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
 import useFollowStore from '@/stores/useFollowStore';
 import { formatRelativeDate } from '@/utils/formatting';
 import { engagementService } from '@/services/engagementService';
@@ -18,7 +18,7 @@ function FixedListPreviewCard({ list }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isFollowProcessing, setIsFollowProcessing] = useState(false);
   const { openQuickAdd } = useQuickAdd();
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated  } = useAuth();
   const { openListDetail } = useListDetail();
   const listId = list?.id;
   

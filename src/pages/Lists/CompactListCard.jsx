@@ -14,7 +14,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { listService } from '@/services/listService';
 import { engagementService } from '@/services/engagementService';
-import useAuthStore from '@/stores/useAuthStore';
+import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
 import { formatRelativeDate } from '@/utils/formatting';
 import { logDebug } from '@/utils/logger';
 
@@ -51,7 +51,7 @@ const CompactListCard = ({
   className = "" 
 }) => {
   const [followStatus, setFollowStatus] = useState(Boolean(list.is_following));
-  const { user, isAuthenticated } = useAuthStore() || {};
+  const { user, isAuthenticated  } = useAuth() || {};
 
   // Simplified list data query for compact view
   const { data: listData } = useQuery({

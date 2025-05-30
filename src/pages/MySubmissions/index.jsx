@@ -5,7 +5,7 @@
  */
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import useAuthStore from '@/stores/useAuthStore'; // Changed to default import
+import { useAuth } from '@/contexts/auth/AuthContext'; // Changed to default import // Migrated from useAuthStore
 import submissionService from '@/services/submissionService';
 import ErrorMessage from '@/components/UI/ErrorMessage';
 import Button from '@/components/UI/Button';
@@ -41,10 +41,7 @@ const SubmissionCard = ({ submission }) => {
 };
 
 const MySubmissionsPage = () => {
-    const { user, isAuthenticated } = useAuthStore(state => ({
-        user: state.user,
-        isAuthenticated: state.isAuthenticated,
-    }));
+    const { user, isAuthenticated } = useAuth();
     const userId = user?.id;
 
     const [statusFilter, setStatusFilter] = useState(null); // null, 'pending', 'approved', 'rejected'

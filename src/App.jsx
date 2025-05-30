@@ -1,7 +1,7 @@
 /* src/App.jsx */
 import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { HelmetProvider } from 'react-helmet-async';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/auth';
 import { QuickAddProvider } from './contexts/QuickAddContext';
@@ -11,6 +11,7 @@ import Navbar from './layouts/Navbar';
 import FloatingQuickAdd from './components/FloatingQuickAdd';
 import AddToListModal from './components/AddToListModal';
 import ProtectedRoute from './components/ProtectedRoute';
+import AuthErrorBoundary from './components/AuthErrorBoundary';
 import { logError, logInfo, logDebug } from './utils/logger';
 import offlineModeGuard from './utils/offlineModeGuard';
 
@@ -42,9 +43,7 @@ const Search = enhancedLazy(() => import('./pages/Search'), 'Search');
 const Trending = enhancedLazy(() => import('./pages/Trending'), 'Trending');
 const Lists = enhancedLazy(() => import('./pages/Lists'), 'Lists');
 const MyLists = enhancedLazy(() => import('./pages/Lists/MyLists'), 'MyLists');
-import BulkAdd from './pages/BulkAdd'; // Direct import for BulkAdd
-import AdminPanel from './pages/AdminPanel/AdminPanel'; // Direct import for AdminPanel
-import EnhancedAdminPanelDemo from './pages/AdminPanel/EnhancedAdminPanelDemo'; // Import enhanced admin panel demo
+import AdminPanel from './pages/AdminPanel/AdminPanel'; // Enhanced Admin Panel (renamed)
 import AuthTestPage from './pages/AuthTest'; // Direct import for AuthTest
 import AdminAuthDebug from './pages/AdminAuthDebug'; // Import admin auth debug page
 
@@ -136,89 +135,72 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <HelmetProvider>
         <AuthProvider>
-          <QuickAddProvider>
-            <ListDetailProvider>
-              <PlacesApiProvider>
-                <Router>
-                <div className="app-container">
-                  <Navbar />
-                  
-                  <main className="main-content">
-                    <Suspense fallback={<div>Loading...</div>}>
-                      <Routes>
-                        <Route path="/" element={<Home />} />
-                        <Route path="/login" element={<Login />} />
-                        <Route path="/register" element={<Register />} />
-                        <Route path="/search" element={<Search />} />
-                        <Route path="/trending" element={<Trending />} />
-                        <Route path="/lists" element={<Lists />} />
-                        
-                        {/* Protected routes */}
-                        <Route 
-                          path="/my-lists" 
-                          element={
-                            <ProtectedRoute>
-                              <MyLists />
-                            </ProtectedRoute>
-                          } 
-                        />
-                        <Route 
-                          path="/admin" 
-                          element={
-                            <ProtectedRoute adminOnly>
-                              <AdminPanel />
-                            </ProtectedRoute>
-                          } 
-                        />
-                        <Route 
-                          path="/admin-enhanced" 
-                          element={
-                            <ProtectedRoute adminOnly>
-                              <EnhancedAdminPanelDemo />
-                            </ProtectedRoute>
-                          } 
-                        />
-                        
-                        <Route 
-                          path="/bulk-add" 
-                          element={
-                            <ProtectedRoute adminOnly>
-                              <BulkAdd />
-                            </ProtectedRoute>
-                          } 
-                        />
-                        
-                        {/* Auth test route - only in development */}
-                        {process.env.NODE_ENV === 'development' && (
-                          <Route path="/auth-test" element={<AuthTestPage />} />
-                        )}
-                        
-                        {/* Admin auth debug route - only in development */}
-                        {process.env.NODE_ENV === 'development' && (
-                          <Route path="/admin-auth-debug" element={<AdminAuthDebug />} />
-                        )}
-                        
-                        {/* Fallback for unknown routes */}
-                        <Route path="*" element={<Home />} />
-                      </Routes>
-                    </Suspense>
-                  </main>
-                  
-                  <FloatingQuickAdd onOpenQuickAdd={handleOpenQuickAdd} />
-                  {isModalOpen && (
-                    <AddToListModal 
-                      item={quickAddItem} 
-                      isOpen={isModalOpen} 
-                      onClose={handleCloseQuickAdd} 
-                    />
-                  )}
-                </div>
-              </Router>
-            </PlacesApiProvider>
-          </ListDetailProvider>
-        </QuickAddProvider>
-      </AuthProvider>
-    </HelmetProvider>
+          <AuthErrorBoundary>
+            <QuickAddProvider>
+              <ListDetailProvider>
+                <PlacesApiProvider>
+                  <div className="app-container">
+                    <Navbar />
+                    
+                    <main className="main-content">
+                      <Suspense fallback={<div>Loading...</div>}>
+                        <Routes>
+                          <Route path="/" element={<Home />} />
+                          <Route path="/login" element={<Login />} />
+                          <Route path="/register" element={<Register />} />
+                          <Route path="/search" element={<Search />} />
+                          <Route path="/trending" element={<Trending />} />
+                          <Route path="/lists" element={<Lists />} />
+                          
+                          {/* Protected routes */}
+                          <Route 
+                            path="/my-lists" 
+                            element={
+                              <ProtectedRoute>
+                                <MyLists />
+                              </ProtectedRoute>
+                            } 
+                          />
+                          <Route 
+                            path="/admin" 
+                            element={
+                              <ProtectedRoute adminOnly>
+                                <AdminPanel />
+                              </ProtectedRoute>
+                            } 
+                          />
+                          
+                          {/* Auth test route - only in development */}
+                          {process.env.NODE_ENV === 'development' && (
+                            <Route path="/auth-test" element={<AuthTestPage />} />
+                          )}
+                          
+                          {/* Admin auth debug route - only in development */}
+                          {process.env.NODE_ENV === 'development' && (
+                            <Route path="/admin-auth-debug" element={<AdminAuthDebug />} />
+                          )}
+                          
+                          {/* Fallback for unknown routes */}
+                          <Route path="*" element={<Home />} />
+                        </Routes>
+                      </Suspense>
+                    </main>
+                    
+                    <FloatingQuickAdd onOpenQuickAdd={handleOpenQuickAdd} />
+                    {isModalOpen && (
+                      <AddToListModal 
+                        item={quickAddItem} 
+                        isOpen={isModalOpen} 
+                        onClose={handleCloseQuickAdd} 
+                      />
+                    )}
+                  </div>
+                </PlacesApiProvider>
+              </ListDetailProvider>
+            </QuickAddProvider>
+          </AuthErrorBoundary>
+        </AuthProvider>
+      </HelmetProvider>
     </QueryClientProvider>
   );
 }

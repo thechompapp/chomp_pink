@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { engagementService } from '@/services/engagementService';
-import useAuthStore from '@/stores/useAuthStore';
+import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
 
 // Compact animation variants - fixed to prevent border clipping
 const compactRestaurantCardVariants = {
@@ -61,7 +61,7 @@ const CompactRestaurantCard = ({
   showMetadata = true,
   className = ""
 }) => {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated  } = useAuth();
 
   const cleanName = name?.split(',')[0].trim() || 'Unnamed Restaurant';
   const locationParts = [neighborhood_name, city_name].filter(Boolean);

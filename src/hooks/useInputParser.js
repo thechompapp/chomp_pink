@@ -5,7 +5,7 @@
  * Leverages the bulkAddUtils.js utility functions for parsing logic.
  */
 import { useState, useCallback } from 'react';
-import { parseInputText } from '@/utils/bulkAddUtils';
+import { parseInputText } from '@/utils/generalUtils';
 import { logDebug, logError, logInfo } from '@/utils/logger';
 
 /**

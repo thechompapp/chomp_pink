@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { AlertCircle } from 'lucide-react';
-import useAuthStore from '@/stores/useAuthStore';
+import { useAuth } from '@/contexts/auth/AuthContext';
 import { logDebug } from '@/utils/logger';
 import Modal from '@/components/UI/Modal';
 import Button from '@/components/UI/Button';
@@ -23,7 +23,7 @@ const STEPS = {
  * Orchestrates the components for adding items to lists
  */
 const AddToListModalContainer = ({ isOpen, onClose, itemToAdd, onItemAdded }) => {
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated } = useAuth();
 
   // State management
   const [searchTerm, setSearchTerm] = useState('');

@@ -14,7 +14,7 @@ import { formatRelativeDate } from '@/utils/formatting';
 import { useQuickAdd } from '@/contexts/QuickAddContext';
 import ConfirmationDialog from '@/components/UI/ConfirmationDialog';
 import useApiErrorHandler from '@/hooks/useApiErrorHandler';
-import useAuthStore from '@/stores/useAuthStore';
+import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
 import { logDebug, logError, logInfo, logWarn } from '@/utils/logger';
 import FollowButton from '@/components/FollowButton';
 
@@ -28,7 +28,7 @@ function WorkingListDetail({ listId: propListId, embedded = false }) {
   // Get URL parameters and authentication state
   const params = useParams();
   const listId = propListId || params.listId;
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated  } = useAuth();
   
   // Early return if no listId is provided
   if (!listId) {

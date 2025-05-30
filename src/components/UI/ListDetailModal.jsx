@@ -6,14 +6,14 @@ import { X, Heart, HeartOff, SortAsc, SortDesc, Star, MapPin, DollarSign, Clock,
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { listService } from '@/services/listService';
 import { engagementService } from '@/services/engagementService';
-import useAuthStore from '@/stores/useAuthStore';
+import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
 import Button from '@/components/UI/Button';
 import { formatRelativeDate } from '@/utils/formatting';
 import { logDebug, logError } from '@/utils/logger';
 
 // List item display component with quick add button
 const ListItemDisplay = ({ item, onQuickAdd, index }) => {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated  } = useAuth();
   
   if (!item || item.id == null) return null;
 
@@ -112,7 +112,7 @@ ListItemDisplay.propTypes = {
 };
 
 const ListDetailModal = ({ isOpen, onClose, listId, onQuickAdd }) => {
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated  } = useAuth();
   const queryClient = useQueryClient();
   const [sortBy, setSortBy] = useState('added_at');
   const [sortOrder, setSortOrder] = useState('desc');

@@ -6,7 +6,7 @@
  */
 import { useRef, useCallback } from 'react';
 import { filterService } from '@/services/filterService';
-import { retryWithBackoff, BULK_ADD_CONFIG } from '@/utils/bulkAddUtils';
+import { retryWithBackoff, APP_CONFIG } from '@/utils/generalUtils';
 import { logDebug, logError } from '@/utils/logger';
 
 /**
@@ -23,7 +23,7 @@ const useNeighborhoodResolver = () => {
    * @param {number} cityId - City ID
    * @returns {Promise<Object>} - Neighborhood data
    */
-  const fetchNeighborhoodByZipcode = useCallback(async (zipcode, cityId = BULK_ADD_CONFIG.defaultCityId) => {
+  const fetchNeighborhoodByZipcode = useCallback(async (zipcode, cityId = APP_CONFIG.defaultCityId) => {
     if (!zipcode) {
       return getDefaultNeighborhood(cityId);
     }
@@ -59,7 +59,7 @@ const useNeighborhoodResolver = () => {
    * @param {number} cityId - City ID
    * @returns {Promise<Object>} - Default neighborhood
    */
-  const getDefaultNeighborhood = useCallback(async (cityId = BULK_ADD_CONFIG.defaultCityId) => {
+  const getDefaultNeighborhood = useCallback(async (cityId = APP_CONFIG.defaultCityId) => {
     try {
       // Try to get neighborhoods for the city
       const neighborhoods = await retryWithBackoff(() => 

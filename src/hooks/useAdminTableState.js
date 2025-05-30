@@ -10,7 +10,7 @@ import { useAdminAddRow } from './useAdminAddRow.js';
 import { useAdminBulkEditing } from './useAdminBulkEditing.js';
 import useApiErrorHandler from '@/hooks/useApiErrorHandler.js';
 import { toast } from 'react-hot-toast';
-import { useAuthStore } from '@/stores/useAuthStore';
+import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
 import { useAdminStore } from '@/stores/useAdminStore';
 
 export const useAdminTableState = ({
@@ -21,7 +21,7 @@ export const useAdminTableState = ({
   neighborhoods = [],
   onDataMutated,
 }) => {
-  const { user } = useAuthStore();
+  const { user  } = useAuth();
   const { setAdminData } = useAdminStore();
   const queryClient = useQueryClient();
   const handleApiError = useApiErrorHandler();

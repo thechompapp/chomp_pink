@@ -8,7 +8,7 @@ import Button from '@/components/UI/Button';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { TrendingUp, Lock } from 'lucide-react';
 import { logDebug, logError, logWarn } from '@/utils/logger';
-import useAuthStore from '@/stores/useAuthStore';
+import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
 import { fetchAggregateTrends } from '@/utils/analyticsUtils';
 
 const PERIOD_OPTIONS = [
@@ -23,7 +23,7 @@ const CHART_COLOR = "#A78B71";
 // Modified TrendChart component with enhanced auth handling
 const TrendChart = ({ itemType }) => { // REMOVED: Type hints for props
     const [period, setPeriod] = useState('30d'); // Default period
-    const { isAuthenticated, token, user } = useAuthStore(); // Get full auth state
+    const { isAuthenticated, token, user  } = useAuth(); // Get full auth state
 
     // Log auth state for debugging
     useEffect(() => {

@@ -9,7 +9,7 @@ import PropTypes from 'prop-types';
 import { useParams } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { useQuickAdd } from '@/contexts/QuickAddContext';
-import useAuthStore from '@/stores/useAuthStore';
+import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
 import PageContainer from '@/layouts/PageContainer';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
 import ErrorMessage from '@/components/UI/ErrorMessage';
@@ -30,7 +30,7 @@ const RefactoredListDetail = ({ listId: propListId, embedded = false }) => {
   const listId = propListId || urlListId;
   
   // Auth state
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated  } = useAuth();
   
   // Quick add functionality
   const { openQuickAdd } = useQuickAdd();

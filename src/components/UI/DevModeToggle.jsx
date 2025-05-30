@@ -1,7 +1,7 @@
 // src/components/UI/DevModeToggle.jsx
 import React, { useState, useEffect, useCallback, memo } from 'react';
 import { Cog, Bug } from 'lucide-react';
-import useAuthStore from '@/stores/useAuthStore';
+import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
 import { logDebug } from '@/utils/logger';
 
 /**
@@ -21,7 +21,7 @@ const DevModeToggle = () => {
   );
   
   // Avoid unnecessary re-renders by using a stable reference
-  const checkAuthStatus = useAuthStore(state => state.checkAuthStatus);
+  const { checkAuthStatus: checkAuthStatus } = useAuth();
   
   // Use useCallback to prevent function recreation on every render
   const toggleBypassAuth = useCallback(() => {

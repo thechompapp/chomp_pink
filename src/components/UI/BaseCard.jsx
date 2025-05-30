@@ -3,7 +3,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import useAuthStore from '@/stores/useAuthStore';
+import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
 
 // Extract the Plus icon to its own component for better reusability
 const PlusIcon = () => (
@@ -38,7 +38,7 @@ const BaseCardComponent = ({
   showQuickAdd = true,
   ...domProps // Only spread DOM-safe props
 }) => {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated  } = useAuth();
   
   // Simplified conditional to determine if quick add button should be shown
   const shouldShowQuickAdd = Boolean(onQuickAdd && showQuickAdd && isAuthenticated);

@@ -7,14 +7,14 @@ import { XMarkIcon, ArrowLeftIcon, PencilIcon, TrashIcon, ArrowUpIcon, ArrowDown
 import { useQuery } from '@tanstack/react-query';
 import { listService } from '@/services/listService';
 import { Loader2, MapPin } from 'lucide-react';
-import useAuthStore from '@/stores/useAuthStore';
+import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
 import FollowButton from '@/components/FollowButton';
 import { formatRelativeDate } from '@/utils/formatting';
 
 export default function DirectListDetailModal({ listId, isOpen, onClose }) {
   // Track sort order
   const [sortOrder, setSortOrder] = useState('default');
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated  } = useAuth();
   
   // Fetch list data
   const { 

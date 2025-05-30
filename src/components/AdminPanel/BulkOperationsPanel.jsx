@@ -22,7 +22,8 @@ import {
   Pause,
   RotateCcw,
   Eye,
-  Filter
+  Filter,
+  Plus
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
@@ -34,7 +35,8 @@ const OPERATION_TYPES = {
   BULK_UPDATE: 'bulk_update',
   BULK_DELETE: 'bulk_delete',
   BULK_IMPORT: 'bulk_import',
-  BULK_EXPORT: 'bulk_export'
+  BULK_EXPORT: 'bulk_export',
+  BULK_ADD: 'bulk_add'
 };
 
 // File formats
@@ -234,6 +236,8 @@ export const BulkOperationsPanel = ({
   const [validationResults, setValidationResults] = useState(null);
   const [operationHistory, setOperationHistory] = useState([]);
   const [bulkUpdateFields, setBulkUpdateFields] = useState({});
+  const [bulkAddText, setBulkAddText] = useState('');
+  const bulkAddFileInputRef = useRef(null);
   
   // Handle file upload and validation
   const handleFileUpload = useCallback(async (file) => {
@@ -469,6 +473,98 @@ export const BulkOperationsPanel = ({
     return templates[resourceType] || {};
   };
   
+  // Handle bulk add restaurants
+  const handleBulkAddRestaurants = useCallback(async () => {
+    if (!bulkAddText.trim()) {
+      toast.error('Enter restaurant data');
+      return;
+    }
+    
+    setIsLoading(true);
+    setProgress(0);
+    
+    try {
+      const restaurants = bulkAddText.split('\n').map(line => {
+        const [name, address, city, state, zip] = line.split(',');
+        return {
+          name: name.trim(),
+          address: address.trim(),
+          city: city.trim(),
+          state: state.trim(),
+          zip: zip.trim()
+        };
+      });
+      
+      const result = await enhancedAdminService.bulkAddRestaurants(
+        resourceType,
+        restaurants,
+        (progress) => setProgress(progress)
+      );
+      
+      // Add to operation history
+      setOperationHistory(prev => [...prev, {
+        id: Date.now(),
+        type: OPERATION_TYPES.BULK_ADD,
+        timestamp: new Date(),
+        records: restaurants.length,
+        success: result.success,
+        failed: result.failed
+      }]);
+      
+      toast.success(`Added ${result.success} restaurants, ${result.failed} failed`);
+      setBulkAddText('');
+      setActiveOperation(null);
+      onOperationComplete?.();
+      
+    } catch (error) {
+      console.error('Bulk add restaurants error:', error);
+      toast.error(`Bulk add restaurants failed: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+      setProgress(0);
+    }
+  }, [resourceType, bulkAddText, onOperationComplete]);
+  
+  // Handle bulk add file upload
+  const handleBulkAddFileUpload = useCallback(async (e) => {
+    e.preventDefault();
+    const file = e.target.files[0];
+    if (file) {
+      setIsLoading(true);
+      setProgress(0);
+      
+      try {
+        const result = await enhancedAdminService.bulkAddRestaurantsFromFile(
+          resourceType,
+          file,
+          (progress) => setProgress(progress)
+        );
+        
+        // Add to operation history
+        setOperationHistory(prev => [...prev, {
+          id: Date.now(),
+          type: OPERATION_TYPES.BULK_ADD,
+          timestamp: new Date(),
+          records: result.records,
+          success: result.success,
+          failed: result.failed
+        }]);
+        
+        toast.success(`Added ${result.success} restaurants, ${result.failed} failed`);
+        setBulkAddText('');
+        setActiveOperation(null);
+        onOperationComplete?.();
+        
+      } catch (error) {
+        console.error('Bulk add file upload error:', error);
+        toast.error(`Bulk add file upload failed: ${error.message}`);
+      } finally {
+        setIsLoading(false);
+        setProgress(0);
+      }
+    }
+  }, [resourceType, onOperationComplete]);
+  
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -488,7 +584,7 @@ export const BulkOperationsPanel = ({
       </div>
       
       {/* Operation Buttons */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <button
           onClick={() => setActiveOperation(OPERATION_TYPES.BULK_IMPORT)}
           disabled={isLoading}
@@ -515,6 +611,17 @@ export const BulkOperationsPanel = ({
           <Settings className="w-5 h-5 text-purple-600" />
           <span>Bulk Update</span>
         </button>
+        
+        {resourceType === 'restaurants' && (
+          <button
+            onClick={() => setActiveOperation(OPERATION_TYPES.BULK_ADD)}
+            disabled={isLoading}
+            className="flex items-center justify-center space-x-2 p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <Plus className="w-5 h-5 text-indigo-600" />
+            <span>Bulk Add</span>
+          </button>
+        )}
         
         <button
           onClick={handleDownloadTemplate}
@@ -638,6 +745,89 @@ export const BulkOperationsPanel = ({
                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
               >
                 Update {selectedRows.size} Records
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Bulk Add Interface */}
+      {activeOperation === OPERATION_TYPES.BULK_ADD && resourceType === 'restaurants' && (
+        <div className="bg-white border border-gray-200 rounded-lg p-6">
+          <h4 className="text-lg font-medium text-gray-900 mb-4">
+            Bulk Add Restaurants
+          </h4>
+          
+          <div className="space-y-4">
+            {/* Instructions */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h5 className="font-medium text-blue-900 mb-2">Format Instructions</h5>
+              <p className="text-sm text-blue-800 mb-2">
+                Enter one restaurant per line using the following format:
+              </p>
+              <code className="block text-sm bg-blue-100 p-2 rounded font-mono">
+                Restaurant Name, Address, City, State, ZIP
+              </code>
+              <p className="text-xs text-blue-600 mt-2">
+                Example: Joe's Pizza, 123 Main St, New York, NY, 10001
+              </p>
+            </div>
+            
+            {/* Text Input */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Restaurant Data (one per line)
+              </label>
+              <textarea
+                className="w-full h-64 border border-gray-300 rounded-md px-3 py-2 text-sm font-mono"
+                placeholder="Restaurant Name, Address, City, State, ZIP&#10;Another Restaurant, 456 Oak Ave, Brooklyn, NY, 11201&#10;Third Place, 789 Pine St, Queens, NY, 11373"
+                value={bulkAddText}
+                onChange={(e) => setBulkAddText(e.target.value)}
+                disabled={isLoading}
+              />
+            </div>
+            
+            {/* File Upload Option */}
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
+              <div className="text-center">
+                <Upload className="mx-auto h-8 w-8 text-gray-400" />
+                <p className="mt-2 text-sm text-gray-600">
+                  Or upload a text/CSV file
+                </p>
+                <input
+                  type="file"
+                  accept=".txt,.csv"
+                  onChange={handleBulkAddFileUpload}
+                  className="hidden"
+                  ref={bulkAddFileInputRef}
+                />
+                <button
+                  onClick={() => bulkAddFileInputRef.current?.click()}
+                  disabled={isLoading}
+                  className="mt-2 px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md"
+                >
+                  Choose File
+                </button>
+              </div>
+            </div>
+            
+            {/* Action Buttons */}
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setActiveOperation(null);
+                  setBulkAddText('');
+                }}
+                className="px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBulkAddRestaurants}
+                disabled={!bulkAddText.trim() || isLoading}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+              >
+                {isLoading ? 'Processing...' : 'Add Restaurants'}
               </button>
             </div>
           </div>

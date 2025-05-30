@@ -175,14 +175,7 @@ const AdminAuthDebug = () => {
               href="/admin"
               className="inline-block px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600"
             >
-              Try Regular Admin
-            </a>
-            
-            <a
-              href="/admin-enhanced"
-              className="inline-block px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600"
-            >
-              Try Enhanced Admin
+              Try Admin Panel
             </a>
           </div>
         </div>

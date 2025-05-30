@@ -5,7 +5,7 @@ import { PlusIcon } from '@heroicons/react/24/solid';
 import { Star, ChevronUp, ChevronDown, MessageSquare } from 'lucide-react';
 import { useListDetailModal } from '@/hooks/useListDetailModal';
 import { useQuickAdd } from '@/contexts/QuickAddContext';
-import useAuthStore from '@/stores/useAuthStore';
+import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
 import { formatRelativeDate } from '@/utils/formatters';
 import Button from '@/components/UI/Button';
 import ErrorMessage from '@/components/UI/ErrorMessage';
@@ -35,7 +35,7 @@ PreviewListItem.propTypes = {
 
 function ListPreviewCard({ list, className = '' }) {
   const { openQuickAdd } = useQuickAdd();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated  } = useAuth();
   const { openListDetailModal } = useListDetailModal();
   const PREVIEW_LIMIT = 3;
 

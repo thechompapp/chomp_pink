@@ -1,7 +1,7 @@
 /* src/pages/Trending/index.jsx */
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import useAuthStore from '@/stores/useAuthStore'; // <-- Corrected default import
+import { useAuth } from '@/contexts/auth/AuthContext'; // <-- Corrected default import // Migrated from useAuthStore
 import useFollowStore from '@/stores/useFollowStore'; // Import the follow store
 import RestaurantCard from '@/components/UI/RestaurantCard';
 import DishCard from '@/components/UI/DishCard';
@@ -103,7 +103,7 @@ const Trending = () => {
   const [activeTab, setActiveTab] = useState('restaurants');
   const [sortMethod, setSortMethod] = useState('popular');
   const [chartViewType, setChartViewType] = useState('restaurant');
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isAuthenticated = useAuth().isAuthenticated;
   const { openQuickAdd } = useQuickAdd();
   const queryClient = useQueryClient();
   

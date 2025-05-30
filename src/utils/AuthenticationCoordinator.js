@@ -1,0 +1,639 @@
+/**
+ * Authentication Coordination System
+ * 
+ * This is the SINGLE SOURCE OF TRUTH for all authentication state.
+ * It coordinates between frontend, backend, and all authentication subsystems.
+ * 
+ * 🔄 Key Responsibilities:
+ * 1. Centralized token validation and synchronization
+ * 2. Session expiry coordination across all systems
+ * 3. Logout coordination (invalidates EVERYWHERE)
+ * 4. Cross-service authentication consistency
+ * 5. Error handling coordination for 401/403 responses
+ * 6. Admin authentication synchronization
+ */
+
+import { logInfo, logError, logWarn, logDebug } from './logger';
+import { toast } from 'react-hot-toast';
+
+// Constants
+const AUTH_EVENTS = {
+  LOGIN_SUCCESS: 'auth:login_success',
+  LOGOUT_COMPLETE: 'auth:logout_complete',
+  TOKEN_EXPIRED: 'auth:token_expired',
+  UNAUTHORIZED: 'auth:unauthorized',
+  SESSION_RESTORED: 'auth:session_restored',
+  STATE_SYNC: 'auth:state_sync'
+};
+
+const STORAGE_KEYS = {
+  TOKEN: 'token',
+  USER: 'current_user',
+  ADMIN_KEY: 'admin_api_key',
+  ADMIN_ACCESS: 'admin_access_enabled',
+  SUPERUSER: 'superuser_override',
+  FORCE_ONLINE: 'force_online',
+  LOGOUT_FLAG: 'user_explicitly_logged_out'
+};
+
+/**
+ * Authentication Coordination System
+ */
+class AuthenticationCoordinator {
+  constructor() {
+    this.listeners = new Map();
+    this.authStores = new Set();
+    this.isInitialized = false;
+    this.currentState = {
+      isAuthenticated: false,
+      user: null,
+      token: null,
+      isAdmin: false,
+      isSuperuser: false,
+      lastVerified: null
+    };
+  }
+
+  /**
+   * Initialize the coordinator
+   */
+  async initialize() {
+    if (this.isInitialized) return;
+    
+    logInfo('[AuthCoordinator] Initializing authentication coordination system');
+    
+    // Set up event listeners
+    this.setupEventListeners();
+    
+    // Register all auth stores
+    await this.registerAuthStores();
+    
+    // Perform initial state sync
+    await this.performInitialSync();
+    
+    // Set up periodic token validation
+    this.setupTokenValidation();
+    
+    this.isInitialized = true;
+    logInfo('[AuthCoordinator] Authentication coordination system ready');
+  }
+
+  /**
+   * Register authentication stores for coordination
+   */
+  async registerAuthStores() {
+    try {
+      // Import stores dynamically to avoid circular dependencies
+      const authStoreModules = [
+        () => import('@/stores/auth/useAuthenticationStore'),
+        () => import('@/stores/useAuthStore'),
+        () => import('@/contexts/auth/AuthContext')
+      ];
+
+      for (const moduleImporter of authStoreModules) {
+        try {
+          const module = await moduleImporter();
+          const store = module.default || module;
+          if (store) {
+            this.authStores.add(store);
+            logDebug('[AuthCoordinator] Registered auth store');
+          }
+        } catch (error) {
+          logWarn('[AuthCoordinator] Failed to register auth store:', error.message);
+        }
+      }
+    } catch (error) {
+      logError('[AuthCoordinator] Error registering auth stores:', error);
+    }
+  }
+
+  /**
+   * Perform initial state synchronization
+   */
+  async performInitialSync() {
+    logInfo('[AuthCoordinator] Performing initial authentication state sync');
+    
+    try {
+      // Check for explicit logout flag first
+      const explicitLogout = localStorage.getItem(STORAGE_KEYS.LOGOUT_FLAG) === 'true';
+      if (explicitLogout) {
+        logInfo('[AuthCoordinator] User explicitly logged out, clearing all auth state');
+        await this.performCoordinatedLogout(false); // Don't call API
+        return;
+      }
+
+      // Get token from storage
+      const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
+      const savedUser = localStorage.getItem(STORAGE_KEYS.USER);
+
+      if (!token) {
+        logInfo('[AuthCoordinator] No auth token found, setting unauthenticated state');
+        await this.syncAuthenticatedState(false, null, null);
+        return;
+      }
+
+      // Parse saved user data
+      let user = null;
+      if (savedUser) {
+        try {
+          user = JSON.parse(savedUser);
+        } catch (error) {
+          logWarn('[AuthCoordinator] Invalid saved user data, clearing');
+          localStorage.removeItem(STORAGE_KEYS.USER);
+        }
+      }
+
+      // Verify token with backend
+      const isValid = await this.verifyTokenWithBackend(token);
+      
+      if (isValid) {
+        logInfo('[AuthCoordinator] Token verified, syncing authenticated state');
+        await this.syncAuthenticatedState(true, user, token);
+        
+        // Set up admin access if in development
+        if (import.meta.env.DEV && user) {
+          this.setupDevelopmentAdminAccess(user);
+        }
+      } else {
+        logWarn('[AuthCoordinator] Token verification failed, clearing auth state');
+        await this.performCoordinatedLogout(false);
+      }
+    } catch (error) {
+      logError('[AuthCoordinator] Error in initial sync:', error);
+      // On error, default to unauthenticated state
+      await this.syncAuthenticatedState(false, null, null);
+    }
+  }
+
+  /**
+   * Verify token with backend
+   */
+  async verifyTokenWithBackend(token) {
+    try {
+      const response = await fetch('/api/auth/status', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return data.valid === true;
+      } else if (response.status === 401) {
+        logInfo('[AuthCoordinator] Token expired or invalid');
+        return false;
+      } else {
+        logWarn('[AuthCoordinator] Token verification failed with status:', response.status);
+        return false;
+      }
+    } catch (error) {
+      logWarn('[AuthCoordinator] Token verification network error:', error.message);
+      // On network error, assume token is still valid to avoid logout loops
+      return true;
+    }
+  }
+
+  /**
+   * Coordinate login across all systems
+   */
+  async coordinateLogin(credentials) {
+    logInfo('[AuthCoordinator] Coordinating login across all systems');
+    
+    try {
+      // Clear any previous logout flags
+      localStorage.removeItem(STORAGE_KEYS.LOGOUT_FLAG);
+      
+      // Attempt login
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(credentials)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Login failed');
+      }
+
+      const loginData = await response.json();
+      const { user, token } = loginData.data || loginData;
+
+      if (!user || !token) {
+        throw new Error('Invalid login response from server');
+      }
+
+      // Store authentication data
+      localStorage.setItem(STORAGE_KEYS.TOKEN, token);
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+      
+      // Sync across all systems
+      await this.syncAuthenticatedState(true, user, token);
+      
+      // Set up admin access if in development
+      if (import.meta.env.DEV) {
+        this.setupDevelopmentAdminAccess(user);
+      }
+
+      // Dispatch success event
+      this.dispatchEvent(AUTH_EVENTS.LOGIN_SUCCESS, { user, token });
+      
+      logInfo('[AuthCoordinator] Login coordinated successfully');
+      return { success: true, user, token };
+      
+    } catch (error) {
+      logError('[AuthCoordinator] Login coordination failed:', error);
+      
+      // Ensure clean state on login failure
+      await this.syncAuthenticatedState(false, null, null);
+      
+      return { 
+        success: false, 
+        error: error.message || 'Login failed' 
+      };
+    }
+  }
+
+  /**
+   * Coordinate logout across ALL systems
+   */
+  async coordinateLogout() {
+    logInfo('[AuthCoordinator] Coordinating logout across ALL systems');
+    return await this.performCoordinatedLogout(true);
+  }
+
+  /**
+   * Perform coordinated logout
+   */
+  async performCoordinatedLogout(callAPI = true) {
+    try {
+      // 1. Set explicit logout flag FIRST
+      localStorage.setItem(STORAGE_KEYS.LOGOUT_FLAG, 'true');
+      
+      // 2. Call logout API if requested
+      if (callAPI) {
+        try {
+          const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
+          if (token) {
+            await fetch('/api/auth/logout', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            });
+          }
+        } catch (error) {
+          logWarn('[AuthCoordinator] Logout API call failed, continuing with local cleanup:', error.message);
+        }
+      }
+
+      // 3. Clear ALL storage
+      this.clearAllAuthStorage();
+      
+      // 4. Sync unauthenticated state across all systems
+      await this.syncAuthenticatedState(false, null, null);
+      
+      // 5. Clear auth cookies
+      this.clearAuthCookies();
+      
+      // 6. Dispatch logout event
+      this.dispatchEvent(AUTH_EVENTS.LOGOUT_COMPLETE, { timestamp: Date.now() });
+      
+      logInfo('[AuthCoordinator] Logout coordinated successfully across all systems');
+      
+    } catch (error) {
+      logError('[AuthCoordinator] Error in coordinated logout:', error);
+      
+      // Even on error, ensure local state is cleared
+      this.clearAllAuthStorage();
+      await this.syncAuthenticatedState(false, null, null);
+    }
+  }
+
+  /**
+   * Clear all authentication storage
+   */
+  clearAllAuthStorage() {
+    logInfo('[AuthCoordinator] Clearing all authentication storage');
+    
+    // Clear localStorage
+    Object.values(STORAGE_KEYS).forEach(key => {
+      localStorage.removeItem(key);
+    });
+    
+    // Clear other auth-related keys
+    const authKeys = [
+      'auth-storage',
+      'auth-authentication-storage',
+      'admin_config',
+      'offline_mode',
+      'offline-mode',
+      'bypass_auth_check'
+    ];
+    
+    authKeys.forEach(key => {
+      localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
+    });
+    
+    // Restore the logout flag
+    localStorage.setItem(STORAGE_KEYS.LOGOUT_FLAG, 'true');
+  }
+
+  /**
+   * Clear authentication cookies
+   */
+  clearAuthCookies() {
+    const authCookieNames = [
+      'auth', 'token', 'user', 'admin', 
+      'session', 'jwt', 'access_token'
+    ];
+    
+    authCookieNames.forEach(name => {
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${window.location.hostname}`;
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/`;
+    });
+  }
+
+  /**
+   * Sync authenticated state across all systems
+   */
+  async syncAuthenticatedState(isAuthenticated, user, token) {
+    const newState = {
+      isAuthenticated,
+      user,
+      token,
+      isAdmin: isAuthenticated && (user?.role === 'admin' || user?.account_type === 'superuser'),
+      isSuperuser: isAuthenticated && user?.account_type === 'superuser',
+      lastVerified: Date.now()
+    };
+
+    // Update internal state
+    this.currentState = newState;
+
+    // Sync all registered auth stores
+    for (const store of this.authStores) {
+      try {
+        if (store && typeof store.setState === 'function') {
+          store.setState({
+            isAuthenticated,
+            user,
+            token,
+            isLoading: false,
+            error: null,
+            isSuperuser: newState.isSuperuser,
+            superuserStatusReady: true
+          });
+        } else if (store && typeof store.getState === 'function') {
+          // Handle Zustand stores
+          const currentState = store.getState();
+          store.setState({
+            ...currentState,
+            isAuthenticated,
+            user,
+            token,
+            isLoading: false,
+            error: null,
+            isSuperuser: newState.isSuperuser,
+            superuserStatusReady: true
+          });
+        }
+      } catch (error) {
+        logWarn('[AuthCoordinator] Failed to sync auth store:', error.message);
+      }
+    }
+
+    // Dispatch state sync event
+    this.dispatchEvent(AUTH_EVENTS.STATE_SYNC, newState);
+    
+    logDebug('[AuthCoordinator] Authentication state synced across all systems');
+  }
+
+  /**
+   * Set up development mode admin access
+   */
+  setupDevelopmentAdminAccess(user) {
+    if (!import.meta.env.DEV) return;
+    
+    logInfo('[AuthCoordinator] Setting up development mode admin access');
+    
+    // Set admin flags
+    localStorage.setItem(STORAGE_KEYS.ADMIN_ACCESS, 'true');
+    localStorage.setItem(STORAGE_KEYS.SUPERUSER, 'true');
+    localStorage.setItem(STORAGE_KEYS.ADMIN_KEY, 'doof-admin-secret-key-dev');
+    localStorage.setItem(STORAGE_KEYS.FORCE_ONLINE, 'true');
+    
+    // Clear offline flags
+    localStorage.removeItem('offline_mode');
+    localStorage.removeItem('offline-mode');
+    sessionStorage.removeItem('offline_mode');
+    sessionStorage.removeItem('offline-mode');
+  }
+
+  /**
+   * Handle 401/403 responses from any part of the system
+   */
+  handleUnauthorizedResponse(response) {
+    logWarn('[AuthCoordinator] Unauthorized response detected, coordinating logout');
+    
+    if (response.status === 401) {
+      this.dispatchEvent(AUTH_EVENTS.TOKEN_EXPIRED, { response });
+      this.performCoordinatedLogout(false);
+      toast.error('Your session has expired. Please log in again.');
+    } else if (response.status === 403) {
+      this.dispatchEvent(AUTH_EVENTS.UNAUTHORIZED, { response });
+      toast.error('You do not have permission to access this resource.');
+    }
+  }
+
+  /**
+   * Set up periodic token validation
+   */
+  setupTokenValidation() {
+    // Validate token every 5 minutes
+    setInterval(async () => {
+      if (this.currentState.isAuthenticated && this.currentState.token) {
+        const isValid = await this.verifyTokenWithBackend(this.currentState.token);
+        if (!isValid) {
+          logInfo('[AuthCoordinator] Periodic token validation failed, logging out');
+          await this.performCoordinatedLogout(false);
+        }
+      }
+    }, 5 * 60 * 1000);
+  }
+
+  /**
+   * Set up event listeners
+   */
+  setupEventListeners() {
+    // Listen for storage changes across tabs
+    window.addEventListener('storage', (event) => {
+      if (event.key === STORAGE_KEYS.LOGOUT_FLAG && event.newValue === 'true') {
+        logInfo('[AuthCoordinator] Logout detected in another tab, syncing logout');
+        this.performCoordinatedLogout(false);
+      }
+    });
+
+    // Listen for network status changes
+    window.addEventListener('online', () => {
+      if (this.currentState.isAuthenticated) {
+        logInfo('[AuthCoordinator] Network restored, verifying token');
+        this.verifyTokenWithBackend(this.currentState.token);
+      }
+    });
+  }
+
+  /**
+   * Dispatch authentication events
+   */
+  dispatchEvent(eventType, detail) {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(eventType, { detail }));
+    }
+  }
+
+  /**
+   * Get current authentication state
+   */
+  getCurrentState() {
+    return { ...this.currentState };
+  }
+
+  /**
+   * Check if user is authenticated
+   */
+  isAuthenticated() {
+    return this.currentState.isAuthenticated;
+  }
+
+  /**
+   * Check if user is admin
+   */
+  isAdmin() {
+    return this.currentState.isAdmin;
+  }
+
+  /**
+   * Check if user is superuser
+   */
+  isSuperuser() {
+    return this.currentState.isSuperuser;
+  }
+
+  /**
+   * Set token (compatibility method for migration helper)
+   */
+  async setToken(token) {
+    if (!token) {
+      logWarn('[AuthCoordinator] Invalid token provided to setToken');
+      return;
+    }
+
+    // Verify token first
+    const isValid = await this.verifyTokenWithBackend(token);
+    if (!isValid) {
+      logWarn('[AuthCoordinator] Invalid token provided to setToken');
+      return;
+    }
+
+    // Update storage and state
+    localStorage.setItem(STORAGE_KEYS.TOKEN, token);
+    this.currentState.token = token;
+    
+    logInfo('[AuthCoordinator] Token updated successfully');
+  }
+
+  /**
+   * Set error (compatibility method for migration helper)
+   */
+  setError(error) {
+    this.currentState.error = error;
+    logWarn('[AuthCoordinator] Error set:', error);
+    
+    // Sync error to all stores
+    for (const store of this.authStores) {
+      try {
+        if (store && typeof store.setState === 'function') {
+          store.setState({ error });
+        } else if (store && typeof store.getState === 'function') {
+          const currentState = store.getState();
+          store.setState({ ...currentState, error });
+        }
+      } catch (err) {
+        logWarn('[AuthCoordinator] Failed to sync error to store:', err.message);
+      }
+    }
+  }
+
+  /**
+   * Clear error (compatibility method for migration helper)
+   */
+  clearError() {
+    this.currentState.error = null;
+    
+    // Sync cleared error to all stores
+    for (const store of this.authStores) {
+      try {
+        if (store && typeof store.setState === 'function') {
+          store.setState({ error: null });
+        } else if (store && typeof store.getState === 'function') {
+          const currentState = store.getState();
+          store.setState({ ...currentState, error: null });
+        }
+      } catch (err) {
+        logWarn('[AuthCoordinator] Failed to clear error in store:', err.message);
+      }
+    }
+  }
+
+  /**
+   * Check auth status (compatibility method for migration helper)
+   */
+  async checkAuthStatus() {
+    if (!this.currentState.token) {
+      return false;
+    }
+    
+    const isValid = await this.verifyTokenWithBackend(this.currentState.token);
+    if (!isValid && this.currentState.isAuthenticated) {
+      // Token is invalid but we think we're authenticated - logout
+      await this.performCoordinatedLogout(false);
+    }
+    
+    return isValid;
+  }
+
+  /**
+   * Login alias method (compatibility for tests and migration helper)
+   */
+  async login(credentials) {
+    return await this.coordinateLogin(credentials);
+  }
+
+  /**
+   * Logout alias method (compatibility for tests and migration helper)
+   */
+  async logout() {
+    return await this.coordinateLogout();
+  }
+}
+
+// Create and export singleton instance
+const authCoordinator = new AuthenticationCoordinator();
+
+// Initialize on module load
+if (typeof window !== 'undefined') {
+  // Expose coordinator globally for non-React contexts
+  window.__authCoordinator = authCoordinator;
+  
+  authCoordinator.initialize().catch(error => {
+    logError('[AuthCoordinator] Initialization failed:', error);
+  });
+}
+
+export default authCoordinator;
+export { AUTH_EVENTS, STORAGE_KEYS }; 

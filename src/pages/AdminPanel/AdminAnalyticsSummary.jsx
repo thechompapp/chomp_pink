@@ -6,8 +6,7 @@ import LoadingSpinner from '@/components/UI/LoadingSpinner.jsx';
 import ErrorMessage from '@/components/UI/ErrorMessage.jsx';
 import Button from '@/components/UI/Button.jsx';
 import { BarChart, Store, Utensils, List, Users, Loader2, CheckCircle, XCircle, FileText, PieChart, CheckSquare } from 'lucide-react';
-import useAuthStore from '@/stores/useAuthStore';
-import { useShallow } from 'zustand/react/shallow';
+import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
 import useComponentError from '@/hooks/useComponentError';
 
 // --- REMOVED: TypeScript interfaces ---
@@ -117,12 +116,7 @@ const AdminAnalyticsSummary = () => { // Removed : React.FC
   });
 
   // Extract only what we need from auth store
-  const { isAuthenticated, isLoading: authLoading } = useAuthStore(
-    useShallow((state) => ({
-      isAuthenticated: state.isAuthenticated,
-      isLoading: state.isLoading,
-    }))
-  );
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
 
   // UseQuery with memoized query keys
   const summaryQuery = useQuery({

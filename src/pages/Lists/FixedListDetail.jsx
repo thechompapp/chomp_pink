@@ -10,12 +10,12 @@ import PageContainer from '@/layouts/PageContainer';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
 import ErrorMessage from '@/components/UI/ErrorMessage';
 import { formatRelativeDate } from '@/utils/formatting';
-import useAuthStore from '@/stores/useAuthStore';
+import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
 import FollowButton from '@/components/FollowButton';
 
 function FixedListDetail() {
   const { listId } = useParams();
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated  } = useAuth();
   
   // Force DB data by removing mock flags
   useEffect(() => {

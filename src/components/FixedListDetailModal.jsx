@@ -10,7 +10,7 @@ import { Loader2, AlertCircle, X as XLucideIcon, PlusCircle } from 'lucide-react
 import { listService } from '@/services/listService';
 import { formatRelativeDate } from '@/utils/formatting';
 import { useQuickAdd } from '@/contexts/QuickAddContext'; // Assuming this context provides openQuickAddModal
-import useAuthStore from '@/stores/useAuthStore';
+import { useAuth } from '@/contexts/auth/AuthContext'; // Fixed import
 import useFollowStore from '@/stores/useFollowStore';
 import Button from '@/components/UI/Button';
 import { engagementService } from '@/services/engagementService';
@@ -23,7 +23,7 @@ export default function FixedListDetailModal({ listId, isOpen, onClose }) {
   const [pendingOperations, setPendingOperations] = useState([]);
   
   const { openQuickAddModal } = useQuickAdd(); 
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated } = useAuth(); // Migrated from useAuthStore
   
   const { 
     isFollowing, 

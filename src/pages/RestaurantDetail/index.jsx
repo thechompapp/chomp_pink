@@ -10,7 +10,7 @@ import {
 import { restaurantService } from '@/services/restaurantService'; // Changed to named import
 import { dishService } from '@/services/dishService'; // Changed to named import
 // Hooks
-import useAuthStore from '@/stores/useAuthStore';
+import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
 // import { useQuickAdd } from '@/contexts/QuickAddContext'; // Keep if Quick Add button is needed
 import useApiErrorHandler from '@/hooks/useApiErrorHandler';
 // Components
@@ -63,7 +63,8 @@ const PlaceholderCard = ({ title, children }) => (
 function RestaurantDetailPage() {
     const { restaurantId } = useParams();
     const { handleApiError } = useApiErrorHandler();
-    const userId = useAuthStore((state) => state.user?.id);
+    const { user } = useAuth(); // Migrated from useAuthStore
+    const userId = user?.id;
     // const { openQuickAdd } = useQuickAdd(); // Commented out Quick Add button for now
     const [isAddToListModalOpen, setIsAddToListModalOpen] = useState(false);
 

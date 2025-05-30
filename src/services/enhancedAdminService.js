@@ -556,6 +556,122 @@ export const enhancedAdminService = {
       logError(`[EnhancedAdminService] Error during batch update:`, error);
       throw error;
     }
+  },
+
+  /**
+   * Bulk add restaurants from text input
+   * @param {string} resourceType - Type of resource (should be 'restaurants')
+   * @param {Array} restaurants - Array of restaurant objects
+   * @param {Function} progressCallback - Progress callback function
+   * @returns {Promise<Object>} Results object with success/failed counts
+   */
+  async bulkAddRestaurants(resourceType, restaurants, progressCallback) {
+    if (resourceType !== 'restaurants') {
+      throw new Error('Bulk add is only supported for restaurants');
+    }
+    
+    const apiClient = getDefaultApiClient();
+    logInfo(`[EnhancedAdminService] Starting bulk add of ${restaurants.length} restaurants`);
+    
+    try {
+      const results = {
+        success: 0,
+        failed: 0,
+        total: restaurants.length,
+        errors: []
+      };
+      
+      // Process restaurants in batches for better performance
+      const batchSize = 10;
+      const totalBatches = Math.ceil(restaurants.length / batchSize);
+      
+      for (let i = 0; i < totalBatches; i++) {
+        const batch = restaurants.slice(i * batchSize, (i + 1) * batchSize);
+        
+        try {
+          const response = await apiClient.post('/admin/restaurants/bulk', {
+            restaurants: batch
+          });
+          
+          const batchResults = handleApiResponse(response);
+          results.success += batchResults.success || 0;
+          results.failed += batchResults.failed || 0;
+          
+          if (batchResults.errors) {
+            results.errors.push(...batchResults.errors);
+          }
+        } catch (error) {
+          logError(`[EnhancedAdminService] Error in batch ${i + 1}:`, error);
+          results.failed += batch.length;
+          results.errors.push(`Batch ${i + 1}: ${error.message}`);
+        }
+        
+        // Update progress
+        const progress = ((i + 1) / totalBatches) * 100;
+        progressCallback?.(progress);
+      }
+      
+      logInfo(`[EnhancedAdminService] Bulk add completed: ${results.success} success, ${results.failed} failed`);
+      
+      return results;
+    } catch (error) {
+      logError(`[EnhancedAdminService] Error during bulk add:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Bulk add restaurants from uploaded file
+   * @param {string} resourceType - Type of resource (should be 'restaurants')
+   * @param {File} file - Uploaded file
+   * @param {Function} progressCallback - Progress callback function
+   * @returns {Promise<Object>} Results object with success/failed counts
+   */
+  async bulkAddRestaurantsFromFile(resourceType, file, progressCallback) {
+    if (resourceType !== 'restaurants') {
+      throw new Error('Bulk add is only supported for restaurants');
+    }
+    
+    logInfo(`[EnhancedAdminService] Starting bulk add from file: ${file.name}`);
+    
+    try {
+      progressCallback?.(25);
+      
+      // Read file content
+      const fileContent = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = (e) => reject(new Error('Failed to read file'));
+        reader.readAsText(file);
+      });
+      
+      progressCallback?.(50);
+      
+      // Parse restaurants from file content
+      const restaurants = fileContent.split('\n')
+        .filter(line => line.trim())
+        .map(line => {
+          const [name, address, city, state, zip] = line.split(',').map(s => s.trim());
+          return { name, address, city, state, zip };
+        })
+        .filter(restaurant => restaurant.name && restaurant.address);
+      
+      progressCallback?.(75);
+      
+      // Use the bulkAddRestaurants method to process
+      const results = await this.bulkAddRestaurants(resourceType, restaurants, (progress) => {
+        // Scale progress from 75-100%
+        const scaledProgress = 75 + (progress * 0.25);
+        progressCallback?.(scaledProgress);
+      });
+      
+      results.records = restaurants.length;
+      
+      return results;
+    } catch (error) {
+      logError(`[EnhancedAdminService] Error during bulk add from file:`, error);
+      throw error;
+    }
   }
 };
 

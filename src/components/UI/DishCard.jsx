@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { engagementService } from '@/services/engagementService';
-import useAuthStore from '@/stores/useAuthStore';
+import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
 import { CARD_SPECS } from '@/models/cardModels';
 
 // Animation variants for better UX - fixed to prevent border clipping
@@ -63,7 +63,7 @@ const DishBadge = ({ icon: Icon, text, color = "gray", size = "sm", testId }) =>
 
 // Add to List button component
 const AddToListButton = ({ dish, onAddToList }) => {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated  } = useAuth();
 
   const handleAddToList = useCallback((e) => {
     e.stopPropagation();
@@ -115,7 +115,7 @@ const DishCard = ({
   className = ""
 }) => {
   const [isHovered, setIsHovered] = useState(false);
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated  } = useAuth();
 
   const cleanName = name || 'Unnamed Dish';
   const cleanRestaurant = restaurant || 'Unknown Restaurant';

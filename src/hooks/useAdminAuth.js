@@ -1,242 +1,101 @@
 /**
- * Enhanced useAdminAuth Hook
+ * Simplified Admin Authentication Hook - Coordinated Version
  * 
- * A specialized React hook for admin authentication that provides
- * a consistent interface for checking admin status and permissions.
- * 
- * Features:
- * - Memoized values to prevent unnecessary re-renders
- * - Provides loading state for admin UI elements
- * - Includes permission checking methods
- * - Robust error handling and fallbacks
- * - Special handling for development mode
- * - Offline mode management
+ * Uses the centralized AuthenticationCoordinator for all admin auth state.
+ * This eliminates redundancy and ensures synchronization across the app.
  */
 
-import { useMemo, useEffect, useState } from 'react';
-import useAuthStore from '@/stores/useAuthStore';
-import { logDebug, logError } from '@/utils/logger';
-import { getDefaultApiClient } from '@/services/http';
-
-// Safe environment check
-const isDevelopmentMode = () => {
-  // Check Vite environment variables first (import.meta is always available in ES modules)
-  if (import.meta && import.meta.env) {
-    return import.meta.env.MODE === 'development' || import.meta.env.DEV;
-  }
-  // Check process.env if available (Node.js/webpack environments)
-  if (typeof process !== 'undefined' && process.env) {
-    return process.env.NODE_ENV === 'development';
-  }
-  // Default to development if unable to determine
-  return true;
-};
+import { useMemo } from 'react';
+import { useAuth } from '@/contexts/auth/AuthContext';
+import { logDebug } from '@/utils/logger';
 
 /**
- * Enhanced permission check with robust error handling
- * @param {Object} user - User object
- * @param {string|string[]} permission - Permission or array of permissions to check
- * @returns {boolean} - True if user has the permission
- */
-export function hasPermission(user, permission) {
-  try {
-    // Safety check for null/undefined user
-    if (!user) return false;
-    
-    // Development mode override
-    if (isDevelopmentMode() && 
-        typeof localStorage !== 'undefined' && 
-        (localStorage.getItem('admin_access_enabled') === 'true' || 
-         localStorage.getItem('superuser_override') === 'true')) {
-      return true;
-    }
-    
-    // Superusers have all permissions
-    if (user.account_type === 'superuser' || user.role === 'admin') {
-      return true;
-    }
-    
-    // Check for specific permissions
-    if (typeof permission === 'string') {
-      return Boolean(user.permissions?.includes(permission));
-    }
-    
-    // Check for any of the permissions in the array
-    if (Array.isArray(permission)) {
-      return Boolean(permission.some(p => user.permissions?.includes(p)));
-    }
-    
-    return false;
-  } catch (error) {
-    logError('[useAdminAuth] Error in hasPermission:', error);
-    return false;
-  }
-}
-
-/**
- * Enhanced hook for accessing admin authentication state with robust error handling
- * and special handling for development mode
+ * Simplified hook for accessing admin authentication state
+ * All logic is delegated to the AuthenticationCoordinator
  * 
  * @returns {Object} Admin auth state and helper methods
  */
 export function useAdminAuth() {
-  // Track local state for admin status to prevent flickering
-  const [localAdminState, setLocalAdminState] = useState({
-    adminOverrideApplied: false,
-    lastAuthenticatedAt: null
-  });
+  const { isAuthenticated, user, coordinator } = useAuth();
   
-  // Get auth state from store
-  const { 
-    user, 
-    isAuthenticated,
-    isSuperuser, 
-    superuserStatusReady = false 
-  } = useAuthStore();
-  
-  // CRITICAL: Force admin access in development mode
-  // This is done outside of useMemo to ensure it's always applied
-  useEffect(() => {
-    try {
-      // Only apply admin override in development mode when authenticated
-      if (isDevelopmentMode() && isAuthenticated) {
-        logDebug('[useAdminAuth] Applying development mode admin override');
-        
-        // Force admin flags in localStorage
-        if (typeof localStorage !== 'undefined') {
-          localStorage.setItem('admin_access_enabled', 'true');
-          localStorage.setItem('superuser_override', 'true');
-          localStorage.setItem('admin_api_key', 'doof-admin-secret-key-dev');
-          localStorage.setItem('force_online', 'true');
-          
-          // Clear offline mode flags to ensure online mode
-          localStorage.removeItem('offline-mode');
-          localStorage.removeItem('offline_mode');
-          localStorage.removeItem('bypass_auth_check');
-          localStorage.removeItem('user_explicitly_logged_out');
-        }
-        
-        // Also clear session storage flags
-        if (typeof sessionStorage !== 'undefined') {
-          sessionStorage.removeItem('offline-mode');
-          sessionStorage.removeItem('offline_mode');
-        }
-        
-        // Dispatch events to force UI refresh
-        if (typeof window !== 'undefined') {
-          // Notify about offline status change
-          window.dispatchEvent(new CustomEvent('offlineStatusChanged', {
-            detail: { isOffline: false }
-          }));
-          
-          // Force UI refresh
-          window.dispatchEvent(new CustomEvent('forceUiRefresh', {
-            detail: { timestamp: Date.now() }
-          }));
-          
-          // Add event listener for auth changes
-          const handleAuthChange = () => {
-            // Force UI refresh when auth changes
-            window.dispatchEvent(new CustomEvent('forceUiRefresh', {
-              detail: { timestamp: Date.now() }
-            }));
-          };
-          
-          // Add the event listener
-          window.addEventListener('auth-changed', handleAuthChange);
-          
-          // Update local state to track that we've applied the override
-          setLocalAdminState(prev => ({
-            ...prev,
-            adminOverrideApplied: true,
-            lastAuthenticatedAt: Date.now()
-          }));
-          
-          // Clean up the event listener on unmount
-          return () => {
-            window.removeEventListener('auth-changed', handleAuthChange);
-          };
-        }
-      }
-    } catch (error) {
-      logError('[useAdminAuth] Error in development mode override:', error);
-    }
-  }, [isAuthenticated]); // Only re-run when authentication state changes
+  // Get coordinator state
+  const coordinatorState = coordinator.getCurrentState();
   
   // Memoize the admin auth object to prevent unnecessary re-renders
   const adminAuth = useMemo(() => {
     try {
-      // IMPORTANT: Always force admin access in development mode when authenticated
-      // This ensures admin features are visible regardless of other conditions
-      const forceAdminAccess = isDevelopmentMode() && 
-                              (isAuthenticated || localAdminState.adminOverrideApplied);
+      // Development mode always grants admin access if authenticated
+      const isDevelopment = import.meta.env.DEV;
+      const forceAdminAccess = isDevelopment && isAuthenticated;
       
-      // Check for admin flags in localStorage as a backup
-      const hasAdminFlags = typeof localStorage !== 'undefined' && (
-        localStorage.getItem('admin_access_enabled') === 'true' ||
-        localStorage.getItem('superuser_override') === 'true'
-      );
+      // Check admin status from coordinator state
+      const isAdmin = forceAdminAccess || coordinatorState.isAdmin;
+      const isSuperuser = forceAdminAccess || coordinatorState.isSuperuser;
+      const hasAdminAccess = isAdmin || isSuperuser;
       
-      // Check admin status from user object with fallbacks
-      const isAdmin = Boolean(
-        isSuperuser || 
-        user?.role === 'admin' || 
-        user?.account_type === 'superuser' ||
-        hasAdminFlags
-      );
-      
-      const hasAdminAccess = Boolean(
-        isAdmin || 
-        hasPermission(user, ['admin', 'superuser']) ||
-        hasAdminFlags
-      );
-      
-      // In development mode, always enable admin features if authenticated
       return {
-        // Basic status - force admin access in development
-        isAdmin: forceAdminAccess || isAdmin,
-        isSuperuser: forceAdminAccess || isSuperuser,
-        hasAdminAccess: forceAdminAccess || hasAdminAccess,
+        // Basic status
+        isAdmin,
+        isSuperuser,
+        hasAdminAccess,
         
-        // Ready state - force ready in development
-        isReady: forceAdminAccess || superuserStatusReady,
-        isLoading: false, // Never show loading state to prevent UI issues
+        // Ready state - always ready with coordinator
+        isReady: true,
+        isLoading: false,
         
-        // User info with safety check
-        user: user || null,
+        // User info
+        user: coordinatorState.user,
         
-        // Permission checking methods - force permissions in development
-        can: (permission) => forceAdminAccess || hasPermission(user, permission),
-        hasRole: (role) => forceAdminAccess || user?.role === role || user?.account_type === role,
+        // Permission checking methods
+        can: (permission) => {
+          if (forceAdminAccess) return true;
+          if (!isAuthenticated || !user) return false;
+          if (isSuperuser || isAdmin) return true;
+          
+          // Check specific permissions
+          if (typeof permission === 'string') {
+            return Boolean(user.permissions?.includes(permission));
+          }
+          if (Array.isArray(permission)) {
+            return permission.some(p => user.permissions?.includes(p));
+          }
+          return false;
+        },
         
-        // Helper for common permissions - force permissions in development
-        canManageUsers: forceAdminAccess || hasPermission(user, 'manage_users'),
-        canManageContent: forceAdminAccess || hasPermission(user, 'manage_content'),
+        hasRole: (role) => {
+          if (forceAdminAccess && (role === 'admin' || role === 'superuser')) return true;
+          return user?.role === role || user?.account_type === role;
+        },
+        
+        // Helper for common permissions
+        canManageUsers: forceAdminAccess || hasAdminAccess,
+        canManageContent: forceAdminAccess || hasAdminAccess,
         
         // Development mode helpers
-        isDevelopment: isDevelopmentMode(),
-        adminOverrideApplied: localAdminState.adminOverrideApplied
+        isDevelopment,
+        adminOverrideApplied: forceAdminAccess
       };
     } catch (error) {
-      logError('[useAdminAuth] Error in adminAuth useMemo:', error);
+      logDebug('[useAdminAuth] Error creating admin auth object:', error);
       
-      // Return a safe fallback object if there's an error
+      // Return safe fallback
+      const isDevelopment = import.meta.env.DEV;
       return {
-        isAdmin: isDevelopmentMode(),
-        isSuperuser: isDevelopmentMode(),
-        hasAdminAccess: isDevelopmentMode(),
+        isAdmin: isDevelopment && isAuthenticated,
+        isSuperuser: isDevelopment && isAuthenticated,
+        hasAdminAccess: isDevelopment && isAuthenticated,
         isReady: true,
         isLoading: false,
         user: null,
-        can: () => isDevelopmentMode(),
-        hasRole: () => isDevelopmentMode(),
-        canManageUsers: isDevelopmentMode(),
-        canManageContent: isDevelopmentMode(),
-        isDevelopment: isDevelopmentMode(),
-        adminOverrideApplied: false
+        can: () => isDevelopment && isAuthenticated,
+        hasRole: () => isDevelopment && isAuthenticated,
+        canManageUsers: isDevelopment && isAuthenticated,
+        canManageContent: isDevelopment && isAuthenticated,
+        isDevelopment,
+        adminOverrideApplied: isDevelopment && isAuthenticated
       };
     }
-  }, [user, isSuperuser, superuserStatusReady, isAuthenticated, localAdminState]);
+  }, [isAuthenticated, user, coordinatorState]);
   
   return adminAuth;
 }

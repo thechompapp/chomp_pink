@@ -1,509 +1,298 @@
 /* src/contexts/auth/AuthContext.jsx */
 /**
- * Authentication Context
+ * Authentication Context - Coordinated Version
  * 
- * Provides a unified interface for authentication state and operations:
- * - User authentication state management
- * - Login/logout/register operations
- * - Token management and refresh
- * - Loading and error states
- * - Offline mode support
- * - Admin/superuser role management
+ * This context now acts as a React wrapper around the centralized
+ * AuthenticationCoordinator to ensure all authentication state is
+ * synchronized across the entire application.
  */
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import PropTypes from 'prop-types';
-import authService from '@/services/authService';
-import { logDebug, logError, logInfo } from '@/utils/logger';
+import authCoordinator, { AUTH_EVENTS } from '@/utils/AuthenticationCoordinator';
+import { logDebug, logInfo } from '@/utils/logger';
 
 // Context creation
 const AuthContext = createContext(null);
 
 /**
- * Authentication Provider Component
+ * Authentication Provider Component - Coordinated Version
  */
 export const AuthProvider = ({ children }) => {
-  // Authentication state
-  const [user, setUser] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
-  
-  // Admin/superuser state
-  const [isSuperuser, setIsSuperuser] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [roles, setRoles] = useState([]);
-  const [permissions, setPermissions] = useState([]);
-  const [superuserStatusReady, setSuperuserStatusReady] = useState(false);
-  
-  // Offline mode state
-  const [isOffline, setIsOffline] = useState(
-    localStorage.getItem('offline_mode') === 'true'
-  );
-  
-  // Refresh token state
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  
-  // Use ref to prevent infinite loops
-  const authCheckInProgress = useRef(false);
-  const mounted = useRef(true);
+  // State synchronized with the coordinator
+  const [authState, setAuthState] = useState({
+    user: null,
+    isAuthenticated: false,
+    isLoading: true,
+    error: null,
+    isSuperuser: false,
+    isAdmin: false,
+    superuserStatusReady: false
+  });
 
   /**
-   * Check authentication status
+   * Sync state from coordinator
    */
-  const checkAuthStatus = useCallback(async (forceCheck = false) => {
-    // Prevent concurrent auth checks
-    if (authCheckInProgress.current && !forceCheck) {
-      logDebug('[AuthContext] Auth check already in progress, skipping');
-      return false;
-    }
+  const syncFromCoordinator = useCallback(() => {
+    const coordinatorState = authCoordinator.getCurrentState();
     
-    // Check if component is still mounted
-    if (!mounted.current) {
-      return false;
-    }
+    setAuthState({
+      user: coordinatorState.user,
+      isAuthenticated: coordinatorState.isAuthenticated,
+      isLoading: false, // Coordinator handles loading states
+      error: null,
+      isSuperuser: coordinatorState.isSuperuser,
+      isAdmin: coordinatorState.isAdmin,
+      superuserStatusReady: true // Always ready with coordinator
+    });
     
-    authCheckInProgress.current = true;
-    
-    try {
-      setIsLoading(true);
-      setError(null);
-      
-      // Skip check if user explicitly logged out
-      const userExplicitlyLoggedOut = localStorage.getItem('user_explicitly_logged_out') === 'true';
-      if (userExplicitlyLoggedOut && !forceCheck) {
-        logDebug('[AuthContext] User explicitly logged out, skipping auth check');
-        setIsAuthenticated(false);
-        setUser(null);
-        setIsSuperuser(false);
-        setIsAdmin(false);
-        setRoles([]);
-        setPermissions([]);
-        setSuperuserStatusReady(true);
-        setIsLoading(false);
-        return false;
-      }
-      
-      // Check if we have a valid token
-      const token = localStorage.getItem('token');
-      const savedUser = localStorage.getItem('current_user');
-      
-      if (!token) {
-        logDebug('[AuthContext] No auth token found');
-        setIsAuthenticated(false);
-        setUser(null);
-        setIsSuperuser(false);
-        setIsAdmin(false);
-        setRoles([]);
-        setPermissions([]);
-        setSuperuserStatusReady(true);
-        setIsLoading(false);
-        return false;
-      }
-      
-      // If we have saved user data, use it immediately for UI responsiveness
-      if (savedUser && !forceCheck) {
-        try {
-          const parsedUser = JSON.parse(savedUser);
-          setUser(parsedUser);
-          setIsAuthenticated(true);
-          updateUserRoles(parsedUser);
-          setIsLoading(false);
-          logDebug('[AuthContext] Using cached user data');
-          return true;
-        } catch (error) {
-          logError('[AuthContext] Error parsing saved user data:', error);
-          localStorage.removeItem('current_user');
-        }
-      }
-      
-      // For force checks or when no cached data, validate with server
-      try {
-        const currentUser = await authService.getCurrentUser();
-        
-        if (currentUser && mounted.current) {
-          setUser(currentUser);
-          setIsAuthenticated(true);
-          updateUserRoles(currentUser);
-          localStorage.setItem('current_user', JSON.stringify(currentUser));
-          logDebug('[AuthContext] User authenticated:', currentUser.email);
-          setIsLoading(false);
-          return true;
-        }
-      } catch (error) {
-        logError('[AuthContext] Error fetching current user:', error);
-        // If token is invalid, clear it
-        if (error.response && error.response.status === 401) {
-          localStorage.removeItem('token');
-          localStorage.removeItem('current_user');
-        }
-      }
-      
-      // If we get here, authentication failed
-      if (mounted.current) {
-        setIsAuthenticated(false);
-        setUser(null);
-        setIsSuperuser(false);
-        setIsAdmin(false);
-        setRoles([]);
-        setPermissions([]);
-        setSuperuserStatusReady(true);
-        setIsLoading(false);
-      }
-      return false;
-      
-    } catch (error) {
-      logError('[AuthContext] Error checking auth status:', error);
-      if (mounted.current) {
-        setError({
-          code: 'AUTH_CHECK_ERROR',
-          message: 'Failed to check authentication status',
-          details: error.message,
-          timestamp: Date.now()
-        });
-        setIsAuthenticated(false);
-        setUser(null);
-        setIsLoading(false);
-      }
-      return false;
-    } finally {
-      authCheckInProgress.current = false;
-    }
+    logDebug('[AuthContext] State synced from coordinator');
   }, []);
 
   /**
-   * Update user roles and permissions (inline function to avoid dependencies)
+   * Set up event listeners for coordinator events
    */
-  const updateUserRoles = (user) => {
-    if (!user) return;
-    
-    const userRoles = [];
-    const userPermissions = [];
-    
-    // Determine roles
-    if (user.role) userRoles.push(user.role);
-    if (user.account_type) userRoles.push(user.account_type);
-    
-    // Add admin role if applicable
-    const isAdminUser = user.role === 'admin' || user.account_type === 'admin' || 
-                       user.role === 'superuser' || user.account_type === 'superuser';
-    
-    if (isAdminUser) {
-      userRoles.push('admin');
-      userPermissions.push('admin');
-    }
-    
-    // Add superuser role if applicable
-    const isSuperuserUser = user.role === 'superuser' || user.account_type === 'superuser';
-    if (isSuperuserUser) {
-      userRoles.push('superuser');
-      userPermissions.push('superuser');
-    }
-    
-    // Add any additional permissions from user object
-    if (Array.isArray(user.permissions)) {
-      user.permissions.forEach(permission => {
-        if (!userPermissions.includes(permission)) {
-          userPermissions.push(permission);
-        }
-      });
-    }
-    
-    // Update state
-    setIsSuperuser(isSuperuserUser);
-    setIsAdmin(isAdminUser || isSuperuserUser);
-    setRoles([...new Set(userRoles)]);
-    setPermissions([...new Set(userPermissions)]);
-    setSuperuserStatusReady(true);
-  };
-  
+  useEffect(() => {
+    // Initial sync
+    syncFromCoordinator();
+
+    // Listen for coordinator state changes
+    const handleStateSync = () => {
+      syncFromCoordinator();
+    };
+
+    const handleLoginSuccess = (event) => {
+      logInfo('[AuthContext] Login success received from coordinator');
+      syncFromCoordinator();
+    };
+
+    const handleLogoutComplete = (event) => {
+      logInfo('[AuthContext] Logout complete received from coordinator');
+      syncFromCoordinator();
+    };
+
+    // Add event listeners
+    window.addEventListener(AUTH_EVENTS.STATE_SYNC, handleStateSync);
+    window.addEventListener(AUTH_EVENTS.LOGIN_SUCCESS, handleLoginSuccess);
+    window.addEventListener(AUTH_EVENTS.LOGOUT_COMPLETE, handleLogoutComplete);
+
+    return () => {
+      window.removeEventListener(AUTH_EVENTS.STATE_SYNC, handleStateSync);
+      window.removeEventListener(AUTH_EVENTS.LOGIN_SUCCESS, handleLoginSuccess);
+      window.removeEventListener(AUTH_EVENTS.LOGOUT_COMPLETE, handleLogoutComplete);
+    };
+  }, [syncFromCoordinator]);
+
   /**
-   * Login handler
+   * Login function - delegates to coordinator
    */
   const login = useCallback(async (credentials) => {
+    setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
+    
     try {
-      setIsLoading(true);
-      setError(null);
+      const result = await authCoordinator.coordinateLogin(credentials);
       
-      // Clear offline mode
-      setIsOffline(false);
-      localStorage.removeItem('offline_mode');
-      
-      // Perform login
-      const result = await authService.login(credentials);
-      
-      // Update state with user data
-      setUser(result.user);
-      setIsAuthenticated(true);
-      
-      // Check superuser status
-      const userIsSuperuser = 
-        result.user.account_type === 'superuser' || 
-        result.user.role === 'admin';
-      
-      setIsSuperuser(userIsSuperuser);
-      setSuperuserStatusReady(true);
-      
-      // Clear explicit logout flag
-      localStorage.removeItem('user_explicitly_logged_out');
-      
-      return result.user;
+      if (result.success) {
+        // State will be updated via event listener
+        return { success: true, user: result.user };
+      } else {
+        setAuthState(prev => ({ 
+          ...prev, 
+          isLoading: false, 
+          error: result.error 
+        }));
+        return { success: false, error: result.error };
+      }
     } catch (error) {
-      setError(error);
-      throw error;
-    } finally {
-      setIsLoading(false);
+      const errorMessage = error.message || 'Login failed';
+      setAuthState(prev => ({ 
+        ...prev, 
+        isLoading: false, 
+        error: errorMessage 
+      }));
+      return { success: false, error: errorMessage };
     }
   }, []);
-  
+
   /**
-   * Register handler
-   */
-  const register = useCallback(async (userData) => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      
-      // Clear offline mode
-      setIsOffline(false);
-      localStorage.removeItem('offline_mode');
-      
-      // Perform registration
-      const result = await authService.register(userData);
-      
-      // Update state with user data
-      setUser(result.user);
-      setIsAuthenticated(true);
-      
-      // Set superuser status (new users are not superusers)
-      setIsSuperuser(false);
-      setSuperuserStatusReady(true);
-      
-      // Clear explicit logout flag
-      localStorage.removeItem('user_explicitly_logged_out');
-      
-      return result.user;
-    } catch (error) {
-      setError(error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-  
-  /**
-   * Logout handler
+   * Logout function - delegates to coordinator
    */
   const logout = useCallback(async () => {
+    setAuthState(prev => ({ ...prev, isLoading: true }));
+    
     try {
-      setIsLoading(true);
-      setError(null);
-      
-      // Perform logout
-      await authService.logout();
-      
-      // Update state
-      setUser(null);
-      setIsAuthenticated(false);
-      setIsSuperuser(false);
-      
-      // Set explicit logout flag
-      localStorage.setItem('user_explicitly_logged_out', 'true');
-      
+      await authCoordinator.coordinateLogout();
+      // State will be updated via event listener
       return { success: true };
     } catch (error) {
-      // Still clear local state even if API call fails
-      setUser(null);
-      setIsAuthenticated(false);
-      setIsSuperuser(false);
-      
-      // Set explicit logout flag
-      localStorage.setItem('user_explicitly_logged_out', 'true');
-      
-      setError(error);
-      throw error;
-    } finally {
-      setIsLoading(false);
+      logDebug('[AuthContext] Logout error:', error);
+      // Even on error, the coordinator should have cleared state
+      return { success: false, error: error.message };
     }
   }, []);
-  
+
   /**
-   * Update profile handler
+   * Register function - delegates to coordinator for consistency
    */
-  const updateProfile = useCallback(async (userData) => {
+  const register = useCallback(async (userData) => {
+    setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
+    
     try {
-      setIsLoading(true);
-      setError(null);
+      // For now, register uses the same pattern as login
+      // This could be expanded to use a coordinator.coordinateRegister method
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(userData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Registration failed');
+      }
+
+      const result = await response.json();
       
-      // Perform profile update
-      const updatedUser = await authService.updateProfile(userData);
+      setAuthState(prev => ({ ...prev, isLoading: false }));
+      return { success: true, message: result.message };
       
-      // Update state with user data
-      setUser(updatedUser);
-      
-      return updatedUser;
     } catch (error) {
-      setError(error);
-      throw error;
-    } finally {
-      setIsLoading(false);
+      const errorMessage = error.message || 'Registration failed';
+      setAuthState(prev => ({ 
+        ...prev, 
+        isLoading: false, 
+        error: errorMessage 
+      }));
+      return { success: false, error: errorMessage };
     }
   }, []);
-  
+
   /**
-   * Change password handler
+   * Update profile function
+   */
+  const updateProfile = useCallback(async (profileData) => {
+    setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/auth/profile', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(profileData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Profile update failed');
+      }
+
+      const result = await response.json();
+      
+      // Update user in coordinator and sync
+      if (result.user) {
+        await authCoordinator.syncAuthenticatedState(
+          true, 
+          result.user, 
+          token
+        );
+      }
+      
+      return { success: true, user: result.user };
+      
+    } catch (error) {
+      const errorMessage = error.message || 'Profile update failed';
+      setAuthState(prev => ({ 
+        ...prev, 
+        isLoading: false, 
+        error: errorMessage 
+      }));
+      return { success: false, error: errorMessage };
+    }
+  }, []);
+
+  /**
+   * Change password function
    */
   const changePassword = useCallback(async (passwordData) => {
+    setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
+    
     try {
-      setIsLoading(true);
-      setError(null);
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(passwordData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Password change failed');
+      }
+
+      setAuthState(prev => ({ ...prev, isLoading: false }));
+      return { success: true };
       
-      // Perform password change
-      const result = await authService.changePassword(passwordData);
-      
-      return result;
     } catch (error) {
-      setError(error);
-      throw error;
-    } finally {
-      setIsLoading(false);
+      const errorMessage = error.message || 'Password change failed';
+      setAuthState(prev => ({ 
+        ...prev, 
+        isLoading: false, 
+        error: errorMessage 
+      }));
+      return { success: false, error: errorMessage };
     }
   }, []);
-  
+
   /**
-   * Check if user has permission
+   * Check if user has specific permission
    */
   const hasPermission = useCallback((permission) => {
-    // No permissions if not authenticated
-    if (!isAuthenticated || !user) return false;
+    if (!authState.isAuthenticated || !authState.user) return false;
     
-    // Superusers have all permissions
-    if (isSuperuser) return true;
+    // Superusers and admins have all permissions
+    if (authState.isSuperuser || authState.isAdmin) return true;
     
     // Development mode override
-    if (process.env.NODE_ENV === 'development' && 
-        (localStorage.getItem('admin_access_enabled') === 'true' || 
-         localStorage.getItem('superuser_override') === 'true')) {
-      return true;
+    if (import.meta.env.DEV) {
+      const adminAccess = localStorage.getItem('admin_access_enabled') === 'true';
+      const superuserOverride = localStorage.getItem('superuser_override') === 'true';
+      if (adminAccess || superuserOverride) return true;
     }
     
-    // Check for specific permissions
+    // Check specific permissions
     if (typeof permission === 'string') {
-      return Boolean(user.permissions?.includes(permission));
+      return Boolean(authState.user.permissions?.includes(permission));
     }
     
-    // Check for any of the permissions in the array
     if (Array.isArray(permission)) {
-      return permission.some(p => user.permissions?.includes(p));
+      return permission.some(p => authState.user.permissions?.includes(p));
     }
     
     return false;
-  }, [isAuthenticated, user, isSuperuser]);
-  
-  /**
-   * Listen for auth events from other tabs/windows
-   */
-  useEffect(() => {
-    const handleStorageChange = (event) => {
-      if (event.key === 'auth-storage') {
-        logDebug('[AuthContext] Auth storage changed in another tab/window');
-        checkAuthStatus(true); // Force check when storage changes
-      }
-      
-      if (event.key === 'offline_mode') {
-        setIsOffline(event.newValue === 'true');
-      }
-    };
-    
-    window.addEventListener('storage', handleStorageChange);
-    
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, [checkAuthStatus]);
-  
-  /**
-   * Listen for auth logout events
-   */
-  useEffect(() => {
-    const handleLogout = (event) => {
-      logDebug('[AuthContext] Received logout event:', event.detail);
-      
-      // Update state
-      setUser(null);
-      setIsAuthenticated(false);
-      setIsSuperuser(false);
-      
-      // Set explicit logout flag
-      localStorage.setItem('user_explicitly_logged_out', 'true');
-    };
-    
-    window.addEventListener('auth:logout', handleLogout);
-    
-    return () => {
-      window.removeEventListener('auth:logout', handleLogout);
-    };
-  }, []);
-  
-  /**
-   * Listen for online/offline events
-   */
-  useEffect(() => {
-    const handleOnline = () => {
-      logInfo('[AuthContext] Browser is online');
-      setIsOffline(false);
-      localStorage.removeItem('offline_mode');
-      
-      // Don't check auth status when coming back online to prevent loops
-      // The auth status should already be correct from the initial check
-      logDebug('[AuthContext] Skipping auth check on online event to prevent loops');
-    };
-    
-    const handleOffline = () => {
-      logInfo('[AuthContext] Browser is offline');
-      setIsOffline(true);
-      localStorage.setItem('offline_mode', 'true');
-    };
-    
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []); // Remove checkAuthStatus dependency to prevent re-creation
-  
-  /**
-   * Check auth status on mount and cleanup
-   */
-  useEffect(() => {
-    // Set mounted flag
-    mounted.current = true;
-    
-    // Run initial auth check
-    checkAuthStatus();
-    
-    return () => {
-      // Cleanup on unmount
-      mounted.current = false;
-    };
-  }, [checkAuthStatus]);
-  
+  }, [authState.isAuthenticated, authState.user, authState.isSuperuser, authState.isAdmin]);
+
   // Memoize context value to prevent unnecessary re-renders
   const value = useMemo(
     () => ({
-      // State
-      user,
-      isAuthenticated,
-      isLoading,
-      error,
-      isSuperuser,
-      isAdmin,
-      roles,
-      permissions,
-      superuserStatusReady,
-      isOffline,
-      isRefreshing,
+      // State from coordinator
+      user: authState.user,
+      isAuthenticated: authState.isAuthenticated,
+      isLoading: authState.isLoading,
+      error: authState.error,
+      isSuperuser: authState.isSuperuser,
+      isAdmin: authState.isAdmin,
+      roles: authState.user?.roles || [],
+      permissions: authState.user?.permissions || [],
+      superuserStatusReady: authState.superuserStatusReady,
+      isOffline: false, // Coordinator handles offline state
+      isRefreshing: false,
       
       // Methods
       login,
@@ -511,11 +300,22 @@ export const AuthProvider = ({ children }) => {
       logout,
       updateProfile,
       changePassword,
-      hasPermission
+      hasPermission,
+      
+      // Direct coordinator access for advanced use cases
+      coordinator: authCoordinator
     }),
-    [user, isAuthenticated, isLoading, error, isSuperuser, isAdmin, roles, permissions, superuserStatusReady, isOffline, isRefreshing, login, register, logout, updateProfile, changePassword, hasPermission]
+    [
+      authState,
+      login,
+      register,
+      logout,
+      updateProfile,
+      changePassword,
+      hasPermission
+    ]
   );
-  
+
   return (
     <AuthContext.Provider value={value}>
       {children}

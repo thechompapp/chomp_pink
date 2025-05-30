@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronUp, Star, Loader2, PlusCircle } from 'lucide-react'; // Added PlusCircle
 import { engagementService } from '@/services/engagementService';
 import { listService } from '@/services/listService';
-import useAuthStore from '@/stores/useAuthStore';
+import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
 import useFollowStore from '@/stores/useFollowStore';
 import { useListDetail } from '@/contexts/ListDetailContext';
 import Button from '@/components/UI/Button'; // Assuming this is your custom Button
@@ -15,7 +15,7 @@ import { logDebug, logError } from '@/utils/logger'; // Added logError
 
 // Item display component
 const ListItemDisplay = ({ item, onQuickAddToList }) => { // Renamed onQuickAdd to onQuickAddToList for clarity
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated  } = useAuth();
   
   if (!item) return null;
   
@@ -70,7 +70,7 @@ const ModalListPreviewCard = ({ list, onAddToList, // Renamed onQuickAdd to onAd
   const [isExpanded, setIsExpanded] = useState(false);
   const [isFollowProcessing, setIsFollowProcessing] = useState(false);
   
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated  } = useAuth();
   const { isFollowing, toggleFollowStatus } = useFollowStore();
   const { openListDetail } = useListDetail();
   

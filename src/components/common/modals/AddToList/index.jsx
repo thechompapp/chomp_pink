@@ -11,7 +11,7 @@ import PropTypes from 'prop-types';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle } from 'lucide-react';
 import { listService } from '@/services/list';
-import useAuthStore from '@/stores/useAuthStore';
+import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
 import { logDebug, logError } from '@/utils/logger';
 import { logEngagement } from '@/utils/logEngagement';
 import Modal from '@/components/common/modals/Modal';
@@ -56,7 +56,7 @@ const AddToListModal = ({
   onItemAdded
 }) => {
   // Get authentication state
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated  } = useAuth();
   
   // React Query client
   const queryClient = useQueryClient();

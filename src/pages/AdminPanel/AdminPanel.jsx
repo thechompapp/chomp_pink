@@ -1,465 +1,257 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+/**
+ * Enhanced Admin Panel
+ * 
+ * The main admin panel providing:
+ * - Improved data fetching and population
+ * - Real-time inline editing
+ * - Field-specific validation
+ * - Better error handling
+ * - Performance optimizations
+ * - Analytics dashboard
+ * - Bulk operations including restaurant bulk add
+ */
+
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, Filter, RefreshCw, Search, Trash } from 'lucide-react';
+import { AlertTriangle, BarChart3, Settings, Eye } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
-import { useAuthStore } from '../../stores/useAuthStore';
-import GenericAdminTableTab from './GenericAdminTableTab';
-import { DataCleanupModal } from '@/components/DataCleanupModal';
-import { adminService } from '../../services/adminService';
-import { dataCleanupService } from '../../services/dataCleanupService';
-// Import AuthManager and useAdminAuth for improved auth handling
-import AuthManager from '@/utils/AuthManager';
-import { useAdminAuth } from '@/hooks/useAdminAuth';
+import { enhancedAdminService } from '@/services/enhancedAdminService';
+import { EnhancedAdminTable } from '@/components/AdminPanel/EnhancedAdminTable';
+import { AdminAnalyticsDashboard } from '@/components/AdminPanel/AdminAnalyticsDashboard';
+import { BulkOperationsPanel } from '@/components/AdminPanel/BulkOperationsPanel';
+import { useAuth } from '@/contexts/auth/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { AdminAuthSetup } from '@/utils/adminAuthSetup';
+import authCoordinator from '@/utils/AuthenticationCoordinator';
+import { logInfo, logWarn, logError } from '@/utils/logger';
 
 /**
  * Tab configuration for admin panel
- * @type {Object}
  */
 const TAB_CONFIG = {
-  submissions: { label: 'Submissions', key: 'submissions' },
-  restaurants: { label: 'Restaurants', key: 'restaurants' },
-  dishes: { label: 'Dishes', key: 'dishes' },
-  users: { label: 'Users', key: 'users' },
-  cities: { label: 'Cities', key: 'cities' },
-  neighborhoods: { label: 'Neighborhoods', key: 'neighborhoods' },
-  hashtags: { label: 'Hashtags', key: 'hashtags' },
-  restaurant_chains: { label: 'Restaurant Chains', key: 'restaurant_chains' }
-};
-
-/**
- * Data processing utilities for admin panel
- */
-const DataProcessor = {
-  /**
-   * Process the response data consistently for each endpoint
-   * @param {Object|Array} response - API response data
-   * @param {string} endpoint - API endpoint name
-   * @returns {Array} Processed data array
-   */
-  processResponseData: (response, endpoint) => {
-    if (!response) {
-      console.warn(`Empty response for ${endpoint}`);
-      return [];
-    }
-    
-    // Handle array response
-    if (Array.isArray(response)) {
-      return response;
-    }
-    
-    // Handle { data: [...] } response
-    if (response.data && Array.isArray(response.data)) {
-      return response.data;
-    }
-    
-    // Handle { data: { data: [...] } } response
-    if (response.data?.data && Array.isArray(response.data.data)) {
-      return response.data.data;
-    }
-    
-    // Try to find any array property
-    if (typeof response === 'object' && response !== null) {
-      const arrayProps = Object.keys(response).filter(key => Array.isArray(response[key]));
-      if (arrayProps.length > 0) {
-        return response[arrayProps[0]];
-      }
-    }
-    
-    // Return empty array as fallback
-    console.warn(`Could not extract array data from ${endpoint} response:`, response);
-    return [];
+  analytics: { 
+    label: 'Analytics', 
+    key: 'analytics', 
+    enhanced: true, 
+    icon: BarChart3,
+    description: 'Performance metrics and insights'
   },
-
-  /**
-   * Fetch data for a specific endpoint
-   * @param {string} endpoint - API endpoint name
-   * @returns {Promise<Object>} Object containing endpoint name and data
-   */
-  fetchEndpointData: async (endpoint) => {
-    try {
-      console.log(`Fetching data for ${endpoint}`);
-      const response = await adminService.getAdminData(endpoint);
-      const processedData = DataProcessor.processResponseData(response, endpoint);
-      
-      console.log(`Successfully processed ${endpoint} data:`, {
-        length: processedData.length
-      });
-      
-      return { endpoint, data: processedData };
-    } catch (error) {
-      console.error(`Error fetching ${endpoint}:`, {
-        message: error.message,
-        status: error.response?.status
-      });
-      
-      return { endpoint, data: [] };
-    }
+  restaurants: { 
+    label: 'Restaurants', 
+    key: 'restaurants', 
+    enhanced: true, 
+    icon: Settings,
+    description: 'Manage restaurant data with real-time editing'
   },
-
-  /**
-   * Fetch all admin data from the API
-   * @returns {Promise<Object>} Object containing data for all endpoints
-   */
-  fetchAllAdminData: async () => {
-    try {
-      console.log('Fetching admin data...');
-      
-      // This will be populated with results from API
-      const data = {};
-      
-      // Get all endpoint names from TAB_CONFIG
-      const endpoints = Object.keys(TAB_CONFIG);
-      
-      // Use Promise.all for parallel requests to improve performance
-      const results = await Promise.all(
-        endpoints.map(endpoint => DataProcessor.fetchEndpointData(endpoint))
-      );
-      
-      // Populate the data object with results
-      results.forEach(({ endpoint, data: endpointData }) => {
-        data[endpoint] = endpointData;
-      });
-      
-      console.log('All admin data fetched:', 
-        Object.entries(data).map(([key, val]) => `${key}: ${val.length}`).join(', '));
-      
-      return data;
-    } catch (error) {
-      console.error('Error in fetchAllAdminData:', error);
-      throw error;
-    }
+  bulk_operations: {
+    label: 'Bulk Operations',
+    key: 'bulk_operations',
+    enhanced: true,
+    icon: Settings,
+    description: 'Import, export, and batch operations'
+  },
+  dishes: { 
+    label: 'Dishes', 
+    key: 'dishes', 
+    enhanced: false, 
+    icon: Eye,
+    description: 'Legacy dishes management'
+  },
+  users: { 
+    label: 'Users', 
+    key: 'users', 
+    enhanced: false, 
+    icon: Eye,
+    description: 'Legacy users management'
+  },
+  cities: { 
+    label: 'Cities', 
+    key: 'cities', 
+    enhanced: false, 
+    icon: Eye,
+    description: 'Legacy cities management'
+  },
+  neighborhoods: { 
+    label: 'Neighborhoods', 
+    key: 'neighborhoods', 
+    enhanced: false, 
+    icon: Eye,
+    description: 'Legacy neighborhoods management'
+  },
+  hashtags: { 
+    label: 'Hashtags', 
+    key: 'hashtags', 
+    enhanced: false, 
+    icon: Eye,
+    description: 'Legacy hashtags management'
+  },
+  restaurant_chains: { 
+    label: 'Restaurant Chains', 
+    key: 'restaurant_chains', 
+    enhanced: false, 
+    icon: Eye,
+    description: 'Legacy chains management'
+  },
+  submissions: { 
+    label: 'Submissions', 
+    key: 'submissions', 
+    enhanced: false, 
+    icon: Eye,
+    description: 'Legacy submissions management'
   }
 };
 
 /**
- * Data cleanup utilities for admin panel
- */
-const DataCleanupManager = {
-  /**
-   * Analyze data for cleanup and get changes
-   * @param {string} resourceType - Type of resource to analyze
-   * @returns {Promise<Array>} List of changes
-   */
-  analyzeData: async (resourceType) => {
-    console.log(`[AdminPanel] Calling dataCleanupService.analyzeData(${resourceType})`);
-    
-    try {
-      const response = await dataCleanupService.analyzeData(resourceType);
-      
-      if (!response.success) {
-        console.error(`[AdminPanel] Error analyzing data: ${response.message}`);
-        throw new Error(response.message || 'Error analyzing data');
-      }
-      
-      const changes = response.data || [];
-      console.log(`[AdminPanel] Received ${changes.length} cleanup changes for ${resourceType}:`, changes);
-      return changes;
-    } catch (error) {
-      console.error('[AdminPanel] Error analyzing data:', error);
-      throw error;
-    }
-  },
-  
-  /**
-   * Process and approve changes
-   * @param {Array} changes - Changes to approve
-   * @param {string} resourceType - Type of resource being changed
-   * @returns {Promise<Object>} Processing result
-   */
-  approveChanges: async (changes, resourceType) => {
-    console.log(`[AdminPanel] Approving ${changes.length} changes for ${resourceType}`);
-    
-    try {
-      const result = await dataCleanupService.applyChanges(resourceType, changes);
-      
-      if (!result.success) {
-        console.error(`[AdminPanel] Error approving changes: ${result.message}`);
-        throw new Error(result.message || 'Error approving changes');
-      }
-      
-      console.log('[AdminPanel] Changes approved successfully:', result);
-      return result;
-    } catch (error) {
-      console.error('[AdminPanel] Error approving changes:', error);
-      throw error;
-    }
-  },
-  
-  /**
-   * Process and reject changes
-   * @param {Array} changes - Changes to reject
-   * @param {string} resourceType - Type of resource being changed
-   * @returns {Promise<Object>} Processing result
-   */
-  rejectChanges: async (changes, resourceType) => {
-    console.log(`[AdminPanel] Rejecting ${changes.length} changes for ${resourceType}`);
-    
-    try {
-      const result = await dataCleanupService.rejectChanges(resourceType, changes);
-      
-      if (!result.success) {
-        console.error(`[AdminPanel] Error rejecting changes: ${result.message}`);
-        throw new Error(result.message || 'Error rejecting changes');
-      }
-      
-      console.log('[AdminPanel] Changes rejected successfully:', result);
-      return result;
-    } catch (error) {
-      console.error('[AdminPanel] Error rejecting changes:', error);
-      throw error;
-    }
-  }
-};
-
-/**
- * Main AdminPanel component
+ * Enhanced Admin Panel Component
  */
 const AdminPanel = () => {
-  const [activeTab, setActiveTab] = useState('submissions');
-  const [showFilters, setShowFilters] = useState(false);
-  const [isInitializing, setIsInitializing] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isDataCleanup, setIsDataCleanup] = useState(false);
-  const [isCleanupModalOpen, setIsCleanupModalOpen] = useState(false);
-  const [cleanupChanges, setCleanupChanges] = useState([]);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [displayChanges, setDisplayChanges] = useState({});
-  const [isVerifyingAuth, setIsVerifyingAuth] = useState(false);
-  const [isLoadingData, setIsLoadingData] = useState(false);
-  
-  // Replace direct useAuthStore usage with useAdminAuth for admin-specific state
-  const { isSuperuser, isReady: isSuperuserStatusReady } = useAdminAuth();
-  const { user, isAuthenticated, isLoading } = useAuthStore();
-  
   const navigate = useNavigate();
+  const { isAuthenticated, user, coordinator } = useAuth();
+  const [activeTab, setActiveTab] = useState('analytics');
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [selectedResourceType, setSelectedResourceType] = useState('restaurants');
+  const [authReady, setAuthReady] = useState(false);
+  const [adminAccess, setAdminAccess] = useState(false);
   
-  // Fetch admin data
-  const { 
-    data: adminData, 
-    error, 
-    refetch, 
+  // Check admin access using coordinator
+  const hasAdminAccess = useMemo(() => {
+    if (!isAuthenticated || !user) return false;
+    
+    // Check coordinator state
+    const coordinatorState = coordinator.getCurrentState();
+    
+    // In development mode, always grant access if authenticated
+    if (import.meta.env.DEV && isAuthenticated) {
+      return true;
+    }
+    
+    // Check admin/superuser status
+    return coordinatorState.isAdmin || coordinatorState.isSuperuser || 
+           user?.role === 'admin' || user?.account_type === 'superuser';
+  }, [isAuthenticated, user, coordinator]);
+
+  // Authentication verification
+  useEffect(() => {
+    const verifyAuth = async () => {
+      logInfo('[EnhancedAdminPanel] Verifying authentication with coordinator');
+      
+      if (!isAuthenticated) {
+        logWarn('[EnhancedAdminPanel] User not authenticated');
+        setAuthReady(true);
+        setAdminAccess(false);
+        return;
+      }
+
+      // In development mode, ensure admin access is set up
+      if (import.meta.env.DEV && isAuthenticated) {
+        logInfo('[EnhancedAdminPanel] Development mode - setting up admin access');
+        
+        // Let coordinator handle development admin setup
+        const coordinatorState = coordinator.getCurrentState();
+        logInfo('[EnhancedAdminPanel] Coordinator state:', coordinatorState);
+        
+        setAdminAccess(true);
+        setAuthReady(true);
+        return;
+      }
+
+      // Production mode - check actual permissions
+      if (hasAdminAccess) {
+        logInfo('[EnhancedAdminPanel] Admin access verified');
+        setAdminAccess(true);
+      } else {
+        logWarn('[EnhancedAdminPanel] User does not have admin access');
+        setAdminAccess(false);
+      }
+      
+      setAuthReady(true);
+    };
+
+    verifyAuth();
+  }, [isAuthenticated, user, hasAdminAccess, coordinator]);
+  
+  // Fetch all admin data
+  const {
+    data: adminData,
+    error,
+    refetch,
     isFetching,
     isError
   } = useQuery({
-    queryKey: ['adminData', user?.id], // Use user.id instead of entire user object
-    queryFn: DataProcessor.fetchAllAdminData,
-    enabled: Boolean(isAuthenticated && isSuperuser), // Only fetch when authenticated AND superuser
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    queryKey: ['enhancedAdminData'],
+    queryFn: enhancedAdminService.fetchAllAdminData,
+    enabled: !isInitializing,
+    staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
     retry: 1,
-    onError: (error) => {
-      console.error('[useQuery] Error fetching admin data:', error);
-      console.error('[useQuery] Error details:', {
-        message: error.message,
-        stack: error.stack,
-        response: error.response ? {
-          status: error.response.status,
-          data: error.response.data
-        } : 'No response data'
-      });
-    },
     onSuccess: (data) => {
-      console.log('[useQuery] Successfully fetched admin data:', {
-        keys: Object.keys(data),
-        lengths: Object.entries(data).map(([key, value]) => ({ [key]: value.length })) 
-      });
+      console.log('[EnhancedAdminPanel] Admin data fetched successfully');
+      toast.success('Admin data loaded successfully');
+    },
+    onError: (error) => {
+      console.error('[EnhancedAdminPanel] Error fetching admin data:', error);
+      toast.error(`Failed to load admin data: ${error.message}`);
     }
   });
-
-  // Log display changes for debugging
-  useEffect(() => {
-    if (Object.keys(displayChanges).length > 0) {
-      console.log('[AdminPanel] displayChanges state updated:', displayChanges);
-      console.log('[AdminPanel] Keys in displayChanges:', Object.keys(displayChanges));
-      if (displayChanges[activeTab]) {
-        console.log(`[AdminPanel] Changes for current tab (${activeTab}):`, displayChanges[activeTab]);
-      }
-    } else {
-      console.log('[AdminPanel] displayChanges state is empty');
-    }
-  }, [displayChanges, activeTab]);
-
-  // Reset isInitializing when data is loaded
-  useEffect(() => {
-    if (adminData && isInitializing) {
-      setIsInitializing(false);
-    }
-  }, [adminData, isInitializing]);
-
-  /**
-   * Analyze data for cleanup and handle results
-   */
-  const analyzeDataForCleanup = async () => {
-    setIsAnalyzing(true);
-    
-    try {
-      const changes = await DataCleanupManager.analyzeData(activeTab);
-      
-      if (changes.length === 0) {
-        console.log('[AdminPanel] No cleanup issues found, setting isDataCleanup=true');
-        toast.success(`No cleanup issues found for ${TAB_CONFIG[activeTab]?.label || activeTab}`);
-        setIsDataCleanup(true);
-      } else {
-        console.log('[AdminPanel] Found cleanup issues, opening modal');
-        setCleanupChanges(changes);
-        console.log('[AdminPanel] Setting isCleanupModalOpen=true');
-        setIsCleanupModalOpen(true);
-        console.log('[AdminPanel] Current modal state after setting:', { isCleanupModalOpen });
-      }
-    } catch (error) {
-      console.error('[AdminPanel] Error analyzing data:', error);
-      toast.error(`Failed to analyze data: ${error.message || 'Unknown error'}`);
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
-  /**
-   * Toggle data cleanup mode
-   */
-  const toggleDataCleanup = async () => {
-    console.log(`[AdminPanel] Toggling data cleanup mode. Current mode: ${isDataCleanup}`);
-    
-    if (isDataCleanup) {
-      // Turn off data cleanup mode
-      console.log('[AdminPanel] Turning off data cleanup mode');
-      setIsDataCleanup(false);
-      // Clear any display changes
-      setDisplayChanges({});
-    } else {
-      // Turn on data cleanup mode
-      console.log('[AdminPanel] Turning on data cleanup mode, analyzing data');
-      await analyzeDataForCleanup();
-    }
-  };
-
-  /**
-   * Handle cleanup modal close
-   */
-  const handleCleanupModalClose = () => {
-    console.log('[AdminPanel] Closing cleanup modal');
-    setIsCleanupModalOpen(false);
-    // Keep cleanup mode on if modal is just closed
-    setIsDataCleanup(true);
-  };
-
-  /**
-   * Handle approving changes
-   * @param {Array} changesToApprove - Changes to approve
-   */
-  const handleApproveChanges = async (changesToApprove) => {
-    console.log(`[AdminPanel] Approving ${changesToApprove.length} changes`);
-    
-    try {
-      // Process changes on server
-      await DataCleanupManager.approveChanges(changesToApprove, activeTab);
-      
-      // Update UI with success message
-      toast.success(`Approved ${changesToApprove.length} changes`);
-      
-      // Refetch data to get updated values
-      await refetch();
-      
-    } catch (error) {
-      console.error('[AdminPanel] Error approving changes:', error);
-      toast.error(`Failed to approve changes: ${error.message || 'Unknown error'}`);
-    }
-  };
-
-  /**
-   * Handle rejecting changes
-   * @param {Array} changesToReject - Changes to reject
-   */
-  const handleRejectChanges = async (changesToReject) => {
-    console.log(`[AdminPanel] Rejecting ${changesToReject.length} changes`);
-    
-    try {
-      // Process changes on server
-      await DataCleanupManager.rejectChanges(changesToReject, activeTab);
-      
-      // Update UI with success message
-      toast.success(`Rejected ${changesToReject.length} changes`);
-      
-      // If all changes are rejected, no need to refetch data
-      if (changesToReject.length === cleanupChanges.length) {
-        console.log('[AdminPanel] All changes rejected, no refetch needed');
-      } else {
-        // Refetch data to ensure we have correct state
-        await refetch();
-      }
-      
-    } catch (error) {
-      console.error('[AdminPanel] Error rejecting changes:', error);
-      toast.error(`Failed to reject changes: ${error.message || 'Unknown error'}`);
-    }
-  };
-
-  // Update verifyAuth function to use the new auth system - MEMOIZED
-  const verifyAuth = useCallback(async () => {
-    if (isLoading) return;
-    
-    // Wait for superuser status to be ready before proceeding
-    if (!isSuperuserStatusReady) {
-      setIsVerifyingAuth(true);
-      return;
-    }
-    
-    setIsVerifyingAuth(true);
-    
-    try {
-      if (!isAuthenticated) {
-        navigate('/login', { 
-          state: { 
-            from: '/admin', 
-            message: 'You must be logged in to access the admin panel' 
-          } 
-        });
-        return;
-      }
-      
-      if (!isSuperuser) {
-        toast.error('You do not have permission to access the admin panel');
-        navigate('/');
-        return;
-      }
-      
-      // Ensure admin authentication is properly set up
-      if (process.env.NODE_ENV === 'development') {
-        AuthManager.syncAdminAuth();
-      }
-      
-      setIsVerifyingAuth(false);
-      setIsInitializing(true);
-      // Don't call refetch here to prevent loops - let the query handle it
-    } catch (error) {
-      toast.error('Error verifying authentication: ' + error.message);
-      navigate('/');
-    }
-  }, [isLoading, isSuperuserStatusReady, isAuthenticated, isSuperuser, navigate]); // Removed refetch dependency
-
-  // Verify authentication status - FIXED DEPENDENCIES
-  useEffect(() => {
-    verifyAuth();
-  }, [verifyAuth]); // Only depend on the memoized verifyAuth function
-
-  // Add a loading state while waiting for superuser status
-  if (isVerifyingAuth || !isSuperuserStatusReady) {
+  
+  // Show loading state while auth is being verified
+  if (!authReady) {
     return (
-      <div className="admin-panel-loading">
-        <div className="flex items-center justify-center h-screen">
-          <div className="text-center">
-            <h2 className="text-xl font-semibold mb-4">Loading Admin Panel</h2>
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto"></div>
-          </div>
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Verifying authentication...</p>
         </div>
       </div>
     );
   }
-
-  // Show error state if there was an error fetching data
-  if (error) {
+  
+  // Show access denied if not authenticated or no admin access
+  if (!isAuthenticated || !adminAccess) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6 text-center">
+          <div className="mb-4">
+            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+              <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 15.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Access Denied</h3>
+          <p className="text-sm text-gray-500 mb-4">
+            {!isAuthenticated 
+              ? "You must be logged in to access the admin panel."
+              : "You don't have permission to access the enhanced admin panel."
+            }
+          </p>
+          <div className="space-y-2">
+            <p className="text-xs text-gray-400">
+              Authentication Status: {isAuthenticated ? '✅ Authenticated' : '❌ Not Authenticated'}
+            </p>
+            <p className="text-xs text-gray-400">
+              Admin Access: {adminAccess ? '✅ Granted' : '❌ Denied'}
+            </p>
+            {import.meta.env.DEV && (
+              <p className="text-xs text-blue-600">
+                🔧 Development Mode: Admin access should be automatically granted when authenticated
+              </p>
+            )}
+          </div>
+          <button
+            onClick={() => window.location.href = '/'}
+            className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors"
+          >
+            Go to Home Page
+          </button>
+        </div>
+      </div>
+    );
+  }
+  
+  // Show error state
+  if (isError) {
     return (
       <div className="container mx-auto p-4">
         <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded">
@@ -469,7 +261,7 @@ const AdminPanel = () => {
             </div>
             <div className="ml-3 flex-1">
               <h3 className="text-sm font-medium text-red-800">
-                Something went wrong in the Admin Panel
+                Something went wrong in the Enhanced Admin Panel
               </h3>
               <div className="mt-2 text-sm text-red-700 space-y-2">
                 <p>
@@ -489,61 +281,241 @@ const AdminPanel = () => {
       </div>
     );
   }
-
-  // Calculate loading state and current data
-  const dataIsLoading = isFetching && !adminData;
-  const currentData = adminData?.[activeTab] || [];
-
+  
+  // Get current data for active tab
+  const currentData = adminData?.[selectedResourceType] || [];
+  const cities = adminData?.cities || [];
+  const neighborhoods = adminData?.neighborhoods || [];
+  const isEnhanced = TAB_CONFIG[activeTab]?.enhanced;
+  
+  // Handle operation complete callback
+  const handleOperationComplete = () => {
+    refetch(); // Refresh data after operations
+  };
+  
+  // Render tab content
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'analytics':
+        return (
+          <AdminAnalyticsDashboard 
+            adminData={adminData || {}}
+          />
+        );
+        
+      case 'bulk_operations':
+        return (
+          <div className="space-y-6">
+            {/* Resource Type Selector */}
+            <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Select Resource Type</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {['restaurants', 'dishes', 'users', 'cities'].map(resourceType => (
+                  <button
+                    key={resourceType}
+                    onClick={() => setSelectedResourceType(resourceType)}
+                    className={cn(
+                      "p-3 text-sm font-medium rounded-lg border transition-colors",
+                      selectedResourceType === resourceType
+                        ? "bg-blue-50 border-blue-200 text-blue-700"
+                        : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
+                    )}
+                  >
+                    {resourceType.charAt(0).toUpperCase() + resourceType.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            {/* Bulk Operations Panel */}
+            <BulkOperationsPanel
+              resourceType={selectedResourceType}
+              selectedRows={new Set()} // This would come from table selection
+              onOperationComplete={handleOperationComplete}
+              adminData={adminData || {}}
+            />
+          </div>
+        );
+        
+      case 'restaurants':
+        return (
+          <div className="space-y-6">
+            {/* Enhanced Features Notice */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-blue-800">Enhanced Features Active</h3>
+                  <div className="mt-1 text-sm text-blue-700">
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>Real-time inline editing with auto-save</li>
+                      <li>Advanced field validation and error feedback</li>
+                      <li>Optimized data fetching with caching</li>
+                      <li>Bulk operations with row selection</li>
+                      <li>Advanced sorting and filtering</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Enhanced Admin Table */}
+            <EnhancedAdminTable
+              resourceType="restaurants"
+              initialData={currentData}
+              cities={cities}
+              neighborhoods={neighborhoods}
+              pageSize={25}
+              enableInlineEditing={true}
+              enableBulkOperations={true}
+              enableSelection={true}
+              enableCreate={true}
+              className="shadow-lg"
+            />
+          </div>
+        );
+        
+      default:
+        // Legacy tables for other resource types
+        const legacyData = adminData?.[activeTab] || [];
+        return (
+          <div className="space-y-6">
+            {/* Legacy Notice */}
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <Eye className="w-5 h-5 text-yellow-600 mt-0.5" />
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-yellow-800">Legacy View</h3>
+                  <p className="mt-1 text-sm text-yellow-700">
+                    This tab shows the legacy implementation. Enhanced features are available in the Restaurants tab.
+                    <span className="block mt-1 font-medium">
+                      Enhanced features: Analytics, Bulk Operations, and Real-time Editing
+                    </span>
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Simple data display for legacy tabs */}
+            <div className="bg-white shadow rounded-lg">
+              <div className="px-4 py-5 sm:p-6">
+                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                  {TAB_CONFIG[activeTab]?.label || activeTab} Data
+                </h3>
+                
+                {legacyData.length > 0 ? (
+                  <div className="mt-4">
+                    <p className="text-sm text-gray-600 mb-4">
+                      Showing {legacyData.length} {activeTab} records (read-only view)
+                    </p>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            {Object.keys(legacyData[0] || {}).slice(0, 5).map(key => (
+                              <th key={key} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                {key.replace(/_/g, ' ')}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {legacyData.slice(0, 10).map((item, index) => (
+                            <tr key={index} className="hover:bg-gray-50">
+                              {Object.values(item).slice(0, 5).map((value, cellIndex) => (
+                                <td key={cellIndex} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                  {value?.toString() || 'N/A'}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {legacyData.length > 10 && (
+                      <p className="text-xs text-gray-500 mt-2">
+                        Showing first 10 of {legacyData.length} records
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <p className="text-gray-500">No {activeTab} data available</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+    }
+  };
+  
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+    <div className="container mx-auto p-4 max-w-7xl">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-          {isFetching && !dataIsLoading && (
-            <p className="text-sm text-gray-500 mt-1">Updating data...</p>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Enhanced Admin Panel</h1>
+        <p className="text-gray-600 mt-1">
+          Advanced admin interface with analytics, bulk operations, and real-time editing capabilities
+        </p>
+        
+        {/* Enhancement indicators */}
+        <div className="mt-3 flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-500">Current tab:</span>
+            <span className={cn(
+              "px-2 py-1 rounded text-xs font-medium",
+              isEnhanced 
+                ? "bg-green-100 text-green-800" 
+                : "bg-gray-100 text-gray-800"
+            )}>
+              {isEnhanced ? 'Enhanced' : 'Legacy'}
+            </span>
+          </div>
+          
+          {isEnhanced && (
+            <div className="flex items-center space-x-1 text-xs text-green-600">
+              <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+              <span>Live features active</span>
+            </div>
+          )}
+          
+          {isFetching && (
+            <div className="flex items-center space-x-1 text-xs text-blue-600">
+              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></div>
+              <span>Syncing data...</span>
+            </div>
           )}
         </div>
-        <div className="flex space-x-2 mt-2 md:mt-0">
-          <button
-            onClick={() => setShowFilters(prev => !prev)}
-            className="px-3 py-1.5 bg-white border border-gray-300 hover:bg-gray-50 rounded-md text-sm flex items-center transition-colors duration-150"
-            aria-label={showFilters ? 'Hide filters' : 'Show filters'}
-            disabled={dataIsLoading}
-          >
-            <Filter className="h-4 w-4 mr-1.5" />
-            {showFilters ? 'Hide' : 'Show'} Filters
-          </button>
-          <button
-            onClick={() => refetch()}
-            disabled={dataIsLoading}
-            className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-md text-sm flex items-center disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150"
-            aria-label="Refresh data"
-          >
-            <RefreshCw className={`h-4 w-4 mr-1.5 ${isFetching ? 'animate-spin' : ''}`} />
-            {isFetching ? 'Refreshing...' : 'Refresh'}
-          </button>
-        </div>
       </div>
-
+      
       {/* Tab Navigation */}
       <div className="border-b border-gray-200 mb-6">
         <nav className="flex space-x-6 overflow-x-auto pb-px -mb-px">
-          {Object.entries(TAB_CONFIG).map(([key, { label }]) => (
+          {Object.entries(TAB_CONFIG).map(([key, { label, enhanced, icon: Icon, description }]) => (
             <button
               key={key}
               onClick={() => setActiveTab(key)}
               className={cn(
-                'py-3 px-1 border-b-2 font-medium text-sm whitespace-nowrap',
+                'py-3 px-1 border-b-2 font-medium text-sm whitespace-nowrap relative',
                 activeTab === key
                   ? 'border-blue-500 text-blue-600 font-semibold'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
                 'transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:ring-offset-2 focus:rounded-sm',
-                'flex items-center space-x-1.5'
+                'flex items-center space-x-2 group'
               )}
               aria-current={activeTab === key ? 'page' : undefined}
+              title={description}
             >
+              <Icon className="w-4 h-4" />
               <span>{label}</span>
+              {enhanced && (
+                <span className="w-2 h-2 bg-green-500 rounded-full" title="Enhanced with new features" />
+              )}
               {isFetching && activeTab === key && (
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
               )}
@@ -551,271 +523,35 @@ const AdminPanel = () => {
           ))}
         </nav>
       </div>
-
-      {/* Main Content */}
-      <div className="bg-white rounded-lg shadow overflow-hidden border border-gray-200">
-        {dataIsLoading ? (
-          <div className="flex flex-col items-center justify-center p-12">
-            <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-100 border-t-blue-500 mb-4"></div>
-            <p className="text-gray-600">Loading {TAB_CONFIG[activeTab]?.label.toLowerCase()} data...</p>
-          </div>
-        ) : (
-          <>
-            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
-              <h2 className="text-lg font-semibold text-gray-800">
-                {TAB_CONFIG[activeTab]?.label || 'Data'}
-              </h2>
-              <div className="text-sm text-gray-500 flex items-center gap-2">
-                {/* Search Input */}
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Search className="h-4 w-4 text-gray-400" />
-                  </div>
-                  <input
-                    type="search"
-                    placeholder={`Search ${TAB_CONFIG[activeTab]?.label || 'items'}...`}
-                    className="w-64 pl-10 pr-3 py-1.5 border border-gray-300 rounded-md text-sm"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
-                {/* Data Cleanup Button */}
-                <button
-                  className={`px-2.5 py-1.5 ${isDataCleanup ? 'bg-orange-200 text-orange-800' : 'bg-orange-50 text-orange-700'} border border-orange-200 rounded-md text-sm hover:bg-orange-100 transition-colors flex items-center gap-1`}
-                  onClick={toggleDataCleanup}
-                  disabled={isAnalyzing}
-                >
-                  <Trash className={`h-3.5 w-3.5 ${isAnalyzing ? 'animate-spin' : ''}`} />
-                  <span>
-                    {isAnalyzing 
-                      ? 'Analyzing...' 
-                      : isDataCleanup 
-                        ? 'Exit Cleanup' 
-                        : 'Cleanup'
-                    }
-                  </span>
-                </button>
-                <span>
-                  Showing {currentData.length} items
-                </span>
-              </div>
-            </div>
-            <GenericAdminTableTab
-              resourceType={activeTab}
-              initialData={currentData}
-              isLoading={dataIsLoading}
-              error={error}
-              onRetry={refetch}
-              cities={adminData?.cities || []}
-              neighborhoods={adminData?.neighborhoods || []}
-              searchTerm={searchTerm}
-              isDataCleanup={isDataCleanup}
-              displayChanges={displayChanges}
-            />
-          </>
-        )}
+      
+      {/* Tab Content */}
+      <div className="tab-content">
+        {renderTabContent()}
       </div>
       
-      {/* Data Cleanup Modal */}
-      <DataCleanupModal
-        isOpen={isCleanupModalOpen}
-        onClose={handleCleanupModalClose}
-        changes={cleanupChanges}
-        onApprove={handleApproveChanges}
-        onReject={handleRejectChanges}
-        onApproveAll={handleApproveChanges}
-        onRejectAll={handleRejectChanges}
-        resourceType={activeTab}
-      />
+      {/* Footer Stats */}
+      <div className="mt-8 pt-6 border-t border-gray-200">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+          <div>
+            <p className="text-2xl font-bold text-blue-600">{adminData?.restaurants?.length || 0}</p>
+            <p className="text-sm text-gray-600">Restaurants</p>
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-green-600">{adminData?.users?.length || 0}</p>
+            <p className="text-sm text-gray-600">Users</p>
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-purple-600">{adminData?.dishes?.length || 0}</p>
+            <p className="text-sm text-gray-600">Dishes</p>
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-orange-600">{adminData?.cities?.length || 0}</p>
+            <p className="text-sm text-gray-600">Cities</p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
 
-const AdminPanelErrorBoundary = ({ children }) => {
-  const [errorState, setErrorState] = useState({
-    hasError: false,
-    error: null,
-    errorInfo: null,
-    timestamp: null
-  });
-
-  const handleReset = useCallback(() => {
-    console.log('[ErrorBoundary] Resetting error state');
-    setErrorState({
-      hasError: false,
-      error: null,
-      errorInfo: null,
-      timestamp: null
-    });
-  }, []);
-
-  const handleError = useCallback((error, errorInfo) => {
-    console.error('[ErrorBoundary] Error caught:', { 
-      error, 
-      errorInfo,
-      timestamp: new Date().toISOString()
-    });
-    
-    setErrorState({
-      hasError: true,
-      error,
-      errorInfo,
-      timestamp: new Date().toISOString()
-    });
-    
-    // Only log to error tracking in production
-    if (process.env.NODE_ENV === 'production') {
-      // logErrorToService(error, errorInfo);
-    }
-  }, []);
-
-  // Handle component errors
-  useEffect(() => {
-    console.log('[ErrorBoundary] Setting up error handlers');
-    
-    // Handle React component errors
-    const handleComponentError = (error, errorInfo) => {
-      console.error('[ErrorBoundary] Component error:', { error, errorInfo });
-      handleError(error, errorInfo);
-    };
-    
-    // Handle uncaught JavaScript errors
-    const handleUncaughtError = (event) => {
-      console.error('[ErrorBoundary] Uncaught error:', event.error);
-      event.preventDefault();
-      handleError(
-        event.error || new Error('Unknown error'),
-        { 
-          componentStack: event.error?.stack || 'No stack trace available',
-          type: 'uncaught',
-          filename: event.filename,
-          lineno: event.lineno,
-          colno: event.colno
-        }
-      );
-    };
-    
-    // Handle unhandled promise rejections
-    const handleUnhandledRejection = (event) => {
-      console.error('[ErrorBoundary] Unhandled rejection:', event.reason);
-      event.preventDefault();
-      handleError(
-        event.reason || new Error('Unhandled promise rejection'),
-        { 
-          componentStack: event.reason?.stack || 'No stack trace available',
-          type: 'unhandled_rejection'
-        }
-      );
-    };
-    
-    // Set up error listeners
-    const errorHandler = (event) => {
-      // This handles errors from error boundaries
-      if (event.detail && event.detail.error) {
-        handleError(event.detail.error, event.detail.errorInfo || {});
-      }
-    };
-    
-    window.addEventListener('error', handleUncaughtError);
-    window.addEventListener('unhandledrejection', handleUnhandledRejection);
-    window.addEventListener('react-error-boundary', errorHandler);
-    
-    // Clean up
-    return () => {
-      window.removeEventListener('error', handleUncaughtError);
-      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
-      window.removeEventListener('react-error-boundary', errorHandler);
-    };
-  }, [handleError]);
-
-  if (errorState.hasError) {
-    console.log('[ErrorBoundary] Rendering error UI', { errorState });
-    
-    return (
-      <div className="p-4 max-w-4xl mx-auto">
-        <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <AlertTriangle className="h-5 w-5 text-red-400 mt-0.5" aria-hidden="true" />
-            </div>
-            <div className="ml-3 flex-1">
-              <h3 className="text-sm font-medium text-red-800">
-                Something went wrong in the Admin Panel
-              </h3>
-              <div className="mt-2 text-sm text-red-700 space-y-2">
-                <p>
-                  <span className="font-medium">Error:</span>{' '}
-                  {errorState.error?.message || 'An unknown error occurred.'}
-                </p>
-                
-                {errorState.timestamp && (
-                  <p className="text-xs text-red-600">
-                    Error occurred at: {new Date(errorState.timestamp).toLocaleString()}
-                  </p>
-                )}
-                
-                {/* Show component stack in development */}
-                {process.env.NODE_ENV === 'development' && (
-                  <div className="space-y-2">
-                    {errorState.errorInfo?.componentStack && (
-                      <details className="mt-2 text-xs bg-red-50 p-2 rounded overflow-auto max-h-40">
-                        <summary className="font-medium cursor-pointer mb-1">
-                          Component Stack
-                        </summary>
-                        <pre className="whitespace-pre-wrap">
-                          {errorState.errorInfo.componentStack}
-                        </pre>
-                      </details>
-                    )}
-                    
-                    {errorState.error?.stack && (
-                      <details className="mt-2 text-xs bg-red-50 p-2 rounded overflow-auto max-h-40">
-                        <summary className="font-medium cursor-pointer mb-1">
-                          Error Stack
-                        </summary>
-                        <pre className="whitespace-pre-wrap">
-                          {errorState.error.stack}
-                        </pre>
-                      </details>
-                    )}
-                    
-                    <div className="text-xs text-gray-500 mt-2">
-                      <p>Check the browser console for more details.</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              <div className="mt-4 flex space-x-3">
-                <button
-                  type="button"
-                  className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                  onClick={handleReset}
-                >
-                  Try again
-                </button>
-                <a
-                  href="/"
-                  className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  Go to home
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Render children normally
-  return children;
-};
-
-const AdminPanelWithBoundary = () => (
-  <AdminPanelErrorBoundary>
-    <AdminPanel />
-  </AdminPanelErrorBoundary>
-);
-
-export default AdminPanelWithBoundary;
+export default AdminPanel; 

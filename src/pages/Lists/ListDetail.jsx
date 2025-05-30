@@ -14,7 +14,7 @@ import { formatRelativeDate } from '@/utils/formatting';
 import { useQuickAdd } from '@/contexts/QuickAddContext';
 import ConfirmationDialog from '@/components/UI/ConfirmationDialog';
 import useApiErrorHandler from '@/hooks/useApiErrorHandler';
-import useAuthStore from '@/stores/useAuthStore';
+import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
 import { logDebug, logError, logInfo, logWarn } from '@/utils/logger';
 import FollowButton from '@/components/FollowButton';
 
@@ -32,7 +32,7 @@ function ListDetail({ listId: propListId, embedded = false }) {
   const listId = propListId || urlListId;
   
   // Auth state
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated  } = useAuth();
   
   // Ensure we're using real data
   useEffect(() => {

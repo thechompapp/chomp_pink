@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, MapPin, Share2, PlusCircle, Utensils, Tag } from 'lucide-react'; // Added Utensils, Tag
 import { dishService } from '@/services/dishService'; // Using JS file now
 import { engagementService } from '@/services/engagementService';
-import useAuthStore from '@/stores/useAuthStore';
+import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
 import Button from '@/components/UI/Button';
 import PillButton from '@/components/UI/PillButton'; // Import PillButton
 import { useQuickAdd } from '@/contexts/QuickAddContext';
@@ -53,7 +53,7 @@ const DishDetailSkeleton = () => (
 const DishDetail = () => {
     const { dishId: id } = useParams(); // Rename id param to dishId for clarity internally if needed
     const navigate = useNavigate();
-    const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+    const isAuthenticated = useAuth().isAuthenticated;
     const { openQuickAdd } = useQuickAdd();
 
     const queryResult = useQuery({

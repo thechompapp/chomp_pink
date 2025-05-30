@@ -14,9 +14,8 @@
 import { useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { useAuthStore } from '@/stores/useAuthStore';
+import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
 import { useAdminAuth } from '@/hooks/useAdminAuth';
-import AuthManager from '@/utils/AuthManager';
 import { logInfo, logWarn, logError } from '@/utils/logger';
 
 /**
@@ -164,14 +163,15 @@ export const DevAuthManager = {
 
   /**
    * Sync admin authentication for development
+   * Note: The new AuthenticationCoordinator handles synchronization automatically
    */
   syncAdminAuth: () => {
     if (DevAuthManager.isDevelopmentMode()) {
       try {
-        AuthManager.syncAdminAuth();
-        logInfo('[AdminAuthManager] Development admin auth synced');
+        // Authentication sync is now handled by AuthenticationCoordinator
+        logInfo('[AdminAuthManager] Authentication is handled by centralized coordinator');
       } catch (error) {
-        logError('[AdminAuthManager] Failed to sync dev admin auth:', error);
+        logError('[AdminAuthManager] Error in auth coordinator:', error);
       }
     }
   },
@@ -182,7 +182,8 @@ export const DevAuthManager = {
    */
   setupDevelopmentMode: (authState) => {
     if (DevAuthManager.isDevelopmentMode() && authState.isAuthenticated) {
-      DevAuthManager.syncAdminAuth();
+      // No manual sync needed - coordinator handles this automatically
+      logInfo('[AdminAuthManager] Development mode active - using coordinator');
     }
   }
 };
@@ -193,7 +194,7 @@ export const DevAuthManager = {
  */
 export function useAdminAuthentication() {
   const navigate = useNavigate();
-  const { user, isAuthenticated, isLoading } = useAuthStore();
+  const { user, isAuthenticated, isLoading  } = useAuth();
   const { isSuperuser, isReady: isSuperuserStatusReady } = useAdminAuth();
   
   // Full auth state

@@ -4,12 +4,12 @@ import React, { useCallback, useEffect } from 'react'; // Added useEffect
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { Heart, HeartOff, Loader2, AlertTriangle } from 'lucide-react';
 import Button from '@/components/UI/Button';
-import useAuthStore from '@/stores/useAuthStore'; // Use default import
+import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
 import { listService } from '@/services/listService';
 
 const FollowButton = ({ listId, isFollowing: initialIsFollowing, className = '', savedCount = 0 }) => {
     const queryClient = useQueryClient();
-    const isAuthenticated = useAuthStore(state => state.isAuthenticated);
+    const { isAuthenticated } = useAuth(); // Migrated from useAuthStore
 
     // Fetch latest list details (including follow status and count)
     const { data: listData } = useQuery({

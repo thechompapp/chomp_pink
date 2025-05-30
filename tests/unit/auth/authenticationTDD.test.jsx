@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter, MemoryRouter } from 'react-router-dom';
-import useAuthStore from '@/stores/useAuthStore';
+import { useAuth } from '@/contexts/auth/AuthContext';
 
 // Mock framer-motion
 vi.mock('framer-motion', () => ({
@@ -44,13 +44,13 @@ const createMockAuthStore = (initialState = {}) => ({
 
 let mockAuthStore = createMockAuthStore();
 
-vi.mock('@/stores/useAuthStore', () => ({
-  default: vi.fn(() => mockAuthStore)
+vi.mock('@/contexts/auth/AuthContext', () => ({
+  useAuth: vi.fn(() => mockAuthStore)
 }));
 
 // Mock components for testing
 const MockProtectedComponent = () => {
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, user } = useAuth();
   
   if (!isAuthenticated) {
     return <div data-testid="login-required">Please log in to continue</div>;
@@ -65,7 +65,7 @@ const MockProtectedComponent = () => {
 };
 
 const MockAddToListButton = ({ onAddToList }) => {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated } = useAuth();
   
   if (!isAuthenticated || !onAddToList) return null;
   
@@ -80,7 +80,7 @@ const MockAddToListButton = ({ onAddToList }) => {
 };
 
 const MockAdminPanel = () => {
-  const { isAuthenticated, isSuperuser, superuserStatusReady } = useAuthStore();
+  const { isAuthenticated, isSuperuser, superuserStatusReady } = useAuth();
   
   if (!isAuthenticated) {
     return <div data-testid="admin-login-required">Admin access requires login</div>;
@@ -104,7 +104,7 @@ const MockAdminPanel = () => {
 };
 
 const MockBulkAddComponent = () => {
-  const { isAuthenticated, isSuperuser } = useAuthStore();
+  const { isAuthenticated, isSuperuser } = useAuth();
   
   if (!isAuthenticated || !isSuperuser) {
     return <div data-testid="bulk-add-protected">Bulk add requires admin privileges</div>;

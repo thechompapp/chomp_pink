@@ -139,11 +139,16 @@ class AppServer {
     // Allow multiple frontend origins for development flexibility
     const frontendUrls = [
       process.env.FRONTEND_URL || 'http://localhost:5173',
+      'http://localhost:5173',
       'http://localhost:5174',  // In case Vite uses this port
       'http://localhost:5175',  // Updated port for frontend
+      'http://localhost:5176',  // Additional Vite port
+      'http://localhost:5177',  // Additional Vite port
       'http://127.0.0.1:5173',
       'http://127.0.0.1:5174',
       'http://127.0.0.1:5175',
+      'http://127.0.0.1:5176',
+      'http://127.0.0.1:5177',
       'http://localhost:3000',   // For test environments
       'http://127.0.0.1:3000'    // For test environments
     ];

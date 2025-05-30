@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronUp, Star, Loader2 } from 'lucide-react';
 import { engagementService } from '@/services/engagementService';
 import { listService } from '@/services/listService';
-import useAuthStore from '@/stores/useAuthStore';
+import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
 import useFollowStore from '@/stores/useFollowStore';
 import { useListDetail } from '@/contexts/ListDetailContext';
 import Button from '@/components/UI/Button';
@@ -15,7 +15,7 @@ import { logDebug } from '@/utils/logger';
 
 // Item display component
 const ListItemDisplay = ({ item, listType, onQuickAdd }) => {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated  } = useAuth();
   
   if (!item) return null;
   
@@ -61,7 +61,7 @@ const ModalListCard = ({ list, onQuickAdd }) => {
   const [isFollowProcessing, setIsFollowProcessing] = useState(false);
   
   // Hook into stores/contexts
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated  } = useAuth();
   const { isFollowing, toggleFollowStatus } = useFollowStore();
   const { openListDetail } = useListDetail();
   

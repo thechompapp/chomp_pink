@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { engagementService } from '@/services/engagementService';
-import useAuthStore from '@/stores/useAuthStore';
+import { useAuth } from '@/contexts/auth/AuthContext';
 import { CARD_SPECS } from '@/models/cardModels';
 import { formatRelativeDate } from '@/utils/formatting';
 
@@ -63,7 +63,7 @@ const ListBadge = ({ icon: Icon, text, color = "gray", size = "sm", testId }) =>
 
 // Follow button component
 const FollowButton = ({ list, onFollow, onUnfollow }) => {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated } = useAuth();
   const [isFollowing, setIsFollowing] = useState(Boolean(list.is_following));
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -125,7 +125,7 @@ const FollowButton = ({ list, onFollow, onUnfollow }) => {
 
 // Quick Add button component
 const QuickAddButton = ({ list, onQuickAdd }) => {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated } = useAuth();
 
   const handleQuickAdd = useCallback((e) => {
     e.stopPropagation();
@@ -183,7 +183,7 @@ const ListCard = ({
   className = ""
 }) => {
   const [isHovered, setIsHovered] = useState(false);
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated } = useAuth();
   
   const cleanName = name?.trim() || 'Unnamed List';
   const linkDestination = `/list/${id}`;

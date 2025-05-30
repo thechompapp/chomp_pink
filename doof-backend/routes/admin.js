@@ -94,6 +94,9 @@ router.post('/restaurant_chains', adminController.createRestaurantChain);
 router.put('/restaurant_chains/:id', adminController.updateRestaurantChain);
 router.delete('/restaurant_chains/:id', adminController.deleteRestaurantChain);
 
+// Bulk operations
+router.post('/restaurants/bulk', adminController.bulkAddRestaurants);
+
 // System administrative routes
 router.get('/system/status', adminController.getSystemStatus);
 router.get('/system/logs', adminController.getSystemLogs);

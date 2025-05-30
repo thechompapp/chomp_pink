@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { WifiOff, RefreshCw } from 'lucide-react';
 import { isOfflineMode, setOfflineMode } from '@/services/apiClient';
-import useAuthStore from '@/stores/useAuthStore';
+import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
 
 /**
  * Component that shows when the app is in offline mode
  * Updated to respect authentication state
  */
 const OfflineIndicator = () => {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated  } = useAuth();
   // Initialize with the current offline status
   const [offlineStatus, setOfflineStatus] = useState(() => {
     // Default to checking localStorage for backward compatibility

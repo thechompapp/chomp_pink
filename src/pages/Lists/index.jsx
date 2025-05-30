@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import ListCard from './ListCard';
-import useAuthStore from '@/stores/useAuthStore';
+import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
 import { listService } from '@/services/listService';
 import { Loader2 } from 'lucide-react';
 import { GRID_LAYOUTS, CONTAINER, TYPOGRAPHY } from '@/utils/layoutConstants';
@@ -14,7 +14,7 @@ const Lists = () => {
   const [followedLists, setFollowedLists] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated  } = useAuth();
 
   // Helper to check if a list is being followed
   const isListFollowed = (listId) => {

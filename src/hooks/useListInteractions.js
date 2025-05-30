@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { listService } from '@/services/listService';
 import { engagementService } from '@/services/engagementService';
 import useFollowStore from '@/stores/useFollowStore';
-import useAuthStore from '@/stores/useAuthStore';
+import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
 import { logDebug, logError } from '@/utils/logger';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -18,7 +18,7 @@ import { useQueryClient } from '@tanstack/react-query';
 export function useListInteractions(list, options = {}) {
   const { onListClick } = options;
   const listId = list?.id;
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated  } = useAuth();
   const queryClient = useQueryClient();
   
   // Get follow state from Zustand store
