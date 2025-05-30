@@ -659,3 +659,114 @@ export const bulkAddRestaurants = async (req, res) => {
     });
   }
 };
+
+// ===================================
+// Autosuggest Controllers
+// ===================================
+
+/**
+ * Get cities for autosuggest - returns top 10 cities ordered by name
+ */
+export const getAutosuggestCities = async (req, res) => {
+  try {
+    const { search } = req.query;
+    
+    // Get cities from database - limit to 10 for autosuggest
+    const cities = await CityModel.searchCities(search || '', 10);
+    
+    // Format for autosuggest: simple array of objects with id and name
+    const suggestions = cities.map(city => ({
+      id: city.id,
+      value: city.name,
+      label: city.name
+    }));
+    
+    return res.status(200).json({
+      success: true,
+      data: suggestions
+    });
+    
+  } catch (error) {
+    console.error('Error fetching autosuggest cities:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch city suggestions',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get neighborhoods for autosuggest - returns all neighborhoods with city context
+ */
+export const getAutosuggestNeighborhoods = async (req, res) => {
+  try {
+    const { search } = req.query;
+    
+    // Get neighborhoods from database with city information
+    const neighborhoods = await NeighborhoodModel.searchNeighborhoodsWithCity(search || '', 25);
+    
+    // Format for autosuggest: include city context for disambiguation
+    const suggestions = neighborhoods.map(neighborhood => ({
+      id: neighborhood.id,
+      value: neighborhood.name,
+      label: `${neighborhood.name}${neighborhood.city_name ? ` (${neighborhood.city_name})` : ''}`,
+      cityId: neighborhood.city_id,
+      cityName: neighborhood.city_name
+    }));
+    
+    return res.status(200).json({
+      success: true,
+      data: suggestions
+    });
+    
+  } catch (error) {
+    console.error('Error fetching autosuggest neighborhoods:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch neighborhood suggestions',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get neighborhoods for a specific city - returns up to 25 neighborhoods for a city
+ */
+export const getAutosuggestNeighborhoodsByCity = async (req, res) => {
+  try {
+    const { cityId } = req.params;
+    const { search } = req.query;
+    
+    if (!cityId || isNaN(parseInt(cityId))) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid city ID is required'
+      });
+    }
+    
+    // Get neighborhoods for specific city
+    const neighborhoods = await NeighborhoodModel.getNeighborhoodsByCity(parseInt(cityId), search || '', 25);
+    
+    // Format for autosuggest: simpler since we know the city context
+    const suggestions = neighborhoods.map(neighborhood => ({
+      id: neighborhood.id,
+      value: neighborhood.name,
+      label: neighborhood.name,
+      cityId: neighborhood.city_id
+    }));
+    
+    return res.status(200).json({
+      success: true,
+      data: suggestions
+    });
+    
+  } catch (error) {
+    console.error('Error fetching autosuggest neighborhoods by city:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch neighborhood suggestions for city',
+      error: error.message
+    });
+  }
+};

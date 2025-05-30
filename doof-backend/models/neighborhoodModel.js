@@ -89,6 +89,93 @@ export const getNeighborhoodsByZipcode = async (zipcode) => {
     }
 };
 
+// Search neighborhoods with city information for autosuggest
+export const searchNeighborhoodsWithCity = async (searchTerm = '', limit = 25) => {
+    try {
+        let query;
+        let params;
+        
+        if (searchTerm && searchTerm.trim()) {
+            // Search neighborhoods by name with city information
+            query = `
+                SELECT n.*, c.name as city_name
+                FROM neighborhoods n
+                JOIN cities c ON n.city_id = c.id
+                WHERE LOWER(n.name) LIKE LOWER($1)
+                ORDER BY c.name ASC, n.name ASC 
+                LIMIT $2
+            `;
+            params = [`%${searchTerm.trim()}%`, limit];
+        } else {
+            // Return top neighborhoods with city information
+            query = `
+                SELECT n.*, c.name as city_name
+                FROM neighborhoods n
+                JOIN cities c ON n.city_id = c.id
+                ORDER BY c.name ASC, n.name ASC 
+                LIMIT $1
+            `;
+            params = [limit];
+        }
+        
+        const result = await db.query(query, params);
+        return result.rows.map(row => ({
+            id: row.id,
+            name: row.name,
+            city_id: row.city_id,
+            city_name: row.city_name,
+            borough: row.borough
+        }));
+    } catch (error) {
+        console.error('Error searching neighborhoods with city:', error);
+        throw error;
+    }
+};
+
+// Get neighborhoods for a specific city with optional search
+export const getNeighborhoodsByCity = async (cityId, searchTerm = '', limit = 25) => {
+    try {
+        let query;
+        let params;
+        
+        if (searchTerm && searchTerm.trim()) {
+            // Search neighborhoods within specific city
+            query = `
+                SELECT n.*, c.name as city_name
+                FROM neighborhoods n
+                JOIN cities c ON n.city_id = c.id
+                WHERE n.city_id = $1 AND LOWER(n.name) LIKE LOWER($2)
+                ORDER BY n.name ASC 
+                LIMIT $3
+            `;
+            params = [cityId, `%${searchTerm.trim()}%`, limit];
+        } else {
+            // Get all neighborhoods for specific city
+            query = `
+                SELECT n.*, c.name as city_name
+                FROM neighborhoods n
+                JOIN cities c ON n.city_id = c.id
+                WHERE n.city_id = $1
+                ORDER BY n.name ASC 
+                LIMIT $2
+            `;
+            params = [cityId, limit];
+        }
+        
+        const result = await db.query(query, params);
+        return result.rows.map(row => ({
+            id: row.id,
+            name: row.name,
+            city_id: row.city_id,
+            city_name: row.city_name,
+            borough: row.borough
+        }));
+    } catch (error) {
+        console.error('Error getting neighborhoods by city:', error);
+        throw error;
+    }
+};
+
 // --- Keep/Update other functions like getNeighborhoodById, create, update, delete ---
 // --- Ensure they also use console.error/warn instead of the removed logger ---
 
@@ -105,6 +192,8 @@ const neighborhoodModel = {
     getBoroughsByCity,
     getNeighborhoodsByParent,
     getNeighborhoodsByZipcode,
+    searchNeighborhoodsWithCity,
+    getNeighborhoodsByCity,
 };
 
 export default neighborhoodModel;

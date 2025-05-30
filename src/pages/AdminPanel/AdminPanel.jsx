@@ -44,61 +44,61 @@ const TAB_CONFIG = {
     icon: Settings,
     description: 'Manage restaurant data with real-time editing'
   },
+  dishes: { 
+    label: 'Dishes', 
+    key: 'dishes', 
+    enhanced: true, 
+    icon: Settings,
+    description: 'Manage dishes data with real-time editing'
+  },
+  users: { 
+    label: 'Users', 
+    key: 'users', 
+    enhanced: true, 
+    icon: Settings,
+    description: 'Manage users data with real-time editing'
+  },
+  cities: { 
+    label: 'Cities', 
+    key: 'cities', 
+    enhanced: true, 
+    icon: Settings,
+    description: 'Manage cities data with real-time editing'
+  },
+  neighborhoods: { 
+    label: 'Neighborhoods', 
+    key: 'neighborhoods', 
+    enhanced: true, 
+    icon: Settings,
+    description: 'Manage neighborhoods data with real-time editing'
+  },
+  hashtags: { 
+    label: 'Hashtags', 
+    key: 'hashtags', 
+    enhanced: true, 
+    icon: Settings,
+    description: 'Manage hashtags data with real-time editing'
+  },
+  restaurant_chains: { 
+    label: 'Restaurant Chains', 
+    key: 'restaurant_chains', 
+    enhanced: true, 
+    icon: Settings,
+    description: 'Manage restaurant chains data with real-time editing'
+  },
+  submissions: { 
+    label: 'Submissions', 
+    key: 'submissions', 
+    enhanced: true, 
+    icon: Settings,
+    description: 'Manage submissions data with real-time editing'
+  },
   bulk_operations: {
     label: 'Bulk Operations',
     key: 'bulk_operations',
     enhanced: true,
     icon: Settings,
     description: 'Import, export, and batch operations'
-  },
-  dishes: { 
-    label: 'Dishes', 
-    key: 'dishes', 
-    enhanced: false, 
-    icon: Eye,
-    description: 'Legacy dishes management'
-  },
-  users: { 
-    label: 'Users', 
-    key: 'users', 
-    enhanced: false, 
-    icon: Eye,
-    description: 'Legacy users management'
-  },
-  cities: { 
-    label: 'Cities', 
-    key: 'cities', 
-    enhanced: false, 
-    icon: Eye,
-    description: 'Legacy cities management'
-  },
-  neighborhoods: { 
-    label: 'Neighborhoods', 
-    key: 'neighborhoods', 
-    enhanced: false, 
-    icon: Eye,
-    description: 'Legacy neighborhoods management'
-  },
-  hashtags: { 
-    label: 'Hashtags', 
-    key: 'hashtags', 
-    enhanced: false, 
-    icon: Eye,
-    description: 'Legacy hashtags management'
-  },
-  restaurant_chains: { 
-    label: 'Restaurant Chains', 
-    key: 'restaurant_chains', 
-    enhanced: false, 
-    icon: Eye,
-    description: 'Legacy chains management'
-  },
-  submissions: { 
-    label: 'Submissions', 
-    key: 'submissions', 
-    enhanced: false, 
-    icon: Eye,
-    description: 'Legacy submissions management'
   }
 };
 
@@ -290,7 +290,20 @@ const AdminPanel = () => {
   }
   
   // Get current data for active tab
-  const currentData = activeTab === 'restaurants' ? adminData?.restaurants || [] : adminData?.[selectedResourceType] || [];
+  const getCurrentDataForTab = (tabKey) => {
+    // For bulk operations, use the selectedResourceType
+    if (tabKey === 'bulk_operations') {
+      return adminData?.[selectedResourceType] || [];
+    }
+    // For analytics, we don't need current data
+    if (tabKey === 'analytics') {
+      return [];
+    }
+    // For all other tabs, use the tab key as the data source
+    return adminData?.[tabKey] || [];
+  };
+  
+  const currentData = getCurrentDataForTab(activeTab);
   const cities = adminData?.cities || [];
   const neighborhoods = adminData?.neighborhoods || [];
   const isEnhanced = TAB_CONFIG[activeTab]?.enhanced;
@@ -302,13 +315,8 @@ const AdminPanel = () => {
   
   // Render tab content
   const renderTabContent = () => {
-    console.log('[AdminPanel Debug] renderTabContent called with activeTab:', activeTab);
-    console.log('[AdminPanel Debug] adminData available:', !!adminData);
-    console.log('[AdminPanel Debug] restaurants data length:', adminData?.restaurants?.length || 0);
-    
     switch (activeTab) {
       case 'analytics':
-        console.log('[AdminPanel Debug] Rendering analytics dashboard');
         return (
           <AdminAnalyticsDashboard 
             adminData={adminData || {}}
@@ -316,7 +324,6 @@ const AdminPanel = () => {
         );
         
       case 'bulk_operations':
-        console.log('[AdminPanel Debug] Rendering bulk operations');
         return (
           <div className="space-y-6">
             {/* Resource Type Selector */}
@@ -351,8 +358,6 @@ const AdminPanel = () => {
         );
         
       case 'restaurants':
-        console.log('[AdminPanel Debug] Rendering restaurants table');
-        console.log('[AdminPanel Debug] currentData for restaurants:', currentData?.length || 0);
         return (
           <div className="space-y-6">
             {/* Enhanced Features Notice */}
@@ -391,80 +396,291 @@ const AdminPanel = () => {
             />
           </div>
         );
-        
-      default:
-        console.log('[AdminPanel Debug] Rendering default/legacy view for:', activeTab);
-        // Legacy tables for other resource types
-        const legacyData = adminData?.[activeTab] || [];
+
+      case 'dishes':
         return (
           <div className="space-y-6">
-            {/* Legacy Notice */}
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            {/* Enhanced Features Notice */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
               <div className="flex items-start">
                 <div className="flex-shrink-0">
-                  <Eye className="w-5 h-5 text-yellow-600 mt-0.5" />
+                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
                 </div>
                 <div className="ml-3">
-                  <h3 className="text-sm font-medium text-yellow-800">Legacy View</h3>
-                  <p className="mt-1 text-sm text-yellow-700">
-                    This tab shows the legacy implementation. Enhanced features are available in the Restaurants tab.
-                    <span className="block mt-1 font-medium">
-                      Enhanced features: Analytics, Bulk Operations, and Real-time Editing
-                    </span>
-                  </p>
+                  <h3 className="text-sm font-medium text-blue-800">Enhanced Features Active</h3>
+                  <div className="mt-1 text-sm text-blue-700">
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>Real-time inline editing with auto-save</li>
+                      <li>Advanced field validation and error feedback</li>
+                      <li>Optimized data fetching with caching</li>
+                      <li>Bulk operations with row selection</li>
+                      <li>Advanced sorting and filtering</li>
+                    </ul>
+                  </div>
                 </div>
               </div>
             </div>
             
-            {/* Simple data display for legacy tabs */}
-            <div className="bg-white shadow rounded-lg">
-              <div className="px-4 py-5 sm:p-6">
-                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                  {TAB_CONFIG[activeTab]?.label || activeTab} Data
-                </h3>
-                
-                {legacyData.length > 0 ? (
-                  <div className="mt-4">
-                    <p className="text-sm text-gray-600 mb-4">
-                      Showing {legacyData.length} {activeTab} records (read-only view)
-                    </p>
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            {Object.keys(legacyData[0] || {}).slice(0, 5).map(key => (
-                              <th key={key} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                {key.replace(/_/g, ' ')}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {legacyData.slice(0, 10).map((item, index) => (
-                            <tr key={index} className="hover:bg-gray-50">
-                              {Object.values(item).slice(0, 5).map((value, cellIndex) => (
-                                <td key={cellIndex} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                  {value?.toString() || 'N/A'}
-                                </td>
-                              ))}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    {legacyData.length > 10 && (
-                      <p className="text-xs text-gray-500 mt-2">
-                        Showing first 10 of {legacyData.length} records
-                      </p>
-                    )}
+            {/* Enhanced Admin Table */}
+            <EnhancedAdminTable
+              resourceType="dishes"
+              initialData={currentData}
+              cities={cities}
+              neighborhoods={neighborhoods}
+              pageSize={25}
+              enableInlineEditing={true}
+              enableBulkOperations={true}
+              enableSelection={true}
+              enableCreate={true}
+              className="shadow-lg"
+            />
+          </div>
+        );
+
+      case 'users':
+        return (
+          <div className="space-y-6">
+            {/* Enhanced Features Notice */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-blue-800">Enhanced Features Active</h3>
+                  <div className="mt-1 text-sm text-blue-700">
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>Real-time inline editing with auto-save</li>
+                      <li>Advanced field validation and error feedback</li>
+                      <li>Optimized data fetching with caching</li>
+                      <li>Bulk operations with row selection</li>
+                      <li>Advanced sorting and filtering</li>
+                    </ul>
                   </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <p className="text-gray-500">No {activeTab} data available</p>
-                  </div>
-                )}
+                </div>
               </div>
             </div>
+            
+            {/* Enhanced Admin Table */}
+            <EnhancedAdminTable
+              resourceType="users"
+              initialData={currentData}
+              cities={cities}
+              neighborhoods={neighborhoods}
+              pageSize={25}
+              enableInlineEditing={true}
+              enableBulkOperations={true}
+              enableSelection={true}
+              enableCreate={true}
+              className="shadow-lg"
+            />
+          </div>
+        );
+
+      case 'cities':
+        return (
+          <div className="space-y-6">
+            {/* Enhanced Features Notice */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-blue-800">Enhanced Features Active</h3>
+                  <div className="mt-1 text-sm text-blue-700">
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>Real-time inline editing with auto-save</li>
+                      <li>Advanced field validation and error feedback</li>
+                      <li>Optimized data fetching with caching</li>
+                      <li>Bulk operations with row selection</li>
+                      <li>Advanced sorting and filtering</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Enhanced Admin Table */}
+            <EnhancedAdminTable
+              resourceType="cities"
+              initialData={currentData}
+              cities={cities}
+              neighborhoods={neighborhoods}
+              pageSize={25}
+              enableInlineEditing={true}
+              enableBulkOperations={true}
+              enableSelection={true}
+              enableCreate={true}
+              className="shadow-lg"
+            />
+          </div>
+        );
+
+      case 'neighborhoods':
+        return (
+          <div className="space-y-6">
+            {/* Enhanced Features Notice */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-blue-800">Enhanced Features Active</h3>
+                  <div className="mt-1 text-sm text-blue-700">
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>Real-time inline editing with auto-save</li>
+                      <li>Advanced field validation and error feedback</li>
+                      <li>Optimized data fetching with caching</li>
+                      <li>Bulk operations with row selection</li>
+                      <li>Advanced sorting and filtering</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Enhanced Admin Table */}
+            <EnhancedAdminTable
+              resourceType="neighborhoods"
+              initialData={currentData}
+              cities={cities}
+              neighborhoods={neighborhoods}
+              pageSize={25}
+              enableInlineEditing={true}
+              enableBulkOperations={true}
+              enableSelection={true}
+              enableCreate={true}
+              className="shadow-lg"
+            />
+          </div>
+        );
+
+      case 'hashtags':
+        return (
+          <div className="space-y-6">
+            {/* Enhanced Features Notice */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-blue-800">Enhanced Features Active</h3>
+                  <div className="mt-1 text-sm text-blue-700">
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>Real-time inline editing with auto-save</li>
+                      <li>Advanced field validation and error feedback</li>
+                      <li>Optimized data fetching with caching</li>
+                      <li>Bulk operations with row selection</li>
+                      <li>Advanced sorting and filtering</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Enhanced Admin Table */}
+            <EnhancedAdminTable
+              resourceType="hashtags"
+              initialData={currentData}
+              cities={cities}
+              neighborhoods={neighborhoods}
+              pageSize={25}
+              enableInlineEditing={true}
+              enableBulkOperations={true}
+              enableSelection={true}
+              enableCreate={true}
+              className="shadow-lg"
+            />
+          </div>
+        );
+
+      case 'restaurant_chains':
+        return (
+          <div className="space-y-6">
+            {/* Enhanced Features Notice */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-blue-800">Enhanced Features Active</h3>
+                  <div className="mt-1 text-sm text-blue-700">
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>Real-time inline editing with auto-save</li>
+                      <li>Advanced field validation and error feedback</li>
+                      <li>Optimized data fetching with caching</li>
+                      <li>Bulk operations with row selection</li>
+                      <li>Advanced sorting and filtering</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Enhanced Admin Table */}
+            <EnhancedAdminTable
+              resourceType="restaurant_chains"
+              initialData={currentData}
+              cities={cities}
+              neighborhoods={neighborhoods}
+              pageSize={25}
+              enableInlineEditing={true}
+              enableBulkOperations={true}
+              enableSelection={true}
+              enableCreate={true}
+              className="shadow-lg"
+            />
+          </div>
+        );
+
+      case 'submissions':
+        return (
+          <div className="space-y-6">
+            {/* Enhanced Features Notice */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-blue-800">Enhanced Features Active</h3>
+                  <div className="mt-1 text-sm text-blue-700">
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>Real-time inline editing with auto-save</li>
+                      <li>Advanced field validation and error feedback</li>
+                      <li>Optimized data fetching with caching</li>
+                      <li>Bulk operations with row selection</li>
+                      <li>Advanced sorting and filtering</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Enhanced Admin Table */}
+            <EnhancedAdminTable
+              resourceType="submissions"
+              initialData={currentData}
+              cities={cities}
+              neighborhoods={neighborhoods}
+              pageSize={25}
+              enableInlineEditing={true}
+              enableBulkOperations={true}
+              enableSelection={true}
+              enableCreate={true}
+              className="shadow-lg"
+            />
+          </div>
+        );
+        
+      default:
+        return (
+          <div className="text-center py-12">
+            <p className="text-gray-500">Tab not implemented yet</p>
           </div>
         );
     }
@@ -476,7 +692,7 @@ const AdminPanel = () => {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Enhanced Admin Panel</h1>
         <p className="text-gray-600 mt-1">
-          Advanced admin interface with analytics, bulk operations, and real-time editing capabilities
+          Fully enhanced admin interface with real-time editing, analytics, and bulk operations across all data types
         </p>
         
         {/* Enhancement indicators */}

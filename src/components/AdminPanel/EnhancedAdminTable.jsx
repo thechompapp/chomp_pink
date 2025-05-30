@@ -382,7 +382,7 @@ export const EnhancedAdminTable = ({
     columns,
     pageSize,
     enableInlineEditing,
-    enableBatchOperations
+    enableBulkOperations
   });
   
   // Create new item handler

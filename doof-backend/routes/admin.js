@@ -94,6 +94,11 @@ router.post('/restaurant_chains', adminController.createRestaurantChain);
 router.put('/restaurant_chains/:id', adminController.updateRestaurantChain);
 router.delete('/restaurant_chains/:id', adminController.deleteRestaurantChain);
 
+// Autosuggest endpoints for inline editing
+router.get('/autosuggest/cities', adminController.getAutosuggestCities);
+router.get('/autosuggest/neighborhoods', adminController.getAutosuggestNeighborhoods);
+router.get('/autosuggest/neighborhoods/:cityId', adminController.getAutosuggestNeighborhoodsByCity);
+
 // Bulk operations
 router.post('/restaurants/bulk', adminController.bulkAddRestaurants);
 
