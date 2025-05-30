@@ -52,6 +52,11 @@ class AuthenticationCoordinator {
       isSuperuser: false,
       lastVerified: null
     };
+    
+    this.lastTokenValidation = 0; // Track when we last validated the token
+    
+    // Bind methods
+    this.getCurrentState = this.getCurrentState.bind(this);
   }
 
   /**
@@ -143,7 +148,18 @@ class AuthenticationCoordinator {
         }
       }
 
-      // Verify token with backend
+      // In development mode, trust the stored token if user data exists
+      // This prevents logout loops during admin panel navigation
+      if (import.meta.env.DEV && user && token) {
+        logInfo('[AuthCoordinator] Development mode: trusting stored credentials');
+        await this.syncAuthenticatedState(true, user, token);
+        
+        // Set up admin access in development
+        this.setupDevelopmentAdminAccess(user);
+        return;
+      }
+
+      // Verify token with backend (only in production or if no user data)
       const isValid = await this.verifyTokenWithBackend(token);
       
       if (isValid) {
@@ -186,11 +202,14 @@ class AuthenticationCoordinator {
         return false;
       } else {
         logWarn('[AuthCoordinator] Token verification failed with status:', response.status);
-        return false;
+        // For better UX, assume token is still valid on server errors (500, 503, etc.)
+        // Only treat 401 as definitive token invalidity
+        return true;
       }
     } catch (error) {
       logWarn('[AuthCoordinator] Token verification network error:', error.message);
-      // On network error, assume token is still valid to avoid logout loops
+      // On network errors, always assume token is still valid to avoid logout loops
+      // This provides much better user experience when there are temporary connectivity issues
       return true;
     }
   }
@@ -226,9 +245,12 @@ class AuthenticationCoordinator {
         throw new Error('Invalid login response from server');
       }
 
-      // Store authentication data
-      localStorage.setItem(STORAGE_KEYS.TOKEN, token);
-      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+      // Store authentication data in ALL possible token keys for maximum compatibility
+      localStorage.setItem(STORAGE_KEYS.TOKEN, token);  // 'token'
+      localStorage.setItem('auth-token', token);         // Alternative key
+      localStorage.setItem('authToken', token);          // Alternative key
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));  // 'current_user'
+      localStorage.setItem('userData', JSON.stringify(user));         // Alternative key
       
       // Sync across all systems
       await this.syncAuthenticatedState(true, user, token);
@@ -367,13 +389,32 @@ class AuthenticationCoordinator {
       isAuthenticated,
       user,
       token,
-      isAdmin: isAuthenticated && (user?.role === 'admin' || user?.account_type === 'superuser'),
-      isSuperuser: isAuthenticated && user?.account_type === 'superuser',
+      isAdmin: isAuthenticated && (user?.role === 'admin' || user?.role === 'superuser' || user?.account_type === 'superuser'),
+      isSuperuser: isAuthenticated && (user?.role === 'superuser' || user?.account_type === 'superuser'),
       lastVerified: Date.now()
     };
 
     // Update internal state
     this.currentState = newState;
+
+    // **CRITICAL FIX**: Update the auth-authentication-storage that React context uses
+    try {
+      const authStorageState = {
+        state: {
+          token,
+          isAuthenticated,
+          user,
+          lastAuthCheck: Date.now(),
+          error: null
+        },
+        version: 0
+      };
+      
+      localStorage.setItem('auth-authentication-storage', JSON.stringify(authStorageState));
+      logDebug('[AuthCoordinator] Updated auth-authentication-storage for React context');
+    } catch (error) {
+      logWarn('[AuthCoordinator] Failed to update auth-authentication-storage:', error.message);
+    }
 
     // Sync all registered auth stores
     for (const store of this.authStores) {
@@ -454,16 +495,49 @@ class AuthenticationCoordinator {
    * Set up periodic token validation
    */
   setupTokenValidation() {
-    // Validate token every 5 minutes
-    setInterval(async () => {
+    // Use user-friendly token validation for all environments
+    // Only validate on significant events, with reasonable intervals
+    
+    logInfo('[AuthCoordinator] Setting up user-friendly token validation for all environments');
+    
+    // Validate on page focus (when user returns to tab) - but only after reasonable periods
+    window.addEventListener('focus', async () => {
       if (this.currentState.isAuthenticated && this.currentState.token) {
-        const isValid = await this.verifyTokenWithBackend(this.currentState.token);
-        if (!isValid) {
-          logInfo('[AuthCoordinator] Periodic token validation failed, logging out');
-          await this.performCoordinatedLogout(false);
+        const timeSinceLastCheck = Date.now() - (this.lastTokenValidation || 0);
+        // Only validate if it's been more than 1 hour since last check
+        // This prevents constant validation while still catching truly expired tokens
+        if (timeSinceLastCheck > 60 * 60 * 1000) {
+          logInfo('[AuthCoordinator] Validating token on page focus (1 hour+ since last check)');
+          const isValid = await this.verifyTokenWithBackend(this.currentState.token);
+          if (!isValid) {
+            logInfo('[AuthCoordinator] Token validation failed on focus, logging out');
+            await this.performCoordinatedLogout(false);
+          } else {
+            this.lastTokenValidation = Date.now();
+          }
         }
       }
-    }, 5 * 60 * 1000);
+    });
+    
+    // Validate on online event (when network comes back) - but be lenient
+    window.addEventListener('online', async () => {
+      if (this.currentState.isAuthenticated && this.currentState.token) {
+        const timeSinceLastCheck = Date.now() - (this.lastTokenValidation || 0);
+        // Only validate on network reconnection if it's been more than 10 minutes
+        if (timeSinceLastCheck > 10 * 60 * 1000) {
+          logInfo('[AuthCoordinator] Validating token on network reconnection');
+          const isValid = await this.verifyTokenWithBackend(this.currentState.token);
+          if (!isValid) {
+            logInfo('[AuthCoordinator] Token validation failed on reconnection, logging out');
+            await this.performCoordinatedLogout(false);
+          } else {
+            this.lastTokenValidation = Date.now();
+          }
+        }
+      }
+    });
+    
+    logInfo('[AuthCoordinator] User-friendly token validation setup complete');
   }
 
   /**

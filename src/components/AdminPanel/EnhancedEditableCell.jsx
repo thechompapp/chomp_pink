@@ -7,6 +7,7 @@
  * - Auto-save functionality
  * - Better UX with loading states
  * - Support for dropdowns, autocomplete, and custom field types
+ * - Google Places integration for restaurant addresses
  */
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
@@ -124,7 +125,8 @@ export const EnhancedEditableCell = ({
   onCancel,
   autoSave = true,
   disabled = false,
-  className = ''
+  className = '',
+  row
 }) => {
   // State management
   const [isEditing, setIsEditing] = useState(false);
@@ -171,6 +173,25 @@ export const EnhancedEditableCell = ({
       return cities.map(city => ({ value: city.id, label: city.name }));
     }
     if (fieldName === 'neighborhood_id') {
+      // Special handling for neighborhood field to avoid showing raw IDs
+      const cityId = row?.city_id;
+      
+      if (cityId) {
+        // Filter neighborhoods by city
+        const filteredNeighborhoods = neighborhoods.filter(n => n.city_id === cityId);
+        
+        // If the current neighborhood value is not in the filtered list,
+        // include all neighborhoods to avoid showing raw ID
+        const currentNeighborhoodInFiltered = filteredNeighborhoods.find(n => n.id === currentValue);
+        
+        if (!currentNeighborhoodInFiltered && currentValue) {
+          console.log(`[EnhancedEditableCell] Current neighborhood ${currentValue} not found in city ${cityId} neighborhoods, showing all neighborhoods`);
+          return neighborhoods.map(n => ({ value: n.id, label: n.name }));
+        }
+        
+        return filteredNeighborhoods.map(n => ({ value: n.id, label: n.name }));
+      }
+      
       return neighborhoods.map(n => ({ value: n.id, label: n.name }));
     }
     if (fieldName === 'price_range') {
@@ -183,7 +204,7 @@ export const EnhancedEditableCell = ({
     }
     
     return [];
-  }, [columnConfig.selectOptions, fieldName, cities, neighborhoods]);
+  }, [columnConfig.selectOptions, fieldName, cities, neighborhoods, row, currentValue]);
   
   // Validation
   const validateValue = useCallback((val) => {
@@ -234,7 +255,7 @@ export const EnhancedEditableCell = ({
     setIsSaving(true);
     
     try {
-      await onSave(fieldName, valueToSave);
+      await onSave(rowId, fieldName, valueToSave);
       setIsEditing(false);
       setHasChanges(false);
       toast.success(`${fieldName} updated successfully`);
@@ -245,7 +266,7 @@ export const EnhancedEditableCell = ({
     } finally {
       setIsSaving(false);
     }
-  }, [currentValue, initialValue, validateValue, onSave, fieldName]);
+  }, [currentValue, initialValue, validateValue, onSave, fieldName, rowId]);
   
   // Cancel editing
   const handleCancel = useCallback(() => {
@@ -314,6 +335,7 @@ export const EnhancedEditableCell = ({
     
     if (fieldType === 'select' && selectOptions.length > 0) {
       const option = selectOptions.find(opt => opt.value === currentValue);
+      
       return option ? option.label : currentValue;
     }
     
@@ -332,7 +354,7 @@ export const EnhancedEditableCell = ({
     }
     
     return String(currentValue);
-  }, [currentValue, fieldType, selectOptions]);
+  }, [currentValue, fieldType, selectOptions, fieldName, row]);
   
   // Render input based on field type
   const renderInput = () => {
@@ -345,6 +367,16 @@ export const EnhancedEditableCell = ({
       autoFocus: true,
       error: validationError
     };
+    
+    // Special handling for restaurant address field
+    if (resourceType === 'restaurants' && fieldName === 'address') {
+      return (
+        <TextInput
+          {...commonProps}
+          placeholder="Enter restaurant address"
+        />
+      );
+    }
     
     switch (fieldType) {
       case 'number':

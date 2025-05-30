@@ -4,6 +4,9 @@ import { getDefaultApiClient } from '@/services/http';
 import useAuthenticationStore from '@/stores/auth/useAuthenticationStore';
 import { IS_DEVELOPMENT } from '@/config';
 
+// Get the API client instance
+const apiClient = getDefaultApiClient();
+
 // Create context with a meaningful default value to help with type checking
 const PlacesApiContext = createContext({
   isAvailable: false,
@@ -32,8 +35,8 @@ export const usePlacesApi = () => {
  */
 export const PlacesApiProvider = ({ children }) => {
   // State management
-  const [isAvailable, setIsAvailable] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isAvailable, setIsAvailable] = useState(IS_DEVELOPMENT); // Default to true in dev mode
+  const [isLoading, setIsLoading] = useState(false); // Start as false in dev mode
   const [error, setError] = useState(null);
   const [checkCount, setCheckCount] = useState(0);
 
@@ -41,6 +44,15 @@ export const PlacesApiProvider = ({ children }) => {
    * Check if the Places API is available
    */
   const checkApiAvailability = useCallback(async () => {
+    // In development mode, assume the API is available
+    if (IS_DEVELOPMENT) {
+      console.log('[PlacesApiContext] Development mode - Places API assumed available');
+      setIsAvailable(true);
+      setError(null);
+      setIsLoading(false);
+      return;
+    }
+
     const authState = useAuthenticationStore.getState();
     const isAuthenticated = authState.isAuthenticated;
     const token = authState.token;
@@ -58,17 +70,8 @@ export const PlacesApiProvider = ({ children }) => {
     setError(null);
 
     try {
-      // In development mode, we can bypass the actual API call
-      if (IS_DEVELOPMENT) {
-        console.log('[PlacesApiContext] Development mode - simulating successful API response');
-        setIsAvailable(true);
-        setError(null);
-        setIsLoading(false);
-        return;
-      }
-      
       // Make API request with auth token
-      const response = await apiClient.get('places/autocomplete', {
+      const response = await apiClient.get('/places/autocomplete', {
         params: { input: 'New York' },
         headers: {
           'X-Bypass-Auth': 'true',
@@ -114,9 +117,11 @@ export const PlacesApiProvider = ({ children }) => {
     setError(errorMessage);
   }, []);
 
-  // Effect to check API availability when checkCount changes
+  // Effect to check API availability when checkCount changes (only in production)
   useEffect(() => {
-    checkApiAvailability();
+    if (!IS_DEVELOPMENT) {
+      checkApiAvailability();
+    }
   }, [checkCount, checkApiAvailability]);
 
   /**

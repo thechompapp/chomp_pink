@@ -26,15 +26,19 @@ class OfflineModeGuard {
     // Clear offline mode flags immediately
     this.clearOfflineModeFlags();
     
-    // Set up interval to periodically check and clear offline mode flags
-    this.intervalId = setInterval(() => this.checkAndClearOfflineMode(), 2000);
+    // Set up less frequent interval to check offline mode flags (every 30 seconds instead of 2)
+    this.intervalId = setInterval(() => this.checkAndClearOfflineMode(), 30000);
     
-    // Listen for authentication events
+    // Listen for authentication events (these are more important than polling)
     window.addEventListener('auth:login_complete', () => this.clearOfflineModeFlags());
     window.addEventListener('auth:superuser_status_changed', () => this.clearOfflineModeFlags());
     
     // Listen for online/offline events
     window.addEventListener('online', () => this.clearOfflineModeFlags());
+    window.addEventListener('offline', () => {
+      logInfo('[OfflineModeGuard] Browser went offline');
+      // Don't clear flags when going offline
+    });
     
     this.initialized = true;
   }

@@ -1,376 +1,747 @@
-<testsuites id="" name="" tests="70" failures="0" skipped="51" errors="0" time="22.731944">
-<testsuite name="incremental-flows.spec.js" timestamp="2025-05-30T02:23:39.994Z" hostname="chromium" tests="14" failures="0" skipped="4" time="20.611" errors="0">
-<testcase name="DOOF Incremental Flows - Level 1: Basic User Interactions › should display homepage content and featured lists" classname="incremental-flows.spec.js" time="1.033">
-<system-out>
-<![CDATA[🧪 Testing homepage content loading
-Found 0 list/content elements
-Found 5 category buttons
-✓ Homepage content loaded successfully
-]]>
-</system-out>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 1: Basic User Interactions › should navigate between different content categories" classname="incremental-flows.spec.js" time="2.707">
-<system-out>
-<![CDATA[🧪 Testing category navigation
-✓ Clicked Lists category
-✓ Clicked Restaurants category
-✓ Clicked Dishes category
-✓ Category navigation completed
-]]>
-</system-out>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 1: Basic User Interactions › should handle external links and modal interactions" classname="incremental-flows.spec.js" time="1.298">
-<system-out>
-<![CDATA[🧪 Testing modal and popup interactions
-Found 1 potential modal triggers
-✓ Modal interaction testing completed
-]]>
-</system-out>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 2: Content Discovery › should access search page and perform basic search" classname="incremental-flows.spec.js" time="1.102">
-<system-out>
-<![CDATA[🧪 Testing search page access
-ℹ️ Search input not found - may not be implemented
-✓ Search functionality tested
-]]>
-</system-out>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 2: Content Discovery › should access and interact with trending content" classname="incremental-flows.spec.js" time="1.093">
-<system-out>
-<![CDATA[🧪 Testing trending page
-Found 0 trending items
-Found 1 filter/sort options
-✓ Trending page tested
-]]>
-</system-out>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 2: Content Discovery › should explore public lists and list details" classname="incremental-flows.spec.js" time="1.073">
-<system-out>
-<![CDATA[🧪 Testing lists page exploration
-Found 50 list cards
-✓ Lists exploration completed
-]]>
-</system-out>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 3: User Registration › should validate registration form fields" classname="incremental-flows.spec.js" time="1.121">
-<system-out>
-<![CDATA[🧪 Testing registration form validation
-ℹ️ Registration not available - may be disabled
-✓ Registration validation tested
-]]>
-</system-out>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 3: User Registration › should complete user registration flow" classname="incremental-flows.spec.js" time="0.969">
-<system-out>
-<![CDATA[🧪 Testing complete registration flow
-✓ Registration flow completed
-]]>
-</system-out>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 4: Authenticated Features › should test protected route behavior" classname="incremental-flows.spec.js" time="2.071">
-<system-out>
-<![CDATA[🧪 Testing protected route access
-Accessing /my-lists redirected to: http://localhost:5174/login
-✓ Correctly redirected to login
-✓ Protected route access tested
-]]>
-</system-out>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 4: Authenticated Features › should test admin panel access with proper credentials" classname="incremental-flows.spec.js" time="4.302">
+<testsuites id="" name="" tests="35" failures="0" skipped="0" errors="0" time="88.796573">
+<testsuite name="admin-panel.spec.js" timestamp="2025-05-30T15:34:27.584Z" hostname="chromium" tests="7" failures="0" skipped="0" time="25.876" errors="0">
+<testcase name="Admin Panel Functionality › should access admin panel with superuser credentials" classname="admin-panel.spec.js" time="3.886">
 <system-out>
 <![CDATA[🧪 Testing admin panel access
-Admin panel access URL: http://localhost:5174/login
-✓ Admin panel access tested
+🔐 Starting login process...
+📝 Filling login form...
+🚀 Submitting login form...
+📡 Response: 200 http://localhost:5174/api/auth/login
+✅ Login response received
+📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
+🎉 Login API successful, waiting for auth state update...
+🔄 Auth state check 1/10: {
+  isAuthenticated: [33mtrue[39m,
+  hasToken: [33mtrue[39m,
+  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MjcwLCJleHAiOjE3NDg2MjI4NzB9.LluLmAJJ69lNZKjIGwshUu3gEePfQ3cB5qgtj2Q0weU'[39m
+}
+✅ Auth state updated successfully
+✓ Direct admin panel access successful
+✓ Admin panel access test completed
 ]]>
 </system-out>
 </testcase>
-<testcase name="DOOF Incremental Flows - Level 4: Authenticated Features › should access user profile and settings" classname="incremental-flows.spec.js" time="3.842">
-<skipped>
-</skipped>
+<testcase name="Admin Panel Functionality › should manage restaurants in admin panel" classname="admin-panel.spec.js" time="3.642">
+<system-out>
+<![CDATA[🧪 Testing restaurant management
+🔐 Starting login process...
+📝 Filling login form...
+🚀 Submitting login form...
+📡 Response: 200 http://localhost:5174/api/auth/login
+✅ Login response received
+📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
+🎉 Login API successful, waiting for auth state update...
+🔄 Auth state check 1/10: {
+  isAuthenticated: [33mtrue[39m,
+  hasToken: [33mtrue[39m,
+  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MjczLCJleHAiOjE3NDg2MjI4NzN9.qu-6T8B9zBNCqSDMq7cZpFHGXJaSNjyUNE23xh2cbWo'[39m
+}
+✅ Auth state updated successfully
+ℹ️ Restaurant management section not found
+✓ Restaurant management test completed
+]]>
+</system-out>
 </testcase>
-<testcase name="DOOF Incremental Flows - Level 5: Advanced Interactions › should perform complex cross-page navigation" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
+<testcase name="Admin Panel Functionality › should access user management features" classname="admin-panel.spec.js" time="3.618">
+<system-out>
+<![CDATA[🧪 Testing user management
+🔐 Starting login process...
+📝 Filling login form...
+🚀 Submitting login form...
+📡 Response: 200 http://localhost:5174/api/auth/login
+✅ Login response received
+📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
+🎉 Login API successful, waiting for auth state update...
+🔄 Auth state check 1/10: {
+  isAuthenticated: [33mtrue[39m,
+  hasToken: [33mtrue[39m,
+  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5Mjc3LCJleHAiOjE3NDg2MjI4Nzd9.Dy-Xjp46XH5Gc2jmI9tGc77DzoVZyPenAc3nHIChaXk'[39m
+}
+✅ Auth state updated successfully
+ℹ️ User management section not found
+✓ User management test completed
+]]>
+</system-out>
 </testcase>
-<testcase name="DOOF Incremental Flows - Level 5: Advanced Interactions › should test responsive behavior on mobile viewport" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
+<testcase name="Admin Panel Functionality › should view analytics and engagement data" classname="admin-panel.spec.js" time="3.695">
+<system-out>
+<![CDATA[🧪 Testing analytics dashboard
+🔐 Starting login process...
+📝 Filling login form...
+🚀 Submitting login form...
+📡 Response: 200 http://localhost:5174/api/auth/login
+✅ Login response received
+📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
+🎉 Login API successful, waiting for auth state update...
+🔄 Auth state check 1/10: {
+  isAuthenticated: [33mtrue[39m,
+  hasToken: [33mtrue[39m,
+  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MjgxLCJleHAiOjE3NDg2MjI4ODF9.K4R-dVtfezYqOyxSjUhJ6Pptp3iUVb93xYj9RFpVwXU'[39m
+}
+✅ Auth state updated successfully
+ℹ️ Analytics section not found
+✓ Analytics dashboard test completed
+]]>
+</system-out>
 </testcase>
-<testcase name="DOOF Incremental Flows - Level 5: Advanced Interactions › should handle loading states and error conditions" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
+<testcase name="Admin Panel Functionality › should manage hashtags and categories" classname="admin-panel.spec.js" time="3.736">
+<system-out>
+<![CDATA[🧪 Testing hashtag management
+🔐 Starting login process...
+📝 Filling login form...
+🚀 Submitting login form...
+📡 Response: 200 http://localhost:5174/api/auth/login
+✅ Login response received
+📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
+🎉 Login API successful, waiting for auth state update...
+🔄 Auth state check 1/10: {
+  isAuthenticated: [33mtrue[39m,
+  hasToken: [33mtrue[39m,
+  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5Mjg0LCJleHAiOjE3NDg2MjI4ODR9.rCcjANBiTr7HqTTtFahAbyUpuXGbWFYU6vU4GMq17uw'[39m
+}
+✅ Auth state updated successfully
+ℹ️ Hashtag management section not found
+✓ Hashtag management test completed
+]]>
+</system-out>
+</testcase>
+<testcase name="Admin Panel Functionality › should access system administration features" classname="admin-panel.spec.js" time="3.656">
+<system-out>
+<![CDATA[🧪 Testing system administration
+🔐 Starting login process...
+📝 Filling login form...
+🚀 Submitting login form...
+📡 Response: 200 http://localhost:5174/api/auth/login
+✅ Login response received
+📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
+🎉 Login API successful, waiting for auth state update...
+🔄 Auth state check 1/10: {
+  isAuthenticated: [33mtrue[39m,
+  hasToken: [33mtrue[39m,
+  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5Mjg4LCJleHAiOjE3NDg2MjI4ODh9.a6oexYLdWXepYdCuG374IuM5lW5gn5cLEQyUCoC5Src'[39m
+}
+✅ Auth state updated successfully
+ℹ️ System administration section not found
+✓ System administration test completed
+]]>
+</system-out>
+</testcase>
+<testcase name="Admin Panel Functionality › should perform bulk administrative operations" classname="admin-panel.spec.js" time="3.643">
+<system-out>
+<![CDATA[🧪 Testing bulk operations
+🔐 Starting login process...
+📝 Filling login form...
+🚀 Submitting login form...
+📡 Response: 200 http://localhost:5174/api/auth/login
+✅ Login response received
+📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
+🎉 Login API successful, waiting for auth state update...
+🔄 Auth state check 1/10: {
+  isAuthenticated: [33mtrue[39m,
+  hasToken: [33mtrue[39m,
+  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MjkyLCJleHAiOjE3NDg2MjI4OTJ9.4_sW8tpTDjx395dfxAmoB5IwMVoybUH4MN6kLwbRTho'[39m
+}
+✅ Auth state updated successfully
+ℹ️ No bulk operation features found
+✓ Bulk operations test completed
+]]>
+</system-out>
 </testcase>
 </testsuite>
-<testsuite name="incremental-flows.spec.js" timestamp="2025-05-30T02:23:39.994Z" hostname="firefox" tests="14" failures="0" skipped="5" time="19.909" errors="0">
-<testcase name="DOOF Incremental Flows - Level 1: Basic User Interactions › should display homepage content and featured lists" classname="incremental-flows.spec.js" time="1.953">
+<testsuite name="admin-panel.spec.js" timestamp="2025-05-30T15:34:27.584Z" hostname="firefox" tests="7" failures="0" skipped="0" time="29.868" errors="0">
+<testcase name="Admin Panel Functionality › should access admin panel with superuser credentials" classname="admin-panel.spec.js" time="4.849">
 <system-out>
-<![CDATA[🧪 Testing homepage content loading
-Found 0 list/content elements
-Found 5 category buttons
-✓ Homepage content loaded successfully
+<![CDATA[🧪 Testing admin panel access
+🔐 Starting login process...
+📝 Filling login form...
+🚀 Submitting login form...
+📡 Response: 200 http://localhost:5174/api/auth/login
+✅ Login response received
+📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
+🎉 Login API successful, waiting for auth state update...
+🔄 Auth state check 1/10: {
+  isAuthenticated: [33mtrue[39m,
+  hasToken: [33mtrue[39m,
+  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MjcxLCJleHAiOjE3NDg2MjI4NzF9.eTg2mhQXR90Kddc6Ou9iROmGGGF20P0BTAQbdU5BVzA'[39m
+}
+✅ Auth state updated successfully
+✓ Direct admin panel access successful
+✓ Admin panel access test completed
 ]]>
 </system-out>
 </testcase>
-<testcase name="DOOF Incremental Flows - Level 1: Basic User Interactions › should navigate between different content categories" classname="incremental-flows.spec.js" time="3.169">
+<testcase name="Admin Panel Functionality › should manage restaurants in admin panel" classname="admin-panel.spec.js" time="4.359">
 <system-out>
-<![CDATA[🧪 Testing category navigation
-✓ Clicked Lists category
-✓ Clicked Restaurants category
-✓ Clicked Dishes category
-✓ Category navigation completed
+<![CDATA[🧪 Testing restaurant management
+🔐 Starting login process...
+📝 Filling login form...
+🚀 Submitting login form...
+📡 Response: 200 http://localhost:5174/api/auth/login
+✅ Login response received
+📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
+🎉 Login API successful, waiting for auth state update...
+🔄 Auth state check 1/10: {
+  isAuthenticated: [33mtrue[39m,
+  hasToken: [33mtrue[39m,
+  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5Mjc2LCJleHAiOjE3NDg2MjI4NzZ9.i80KO9CFyTAOYvG1Jt9_w-tGCb7CdWnLkhLOalu55to'[39m
+}
+✅ Auth state updated successfully
+ℹ️ Restaurant management section not found
+✓ Restaurant management test completed
 ]]>
 </system-out>
 </testcase>
-<testcase name="DOOF Incremental Flows - Level 1: Basic User Interactions › should handle external links and modal interactions" classname="incremental-flows.spec.js" time="1.597">
+<testcase name="Admin Panel Functionality › should access user management features" classname="admin-panel.spec.js" time="4.193">
 <system-out>
-<![CDATA[🧪 Testing modal and popup interactions
-Found 1 potential modal triggers
-✓ Modal interaction testing completed
+<![CDATA[🧪 Testing user management
+🔐 Starting login process...
+📝 Filling login form...
+🚀 Submitting login form...
+📡 Response: 200 http://localhost:5174/api/auth/login
+✅ Login response received
+📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
+🎉 Login API successful, waiting for auth state update...
+🔄 Auth state check 1/10: {
+  isAuthenticated: [33mtrue[39m,
+  hasToken: [33mtrue[39m,
+  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MjgwLCJleHAiOjE3NDg2MjI4ODB9.fPYTlONhG3jcsVgyveWqG4zN9r0s2DFvwgcQB9jMPYM'[39m
+}
+✅ Auth state updated successfully
+ℹ️ User management section not found
+✓ User management test completed
 ]]>
 </system-out>
 </testcase>
-<testcase name="DOOF Incremental Flows - Level 2: Content Discovery › should access search page and perform basic search" classname="incremental-flows.spec.js" time="1.836">
+<testcase name="Admin Panel Functionality › should view analytics and engagement data" classname="admin-panel.spec.js" time="4.06">
 <system-out>
-<![CDATA[🧪 Testing search page access
-ℹ️ Search input not found - may not be implemented
-✓ Search functionality tested
+<![CDATA[🧪 Testing analytics dashboard
+🔐 Starting login process...
+📝 Filling login form...
+🚀 Submitting login form...
+📡 Response: 200 http://localhost:5174/api/auth/login
+✅ Login response received
+📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
+🎉 Login API successful, waiting for auth state update...
+🔄 Auth state check 1/10: {
+  isAuthenticated: [33mtrue[39m,
+  hasToken: [33mtrue[39m,
+  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5Mjg0LCJleHAiOjE3NDg2MjI4ODR9.rCcjANBiTr7HqTTtFahAbyUpuXGbWFYU6vU4GMq17uw'[39m
+}
+✅ Auth state updated successfully
+ℹ️ Analytics section not found
+✓ Analytics dashboard test completed
 ]]>
 </system-out>
 </testcase>
-<testcase name="DOOF Incremental Flows - Level 2: Content Discovery › should access and interact with trending content" classname="incremental-flows.spec.js" time="1.748">
+<testcase name="Admin Panel Functionality › should manage hashtags and categories" classname="admin-panel.spec.js" time="4.241">
 <system-out>
-<![CDATA[🧪 Testing trending page
-Found 0 trending items
-Found 0 filter/sort options
-✓ Trending page tested
+<![CDATA[🧪 Testing hashtag management
+🔐 Starting login process...
+📝 Filling login form...
+🚀 Submitting login form...
+📡 Response: 200 http://localhost:5174/api/auth/login
+✅ Login response received
+📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
+🎉 Login API successful, waiting for auth state update...
+🔄 Auth state check 1/10: {
+  isAuthenticated: [33mtrue[39m,
+  hasToken: [33mtrue[39m,
+  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5Mjg4LCJleHAiOjE3NDg2MjI4ODh9.a6oexYLdWXepYdCuG374IuM5lW5gn5cLEQyUCoC5Src'[39m
+}
+✅ Auth state updated successfully
+ℹ️ Hashtag management section not found
+✓ Hashtag management test completed
 ]]>
 </system-out>
 </testcase>
-<testcase name="DOOF Incremental Flows - Level 2: Content Discovery › should explore public lists and list details" classname="incremental-flows.spec.js" time="1.183">
+<testcase name="Admin Panel Functionality › should access system administration features" classname="admin-panel.spec.js" time="4.042">
 <system-out>
-<![CDATA[🧪 Testing lists page exploration
-Found 50 list cards
-✓ Lists exploration completed
+<![CDATA[🧪 Testing system administration
+🔐 Starting login process...
+📝 Filling login form...
+🚀 Submitting login form...
+📡 Response: 200 http://localhost:5174/api/auth/login
+✅ Login response received
+📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
+🎉 Login API successful, waiting for auth state update...
+🔄 Auth state check 1/10: {
+  isAuthenticated: [33mtrue[39m,
+  hasToken: [33mtrue[39m,
+  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MjkyLCJleHAiOjE3NDg2MjI4OTJ9.4_sW8tpTDjx395dfxAmoB5IwMVoybUH4MN6kLwbRTho'[39m
+}
+✅ Auth state updated successfully
+ℹ️ System administration section not found
+✓ System administration test completed
 ]]>
 </system-out>
 </testcase>
-<testcase name="DOOF Incremental Flows - Level 3: User Registration › should validate registration form fields" classname="incremental-flows.spec.js" time="1.29">
+<testcase name="Admin Panel Functionality › should perform bulk administrative operations" classname="admin-panel.spec.js" time="4.124">
 <system-out>
-<![CDATA[🧪 Testing registration form validation
-ℹ️ Registration not available - may be disabled
-✓ Registration validation tested
+<![CDATA[🧪 Testing bulk operations
+🔐 Starting login process...
+📝 Filling login form...
+🚀 Submitting login form...
+📡 Response: 200 http://localhost:5174/api/auth/login
+✅ Login response received
+📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
+🎉 Login API successful, waiting for auth state update...
+🔄 Auth state check 1/10: {
+  isAuthenticated: [33mtrue[39m,
+  hasToken: [33mtrue[39m,
+  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5Mjk3LCJleHAiOjE3NDg2MjI4OTd9.b9f5bufhrotFSwYdVCanYhU7DpCmNZgQOoii81_iQLU'[39m
+}
+✅ Auth state updated successfully
+ℹ️ No bulk operation features found
+✓ Bulk operations test completed
 ]]>
 </system-out>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 3: User Registration › should complete user registration flow" classname="incremental-flows.spec.js" time="1.155">
-<system-out>
-<![CDATA[🧪 Testing complete registration flow
-✓ Registration flow completed
-]]>
-</system-out>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 4: Authenticated Features › should test protected route behavior" classname="incremental-flows.spec.js" time="2.501">
-<system-out>
-<![CDATA[🧪 Testing protected route access
-Accessing /my-lists redirected to: http://localhost:5174/login
-✓ Correctly redirected to login
-✓ Protected route access tested
-]]>
-</system-out>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 4: Authenticated Features › should test admin panel access with proper credentials" classname="incremental-flows.spec.js" time="3.477">
-<skipped>
-</skipped>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 4: Authenticated Features › should access user profile and settings" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 5: Advanced Interactions › should perform complex cross-page navigation" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 5: Advanced Interactions › should test responsive behavior on mobile viewport" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 5: Advanced Interactions › should handle loading states and error conditions" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
 </testcase>
 </testsuite>
-<testsuite name="incremental-flows.spec.js" timestamp="2025-05-30T02:23:39.994Z" hostname="webkit" tests="14" failures="0" skipped="14" time="0" errors="0">
-<testcase name="DOOF Incremental Flows - Level 1: Basic User Interactions › should display homepage content and featured lists" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
+<testsuite name="admin-panel.spec.js" timestamp="2025-05-30T15:34:27.584Z" hostname="webkit" tests="7" failures="0" skipped="0" time="29.051" errors="0">
+<testcase name="Admin Panel Functionality › should access admin panel with superuser credentials" classname="admin-panel.spec.js" time="4.615">
+<system-out>
+<![CDATA[🧪 Testing admin panel access
+🔐 Starting login process...
+📝 Filling login form...
+🚀 Submitting login form...
+📡 Response: 200 http://localhost:5174/api/auth/login
+✅ Login response received
+📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
+🎉 Login API successful, waiting for auth state update...
+🔄 Auth state check 1/10: {
+  isAuthenticated: [33mtrue[39m,
+  hasToken: [33mtrue[39m,
+  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5Mjk3LCJleHAiOjE3NDg2MjI4OTd9.b9f5bufhrotFSwYdVCanYhU7DpCmNZgQOoii81_iQLU'[39m
+}
+✅ Auth state updated successfully
+✓ Direct admin panel access successful
+✓ Admin panel access test completed
+]]>
+</system-out>
 </testcase>
-<testcase name="DOOF Incremental Flows - Level 1: Basic User Interactions › should navigate between different content categories" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
+<testcase name="Admin Panel Functionality › should manage restaurants in admin panel" classname="admin-panel.spec.js" time="4.151">
+<system-out>
+<![CDATA[🧪 Testing restaurant management
+🔐 Starting login process...
+📝 Filling login form...
+🚀 Submitting login form...
+📡 Response: 200 http://localhost:5174/api/auth/login
+✅ Login response received
+📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
+🎉 Login API successful, waiting for auth state update...
+🔄 Auth state check 1/10: {
+  isAuthenticated: [33mtrue[39m,
+  hasToken: [33mtrue[39m,
+  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzAxLCJleHAiOjE3NDg2MjI5MDF9.kx7k4o_mrJTzX6SlYBdkzSU2cr39XA1pCEyb0aVH4Ws'[39m
+}
+✅ Auth state updated successfully
+ℹ️ Restaurant management section not found
+✓ Restaurant management test completed
+]]>
+</system-out>
 </testcase>
-<testcase name="DOOF Incremental Flows - Level 1: Basic User Interactions › should handle external links and modal interactions" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
+<testcase name="Admin Panel Functionality › should access user management features" classname="admin-panel.spec.js" time="4.22">
+<system-out>
+<![CDATA[🧪 Testing user management
+🔐 Starting login process...
+📝 Filling login form...
+🚀 Submitting login form...
+📡 Response: 200 http://localhost:5174/api/auth/login
+✅ Login response received
+📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
+🎉 Login API successful, waiting for auth state update...
+🔄 Auth state check 1/10: {
+  isAuthenticated: [33mtrue[39m,
+  hasToken: [33mtrue[39m,
+  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzA1LCJleHAiOjE3NDg2MjI5MDV9.Zu6fGXzMlsWm5rYuJ_htJxleoPUAX4jZWDYBnwC4eKc'[39m
+}
+✅ Auth state updated successfully
+ℹ️ User management section not found
+✓ User management test completed
+]]>
+</system-out>
 </testcase>
-<testcase name="DOOF Incremental Flows - Level 2: Content Discovery › should access search page and perform basic search" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
+<testcase name="Admin Panel Functionality › should view analytics and engagement data" classname="admin-panel.spec.js" time="4.002">
+<system-out>
+<![CDATA[🧪 Testing analytics dashboard
+🔐 Starting login process...
+📝 Filling login form...
+🚀 Submitting login form...
+📡 Response: 200 http://localhost:5174/api/auth/login
+✅ Login response received
+📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
+🎉 Login API successful, waiting for auth state update...
+🔄 Auth state check 1/10: {
+  isAuthenticated: [33mtrue[39m,
+  hasToken: [33mtrue[39m,
+  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzEwLCJleHAiOjE3NDg2MjI5MTB9.kC5ji0dGv_kEep26of-4axsoWdbnTjaYp4hr2EKkaJ8'[39m
+}
+✅ Auth state updated successfully
+ℹ️ Analytics section not found
+✓ Analytics dashboard test completed
+]]>
+</system-out>
 </testcase>
-<testcase name="DOOF Incremental Flows - Level 2: Content Discovery › should access and interact with trending content" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
+<testcase name="Admin Panel Functionality › should manage hashtags and categories" classname="admin-panel.spec.js" time="4.094">
+<system-out>
+<![CDATA[🧪 Testing hashtag management
+🔐 Starting login process...
+📝 Filling login form...
+🚀 Submitting login form...
+📡 Response: 200 http://localhost:5174/api/auth/login
+✅ Login response received
+📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
+🎉 Login API successful, waiting for auth state update...
+🔄 Auth state check 1/10: {
+  isAuthenticated: [33mtrue[39m,
+  hasToken: [33mtrue[39m,
+  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzE0LCJleHAiOjE3NDg2MjI5MTR9.ji82wlptIdMwpWcjenbLZt-8_6I9h5BhRDxpGESDg1E'[39m
+}
+✅ Auth state updated successfully
+ℹ️ Hashtag management section not found
+✓ Hashtag management test completed
+]]>
+</system-out>
 </testcase>
-<testcase name="DOOF Incremental Flows - Level 2: Content Discovery › should explore public lists and list details" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
+<testcase name="Admin Panel Functionality › should access system administration features" classname="admin-panel.spec.js" time="4.058">
+<system-out>
+<![CDATA[🧪 Testing system administration
+🔐 Starting login process...
+📝 Filling login form...
+🚀 Submitting login form...
+📡 Response: 200 http://localhost:5174/api/auth/login
+✅ Login response received
+📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
+🎉 Login API successful, waiting for auth state update...
+🔄 Auth state check 1/10: {
+  isAuthenticated: [33mtrue[39m,
+  hasToken: [33mtrue[39m,
+  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzE4LCJleHAiOjE3NDg2MjI5MTh9.gQzgvDFE0RzfI4NUAEpzpRlluPBjWuKw7lbKBB_s29A'[39m
+}
+✅ Auth state updated successfully
+ℹ️ System administration section not found
+✓ System administration test completed
+]]>
+</system-out>
 </testcase>
-<testcase name="DOOF Incremental Flows - Level 3: User Registration › should validate registration form fields" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 3: User Registration › should complete user registration flow" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 4: Authenticated Features › should test protected route behavior" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 4: Authenticated Features › should test admin panel access with proper credentials" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 4: Authenticated Features › should access user profile and settings" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 5: Advanced Interactions › should perform complex cross-page navigation" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 5: Advanced Interactions › should test responsive behavior on mobile viewport" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 5: Advanced Interactions › should handle loading states and error conditions" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
+<testcase name="Admin Panel Functionality › should perform bulk administrative operations" classname="admin-panel.spec.js" time="3.911">
+<system-out>
+<![CDATA[🧪 Testing bulk operations
+🔐 Starting login process...
+📝 Filling login form...
+🚀 Submitting login form...
+📡 Response: 200 http://localhost:5174/api/auth/login
+✅ Login response received
+📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
+🎉 Login API successful, waiting for auth state update...
+🔄 Auth state check 1/10: {
+  isAuthenticated: [33mtrue[39m,
+  hasToken: [33mtrue[39m,
+  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzIyLCJleHAiOjE3NDg2MjI5MjJ9.vh9M_1kdSKm9zAP0Zu341fncRipqPpqerq4YnJnD_GU'[39m
+}
+✅ Auth state updated successfully
+ℹ️ No bulk operation features found
+✓ Bulk operations test completed
+]]>
+</system-out>
 </testcase>
 </testsuite>
-<testsuite name="incremental-flows.spec.js" timestamp="2025-05-30T02:23:39.994Z" hostname="Mobile Chrome" tests="14" failures="0" skipped="14" time="0" errors="0">
-<testcase name="DOOF Incremental Flows - Level 1: Basic User Interactions › should display homepage content and featured lists" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
+<testsuite name="admin-panel.spec.js" timestamp="2025-05-30T15:34:27.584Z" hostname="Mobile Chrome" tests="7" failures="0" skipped="0" time="26.376" errors="0">
+<testcase name="Admin Panel Functionality › should access admin panel with superuser credentials" classname="admin-panel.spec.js" time="3.899">
+<system-out>
+<![CDATA[🧪 Testing admin panel access
+🔐 Starting login process...
+📝 Filling login form...
+🚀 Submitting login form...
+📡 Response: 200 http://localhost:5174/api/auth/login
+✅ Login response received
+📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
+🎉 Login API successful, waiting for auth state update...
+🔄 Auth state check 1/10: {
+  isAuthenticated: [33mtrue[39m,
+  hasToken: [33mtrue[39m,
+  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzAyLCJleHAiOjE3NDg2MjI5MDJ9.F7UHdW7UWAk3VxV9BBYV9HPKxDWTE4WEemMsMgRvgmk'[39m
+}
+✅ Auth state updated successfully
+✓ Direct admin panel access successful
+✓ Admin panel access test completed
+]]>
+</system-out>
 </testcase>
-<testcase name="DOOF Incremental Flows - Level 1: Basic User Interactions › should navigate between different content categories" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
+<testcase name="Admin Panel Functionality › should manage restaurants in admin panel" classname="admin-panel.spec.js" time="3.84">
+<system-out>
+<![CDATA[🧪 Testing restaurant management
+🔐 Starting login process...
+📝 Filling login form...
+🚀 Submitting login form...
+📡 Response: 200 http://localhost:5174/api/auth/login
+✅ Login response received
+📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
+🎉 Login API successful, waiting for auth state update...
+🔄 Auth state check 1/10: {
+  isAuthenticated: [33mtrue[39m,
+  hasToken: [33mtrue[39m,
+  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzA1LCJleHAiOjE3NDg2MjI5MDV9.Zu6fGXzMlsWm5rYuJ_htJxleoPUAX4jZWDYBnwC4eKc'[39m
+}
+✅ Auth state updated successfully
+ℹ️ Restaurant management section not found
+✓ Restaurant management test completed
+]]>
+</system-out>
 </testcase>
-<testcase name="DOOF Incremental Flows - Level 1: Basic User Interactions › should handle external links and modal interactions" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
+<testcase name="Admin Panel Functionality › should access user management features" classname="admin-panel.spec.js" time="3.713">
+<system-out>
+<![CDATA[🧪 Testing user management
+🔐 Starting login process...
+📝 Filling login form...
+🚀 Submitting login form...
+📡 Response: 200 http://localhost:5174/api/auth/login
+✅ Login response received
+📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
+🎉 Login API successful, waiting for auth state update...
+🔄 Auth state check 1/10: {
+  isAuthenticated: [33mtrue[39m,
+  hasToken: [33mtrue[39m,
+  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzA5LCJleHAiOjE3NDg2MjI5MDl9.QFR-bTzCVXFrva9EGL898ytFnNVBOBWFpI0F9RUuj34'[39m
+}
+✅ Auth state updated successfully
+ℹ️ User management section not found
+✓ User management test completed
+]]>
+</system-out>
 </testcase>
-<testcase name="DOOF Incremental Flows - Level 2: Content Discovery › should access search page and perform basic search" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
+<testcase name="Admin Panel Functionality › should view analytics and engagement data" classname="admin-panel.spec.js" time="3.753">
+<system-out>
+<![CDATA[🧪 Testing analytics dashboard
+🔐 Starting login process...
+📝 Filling login form...
+🚀 Submitting login form...
+📡 Response: 200 http://localhost:5174/api/auth/login
+✅ Login response received
+📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
+🎉 Login API successful, waiting for auth state update...
+🔄 Auth state check 1/10: {
+  isAuthenticated: [33mtrue[39m,
+  hasToken: [33mtrue[39m,
+  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzEzLCJleHAiOjE3NDg2MjI5MTN9.BZ3i5FPtyp_z4FP_SUg5iNANpTwWGIOhJFOxnSMDAN4'[39m
+}
+✅ Auth state updated successfully
+ℹ️ Analytics section not found
+✓ Analytics dashboard test completed
+]]>
+</system-out>
 </testcase>
-<testcase name="DOOF Incremental Flows - Level 2: Content Discovery › should access and interact with trending content" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
+<testcase name="Admin Panel Functionality › should manage hashtags and categories" classname="admin-panel.spec.js" time="3.739">
+<system-out>
+<![CDATA[🧪 Testing hashtag management
+🔐 Starting login process...
+📝 Filling login form...
+🚀 Submitting login form...
+📡 Response: 200 http://localhost:5174/api/auth/login
+✅ Login response received
+📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
+🎉 Login API successful, waiting for auth state update...
+🔄 Auth state check 1/10: {
+  isAuthenticated: [33mtrue[39m,
+  hasToken: [33mtrue[39m,
+  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzE3LCJleHAiOjE3NDg2MjI5MTd9.jm_SIOuImjvPeT6EqV2jPsyAnX0NjAHICDonpxuH0co'[39m
+}
+✅ Auth state updated successfully
+ℹ️ Hashtag management section not found
+✓ Hashtag management test completed
+]]>
+</system-out>
 </testcase>
-<testcase name="DOOF Incremental Flows - Level 2: Content Discovery › should explore public lists and list details" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
+<testcase name="Admin Panel Functionality › should access system administration features" classname="admin-panel.spec.js" time="3.745">
+<system-out>
+<![CDATA[🧪 Testing system administration
+🔐 Starting login process...
+📝 Filling login form...
+🚀 Submitting login form...
+📡 Response: 200 http://localhost:5174/api/auth/login
+✅ Login response received
+📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
+🎉 Login API successful, waiting for auth state update...
+🔄 Auth state check 1/10: {
+  isAuthenticated: [33mtrue[39m,
+  hasToken: [33mtrue[39m,
+  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzIwLCJleHAiOjE3NDg2MjI5MjB9.gpR8cMaI84lGpGhzE2osAff7uV8zR6ViemHbvbmLGDc'[39m
+}
+✅ Auth state updated successfully
+ℹ️ System administration section not found
+✓ System administration test completed
+]]>
+</system-out>
 </testcase>
-<testcase name="DOOF Incremental Flows - Level 3: User Registration › should validate registration form fields" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 3: User Registration › should complete user registration flow" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 4: Authenticated Features › should test protected route behavior" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 4: Authenticated Features › should test admin panel access with proper credentials" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 4: Authenticated Features › should access user profile and settings" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 5: Advanced Interactions › should perform complex cross-page navigation" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 5: Advanced Interactions › should test responsive behavior on mobile viewport" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 5: Advanced Interactions › should handle loading states and error conditions" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
+<testcase name="Admin Panel Functionality › should perform bulk administrative operations" classname="admin-panel.spec.js" time="3.687">
+<system-out>
+<![CDATA[🧪 Testing bulk operations
+🔐 Starting login process...
+📝 Filling login form...
+🚀 Submitting login form...
+📡 Response: 200 http://localhost:5174/api/auth/login
+✅ Login response received
+📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
+🎉 Login API successful, waiting for auth state update...
+🔄 Auth state check 1/10: {
+  isAuthenticated: [33mtrue[39m,
+  hasToken: [33mtrue[39m,
+  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzI0LCJleHAiOjE3NDg2MjI5MjR9.83F7VHgC0ikd1oTiTYbLeAaphKGiLgkaZa8ZJmc_MXY'[39m
+}
+✅ Auth state updated successfully
+ℹ️ No bulk operation features found
+✓ Bulk operations test completed
+]]>
+</system-out>
 </testcase>
 </testsuite>
-<testsuite name="incremental-flows.spec.js" timestamp="2025-05-30T02:23:39.994Z" hostname="Mobile Safari" tests="14" failures="0" skipped="14" time="0" errors="0">
-<testcase name="DOOF Incremental Flows - Level 1: Basic User Interactions › should display homepage content and featured lists" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
+<testsuite name="admin-panel.spec.js" timestamp="2025-05-30T15:34:27.584Z" hostname="Mobile Safari" tests="7" failures="0" skipped="0" time="27.17" errors="0">
+<testcase name="Admin Panel Functionality › should access admin panel with superuser credentials" classname="admin-panel.spec.js" time="4.142">
+<system-out>
+<![CDATA[🧪 Testing admin panel access
+🔐 Starting login process...
+📝 Filling login form...
+🚀 Submitting login form...
+📡 Response: 200 http://localhost:5174/api/auth/login
+✅ Login response received
+📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
+🎉 Login API successful, waiting for auth state update...
+🔄 Auth state check 1/10: {
+  isAuthenticated: [33mtrue[39m,
+  hasToken: [33mtrue[39m,
+  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzI3LCJleHAiOjE3NDg2MjI5Mjd9.oAe6oGuoIEs6XtYBVOyNn9oQG23chdXyqiZs5nncRxM'[39m
+}
+✅ Auth state updated successfully
+✓ Direct admin panel access successful
+✓ Admin panel access test completed
+]]>
+</system-out>
 </testcase>
-<testcase name="DOOF Incremental Flows - Level 1: Basic User Interactions › should navigate between different content categories" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
+<testcase name="Admin Panel Functionality › should manage restaurants in admin panel" classname="admin-panel.spec.js" time="3.826">
+<system-out>
+<![CDATA[🧪 Testing restaurant management
+🔐 Starting login process...
+📝 Filling login form...
+🚀 Submitting login form...
+📡 Response: 200 http://localhost:5174/api/auth/login
+✅ Login response received
+📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
+🎉 Login API successful, waiting for auth state update...
+🔄 Auth state check 1/10: {
+  isAuthenticated: [33mtrue[39m,
+  hasToken: [33mtrue[39m,
+  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzMwLCJleHAiOjE3NDg2MjI5MzB9.FtJ_tiAtGicFuH9Y4LYyouVU7f6CVtDQQFOok4Zgi-I'[39m
+}
+✅ Auth state updated successfully
+ℹ️ Restaurant management section not found
+✓ Restaurant management test completed
+]]>
+</system-out>
 </testcase>
-<testcase name="DOOF Incremental Flows - Level 1: Basic User Interactions › should handle external links and modal interactions" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
+<testcase name="Admin Panel Functionality › should access user management features" classname="admin-panel.spec.js" time="3.796">
+<system-out>
+<![CDATA[🧪 Testing user management
+🔐 Starting login process...
+📝 Filling login form...
+🚀 Submitting login form...
+📡 Response: 200 http://localhost:5174/api/auth/login
+✅ Login response received
+📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
+🎉 Login API successful, waiting for auth state update...
+🔄 Auth state check 1/10: {
+  isAuthenticated: [33mtrue[39m,
+  hasToken: [33mtrue[39m,
+  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzM0LCJleHAiOjE3NDg2MjI5MzR9.u3nJkpFjJs7yZt2FoEAGYOBgI5DdSQ3QrvtM7JtVocA'[39m
+}
+✅ Auth state updated successfully
+ℹ️ User management section not found
+✓ User management test completed
+]]>
+</system-out>
 </testcase>
-<testcase name="DOOF Incremental Flows - Level 2: Content Discovery › should access search page and perform basic search" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
+<testcase name="Admin Panel Functionality › should view analytics and engagement data" classname="admin-panel.spec.js" time="3.797">
+<system-out>
+<![CDATA[🧪 Testing analytics dashboard
+🔐 Starting login process...
+📝 Filling login form...
+🚀 Submitting login form...
+📡 Response: 200 http://localhost:5174/api/auth/login
+✅ Login response received
+📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
+🎉 Login API successful, waiting for auth state update...
+🔄 Auth state check 1/10: {
+  isAuthenticated: [33mtrue[39m,
+  hasToken: [33mtrue[39m,
+  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzM4LCJleHAiOjE3NDg2MjI5Mzh9.YAfhOfQbPOzfOPWxGpM2eOzs8wmIVBFCO6pbu59t8do'[39m
+}
+✅ Auth state updated successfully
+ℹ️ Analytics section not found
+✓ Analytics dashboard test completed
+]]>
+</system-out>
 </testcase>
-<testcase name="DOOF Incremental Flows - Level 2: Content Discovery › should access and interact with trending content" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
+<testcase name="Admin Panel Functionality › should manage hashtags and categories" classname="admin-panel.spec.js" time="3.774">
+<system-out>
+<![CDATA[🧪 Testing hashtag management
+🔐 Starting login process...
+📝 Filling login form...
+🚀 Submitting login form...
+📡 Response: 200 http://localhost:5174/api/auth/login
+✅ Login response received
+📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
+🎉 Login API successful, waiting for auth state update...
+🔄 Auth state check 1/10: {
+  isAuthenticated: [33mtrue[39m,
+  hasToken: [33mtrue[39m,
+  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzQyLCJleHAiOjE3NDg2MjI5NDJ9.KNV95AV7s84W3ziEwnxzjEIogQ2ApdrbtvkTCHNOXbE'[39m
+}
+✅ Auth state updated successfully
+ℹ️ Hashtag management section not found
+✓ Hashtag management test completed
+]]>
+</system-out>
 </testcase>
-<testcase name="DOOF Incremental Flows - Level 2: Content Discovery › should explore public lists and list details" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
+<testcase name="Admin Panel Functionality › should access system administration features" classname="admin-panel.spec.js" time="3.987">
+<system-out>
+<![CDATA[🧪 Testing system administration
+🔐 Starting login process...
+📝 Filling login form...
+🚀 Submitting login form...
+📡 Response: 200 http://localhost:5174/api/auth/login
+✅ Login response received
+📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
+🎉 Login API successful, waiting for auth state update...
+🔄 Auth state check 1/10: {
+  isAuthenticated: [33mtrue[39m,
+  hasToken: [33mtrue[39m,
+  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzQ2LCJleHAiOjE3NDg2MjI5NDZ9.VuVCun9STgOGPRNRl1aQleckAlJhbeGMmpnyeW2WqpQ'[39m
+}
+✅ Auth state updated successfully
+ℹ️ System administration section not found
+✓ System administration test completed
+]]>
+</system-out>
 </testcase>
-<testcase name="DOOF Incremental Flows - Level 3: User Registration › should validate registration form fields" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 3: User Registration › should complete user registration flow" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 4: Authenticated Features › should test protected route behavior" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 4: Authenticated Features › should test admin panel access with proper credentials" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 4: Authenticated Features › should access user profile and settings" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 5: Advanced Interactions › should perform complex cross-page navigation" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 5: Advanced Interactions › should test responsive behavior on mobile viewport" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
-</testcase>
-<testcase name="DOOF Incremental Flows - Level 5: Advanced Interactions › should handle loading states and error conditions" classname="incremental-flows.spec.js" time="0">
-<skipped>
-</skipped>
+<testcase name="Admin Panel Functionality › should perform bulk administrative operations" classname="admin-panel.spec.js" time="3.848">
+<system-out>
+<![CDATA[🧪 Testing bulk operations
+🔐 Starting login process...
+📝 Filling login form...
+🚀 Submitting login form...
+📡 Response: 200 http://localhost:5174/api/auth/login
+✅ Login response received
+📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
+🎉 Login API successful, waiting for auth state update...
+🔄 Auth state check 1/10: {
+  isAuthenticated: [33mtrue[39m,
+  hasToken: [33mtrue[39m,
+  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzUwLCJleHAiOjE3NDg2MjI5NTB9.CtsNhsqeZ_Y1s2nfceuyNhcdorgbPEDlIxuvwztlbEs'[39m
+}
+✅ Auth state updated successfully
+ℹ️ No bulk operation features found
+✓ Bulk operations test completed
+]]>
+</system-out>
 </testcase>
 </testsuite>
 </testsuites>

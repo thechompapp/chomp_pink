@@ -198,7 +198,9 @@ class AppServer {
         'X-Admin-API-Key',
         'X-Bypass-Auth',
         'X-Superuser-Override',
-        'X-Admin-Access'
+        'X-Admin-Access',
+        // Places API headers
+        'X-Places-API-Request'
       ],
     };
   }

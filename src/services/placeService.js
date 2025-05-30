@@ -255,6 +255,186 @@ export const placeService = {
     // All attempts failed, throw an error to ensure we don't use mock data
     logError(`[PlaceService] All ${maxRetries} attempts failed for place details (${placeId}).`, lastError);
     throw new Error(`Failed to get place details after ${maxRetries} attempts: ${lastError?.message || 'Unknown error'}`);
+  },
+
+  /**
+   * Enhanced restaurant search specifically for autocomplete
+   * @param {string} query - Search query
+   * @returns {Promise<Object>} Enhanced search results with restaurant data
+   */
+  async searchRestaurants(query) {
+    if (!query || query.length < 3) {
+      return { success: false, predictions: [], message: 'Query too short' };
+    }
+
+    logDebug(`[PlaceService] Searching for restaurants: ${query}`);
+    
+    try {
+      const response = await this.getAutocompleteSuggestions(query, {
+        types: 'establishment',
+        components: 'country:us'
+      });
+      
+      // Filter and enhance results for restaurants
+      const restaurantPredictions = response.results
+        ?.filter(prediction => {
+          // Filter for likely restaurant establishments
+          const types = prediction.types || [];
+          const mainText = prediction.structured_formatting?.main_text || '';
+          
+          return types.includes('establishment') || 
+                 types.includes('food') || 
+                 types.includes('restaurant') ||
+                 types.includes('meal_takeaway') ||
+                 mainText.toLowerCase().includes('restaurant') ||
+                 mainText.toLowerCase().includes('pizza') ||
+                 mainText.toLowerCase().includes('cafe') ||
+                 mainText.toLowerCase().includes('bar');
+        })
+        .map(prediction => ({
+          ...prediction,
+          restaurantName: prediction.structured_formatting?.main_text,
+          address: prediction.structured_formatting?.secondary_text || prediction.description,
+          isRestaurant: true
+        })) || [];
+
+      return {
+        success: true,
+        predictions: restaurantPredictions,
+        total: restaurantPredictions.length
+      };
+    } catch (error) {
+      logError('[PlaceService] Restaurant search failed:', error);
+      return {
+        success: false,
+        predictions: [],
+        error: error.message
+      };
+    }
+  },
+
+  /**
+   * Get enhanced restaurant details from place ID
+   * @param {string} placeId - Google Places place ID
+   * @returns {Promise<Object>} Enhanced restaurant details
+   */
+  async getRestaurantDetails(placeId) {
+    logDebug(`[PlaceService] Getting restaurant details for: ${placeId}`);
+    
+    try {
+      const { details } = await this.getPlaceDetails(placeId);
+      
+      if (!details) {
+        throw new Error('No place details found');
+      }
+
+      // Extract restaurant-specific information
+      const restaurantData = {
+        placeId: details.place_id,
+        name: details.name,
+        formattedAddress: details.formatted_address,
+        types: details.types || [],
+        
+        // Address components
+        addressComponents: details.address_components || [],
+        
+        // Extract specific address parts
+        streetNumber: this.extractAddressComponent(details.address_components, 'street_number'),
+        route: this.extractAddressComponent(details.address_components, 'route'),
+        neighborhood: this.extractAddressComponent(details.address_components, 'neighborhood'),
+        locality: this.extractAddressComponent(details.address_components, 'locality'),
+        administrativeArea: this.extractAddressComponent(details.address_components, 'administrative_area_level_1'),
+        country: this.extractAddressComponent(details.address_components, 'country'),
+        postalCode: this.extractAddressComponent(details.address_components, 'postal_code'),
+        
+        // Location data
+        location: details.geometry?.location || null,
+        
+        // Restaurant metadata
+        rating: details.rating || null,
+        userRatingsTotal: details.user_ratings_total || 0,
+        priceLevel: details.price_level || null,
+        
+        // Contact information
+        phoneNumber: details.formatted_phone_number || details.international_phone_number || null,
+        website: details.website || null,
+        
+        // Business hours
+        openingHours: details.opening_hours || null,
+        
+        // Other useful data
+        url: details.url || null,
+        utcOffset: details.utc_offset || null
+      };
+
+      // Determine if this is likely a restaurant
+      const isRestaurant = this.isLikelyRestaurant(restaurantData);
+      
+      return {
+        success: true,
+        restaurant: {
+          ...restaurantData,
+          isRestaurant,
+          confidence: isRestaurant ? 'high' : 'medium'
+        }
+      };
+    } catch (error) {
+      logError('[PlaceService] Restaurant details failed:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  },
+
+  /**
+   * Extract specific component from address components
+   * @param {Array} components - Address components array
+   * @param {string} type - Component type to extract
+   * @returns {string|null} Extracted component value
+   */
+  extractAddressComponent(components, type) {
+    if (!Array.isArray(components)) return null;
+    
+    const component = components.find(comp => 
+      comp.types && comp.types.includes(type)
+    );
+    
+    return component ? component.long_name : null;
+  },
+
+  /**
+   * Determine if place is likely a restaurant
+   * @param {Object} placeData - Place data object
+   * @returns {boolean} Whether place is likely a restaurant
+   */
+  isLikelyRestaurant(placeData) {
+    if (!placeData) return false;
+    
+    const { types = [], name = '' } = placeData;
+    
+    // Check Google Place types
+    const restaurantTypes = [
+      'restaurant', 'food', 'meal_takeaway', 'meal_delivery',
+      'bakery', 'cafe', 'bar', 'night_club'
+    ];
+    
+    const hasRestaurantType = types.some(type => restaurantTypes.includes(type));
+    if (hasRestaurantType) return true;
+    
+    // Check name for restaurant keywords
+    const restaurantKeywords = [
+      'restaurant', 'pizza', 'cafe', 'coffee', 'bar', 'grill',
+      'kitchen', 'bistro', 'diner', 'eatery', 'tavern', 'pub',
+      'steakhouse', 'seafood', 'sushi', 'chinese', 'italian',
+      'mexican', 'thai', 'indian', 'food', 'chicken', 'burger'
+    ];
+    
+    const nameContainsKeyword = restaurantKeywords.some(keyword =>
+      name.toLowerCase().includes(keyword)
+    );
+    
+    return nameContainsKeyword;
   }
 };
 

@@ -109,7 +109,7 @@ export const filterService = {
     logDebug(`[FilterService] Looking up neighborhood for zipcode: ${zipcode}`);
     
     const result = await handleApiResponse(
-      () => apiClient.get(`/neighborhoods/by-zipcode/${zipcode}`),
+      () => apiClient.get(`/neighborhoods/zip/${zipcode}`),
       'FilterService.findNeighborhoodByZipcode'
     );
     

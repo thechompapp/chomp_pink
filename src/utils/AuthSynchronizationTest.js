@@ -415,9 +415,16 @@ if (typeof window !== 'undefined') {
 // Auto-run tests in development mode
 if (import.meta.env.DEV && typeof window !== 'undefined') {
   // Run tests after a short delay to allow initialization
+  // DISABLED: Auto-tests were interfering with normal authentication flow
+  // TODO: Re-enable with proper isolation or manual triggering only
+  /*
   setTimeout(() => {
     authSyncTest.runAllTests().then(results => {
       logInfo('[AuthSyncTest] Auto-test completed. Results available at window.__authSyncTestReport');
     });
   }, 2000);
+  */
+  
+  // Instead, make tests available for manual triggering
+  logInfo('[AuthSyncTest] Auth synchronization tests available. Run window.__authSyncTest.runAllTests() to execute.');
 } 

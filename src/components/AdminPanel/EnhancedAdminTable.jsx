@@ -32,6 +32,8 @@ import { cn } from '@/lib/utils';
 import { useEnhancedAdminTable } from '@/hooks/useEnhancedAdminTable';
 import { EnhancedEditableCell } from './EnhancedEditableCell';
 import { COLUMN_CONFIG } from '@/pages/AdminPanel/columnConfig';
+import GooglePlacesModal from './GooglePlacesModal';
+import { enhancedAdminService } from '@/services/enhancedAdminService';
 
 // Table header component
 const TableHeader = ({ 
@@ -90,6 +92,7 @@ const TableRow = ({
   onRowSelect, 
   onFieldEdit,
   onDelete,
+  onOpenGooglePlaces,
   cities = [],
   neighborhoods = [],
   enableSelection = true,
@@ -126,6 +129,7 @@ const TableRow = ({
               neighborhoods={neighborhoods}
               onSave={onFieldEdit}
               disabled={!column.isEditable}
+              row={row}
             />
           ) : (
             <div className="min-h-[32px] flex items-center">
@@ -138,14 +142,28 @@ const TableRow = ({
         </td>
       ))}
       <td className="w-16 px-4 py-3">
-        <button
-          onClick={() => onDelete(row.id)}
-          disabled={isDeleting}
-          className="p-1 text-red-600 hover:bg-red-100 rounded"
-          title="Delete"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          {/* Google Places button for restaurants */}
+          {resourceType === 'restaurants' && onOpenGooglePlaces && (
+            <button
+              onClick={() => onOpenGooglePlaces(row)}
+              className="p-1 text-orange-600 hover:bg-orange-100 rounded"
+              title="Search Google Places"
+            >
+              <Search className="w-4 h-4" />
+            </button>
+          )}
+          
+          {/* Delete button */}
+          <button
+            onClick={() => onDelete(row.id)}
+            disabled={isDeleting}
+            className="p-1 text-red-600 hover:bg-red-100 rounded"
+            title="Delete"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
       </td>
     </tr>
   );
@@ -335,8 +353,16 @@ export const EnhancedAdminTable = ({
   enableBulkOperations = true,
   enableSelection = true,
   enableCreate = true,
+  onGlobalRefresh,
   className = ''
 }) => {
+  // Google Places modal state
+  const [googlePlacesModal, setGooglePlacesModal] = useState({
+    isOpen: false,
+    restaurantId: null,
+    currentData: {}
+  });
+
   // Get column configuration
   const columns = useMemo(() => 
     COLUMN_CONFIG[resourceType] || [], 
@@ -384,6 +410,65 @@ export const EnhancedAdminTable = ({
     enableInlineEditing,
     enableBulkOperations
   });
+  
+  // Google Places modal handlers
+  const handleOpenGooglePlaces = useCallback((row) => {
+    setGooglePlacesModal({
+      isOpen: true,
+      restaurantId: row.id,
+      currentData: row
+    });
+  }, []);
+
+  const handleCloseGooglePlaces = useCallback(() => {
+    setGooglePlacesModal({
+      isOpen: false,
+      restaurantId: null,
+      currentData: {}
+    });
+  }, []);
+
+  const handleApplyGooglePlaces = useCallback(async (restaurantId, extractedData) => {
+    try {
+      console.log('[EnhancedAdminTable] ===== APPLY GOOGLE PLACES DEBUG =====');
+      console.log('[EnhancedAdminTable] Restaurant ID:', restaurantId);
+      console.log('[EnhancedAdminTable] Extracted data:', JSON.stringify(extractedData, null, 2));
+      
+      // Apply multiple field updates
+      const updates = {};
+      
+      if (extractedData.name) updates.name = extractedData.name;
+      if (extractedData.address) updates.address = extractedData.address;
+      if (extractedData.zipcode) updates.zipcode = extractedData.zipcode;
+      if (extractedData.city?.id) updates.city_id = extractedData.city.id;
+      if (extractedData.neighborhood?.id) updates.neighborhood_id = extractedData.neighborhood.id;
+      if (extractedData.latitude !== undefined) updates.latitude = extractedData.latitude;
+      if (extractedData.longitude !== undefined) updates.longitude = extractedData.longitude;
+      if (extractedData.googlePlaceId) updates.google_place_id = extractedData.googlePlaceId;
+      
+      console.log('[EnhancedAdminTable] Updates to be applied:', JSON.stringify(updates, null, 2));
+      
+      // Apply the updates
+      await enhancedAdminService.updateResource(resourceType, restaurantId, updates);
+      console.log('[EnhancedAdminTable] Update completed successfully');
+      
+      // Force refresh all data to ensure neighborhoods are up to date
+      await handleRefresh();
+      console.log('[EnhancedAdminTable] Data refresh completed');
+      
+      // Also refresh global admin data if available (including neighborhoods)
+      if (onGlobalRefresh) {
+        await onGlobalRefresh();
+        console.log('[EnhancedAdminTable] Global admin data refresh completed');
+      }
+      
+      toast.success('Restaurant information updated successfully from Google Places');
+    } catch (error) {
+      console.error('Error applying Google Places data:', error);
+      toast.error(`Failed to apply Google Places data: ${error.message}`);
+      throw error;
+    }
+  }, [resourceType, handleRefresh, onGlobalRefresh]);
   
   // Create new item handler
   const handleCreateNew = useCallback(() => {
@@ -470,6 +555,7 @@ export const EnhancedAdminTable = ({
                 onRowSelect={handleRowSelect}
                 onFieldEdit={handleFieldEdit}
                 onDelete={handleDelete}
+                onOpenGooglePlaces={handleOpenGooglePlaces}
                 cities={cities}
                 neighborhoods={neighborhoods}
                 enableSelection={enableSelection}
@@ -501,6 +587,17 @@ export const EnhancedAdminTable = ({
         {isUpdating && <span className="ml-2">• Saving...</span>}
         {isFetching && <span className="ml-2">• Refreshing...</span>}
       </div>
+
+      {/* Google Places Modal */}
+      <GooglePlacesModal
+        isOpen={googlePlacesModal.isOpen}
+        onClose={handleCloseGooglePlaces}
+        onApply={handleApplyGooglePlaces}
+        restaurantId={googlePlacesModal.restaurantId}
+        currentData={googlePlacesModal.currentData}
+        cities={cities}
+        neighborhoods={neighborhoods}
+      />
     </div>
   );
 };

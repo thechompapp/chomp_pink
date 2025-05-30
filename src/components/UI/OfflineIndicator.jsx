@@ -43,19 +43,21 @@ const OfflineIndicator = () => {
     // Check when app loads
     checkOfflineStatus();
     
-    // Set up interval to check periodically
-    const interval = setInterval(checkOfflineStatus, 3000);
-    
-    // Set up event listener for offline status changes
+    // Use event-driven approach instead of polling
+    // Only check when specific events occur
     const handleOfflineStatusChange = () => {
       checkOfflineStatus();
     };
     
+    // Set up event listeners for relevant changes
     window.addEventListener('offlineStatusChanged', handleOfflineStatusChange);
     window.addEventListener('online', handleOfflineStatusChange);
     window.addEventListener('offline', handleOfflineStatusChange);
     window.addEventListener('auth:login_complete', handleOfflineStatusChange);
     window.addEventListener('auth:logout_complete', handleOfflineStatusChange);
+    
+    // Optional: Very infrequent polling as fallback (every 60 seconds instead of 3)
+    const interval = setInterval(checkOfflineStatus, 60000);
     
     // Clean up interval and event listeners
     return () => {

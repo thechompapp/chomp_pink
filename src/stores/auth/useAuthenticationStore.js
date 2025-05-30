@@ -8,10 +8,11 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { getDefaultApiClient } from '@/services/http';
 import { logInfo, logWarn, logError } from '@/utils/logger.js';
 import ErrorHandler from '@/utils/ErrorHandler';
+import { AUTH_CONFIG } from './modules/authConfig';
 
 // Constants
 const STORAGE_KEY = 'auth-authentication-storage';
-const SESSION_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const SESSION_CACHE_DURATION = AUTH_CONFIG.SESSION_CACHE_DURATION; // Use config value
 
 // Create a render limiter to prevent excessive re-renders in development mode
 let lastStateUpdate = 0;
@@ -214,22 +215,22 @@ export function authStoreInitializer(set, get) {
           });
         }
         
-        if (localAuthData?.state?.token && !currentState.token) {
-          logInfo('[AuthenticationStore] Found token in localStorage but not in state, restoring session');
+        if (localAuthData?.state?.token && (!currentState.token || !currentState.isAuthenticated)) {
+          logInfo('[AuthenticationStore] Found token in localStorage, restoring session');
           
           try {
-            set({
+            const restoredState = {
               token: localAuthData.state.token,
               user: localAuthData.state.user,
               isAuthenticated: true,
-              lastAuthCheck: Date.now() - 70000,
+              lastAuthCheck: localAuthData.state.lastAuthCheck || Date.now(),
               error: null
-            });
+            };
             
-            currentState.token = localAuthData.state.token;
-            currentState.user = localAuthData.state.user;
-            currentState.isAuthenticated = true;
-            forceCheck = true;
+            set(restoredState);
+            
+            // Update current state reference for the cache check below
+            Object.assign(currentState, restoredState);
             
             logInfo('[AuthenticationStore] Successfully restored session from localStorage');
           } catch (restoreErr) {

@@ -98,7 +98,15 @@ export const enhancedAdminService = {
       const promises = Object.entries(ADMIN_ENDPOINTS).map(async ([key, endpoint]) => {
         try {
           const config = addAdminHeaders();
-          const response = await apiClient.get(endpoint, undefined, config);
+          
+          // Add specific parameters for neighborhoods to get all data (not just default 20)
+          let requestUrl = endpoint;
+          if (key === 'neighborhoods') {
+            requestUrl = `${endpoint}?limit=1000`;
+            logDebug(`[EnhancedAdminService] Using extended limit for neighborhoods: ${requestUrl}`);
+          }
+          
+          const response = await apiClient.get(requestUrl, undefined, config);
           
           // Extract data from response
           let data = [];
@@ -111,6 +119,16 @@ export const enhancedAdminService = {
           }
           
           logDebug(`[EnhancedAdminService] Fetched ${key}:`, { count: Array.isArray(data) ? data.length : 'non-array' });
+          
+          // Extra verification for neighborhoods to ensure we got neighborhood ID 88
+          if (key === 'neighborhoods') {
+            const neighborhood88 = data.find(n => n.id === 88);
+            if (neighborhood88) {
+              logInfo(`[EnhancedAdminService] ✅ Found neighborhood ID 88: ${neighborhood88.name}`);
+            } else {
+              logError(`[EnhancedAdminService] ❌ Neighborhood ID 88 not found in ${data.length} neighborhoods`);
+            }
+          }
           
           return { key, data: Array.isArray(data) ? data : [] };
         } catch (error) {

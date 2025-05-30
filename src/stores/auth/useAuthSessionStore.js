@@ -13,7 +13,7 @@ import useAuthenticationStore from './useAuthenticationStore';
 const STORAGE_KEY = 'auth-session-storage';
 const SESSION_TIMEOUT = 60 * 60 * 1000; // 1 hour
 const SESSION_REFRESH_THRESHOLD = 45 * 60 * 1000; // 45 minutes
-const SESSION_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
+const SESSION_CHECK_INTERVAL = 15 * 60 * 1000; // 15 minutes (increased from 5 minutes)
 
 // Create a render limiter to prevent excessive re-renders in development mode
 let lastStateUpdate = 0;

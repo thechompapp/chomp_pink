@@ -96,7 +96,7 @@ export const adminService = {
   getAdminNeighborhoods: async () => {
     const apiClient = getDefaultApiClient();
     const result = await handleApiResponse(
-      () => apiClient.get('/admin/neighborhoods'),
+      () => apiClient.get('/admin/neighborhoods', { params: { limit: 1000 } }),
       'AdminService.getAdminNeighborhoods'
     );
     

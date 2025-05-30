@@ -17,7 +17,7 @@ export const AUTH_CONFIG = {
   FORCE_ONLINE_KEY: 'force_online',
   
   // Cache durations
-  SESSION_CACHE_DURATION: 5 * 60 * 1000, // 5 minutes
+  SESSION_CACHE_DURATION: 30 * 60 * 1000, // 30 minutes (increased from 5 minutes)
   THROTTLE_INTERVAL: 500, // 500ms for state updates
   
   // API timeouts

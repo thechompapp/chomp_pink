@@ -134,20 +134,20 @@
   },
   "suites": [
     {
-      "title": "incremental-flows.spec.js",
-      "file": "incremental-flows.spec.js",
+      "title": "admin-panel.spec.js",
+      "file": "admin-panel.spec.js",
       "column": 0,
       "line": 0,
       "specs": [],
       "suites": [
         {
-          "title": "DOOF Incremental Flows - Level 1: Basic User Interactions",
-          "file": "incremental-flows.spec.js",
-          "line": 76,
+          "title": "Admin Panel Functionality",
+          "file": "admin-panel.spec.js",
+          "line": 23,
           "column": 6,
           "specs": [
             {
-              "title": "should display homepage content and featured lists",
+              "title": "should access admin panel with superuser credentials",
               "ok": true,
               "tags": [],
               "tests": [
@@ -162,1295 +162,49 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1033,
-                      "errors": [],
-                      "stdout": [
-                        {
-                          "text": "🧪 Testing homepage content loading\n"
-                        },
-                        {
-                          "text": "Found 0 list/content elements\n"
-                        },
-                        {
-                          "text": "Found 5 category buttons\n"
-                        },
-                        {
-                          "text": "✓ Homepage content loaded successfully\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-05-30T02:23:40.431Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-3fea7477feb8a8f756d0",
-              "file": "incremental-flows.spec.js",
-              "line": 90,
-              "column": 3
-            },
-            {
-              "title": "should navigate between different content categories",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 2707,
-                      "errors": [],
-                      "stdout": [
-                        {
-                          "text": "🧪 Testing category navigation\n"
-                        },
-                        {
-                          "text": "✓ Clicked Lists category\n"
-                        },
-                        {
-                          "text": "✓ Clicked Restaurants category\n"
-                        },
-                        {
-                          "text": "✓ Clicked Dishes category\n"
-                        },
-                        {
-                          "text": "✓ Category navigation completed\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-05-30T02:23:41.575Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-041f65de7361e7119988",
-              "file": "incremental-flows.spec.js",
-              "line": 111,
-              "column": 3
-            },
-            {
-              "title": "should handle external links and modal interactions",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 1298,
-                      "errors": [],
-                      "stdout": [
-                        {
-                          "text": "🧪 Testing modal and popup interactions\n"
-                        },
-                        {
-                          "text": "Found 1 potential modal triggers\n"
-                        },
-                        {
-                          "text": "✓ Modal interaction testing completed\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-05-30T02:23:44.283Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-d535fb8c9f4bde560380",
-              "file": "incremental-flows.spec.js",
-              "line": 141,
-              "column": 3
-            },
-            {
-              "title": "should display homepage content and featured lists",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "firefox",
-                  "projectName": "firefox",
-                  "results": [
-                    {
-                      "workerIndex": 1,
-                      "parallelIndex": 1,
-                      "status": "passed",
-                      "duration": 1953,
-                      "errors": [],
-                      "stdout": [
-                        {
-                          "text": "🧪 Testing homepage content loading\n"
-                        },
-                        {
-                          "text": "Found 0 list/content elements\n"
-                        },
-                        {
-                          "text": "Found 5 category buttons\n"
-                        },
-                        {
-                          "text": "✓ Homepage content loaded successfully\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-05-30T02:23:40.432Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-d39eeea3c9ec40c54340",
-              "file": "incremental-flows.spec.js",
-              "line": 90,
-              "column": 3
-            },
-            {
-              "title": "should navigate between different content categories",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "firefox",
-                  "projectName": "firefox",
-                  "results": [
-                    {
-                      "workerIndex": 1,
-                      "parallelIndex": 1,
-                      "status": "passed",
-                      "duration": 3169,
-                      "errors": [],
-                      "stdout": [
-                        {
-                          "text": "🧪 Testing category navigation\n"
-                        },
-                        {
-                          "text": "✓ Clicked Lists category\n"
-                        },
-                        {
-                          "text": "✓ Clicked Restaurants category\n"
-                        },
-                        {
-                          "text": "✓ Clicked Dishes category\n"
-                        },
-                        {
-                          "text": "✓ Category navigation completed\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-05-30T02:23:43.178Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-4992827bca697213a03a",
-              "file": "incremental-flows.spec.js",
-              "line": 111,
-              "column": 3
-            },
-            {
-              "title": "should handle external links and modal interactions",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "firefox",
-                  "projectName": "firefox",
-                  "results": [
-                    {
-                      "workerIndex": 1,
-                      "parallelIndex": 1,
-                      "status": "passed",
-                      "duration": 1597,
-                      "errors": [],
-                      "stdout": [
-                        {
-                          "text": "🧪 Testing modal and popup interactions\n"
-                        },
-                        {
-                          "text": "Found 1 potential modal triggers\n"
-                        },
-                        {
-                          "text": "✓ Modal interaction testing completed\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-05-30T02:23:46.348Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-5c86eac664f73d637b10",
-              "file": "incremental-flows.spec.js",
-              "line": 141,
-              "column": 3
-            },
-            {
-              "title": "should display homepage content and featured lists",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "webkit",
-                  "projectName": "webkit",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-56a61fadd360acf2a02e",
-              "file": "incremental-flows.spec.js",
-              "line": 90,
-              "column": 3
-            },
-            {
-              "title": "should navigate between different content categories",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "webkit",
-                  "projectName": "webkit",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-0bdeb594429a860a5f36",
-              "file": "incremental-flows.spec.js",
-              "line": 111,
-              "column": 3
-            },
-            {
-              "title": "should handle external links and modal interactions",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "webkit",
-                  "projectName": "webkit",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-fccfc0c2a2c9cb3eda48",
-              "file": "incremental-flows.spec.js",
-              "line": 141,
-              "column": 3
-            },
-            {
-              "title": "should display homepage content and featured lists",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "Mobile Chrome",
-                  "projectName": "Mobile Chrome",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-dd0070eb95a49c067e9b",
-              "file": "incremental-flows.spec.js",
-              "line": 90,
-              "column": 3
-            },
-            {
-              "title": "should navigate between different content categories",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "Mobile Chrome",
-                  "projectName": "Mobile Chrome",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-99821f2de3ed8345b971",
-              "file": "incremental-flows.spec.js",
-              "line": 111,
-              "column": 3
-            },
-            {
-              "title": "should handle external links and modal interactions",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "Mobile Chrome",
-                  "projectName": "Mobile Chrome",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-24fed77b4207dd7d16fb",
-              "file": "incremental-flows.spec.js",
-              "line": 141,
-              "column": 3
-            },
-            {
-              "title": "should display homepage content and featured lists",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "Mobile Safari",
-                  "projectName": "Mobile Safari",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-7472ab41382af4b714ff",
-              "file": "incremental-flows.spec.js",
-              "line": 90,
-              "column": 3
-            },
-            {
-              "title": "should navigate between different content categories",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "Mobile Safari",
-                  "projectName": "Mobile Safari",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-cded2e0e45f7a727c98f",
-              "file": "incremental-flows.spec.js",
-              "line": 111,
-              "column": 3
-            },
-            {
-              "title": "should handle external links and modal interactions",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "Mobile Safari",
-                  "projectName": "Mobile Safari",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-d30c983473296d19ac8b",
-              "file": "incremental-flows.spec.js",
-              "line": 141,
-              "column": 3
-            }
-          ]
-        },
-        {
-          "title": "DOOF Incremental Flows - Level 2: Content Discovery",
-          "file": "incremental-flows.spec.js",
-          "line": 159,
-          "column": 6,
-          "specs": [
-            {
-              "title": "should access search page and perform basic search",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 1102,
-                      "errors": [],
-                      "stdout": [
-                        {
-                          "text": "🧪 Testing search page access\n"
-                        },
-                        {
-                          "text": "ℹ️ Search input not found - may not be implemented\n"
-                        },
-                        {
-                          "text": "✓ Search functionality tested\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-05-30T02:23:45.582Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-2f28512767b8bbde80cd",
-              "file": "incremental-flows.spec.js",
-              "line": 173,
-              "column": 3
-            },
-            {
-              "title": "should access and interact with trending content",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 1093,
-                      "errors": [],
-                      "stdout": [
-                        {
-                          "text": "🧪 Testing trending page\n"
-                        },
-                        {
-                          "text": "Found 0 trending items\n"
-                        },
-                        {
-                          "text": "Found 1 filter/sort options\n"
-                        },
-                        {
-                          "text": "✓ Trending page tested\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-05-30T02:23:46.686Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-b32cdcf4df442f113dd9",
-              "file": "incremental-flows.spec.js",
-              "line": 212,
-              "column": 3
-            },
-            {
-              "title": "should explore public lists and list details",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 1073,
-                      "errors": [],
-                      "stdout": [
-                        {
-                          "text": "🧪 Testing lists page exploration\n"
-                        },
-                        {
-                          "text": "Found 50 list cards\n"
-                        },
-                        {
-                          "text": "✓ Lists exploration completed\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-05-30T02:23:47.781Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-45d7dff856795666493c",
-              "file": "incremental-flows.spec.js",
-              "line": 241,
-              "column": 3
-            },
-            {
-              "title": "should access search page and perform basic search",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "firefox",
-                  "projectName": "firefox",
-                  "results": [
-                    {
-                      "workerIndex": 1,
-                      "parallelIndex": 1,
-                      "status": "passed",
-                      "duration": 1836,
-                      "errors": [],
-                      "stdout": [
-                        {
-                          "text": "🧪 Testing search page access\n"
-                        },
-                        {
-                          "text": "ℹ️ Search input not found - may not be implemented\n"
-                        },
-                        {
-                          "text": "✓ Search functionality tested\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-05-30T02:23:47.950Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-98634c314315c93f4d70",
-              "file": "incremental-flows.spec.js",
-              "line": 173,
-              "column": 3
-            },
-            {
-              "title": "should access and interact with trending content",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "firefox",
-                  "projectName": "firefox",
-                  "results": [
-                    {
-                      "workerIndex": 1,
-                      "parallelIndex": 1,
-                      "status": "passed",
-                      "duration": 1748,
-                      "errors": [],
-                      "stdout": [
-                        {
-                          "text": "🧪 Testing trending page\n"
-                        },
-                        {
-                          "text": "Found 0 trending items\n"
-                        },
-                        {
-                          "text": "Found 0 filter/sort options\n"
-                        },
-                        {
-                          "text": "✓ Trending page tested\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-05-30T02:23:49.787Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-e0c888309a6bec543fc5",
-              "file": "incremental-flows.spec.js",
-              "line": 212,
-              "column": 3
-            },
-            {
-              "title": "should explore public lists and list details",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "firefox",
-                  "projectName": "firefox",
-                  "results": [
-                    {
-                      "workerIndex": 1,
-                      "parallelIndex": 1,
-                      "status": "passed",
-                      "duration": 1183,
-                      "errors": [],
-                      "stdout": [
-                        {
-                          "text": "🧪 Testing lists page exploration\n"
-                        },
-                        {
-                          "text": "Found 50 list cards\n"
-                        },
-                        {
-                          "text": "✓ Lists exploration completed\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-05-30T02:23:51.538Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-2de06cfae887b3f737f5",
-              "file": "incremental-flows.spec.js",
-              "line": 241,
-              "column": 3
-            },
-            {
-              "title": "should access search page and perform basic search",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "webkit",
-                  "projectName": "webkit",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-f3d6f022cd41866c648a",
-              "file": "incremental-flows.spec.js",
-              "line": 173,
-              "column": 3
-            },
-            {
-              "title": "should access and interact with trending content",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "webkit",
-                  "projectName": "webkit",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-91da42a09558687be0ec",
-              "file": "incremental-flows.spec.js",
-              "line": 212,
-              "column": 3
-            },
-            {
-              "title": "should explore public lists and list details",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "webkit",
-                  "projectName": "webkit",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-94086a8897053a548219",
-              "file": "incremental-flows.spec.js",
-              "line": 241,
-              "column": 3
-            },
-            {
-              "title": "should access search page and perform basic search",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "Mobile Chrome",
-                  "projectName": "Mobile Chrome",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-ae3ff67940f7c0a9fb7a",
-              "file": "incremental-flows.spec.js",
-              "line": 173,
-              "column": 3
-            },
-            {
-              "title": "should access and interact with trending content",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "Mobile Chrome",
-                  "projectName": "Mobile Chrome",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-c17a92f4a70c9d37bd4d",
-              "file": "incremental-flows.spec.js",
-              "line": 212,
-              "column": 3
-            },
-            {
-              "title": "should explore public lists and list details",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "Mobile Chrome",
-                  "projectName": "Mobile Chrome",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-9d7b089e76cff4fae2ba",
-              "file": "incremental-flows.spec.js",
-              "line": 241,
-              "column": 3
-            },
-            {
-              "title": "should access search page and perform basic search",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "Mobile Safari",
-                  "projectName": "Mobile Safari",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-48c6926b56defa0f0a83",
-              "file": "incremental-flows.spec.js",
-              "line": 173,
-              "column": 3
-            },
-            {
-              "title": "should access and interact with trending content",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "Mobile Safari",
-                  "projectName": "Mobile Safari",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-1a6fef16c816dddb0fbb",
-              "file": "incremental-flows.spec.js",
-              "line": 212,
-              "column": 3
-            },
-            {
-              "title": "should explore public lists and list details",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "Mobile Safari",
-                  "projectName": "Mobile Safari",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-7ff044a8292995a40e74",
-              "file": "incremental-flows.spec.js",
-              "line": 241,
-              "column": 3
-            }
-          ]
-        },
-        {
-          "title": "DOOF Incremental Flows - Level 3: User Registration",
-          "file": "incremental-flows.spec.js",
-          "line": 272,
-          "column": 6,
-          "specs": [
-            {
-              "title": "should validate registration form fields",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 1121,
-                      "errors": [],
-                      "stdout": [
-                        {
-                          "text": "🧪 Testing registration form validation\n"
-                        },
-                        {
-                          "text": "ℹ️ Registration not available - may be disabled\n"
-                        },
-                        {
-                          "text": "✓ Registration validation tested\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-05-30T02:23:48.857Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-1d2f154a3e70019b6fcb",
-              "file": "incremental-flows.spec.js",
-              "line": 283,
-              "column": 3
-            },
-            {
-              "title": "should complete user registration flow",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 969,
-                      "errors": [],
-                      "stdout": [
-                        {
-                          "text": "🧪 Testing complete registration flow\n"
-                        },
-                        {
-                          "text": "✓ Registration flow completed\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-05-30T02:23:49.981Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-7f6227650afa756a00d8",
-              "file": "incremental-flows.spec.js",
-              "line": 312,
-              "column": 3
-            },
-            {
-              "title": "should validate registration form fields",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "firefox",
-                  "projectName": "firefox",
-                  "results": [
-                    {
-                      "workerIndex": 1,
-                      "parallelIndex": 1,
-                      "status": "passed",
-                      "duration": 1290,
-                      "errors": [],
-                      "stdout": [
-                        {
-                          "text": "🧪 Testing registration form validation\n"
-                        },
-                        {
-                          "text": "ℹ️ Registration not available - may be disabled\n"
-                        },
-                        {
-                          "text": "✓ Registration validation tested\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-05-30T02:23:52.723Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-22c786cb19260e1fbc8c",
-              "file": "incremental-flows.spec.js",
-              "line": 283,
-              "column": 3
-            },
-            {
-              "title": "should complete user registration flow",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "firefox",
-                  "projectName": "firefox",
-                  "results": [
-                    {
-                      "workerIndex": 1,
-                      "parallelIndex": 1,
-                      "status": "passed",
-                      "duration": 1155,
-                      "errors": [],
-                      "stdout": [
-                        {
-                          "text": "🧪 Testing complete registration flow\n"
-                        },
-                        {
-                          "text": "✓ Registration flow completed\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-05-30T02:23:54.016Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-c7df981922bfd04ecb3e",
-              "file": "incremental-flows.spec.js",
-              "line": 312,
-              "column": 3
-            },
-            {
-              "title": "should validate registration form fields",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "webkit",
-                  "projectName": "webkit",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-1ead8d7ddc829c009dd2",
-              "file": "incremental-flows.spec.js",
-              "line": 283,
-              "column": 3
-            },
-            {
-              "title": "should complete user registration flow",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "webkit",
-                  "projectName": "webkit",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-b12f87ab83705ec0592f",
-              "file": "incremental-flows.spec.js",
-              "line": 312,
-              "column": 3
-            },
-            {
-              "title": "should validate registration form fields",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "Mobile Chrome",
-                  "projectName": "Mobile Chrome",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-be08d1bae7153fdeda25",
-              "file": "incremental-flows.spec.js",
-              "line": 283,
-              "column": 3
-            },
-            {
-              "title": "should complete user registration flow",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "Mobile Chrome",
-                  "projectName": "Mobile Chrome",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-6519205f81fc64a2b89b",
-              "file": "incremental-flows.spec.js",
-              "line": 312,
-              "column": 3
-            },
-            {
-              "title": "should validate registration form fields",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "Mobile Safari",
-                  "projectName": "Mobile Safari",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-9488d6d91223caba5c04",
-              "file": "incremental-flows.spec.js",
-              "line": 283,
-              "column": 3
-            },
-            {
-              "title": "should complete user registration flow",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "Mobile Safari",
-                  "projectName": "Mobile Safari",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-ad3fd33ef063950eff77",
-              "file": "incremental-flows.spec.js",
-              "line": 312,
-              "column": 3
-            }
-          ]
-        },
-        {
-          "title": "DOOF Incremental Flows - Level 4: Authenticated Features",
-          "file": "incremental-flows.spec.js",
-          "line": 348,
-          "column": 6,
-          "specs": [
-            {
-              "title": "should test protected route behavior",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 2071,
-                      "errors": [],
-                      "stdout": [
-                        {
-                          "text": "🧪 Testing protected route access\n"
-                        },
-                        {
-                          "text": "Accessing /my-lists redirected to: http://localhost:5174/login\n"
-                        },
-                        {
-                          "text": "✓ Correctly redirected to login\n"
-                        },
-                        {
-                          "text": "✓ Protected route access tested\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-05-30T02:23:50.954Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-4379e4e64f234cf6d480",
-              "file": "incremental-flows.spec.js",
-              "line": 359,
-              "column": 3
-            },
-            {
-              "title": "should test admin panel access with proper credentials",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 4302,
+                      "duration": 3886,
                       "errors": [],
                       "stdout": [
                         {
                           "text": "🧪 Testing admin panel access\n"
                         },
                         {
-                          "text": "Admin panel access URL: http://localhost:5174/login\n"
+                          "text": "🔐 Starting login process...\n"
                         },
                         {
-                          "text": "✓ Admin panel access tested\n"
+                          "text": "📝 Filling login form...\n"
+                        },
+                        {
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "📡 Response: 200 http://localhost:5174/api/auth/login\n"
+                        },
+                        {
+                          "text": "✅ Login response received\n"
+                        },
+                        {
+                          "text": "📄 Login response data: { hasSuccess: \u001b[33mtrue\u001b[39m, hasData: \u001b[33mtrue\u001b[39m, hasToken: \u001b[33mtrue\u001b[39m, status: \u001b[33m200\u001b[39m }\n"
+                        },
+                        {
+                          "text": "🎉 Login API successful, waiting for auth state update...\n"
+                        },
+                        {
+                          "text": "🔄 Auth state check 1/10: {\n  isAuthenticated: \u001b[33mtrue\u001b[39m,\n  hasToken: \u001b[33mtrue\u001b[39m,\n  token: \u001b[32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MjcwLCJleHAiOjE3NDg2MjI4NzB9.LluLmAJJ69lNZKjIGwshUu3gEePfQ3cB5qgtj2Q0weU'\u001b[39m\n}\n"
+                        },
+                        {
+                          "text": "✅ Auth state updated successfully\n"
+                        },
+                        {
+                          "text": "✓ Direct admin panel access successful\n"
+                        },
+                        {
+                          "text": "✓ Admin panel access test completed\n"
                         }
                       ],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2025-05-30T02:23:53.027Z",
+                      "startTime": "2025-05-30T15:34:28.188Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -1458,13 +212,13 @@
                   "status": "expected"
                 }
               ],
-              "id": "a5cbd020b127cbeac4b6-0f99c8f4c0b55ec81304",
-              "file": "incremental-flows.spec.js",
-              "line": 383,
+              "id": "86f2ddd5ec62206c57c4-91f02ea00b84d67e3c7f",
+              "file": "admin-panel.spec.js",
+              "line": 34,
               "column": 3
             },
             {
-              "title": "should access user profile and settings",
+              "title": "should manage restaurants in admin panel",
               "ok": true,
               "tags": [],
               "tests": [
@@ -1478,66 +232,419 @@
                     {
                       "workerIndex": 0,
                       "parallelIndex": 0,
-                      "status": "interrupted",
-                      "duration": 3842,
-                      "error": {
-                        "message": "Error: page.waitForTimeout: Test ended.",
-                        "stack": "Error: page.waitForTimeout: Test ended.\n    at /Users/naf/Downloads/doof/e2e/incremental-flows.spec.js:424:16",
-                        "location": {
-                          "file": "/Users/naf/Downloads/doof/e2e/incremental-flows.spec.js",
-                          "column": 16,
-                          "line": 424
-                        },
-                        "snippet": "\u001b[0m \u001b[90m 422 |\u001b[39m     \u001b[90m// Go to homepage and look for profile access\u001b[39m\n \u001b[90m 423 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgoto(\u001b[32m'/'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 424 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForTimeout(\u001b[35m1000\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 425 |\u001b[39m     \n \u001b[90m 426 |\u001b[39m     \u001b[90m// Look for profile dropdown or menu\u001b[39m\n \u001b[90m 427 |\u001b[39m     \u001b[36mconst\u001b[39m profileTrigger \u001b[33m=\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'[id*=\"user-menu\"], .profile, [aria-haspopup=\"true\"]'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "/Users/naf/Downloads/doof/e2e/incremental-flows.spec.js",
-                            "column": 16,
-                            "line": 424
-                          },
-                          "message": "Error: page.waitForTimeout: Test ended.\n\n\u001b[0m \u001b[90m 422 |\u001b[39m     \u001b[90m// Go to homepage and look for profile access\u001b[39m\n \u001b[90m 423 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgoto(\u001b[32m'/'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 424 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForTimeout(\u001b[35m1000\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 425 |\u001b[39m     \n \u001b[90m 426 |\u001b[39m     \u001b[90m// Look for profile dropdown or menu\u001b[39m\n \u001b[90m 427 |\u001b[39m     \u001b[36mconst\u001b[39m profileTrigger \u001b[33m=\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'[id*=\"user-menu\"], .profile, [aria-haspopup=\"true\"]'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at /Users/naf/Downloads/doof/e2e/incremental-flows.spec.js:424:16\u001b[22m"
-                        }
-                      ],
+                      "status": "passed",
+                      "duration": 3642,
+                      "errors": [],
                       "stdout": [
                         {
-                          "text": "🧪 Testing user profile access\n"
+                          "text": "🧪 Testing restaurant management\n"
+                        },
+                        {
+                          "text": "🔐 Starting login process...\n"
+                        },
+                        {
+                          "text": "📝 Filling login form...\n"
+                        },
+                        {
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "📡 Response: 200 http://localhost:5174/api/auth/login\n"
+                        },
+                        {
+                          "text": "✅ Login response received\n"
+                        },
+                        {
+                          "text": "📄 Login response data: { hasSuccess: \u001b[33mtrue\u001b[39m, hasData: \u001b[33mtrue\u001b[39m, hasToken: \u001b[33mtrue\u001b[39m, status: \u001b[33m200\u001b[39m }\n"
+                        },
+                        {
+                          "text": "🎉 Login API successful, waiting for auth state update...\n"
+                        },
+                        {
+                          "text": "🔄 Auth state check 1/10: {\n  isAuthenticated: \u001b[33mtrue\u001b[39m,\n  hasToken: \u001b[33mtrue\u001b[39m,\n  token: \u001b[32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MjczLCJleHAiOjE3NDg2MjI4NzN9.qu-6T8B9zBNCqSDMq7cZpFHGXJaSNjyUNE23xh2cbWo'\u001b[39m\n}\n"
+                        },
+                        {
+                          "text": "✅ Auth state updated successfully\n"
+                        },
+                        {
+                          "text": "ℹ️ Restaurant management section not found\n"
+                        },
+                        {
+                          "text": "✓ Restaurant management test completed\n"
                         }
                       ],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2025-05-30T02:23:57.331Z",
+                      "startTime": "2025-05-30T15:34:32.201Z",
                       "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "/Users/naf/Downloads/doof/e2e-results/test-artifacts/incremental-flows-DOOF-Inc-9f15b-s-user-profile-and-settings-chromium/test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "/Users/naf/Downloads/doof/e2e-results/test-artifacts/incremental-flows-DOOF-Inc-9f15b-s-user-profile-and-settings-chromium/video.webm"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "/Users/naf/Downloads/doof/e2e/incremental-flows.spec.js",
-                        "column": 16,
-                        "line": 424
-                      }
+                      "attachments": []
                     }
                   ],
-                  "status": "skipped"
+                  "status": "expected"
                 }
               ],
-              "id": "a5cbd020b127cbeac4b6-25e6008ab56793376405",
-              "file": "incremental-flows.spec.js",
-              "line": 412,
+              "id": "86f2ddd5ec62206c57c4-6ff7b86df854986d3b0c",
+              "file": "admin-panel.spec.js",
+              "line": 83,
               "column": 3
             },
             {
-              "title": "should test protected route behavior",
+              "title": "should access user management features",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3618,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing user management\n"
+                        },
+                        {
+                          "text": "🔐 Starting login process...\n"
+                        },
+                        {
+                          "text": "📝 Filling login form...\n"
+                        },
+                        {
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "📡 Response: 200 http://localhost:5174/api/auth/login\n"
+                        },
+                        {
+                          "text": "✅ Login response received\n"
+                        },
+                        {
+                          "text": "📄 Login response data: { hasSuccess: \u001b[33mtrue\u001b[39m, hasData: \u001b[33mtrue\u001b[39m, hasToken: \u001b[33mtrue\u001b[39m, status: \u001b[33m200\u001b[39m }\n"
+                        },
+                        {
+                          "text": "🎉 Login API successful, waiting for auth state update...\n"
+                        },
+                        {
+                          "text": "🔄 Auth state check 1/10: {\n  isAuthenticated: \u001b[33mtrue\u001b[39m,\n  hasToken: \u001b[33mtrue\u001b[39m,\n  token: \u001b[32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5Mjc3LCJleHAiOjE3NDg2MjI4Nzd9.Dy-Xjp46XH5Gc2jmI9tGc77DzoVZyPenAc3nHIChaXk'\u001b[39m\n}\n"
+                        },
+                        {
+                          "text": "✅ Auth state updated successfully\n"
+                        },
+                        {
+                          "text": "ℹ️ User management section not found\n"
+                        },
+                        {
+                          "text": "✓ User management test completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T15:34:35.846Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "86f2ddd5ec62206c57c4-a976ec10b0ea30e0461b",
+              "file": "admin-panel.spec.js",
+              "line": 132,
+              "column": 3
+            },
+            {
+              "title": "should view analytics and engagement data",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3695,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing analytics dashboard\n"
+                        },
+                        {
+                          "text": "🔐 Starting login process...\n"
+                        },
+                        {
+                          "text": "📝 Filling login form...\n"
+                        },
+                        {
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "📡 Response: 200 http://localhost:5174/api/auth/login\n"
+                        },
+                        {
+                          "text": "✅ Login response received\n"
+                        },
+                        {
+                          "text": "📄 Login response data: { hasSuccess: \u001b[33mtrue\u001b[39m, hasData: \u001b[33mtrue\u001b[39m, hasToken: \u001b[33mtrue\u001b[39m, status: \u001b[33m200\u001b[39m }\n"
+                        },
+                        {
+                          "text": "🎉 Login API successful, waiting for auth state update...\n"
+                        },
+                        {
+                          "text": "🔄 Auth state check 1/10: {\n  isAuthenticated: \u001b[33mtrue\u001b[39m,\n  hasToken: \u001b[33mtrue\u001b[39m,\n  token: \u001b[32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MjgxLCJleHAiOjE3NDg2MjI4ODF9.K4R-dVtfezYqOyxSjUhJ6Pptp3iUVb93xYj9RFpVwXU'\u001b[39m\n}\n"
+                        },
+                        {
+                          "text": "✅ Auth state updated successfully\n"
+                        },
+                        {
+                          "text": "ℹ️ Analytics section not found\n"
+                        },
+                        {
+                          "text": "✓ Analytics dashboard test completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T15:34:39.466Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "86f2ddd5ec62206c57c4-831e3cae35bc8946541b",
+              "file": "admin-panel.spec.js",
+              "line": 179,
+              "column": 3
+            },
+            {
+              "title": "should manage hashtags and categories",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3736,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing hashtag management\n"
+                        },
+                        {
+                          "text": "🔐 Starting login process...\n"
+                        },
+                        {
+                          "text": "📝 Filling login form...\n"
+                        },
+                        {
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "📡 Response: 200 http://localhost:5174/api/auth/login\n"
+                        },
+                        {
+                          "text": "✅ Login response received\n"
+                        },
+                        {
+                          "text": "📄 Login response data: { hasSuccess: \u001b[33mtrue\u001b[39m, hasData: \u001b[33mtrue\u001b[39m, hasToken: \u001b[33mtrue\u001b[39m, status: \u001b[33m200\u001b[39m }\n"
+                        },
+                        {
+                          "text": "🎉 Login API successful, waiting for auth state update...\n"
+                        },
+                        {
+                          "text": "🔄 Auth state check 1/10: {\n  isAuthenticated: \u001b[33mtrue\u001b[39m,\n  hasToken: \u001b[33mtrue\u001b[39m,\n  token: \u001b[32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5Mjg0LCJleHAiOjE3NDg2MjI4ODR9.rCcjANBiTr7HqTTtFahAbyUpuXGbWFYU6vU4GMq17uw'\u001b[39m\n}\n"
+                        },
+                        {
+                          "text": "✅ Auth state updated successfully\n"
+                        },
+                        {
+                          "text": "ℹ️ Hashtag management section not found\n"
+                        },
+                        {
+                          "text": "✓ Hashtag management test completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T15:34:43.166Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "86f2ddd5ec62206c57c4-018dc780f7a44fc5ab17",
+              "file": "admin-panel.spec.js",
+              "line": 235,
+              "column": 3
+            },
+            {
+              "title": "should access system administration features",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3656,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing system administration\n"
+                        },
+                        {
+                          "text": "🔐 Starting login process...\n"
+                        },
+                        {
+                          "text": "📝 Filling login form...\n"
+                        },
+                        {
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "📡 Response: 200 http://localhost:5174/api/auth/login\n"
+                        },
+                        {
+                          "text": "✅ Login response received\n"
+                        },
+                        {
+                          "text": "📄 Login response data: { hasSuccess: \u001b[33mtrue\u001b[39m, hasData: \u001b[33mtrue\u001b[39m, hasToken: \u001b[33mtrue\u001b[39m, status: \u001b[33m200\u001b[39m }\n"
+                        },
+                        {
+                          "text": "🎉 Login API successful, waiting for auth state update...\n"
+                        },
+                        {
+                          "text": "🔄 Auth state check 1/10: {\n  isAuthenticated: \u001b[33mtrue\u001b[39m,\n  hasToken: \u001b[33mtrue\u001b[39m,\n  token: \u001b[32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5Mjg4LCJleHAiOjE3NDg2MjI4ODh9.a6oexYLdWXepYdCuG374IuM5lW5gn5cLEQyUCoC5Src'\u001b[39m\n}\n"
+                        },
+                        {
+                          "text": "✅ Auth state updated successfully\n"
+                        },
+                        {
+                          "text": "ℹ️ System administration section not found\n"
+                        },
+                        {
+                          "text": "✓ System administration test completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T15:34:46.904Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "86f2ddd5ec62206c57c4-2c634d35fb451185ec99",
+              "file": "admin-panel.spec.js",
+              "line": 282,
+              "column": 3
+            },
+            {
+              "title": "should perform bulk administrative operations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3643,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing bulk operations\n"
+                        },
+                        {
+                          "text": "🔐 Starting login process...\n"
+                        },
+                        {
+                          "text": "📝 Filling login form...\n"
+                        },
+                        {
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "📡 Response: 200 http://localhost:5174/api/auth/login\n"
+                        },
+                        {
+                          "text": "✅ Login response received\n"
+                        },
+                        {
+                          "text": "📄 Login response data: { hasSuccess: \u001b[33mtrue\u001b[39m, hasData: \u001b[33mtrue\u001b[39m, hasToken: \u001b[33mtrue\u001b[39m, status: \u001b[33m200\u001b[39m }\n"
+                        },
+                        {
+                          "text": "🎉 Login API successful, waiting for auth state update...\n"
+                        },
+                        {
+                          "text": "🔄 Auth state check 1/10: {\n  isAuthenticated: \u001b[33mtrue\u001b[39m,\n  hasToken: \u001b[33mtrue\u001b[39m,\n  token: \u001b[32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MjkyLCJleHAiOjE3NDg2MjI4OTJ9.4_sW8tpTDjx395dfxAmoB5IwMVoybUH4MN6kLwbRTho'\u001b[39m\n}\n"
+                        },
+                        {
+                          "text": "✅ Auth state updated successfully\n"
+                        },
+                        {
+                          "text": "ℹ️ No bulk operation features found\n"
+                        },
+                        {
+                          "text": "✓ Bulk operations test completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T15:34:50.564Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "86f2ddd5ec62206c57c4-1f270ffb2e68c54bccb9",
+              "file": "admin-panel.spec.js",
+              "line": 331,
+              "column": 3
+            },
+            {
+              "title": "should access admin panel with superuser credentials",
               "ok": true,
               "tags": [],
               "tests": [
@@ -1552,25 +659,49 @@
                       "workerIndex": 1,
                       "parallelIndex": 1,
                       "status": "passed",
-                      "duration": 2501,
+                      "duration": 4849,
                       "errors": [],
                       "stdout": [
                         {
-                          "text": "🧪 Testing protected route access\n"
+                          "text": "🧪 Testing admin panel access\n"
                         },
                         {
-                          "text": "Accessing /my-lists redirected to: http://localhost:5174/login\n"
+                          "text": "🔐 Starting login process...\n"
                         },
                         {
-                          "text": "✓ Correctly redirected to login\n"
+                          "text": "📝 Filling login form...\n"
                         },
                         {
-                          "text": "✓ Protected route access tested\n"
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "📡 Response: 200 http://localhost:5174/api/auth/login\n"
+                        },
+                        {
+                          "text": "✅ Login response received\n"
+                        },
+                        {
+                          "text": "📄 Login response data: { hasSuccess: \u001b[33mtrue\u001b[39m, hasData: \u001b[33mtrue\u001b[39m, hasToken: \u001b[33mtrue\u001b[39m, status: \u001b[33m200\u001b[39m }\n"
+                        },
+                        {
+                          "text": "🎉 Login API successful, waiting for auth state update...\n"
+                        },
+                        {
+                          "text": "🔄 Auth state check 1/10: {\n  isAuthenticated: \u001b[33mtrue\u001b[39m,\n  hasToken: \u001b[33mtrue\u001b[39m,\n  token: \u001b[32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MjcxLCJleHAiOjE3NDg2MjI4NzF9.eTg2mhQXR90Kddc6Ou9iROmGGGF20P0BTAQbdU5BVzA'\u001b[39m\n}\n"
+                        },
+                        {
+                          "text": "✅ Auth state updated successfully\n"
+                        },
+                        {
+                          "text": "✓ Direct admin panel access successful\n"
+                        },
+                        {
+                          "text": "✓ Admin panel access test completed\n"
                         }
                       ],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2025-05-30T02:23:55.173Z",
+                      "startTime": "2025-05-30T15:34:28.189Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -1578,13 +709,13 @@
                   "status": "expected"
                 }
               ],
-              "id": "a5cbd020b127cbeac4b6-02ed19d5d2097362b1cf",
-              "file": "incremental-flows.spec.js",
-              "line": 359,
+              "id": "86f2ddd5ec62206c57c4-7139f5b1bea5e47f7c6a",
+              "file": "admin-panel.spec.js",
+              "line": 34,
               "column": 3
             },
             {
-              "title": "should test admin panel access with proper credentials",
+              "title": "should manage restaurants in admin panel",
               "ok": true,
               "tags": [],
               "tests": [
@@ -1598,66 +729,64 @@
                     {
                       "workerIndex": 1,
                       "parallelIndex": 1,
-                      "status": "interrupted",
-                      "duration": 3477,
-                      "error": {
-                        "message": "Error: page.waitForTimeout: Test ended.",
-                        "stack": "Error: page.waitForTimeout: Test ended.\n    at /Users/naf/Downloads/doof/e2e/incremental-flows.spec.js:391:16",
-                        "location": {
-                          "file": "/Users/naf/Downloads/doof/e2e/incremental-flows.spec.js",
-                          "column": 16,
-                          "line": 391
-                        },
-                        "snippet": "\u001b[0m \u001b[90m 389 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mfill(\u001b[32m'input[name=\"password\"], input[type=\"password\"]'\u001b[39m\u001b[33m,\u001b[39m \u001b[33mCONFIG\u001b[39m\u001b[33m.\u001b[39m\u001b[33mADMIN_USER\u001b[39m\u001b[33m.\u001b[39mpassword)\u001b[33m;\u001b[39m\n \u001b[90m 390 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mclick(\u001b[32m'button[type=\"submit\"], button:has-text(\"Login\"), button:has-text(\"Sign In\")'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 391 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForTimeout(\u001b[35m2000\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 392 |\u001b[39m     \n \u001b[90m 393 |\u001b[39m     \u001b[90m// Try to access admin panel\u001b[39m\n \u001b[90m 394 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgoto(\u001b[32m'/admin'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "/Users/naf/Downloads/doof/e2e/incremental-flows.spec.js",
-                            "column": 16,
-                            "line": 391
-                          },
-                          "message": "Error: page.waitForTimeout: Test ended.\n\n\u001b[0m \u001b[90m 389 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mfill(\u001b[32m'input[name=\"password\"], input[type=\"password\"]'\u001b[39m\u001b[33m,\u001b[39m \u001b[33mCONFIG\u001b[39m\u001b[33m.\u001b[39m\u001b[33mADMIN_USER\u001b[39m\u001b[33m.\u001b[39mpassword)\u001b[33m;\u001b[39m\n \u001b[90m 390 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mclick(\u001b[32m'button[type=\"submit\"], button:has-text(\"Login\"), button:has-text(\"Sign In\")'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 391 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForTimeout(\u001b[35m2000\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 392 |\u001b[39m     \n \u001b[90m 393 |\u001b[39m     \u001b[90m// Try to access admin panel\u001b[39m\n \u001b[90m 394 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgoto(\u001b[32m'/admin'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at /Users/naf/Downloads/doof/e2e/incremental-flows.spec.js:391:16\u001b[22m"
-                        }
-                      ],
+                      "status": "passed",
+                      "duration": 4359,
+                      "errors": [],
                       "stdout": [
                         {
-                          "text": "🧪 Testing admin panel access\n"
+                          "text": "🧪 Testing restaurant management\n"
+                        },
+                        {
+                          "text": "🔐 Starting login process...\n"
+                        },
+                        {
+                          "text": "📝 Filling login form...\n"
+                        },
+                        {
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "📡 Response: 200 http://localhost:5174/api/auth/login\n"
+                        },
+                        {
+                          "text": "✅ Login response received\n"
+                        },
+                        {
+                          "text": "📄 Login response data: { hasSuccess: \u001b[33mtrue\u001b[39m, hasData: \u001b[33mtrue\u001b[39m, hasToken: \u001b[33mtrue\u001b[39m, status: \u001b[33m200\u001b[39m }\n"
+                        },
+                        {
+                          "text": "🎉 Login API successful, waiting for auth state update...\n"
+                        },
+                        {
+                          "text": "🔄 Auth state check 1/10: {\n  isAuthenticated: \u001b[33mtrue\u001b[39m,\n  hasToken: \u001b[33mtrue\u001b[39m,\n  token: \u001b[32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5Mjc2LCJleHAiOjE3NDg2MjI4NzZ9.i80KO9CFyTAOYvG1Jt9_w-tGCb7CdWnLkhLOalu55to'\u001b[39m\n}\n"
+                        },
+                        {
+                          "text": "✅ Auth state updated successfully\n"
+                        },
+                        {
+                          "text": "ℹ️ Restaurant management section not found\n"
+                        },
+                        {
+                          "text": "✓ Restaurant management test completed\n"
                         }
                       ],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2025-05-30T02:23:57.677Z",
+                      "startTime": "2025-05-30T15:34:33.926Z",
                       "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "/Users/naf/Downloads/doof/e2e-results/test-artifacts/incremental-flows-DOOF-Inc-2a612-ess-with-proper-credentials-firefox/test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "/Users/naf/Downloads/doof/e2e-results/test-artifacts/incremental-flows-DOOF-Inc-2a612-ess-with-proper-credentials-firefox/video.webm"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "/Users/naf/Downloads/doof/e2e/incremental-flows.spec.js",
-                        "column": 16,
-                        "line": 391
-                      }
+                      "attachments": []
                     }
                   ],
-                  "status": "skipped"
+                  "status": "expected"
                 }
               ],
-              "id": "a5cbd020b127cbeac4b6-849ea56ef9ec24ecbb4f",
-              "file": "incremental-flows.spec.js",
-              "line": 383,
+              "id": "86f2ddd5ec62206c57c4-c2613ac5ce9a5863269c",
+              "file": "admin-panel.spec.js",
+              "line": 83,
               "column": 3
             },
             {
-              "title": "should access user profile and settings",
+              "title": "should access user management features",
               "ok": true,
               "tags": [],
               "tests": [
@@ -1667,265 +796,68 @@
                   "expectedStatus": "passed",
                   "projectId": "firefox",
                   "projectName": "firefox",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 4193,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing user management\n"
+                        },
+                        {
+                          "text": "🔐 Starting login process...\n"
+                        },
+                        {
+                          "text": "📝 Filling login form...\n"
+                        },
+                        {
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "📡 Response: 200 http://localhost:5174/api/auth/login\n"
+                        },
+                        {
+                          "text": "✅ Login response received\n"
+                        },
+                        {
+                          "text": "📄 Login response data: { hasSuccess: \u001b[33mtrue\u001b[39m, hasData: \u001b[33mtrue\u001b[39m, hasToken: \u001b[33mtrue\u001b[39m, status: \u001b[33m200\u001b[39m }\n"
+                        },
+                        {
+                          "text": "🎉 Login API successful, waiting for auth state update...\n"
+                        },
+                        {
+                          "text": "🔄 Auth state check 1/10: {\n  isAuthenticated: \u001b[33mtrue\u001b[39m,\n  hasToken: \u001b[33mtrue\u001b[39m,\n  token: \u001b[32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MjgwLCJleHAiOjE3NDg2MjI4ODB9.fPYTlONhG3jcsVgyveWqG4zN9r0s2DFvwgcQB9jMPYM'\u001b[39m\n}\n"
+                        },
+                        {
+                          "text": "✅ Auth state updated successfully\n"
+                        },
+                        {
+                          "text": "ℹ️ User management section not found\n"
+                        },
+                        {
+                          "text": "✓ User management test completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T15:34:38.288Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
-              "id": "a5cbd020b127cbeac4b6-ee2edafcf145cef361c0",
-              "file": "incremental-flows.spec.js",
-              "line": 412,
+              "id": "86f2ddd5ec62206c57c4-40e5c646b14d3fece23e",
+              "file": "admin-panel.spec.js",
+              "line": 132,
               "column": 3
             },
             {
-              "title": "should test protected route behavior",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "webkit",
-                  "projectName": "webkit",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-80a822dbd57b5accf3c0",
-              "file": "incremental-flows.spec.js",
-              "line": 359,
-              "column": 3
-            },
-            {
-              "title": "should test admin panel access with proper credentials",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "webkit",
-                  "projectName": "webkit",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-34c266a4ee1b2f20f2c2",
-              "file": "incremental-flows.spec.js",
-              "line": 383,
-              "column": 3
-            },
-            {
-              "title": "should access user profile and settings",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "webkit",
-                  "projectName": "webkit",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-57945f49e0260e3ebb75",
-              "file": "incremental-flows.spec.js",
-              "line": 412,
-              "column": 3
-            },
-            {
-              "title": "should test protected route behavior",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "Mobile Chrome",
-                  "projectName": "Mobile Chrome",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-8c642d2798100d820165",
-              "file": "incremental-flows.spec.js",
-              "line": 359,
-              "column": 3
-            },
-            {
-              "title": "should test admin panel access with proper credentials",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "Mobile Chrome",
-                  "projectName": "Mobile Chrome",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-d9798023ac259fd67bac",
-              "file": "incremental-flows.spec.js",
-              "line": 383,
-              "column": 3
-            },
-            {
-              "title": "should access user profile and settings",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "Mobile Chrome",
-                  "projectName": "Mobile Chrome",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-fc16822ad018b8f1de4f",
-              "file": "incremental-flows.spec.js",
-              "line": 412,
-              "column": 3
-            },
-            {
-              "title": "should test protected route behavior",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "Mobile Safari",
-                  "projectName": "Mobile Safari",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-33a74ec252231c15c765",
-              "file": "incremental-flows.spec.js",
-              "line": 359,
-              "column": 3
-            },
-            {
-              "title": "should test admin panel access with proper credentials",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "Mobile Safari",
-                  "projectName": "Mobile Safari",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-d0dcddf0796c4326a1ab",
-              "file": "incremental-flows.spec.js",
-              "line": 383,
-              "column": 3
-            },
-            {
-              "title": "should access user profile and settings",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "Mobile Safari",
-                  "projectName": "Mobile Safari",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-0b521372bc4006bc1866",
-              "file": "incremental-flows.spec.js",
-              "line": 412,
-              "column": 3
-            }
-          ]
-        },
-        {
-          "title": "DOOF Incremental Flows - Level 5: Advanced Interactions",
-          "file": "incremental-flows.spec.js",
-          "line": 441,
-          "column": 6,
-          "specs": [
-            {
-              "title": "should perform complex cross-page navigation",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-223948378459ed18c197",
-              "file": "incremental-flows.spec.js",
-              "line": 452,
-              "column": 3
-            },
-            {
-              "title": "should test responsive behavior on mobile viewport",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-b77204079e0e0cfbbe5f",
-              "file": "incremental-flows.spec.js",
-              "line": 475,
-              "column": 3
-            },
-            {
-              "title": "should handle loading states and error conditions",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [],
-                  "status": "skipped"
-                }
-              ],
-              "id": "a5cbd020b127cbeac4b6-b258e715cbfe8dd20ecb",
-              "file": "incremental-flows.spec.js",
-              "line": 501,
-              "column": 3
-            },
-            {
-              "title": "should perform complex cross-page navigation",
+              "title": "should view analytics and engagement data",
               "ok": true,
               "tags": [],
               "tests": [
@@ -1935,17 +867,68 @@
                   "expectedStatus": "passed",
                   "projectId": "firefox",
                   "projectName": "firefox",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 4060,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing analytics dashboard\n"
+                        },
+                        {
+                          "text": "🔐 Starting login process...\n"
+                        },
+                        {
+                          "text": "📝 Filling login form...\n"
+                        },
+                        {
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "📡 Response: 200 http://localhost:5174/api/auth/login\n"
+                        },
+                        {
+                          "text": "✅ Login response received\n"
+                        },
+                        {
+                          "text": "📄 Login response data: { hasSuccess: \u001b[33mtrue\u001b[39m, hasData: \u001b[33mtrue\u001b[39m, hasToken: \u001b[33mtrue\u001b[39m, status: \u001b[33m200\u001b[39m }\n"
+                        },
+                        {
+                          "text": "🎉 Login API successful, waiting for auth state update...\n"
+                        },
+                        {
+                          "text": "🔄 Auth state check 1/10: {\n  isAuthenticated: \u001b[33mtrue\u001b[39m,\n  hasToken: \u001b[33mtrue\u001b[39m,\n  token: \u001b[32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5Mjg0LCJleHAiOjE3NDg2MjI4ODR9.rCcjANBiTr7HqTTtFahAbyUpuXGbWFYU6vU4GMq17uw'\u001b[39m\n}\n"
+                        },
+                        {
+                          "text": "✅ Auth state updated successfully\n"
+                        },
+                        {
+                          "text": "ℹ️ Analytics section not found\n"
+                        },
+                        {
+                          "text": "✓ Analytics dashboard test completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T15:34:42.485Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
-              "id": "a5cbd020b127cbeac4b6-f6b0f07221d673981134",
-              "file": "incremental-flows.spec.js",
-              "line": 452,
+              "id": "86f2ddd5ec62206c57c4-2d1529e9132237b1c77b",
+              "file": "admin-panel.spec.js",
+              "line": 179,
               "column": 3
             },
             {
-              "title": "should test responsive behavior on mobile viewport",
+              "title": "should manage hashtags and categories",
               "ok": true,
               "tags": [],
               "tests": [
@@ -1955,17 +938,68 @@
                   "expectedStatus": "passed",
                   "projectId": "firefox",
                   "projectName": "firefox",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 4241,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing hashtag management\n"
+                        },
+                        {
+                          "text": "🔐 Starting login process...\n"
+                        },
+                        {
+                          "text": "📝 Filling login form...\n"
+                        },
+                        {
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "📡 Response: 200 http://localhost:5174/api/auth/login\n"
+                        },
+                        {
+                          "text": "✅ Login response received\n"
+                        },
+                        {
+                          "text": "📄 Login response data: { hasSuccess: \u001b[33mtrue\u001b[39m, hasData: \u001b[33mtrue\u001b[39m, hasToken: \u001b[33mtrue\u001b[39m, status: \u001b[33m200\u001b[39m }\n"
+                        },
+                        {
+                          "text": "🎉 Login API successful, waiting for auth state update...\n"
+                        },
+                        {
+                          "text": "🔄 Auth state check 1/10: {\n  isAuthenticated: \u001b[33mtrue\u001b[39m,\n  hasToken: \u001b[33mtrue\u001b[39m,\n  token: \u001b[32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5Mjg4LCJleHAiOjE3NDg2MjI4ODh9.a6oexYLdWXepYdCuG374IuM5lW5gn5cLEQyUCoC5Src'\u001b[39m\n}\n"
+                        },
+                        {
+                          "text": "✅ Auth state updated successfully\n"
+                        },
+                        {
+                          "text": "ℹ️ Hashtag management section not found\n"
+                        },
+                        {
+                          "text": "✓ Hashtag management test completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T15:34:46.549Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
-              "id": "a5cbd020b127cbeac4b6-b58ad537632a98b9632f",
-              "file": "incremental-flows.spec.js",
-              "line": 475,
+              "id": "86f2ddd5ec62206c57c4-53b961e4d676e1dfec5c",
+              "file": "admin-panel.spec.js",
+              "line": 235,
               "column": 3
             },
             {
-              "title": "should handle loading states and error conditions",
+              "title": "should access system administration features",
               "ok": true,
               "tags": [],
               "tests": [
@@ -1975,17 +1009,139 @@
                   "expectedStatus": "passed",
                   "projectId": "firefox",
                   "projectName": "firefox",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 4042,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing system administration\n"
+                        },
+                        {
+                          "text": "🔐 Starting login process...\n"
+                        },
+                        {
+                          "text": "📝 Filling login form...\n"
+                        },
+                        {
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "📡 Response: 200 http://localhost:5174/api/auth/login\n"
+                        },
+                        {
+                          "text": "✅ Login response received\n"
+                        },
+                        {
+                          "text": "📄 Login response data: { hasSuccess: \u001b[33mtrue\u001b[39m, hasData: \u001b[33mtrue\u001b[39m, hasToken: \u001b[33mtrue\u001b[39m, status: \u001b[33m200\u001b[39m }\n"
+                        },
+                        {
+                          "text": "🎉 Login API successful, waiting for auth state update...\n"
+                        },
+                        {
+                          "text": "🔄 Auth state check 1/10: {\n  isAuthenticated: \u001b[33mtrue\u001b[39m,\n  hasToken: \u001b[33mtrue\u001b[39m,\n  token: \u001b[32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MjkyLCJleHAiOjE3NDg2MjI4OTJ9.4_sW8tpTDjx395dfxAmoB5IwMVoybUH4MN6kLwbRTho'\u001b[39m\n}\n"
+                        },
+                        {
+                          "text": "✅ Auth state updated successfully\n"
+                        },
+                        {
+                          "text": "ℹ️ System administration section not found\n"
+                        },
+                        {
+                          "text": "✓ System administration test completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T15:34:50.793Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
-              "id": "a5cbd020b127cbeac4b6-21048758e461bd07ddbb",
-              "file": "incremental-flows.spec.js",
-              "line": 501,
+              "id": "86f2ddd5ec62206c57c4-9215c7e94913fb169428",
+              "file": "admin-panel.spec.js",
+              "line": 282,
               "column": 3
             },
             {
-              "title": "should perform complex cross-page navigation",
+              "title": "should perform bulk administrative operations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 4124,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing bulk operations\n"
+                        },
+                        {
+                          "text": "🔐 Starting login process...\n"
+                        },
+                        {
+                          "text": "📝 Filling login form...\n"
+                        },
+                        {
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "📡 Response: 200 http://localhost:5174/api/auth/login\n"
+                        },
+                        {
+                          "text": "✅ Login response received\n"
+                        },
+                        {
+                          "text": "📄 Login response data: { hasSuccess: \u001b[33mtrue\u001b[39m, hasData: \u001b[33mtrue\u001b[39m, hasToken: \u001b[33mtrue\u001b[39m, status: \u001b[33m200\u001b[39m }\n"
+                        },
+                        {
+                          "text": "🎉 Login API successful, waiting for auth state update...\n"
+                        },
+                        {
+                          "text": "🔄 Auth state check 1/10: {\n  isAuthenticated: \u001b[33mtrue\u001b[39m,\n  hasToken: \u001b[33mtrue\u001b[39m,\n  token: \u001b[32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5Mjk3LCJleHAiOjE3NDg2MjI4OTd9.b9f5bufhrotFSwYdVCanYhU7DpCmNZgQOoii81_iQLU'\u001b[39m\n}\n"
+                        },
+                        {
+                          "text": "✅ Auth state updated successfully\n"
+                        },
+                        {
+                          "text": "ℹ️ No bulk operation features found\n"
+                        },
+                        {
+                          "text": "✓ Bulk operations test completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T15:34:54.838Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "86f2ddd5ec62206c57c4-9961b55fbcde1ebb07ee",
+              "file": "admin-panel.spec.js",
+              "line": 331,
+              "column": 3
+            },
+            {
+              "title": "should access admin panel with superuser credentials",
               "ok": true,
               "tags": [],
               "tests": [
@@ -1995,17 +1151,68 @@
                   "expectedStatus": "passed",
                   "projectId": "webkit",
                   "projectName": "webkit",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 4615,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing admin panel access\n"
+                        },
+                        {
+                          "text": "🔐 Starting login process...\n"
+                        },
+                        {
+                          "text": "📝 Filling login form...\n"
+                        },
+                        {
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "📡 Response: 200 http://localhost:5174/api/auth/login\n"
+                        },
+                        {
+                          "text": "✅ Login response received\n"
+                        },
+                        {
+                          "text": "📄 Login response data: { hasSuccess: \u001b[33mtrue\u001b[39m, hasData: \u001b[33mtrue\u001b[39m, hasToken: \u001b[33mtrue\u001b[39m, status: \u001b[33m200\u001b[39m }\n"
+                        },
+                        {
+                          "text": "🎉 Login API successful, waiting for auth state update...\n"
+                        },
+                        {
+                          "text": "🔄 Auth state check 1/10: {\n  isAuthenticated: \u001b[33mtrue\u001b[39m,\n  hasToken: \u001b[33mtrue\u001b[39m,\n  token: \u001b[32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5Mjk3LCJleHAiOjE3NDg2MjI4OTd9.b9f5bufhrotFSwYdVCanYhU7DpCmNZgQOoii81_iQLU'\u001b[39m\n}\n"
+                        },
+                        {
+                          "text": "✅ Auth state updated successfully\n"
+                        },
+                        {
+                          "text": "✓ Direct admin panel access successful\n"
+                        },
+                        {
+                          "text": "✓ Admin panel access test completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T15:34:54.784Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
-              "id": "a5cbd020b127cbeac4b6-625d360cf01f2d42cedf",
-              "file": "incremental-flows.spec.js",
-              "line": 452,
+              "id": "86f2ddd5ec62206c57c4-f2c1488511f2485e920f",
+              "file": "admin-panel.spec.js",
+              "line": 34,
               "column": 3
             },
             {
-              "title": "should test responsive behavior on mobile viewport",
+              "title": "should manage restaurants in admin panel",
               "ok": true,
               "tags": [],
               "tests": [
@@ -2015,17 +1222,68 @@
                   "expectedStatus": "passed",
                   "projectId": "webkit",
                   "projectName": "webkit",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 4151,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing restaurant management\n"
+                        },
+                        {
+                          "text": "🔐 Starting login process...\n"
+                        },
+                        {
+                          "text": "📝 Filling login form...\n"
+                        },
+                        {
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "📡 Response: 200 http://localhost:5174/api/auth/login\n"
+                        },
+                        {
+                          "text": "✅ Login response received\n"
+                        },
+                        {
+                          "text": "📄 Login response data: { hasSuccess: \u001b[33mtrue\u001b[39m, hasData: \u001b[33mtrue\u001b[39m, hasToken: \u001b[33mtrue\u001b[39m, status: \u001b[33m200\u001b[39m }\n"
+                        },
+                        {
+                          "text": "🎉 Login API successful, waiting for auth state update...\n"
+                        },
+                        {
+                          "text": "🔄 Auth state check 1/10: {\n  isAuthenticated: \u001b[33mtrue\u001b[39m,\n  hasToken: \u001b[33mtrue\u001b[39m,\n  token: \u001b[32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzAxLCJleHAiOjE3NDg2MjI5MDF9.kx7k4o_mrJTzX6SlYBdkzSU2cr39XA1pCEyb0aVH4Ws'\u001b[39m\n}\n"
+                        },
+                        {
+                          "text": "✅ Auth state updated successfully\n"
+                        },
+                        {
+                          "text": "ℹ️ Restaurant management section not found\n"
+                        },
+                        {
+                          "text": "✓ Restaurant management test completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T15:34:59.692Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
-              "id": "a5cbd020b127cbeac4b6-20f34a0cc036ce963a55",
-              "file": "incremental-flows.spec.js",
-              "line": 475,
+              "id": "86f2ddd5ec62206c57c4-e6d0ba386e623e0f3e60",
+              "file": "admin-panel.spec.js",
+              "line": 83,
               "column": 3
             },
             {
-              "title": "should handle loading states and error conditions",
+              "title": "should access user management features",
               "ok": true,
               "tags": [],
               "tests": [
@@ -2035,17 +1293,352 @@
                   "expectedStatus": "passed",
                   "projectId": "webkit",
                   "projectName": "webkit",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 4220,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing user management\n"
+                        },
+                        {
+                          "text": "🔐 Starting login process...\n"
+                        },
+                        {
+                          "text": "📝 Filling login form...\n"
+                        },
+                        {
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "📡 Response: 200 http://localhost:5174/api/auth/login\n"
+                        },
+                        {
+                          "text": "✅ Login response received\n"
+                        },
+                        {
+                          "text": "📄 Login response data: { hasSuccess: \u001b[33mtrue\u001b[39m, hasData: \u001b[33mtrue\u001b[39m, hasToken: \u001b[33mtrue\u001b[39m, status: \u001b[33m200\u001b[39m }\n"
+                        },
+                        {
+                          "text": "🎉 Login API successful, waiting for auth state update...\n"
+                        },
+                        {
+                          "text": "🔄 Auth state check 1/10: {\n  isAuthenticated: \u001b[33mtrue\u001b[39m,\n  hasToken: \u001b[33mtrue\u001b[39m,\n  token: \u001b[32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzA1LCJleHAiOjE3NDg2MjI5MDV9.Zu6fGXzMlsWm5rYuJ_htJxleoPUAX4jZWDYBnwC4eKc'\u001b[39m\n}\n"
+                        },
+                        {
+                          "text": "✅ Auth state updated successfully\n"
+                        },
+                        {
+                          "text": "ℹ️ User management section not found\n"
+                        },
+                        {
+                          "text": "✓ User management test completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T15:35:03.846Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
-              "id": "a5cbd020b127cbeac4b6-2166cad65f72316c1ef4",
-              "file": "incremental-flows.spec.js",
-              "line": 501,
+              "id": "86f2ddd5ec62206c57c4-57adbbe4a0f13987bd73",
+              "file": "admin-panel.spec.js",
+              "line": 132,
               "column": 3
             },
             {
-              "title": "should perform complex cross-page navigation",
+              "title": "should view analytics and engagement data",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 4002,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing analytics dashboard\n"
+                        },
+                        {
+                          "text": "🔐 Starting login process...\n"
+                        },
+                        {
+                          "text": "📝 Filling login form...\n"
+                        },
+                        {
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "📡 Response: 200 http://localhost:5174/api/auth/login\n"
+                        },
+                        {
+                          "text": "✅ Login response received\n"
+                        },
+                        {
+                          "text": "📄 Login response data: { hasSuccess: \u001b[33mtrue\u001b[39m, hasData: \u001b[33mtrue\u001b[39m, hasToken: \u001b[33mtrue\u001b[39m, status: \u001b[33m200\u001b[39m }\n"
+                        },
+                        {
+                          "text": "🎉 Login API successful, waiting for auth state update...\n"
+                        },
+                        {
+                          "text": "🔄 Auth state check 1/10: {\n  isAuthenticated: \u001b[33mtrue\u001b[39m,\n  hasToken: \u001b[33mtrue\u001b[39m,\n  token: \u001b[32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzEwLCJleHAiOjE3NDg2MjI5MTB9.kC5ji0dGv_kEep26of-4axsoWdbnTjaYp4hr2EKkaJ8'\u001b[39m\n}\n"
+                        },
+                        {
+                          "text": "✅ Auth state updated successfully\n"
+                        },
+                        {
+                          "text": "ℹ️ Analytics section not found\n"
+                        },
+                        {
+                          "text": "✓ Analytics dashboard test completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T15:35:08.071Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "86f2ddd5ec62206c57c4-bc25fa553a8398ba7d81",
+              "file": "admin-panel.spec.js",
+              "line": 179,
+              "column": 3
+            },
+            {
+              "title": "should manage hashtags and categories",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 4094,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing hashtag management\n"
+                        },
+                        {
+                          "text": "🔐 Starting login process...\n"
+                        },
+                        {
+                          "text": "📝 Filling login form...\n"
+                        },
+                        {
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "📡 Response: 200 http://localhost:5174/api/auth/login\n"
+                        },
+                        {
+                          "text": "✅ Login response received\n"
+                        },
+                        {
+                          "text": "📄 Login response data: { hasSuccess: \u001b[33mtrue\u001b[39m, hasData: \u001b[33mtrue\u001b[39m, hasToken: \u001b[33mtrue\u001b[39m, status: \u001b[33m200\u001b[39m }\n"
+                        },
+                        {
+                          "text": "🎉 Login API successful, waiting for auth state update...\n"
+                        },
+                        {
+                          "text": "🔄 Auth state check 1/10: {\n  isAuthenticated: \u001b[33mtrue\u001b[39m,\n  hasToken: \u001b[33mtrue\u001b[39m,\n  token: \u001b[32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzE0LCJleHAiOjE3NDg2MjI5MTR9.ji82wlptIdMwpWcjenbLZt-8_6I9h5BhRDxpGESDg1E'\u001b[39m\n}\n"
+                        },
+                        {
+                          "text": "✅ Auth state updated successfully\n"
+                        },
+                        {
+                          "text": "ℹ️ Hashtag management section not found\n"
+                        },
+                        {
+                          "text": "✓ Hashtag management test completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T15:35:12.076Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "86f2ddd5ec62206c57c4-ed2a3d14cfd385564779",
+              "file": "admin-panel.spec.js",
+              "line": 235,
+              "column": 3
+            },
+            {
+              "title": "should access system administration features",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 4058,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing system administration\n"
+                        },
+                        {
+                          "text": "🔐 Starting login process...\n"
+                        },
+                        {
+                          "text": "📝 Filling login form...\n"
+                        },
+                        {
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "📡 Response: 200 http://localhost:5174/api/auth/login\n"
+                        },
+                        {
+                          "text": "✅ Login response received\n"
+                        },
+                        {
+                          "text": "📄 Login response data: { hasSuccess: \u001b[33mtrue\u001b[39m, hasData: \u001b[33mtrue\u001b[39m, hasToken: \u001b[33mtrue\u001b[39m, status: \u001b[33m200\u001b[39m }\n"
+                        },
+                        {
+                          "text": "🎉 Login API successful, waiting for auth state update...\n"
+                        },
+                        {
+                          "text": "🔄 Auth state check 1/10: {\n  isAuthenticated: \u001b[33mtrue\u001b[39m,\n  hasToken: \u001b[33mtrue\u001b[39m,\n  token: \u001b[32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzE4LCJleHAiOjE3NDg2MjI5MTh9.gQzgvDFE0RzfI4NUAEpzpRlluPBjWuKw7lbKBB_s29A'\u001b[39m\n}\n"
+                        },
+                        {
+                          "text": "✅ Auth state updated successfully\n"
+                        },
+                        {
+                          "text": "ℹ️ System administration section not found\n"
+                        },
+                        {
+                          "text": "✓ System administration test completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T15:35:16.173Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "86f2ddd5ec62206c57c4-73ff6ca19505f10bf66c",
+              "file": "admin-panel.spec.js",
+              "line": 282,
+              "column": 3
+            },
+            {
+              "title": "should perform bulk administrative operations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3911,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing bulk operations\n"
+                        },
+                        {
+                          "text": "🔐 Starting login process...\n"
+                        },
+                        {
+                          "text": "📝 Filling login form...\n"
+                        },
+                        {
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "📡 Response: 200 http://localhost:5174/api/auth/login\n"
+                        },
+                        {
+                          "text": "✅ Login response received\n"
+                        },
+                        {
+                          "text": "📄 Login response data: { hasSuccess: \u001b[33mtrue\u001b[39m, hasData: \u001b[33mtrue\u001b[39m, hasToken: \u001b[33mtrue\u001b[39m, status: \u001b[33m200\u001b[39m }\n"
+                        },
+                        {
+                          "text": "🎉 Login API successful, waiting for auth state update...\n"
+                        },
+                        {
+                          "text": "🔄 Auth state check 1/10: {\n  isAuthenticated: \u001b[33mtrue\u001b[39m,\n  hasToken: \u001b[33mtrue\u001b[39m,\n  token: \u001b[32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzIyLCJleHAiOjE3NDg2MjI5MjJ9.vh9M_1kdSKm9zAP0Zu341fncRipqPpqerq4YnJnD_GU'\u001b[39m\n}\n"
+                        },
+                        {
+                          "text": "✅ Auth state updated successfully\n"
+                        },
+                        {
+                          "text": "ℹ️ No bulk operation features found\n"
+                        },
+                        {
+                          "text": "✓ Bulk operations test completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T15:35:20.234Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "86f2ddd5ec62206c57c4-9faef9d3f6b3363170bc",
+              "file": "admin-panel.spec.js",
+              "line": 331,
+              "column": 3
+            },
+            {
+              "title": "should access admin panel with superuser credentials",
               "ok": true,
               "tags": [],
               "tests": [
@@ -2055,17 +1648,68 @@
                   "expectedStatus": "passed",
                   "projectId": "Mobile Chrome",
                   "projectName": "Mobile Chrome",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 3899,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing admin panel access\n"
+                        },
+                        {
+                          "text": "🔐 Starting login process...\n"
+                        },
+                        {
+                          "text": "📝 Filling login form...\n"
+                        },
+                        {
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "📡 Response: 200 http://localhost:5174/api/auth/login\n"
+                        },
+                        {
+                          "text": "✅ Login response received\n"
+                        },
+                        {
+                          "text": "📄 Login response data: { hasSuccess: \u001b[33mtrue\u001b[39m, hasData: \u001b[33mtrue\u001b[39m, hasToken: \u001b[33mtrue\u001b[39m, status: \u001b[33m200\u001b[39m }\n"
+                        },
+                        {
+                          "text": "🎉 Login API successful, waiting for auth state update...\n"
+                        },
+                        {
+                          "text": "🔄 Auth state check 1/10: {\n  isAuthenticated: \u001b[33mtrue\u001b[39m,\n  hasToken: \u001b[33mtrue\u001b[39m,\n  token: \u001b[32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzAyLCJleHAiOjE3NDg2MjI5MDJ9.F7UHdW7UWAk3VxV9BBYV9HPKxDWTE4WEemMsMgRvgmk'\u001b[39m\n}\n"
+                        },
+                        {
+                          "text": "✅ Auth state updated successfully\n"
+                        },
+                        {
+                          "text": "✓ Direct admin panel access successful\n"
+                        },
+                        {
+                          "text": "✓ Admin panel access test completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T15:34:59.922Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
-              "id": "a5cbd020b127cbeac4b6-a46b505108bc6b13b74c",
-              "file": "incremental-flows.spec.js",
-              "line": 452,
+              "id": "86f2ddd5ec62206c57c4-85a83600f830461897ab",
+              "file": "admin-panel.spec.js",
+              "line": 34,
               "column": 3
             },
             {
-              "title": "should test responsive behavior on mobile viewport",
+              "title": "should manage restaurants in admin panel",
               "ok": true,
               "tags": [],
               "tests": [
@@ -2075,17 +1719,68 @@
                   "expectedStatus": "passed",
                   "projectId": "Mobile Chrome",
                   "projectName": "Mobile Chrome",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 3840,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing restaurant management\n"
+                        },
+                        {
+                          "text": "🔐 Starting login process...\n"
+                        },
+                        {
+                          "text": "📝 Filling login form...\n"
+                        },
+                        {
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "📡 Response: 200 http://localhost:5174/api/auth/login\n"
+                        },
+                        {
+                          "text": "✅ Login response received\n"
+                        },
+                        {
+                          "text": "📄 Login response data: { hasSuccess: \u001b[33mtrue\u001b[39m, hasData: \u001b[33mtrue\u001b[39m, hasToken: \u001b[33mtrue\u001b[39m, status: \u001b[33m200\u001b[39m }\n"
+                        },
+                        {
+                          "text": "🎉 Login API successful, waiting for auth state update...\n"
+                        },
+                        {
+                          "text": "🔄 Auth state check 1/10: {\n  isAuthenticated: \u001b[33mtrue\u001b[39m,\n  hasToken: \u001b[33mtrue\u001b[39m,\n  token: \u001b[32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzA1LCJleHAiOjE3NDg2MjI5MDV9.Zu6fGXzMlsWm5rYuJ_htJxleoPUAX4jZWDYBnwC4eKc'\u001b[39m\n}\n"
+                        },
+                        {
+                          "text": "✅ Auth state updated successfully\n"
+                        },
+                        {
+                          "text": "ℹ️ Restaurant management section not found\n"
+                        },
+                        {
+                          "text": "✓ Restaurant management test completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T15:35:03.983Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
-              "id": "a5cbd020b127cbeac4b6-e8775a8415b197ef6363",
-              "file": "incremental-flows.spec.js",
-              "line": 475,
+              "id": "86f2ddd5ec62206c57c4-4a5a74020ea80e5bc1bd",
+              "file": "admin-panel.spec.js",
+              "line": 83,
               "column": 3
             },
             {
-              "title": "should handle loading states and error conditions",
+              "title": "should access user management features",
               "ok": true,
               "tags": [],
               "tests": [
@@ -2095,17 +1790,352 @@
                   "expectedStatus": "passed",
                   "projectId": "Mobile Chrome",
                   "projectName": "Mobile Chrome",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 3713,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing user management\n"
+                        },
+                        {
+                          "text": "🔐 Starting login process...\n"
+                        },
+                        {
+                          "text": "📝 Filling login form...\n"
+                        },
+                        {
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "📡 Response: 200 http://localhost:5174/api/auth/login\n"
+                        },
+                        {
+                          "text": "✅ Login response received\n"
+                        },
+                        {
+                          "text": "📄 Login response data: { hasSuccess: \u001b[33mtrue\u001b[39m, hasData: \u001b[33mtrue\u001b[39m, hasToken: \u001b[33mtrue\u001b[39m, status: \u001b[33m200\u001b[39m }\n"
+                        },
+                        {
+                          "text": "🎉 Login API successful, waiting for auth state update...\n"
+                        },
+                        {
+                          "text": "🔄 Auth state check 1/10: {\n  isAuthenticated: \u001b[33mtrue\u001b[39m,\n  hasToken: \u001b[33mtrue\u001b[39m,\n  token: \u001b[32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzA5LCJleHAiOjE3NDg2MjI5MDl9.QFR-bTzCVXFrva9EGL898ytFnNVBOBWFpI0F9RUuj34'\u001b[39m\n}\n"
+                        },
+                        {
+                          "text": "✅ Auth state updated successfully\n"
+                        },
+                        {
+                          "text": "ℹ️ User management section not found\n"
+                        },
+                        {
+                          "text": "✓ User management test completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T15:35:07.826Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
-              "id": "a5cbd020b127cbeac4b6-99a754f70966d7557834",
-              "file": "incremental-flows.spec.js",
-              "line": 501,
+              "id": "86f2ddd5ec62206c57c4-fb9722100b3120f9ff8c",
+              "file": "admin-panel.spec.js",
+              "line": 132,
               "column": 3
             },
             {
-              "title": "should perform complex cross-page navigation",
+              "title": "should view analytics and engagement data",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 3753,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing analytics dashboard\n"
+                        },
+                        {
+                          "text": "🔐 Starting login process...\n"
+                        },
+                        {
+                          "text": "📝 Filling login form...\n"
+                        },
+                        {
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "📡 Response: 200 http://localhost:5174/api/auth/login\n"
+                        },
+                        {
+                          "text": "✅ Login response received\n"
+                        },
+                        {
+                          "text": "📄 Login response data: { hasSuccess: \u001b[33mtrue\u001b[39m, hasData: \u001b[33mtrue\u001b[39m, hasToken: \u001b[33mtrue\u001b[39m, status: \u001b[33m200\u001b[39m }\n"
+                        },
+                        {
+                          "text": "🎉 Login API successful, waiting for auth state update...\n"
+                        },
+                        {
+                          "text": "🔄 Auth state check 1/10: {\n  isAuthenticated: \u001b[33mtrue\u001b[39m,\n  hasToken: \u001b[33mtrue\u001b[39m,\n  token: \u001b[32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzEzLCJleHAiOjE3NDg2MjI5MTN9.BZ3i5FPtyp_z4FP_SUg5iNANpTwWGIOhJFOxnSMDAN4'\u001b[39m\n}\n"
+                        },
+                        {
+                          "text": "✅ Auth state updated successfully\n"
+                        },
+                        {
+                          "text": "ℹ️ Analytics section not found\n"
+                        },
+                        {
+                          "text": "✓ Analytics dashboard test completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T15:35:11.543Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "86f2ddd5ec62206c57c4-f400290489f0a2e6a3da",
+              "file": "admin-panel.spec.js",
+              "line": 179,
+              "column": 3
+            },
+            {
+              "title": "should manage hashtags and categories",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 3739,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing hashtag management\n"
+                        },
+                        {
+                          "text": "🔐 Starting login process...\n"
+                        },
+                        {
+                          "text": "📝 Filling login form...\n"
+                        },
+                        {
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "📡 Response: 200 http://localhost:5174/api/auth/login\n"
+                        },
+                        {
+                          "text": "✅ Login response received\n"
+                        },
+                        {
+                          "text": "📄 Login response data: { hasSuccess: \u001b[33mtrue\u001b[39m, hasData: \u001b[33mtrue\u001b[39m, hasToken: \u001b[33mtrue\u001b[39m, status: \u001b[33m200\u001b[39m }\n"
+                        },
+                        {
+                          "text": "🎉 Login API successful, waiting for auth state update...\n"
+                        },
+                        {
+                          "text": "🔄 Auth state check 1/10: {\n  isAuthenticated: \u001b[33mtrue\u001b[39m,\n  hasToken: \u001b[33mtrue\u001b[39m,\n  token: \u001b[32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzE3LCJleHAiOjE3NDg2MjI5MTd9.jm_SIOuImjvPeT6EqV2jPsyAnX0NjAHICDonpxuH0co'\u001b[39m\n}\n"
+                        },
+                        {
+                          "text": "✅ Auth state updated successfully\n"
+                        },
+                        {
+                          "text": "ℹ️ Hashtag management section not found\n"
+                        },
+                        {
+                          "text": "✓ Hashtag management test completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T15:35:15.300Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "86f2ddd5ec62206c57c4-62ab8647aa691541b1ce",
+              "file": "admin-panel.spec.js",
+              "line": 235,
+              "column": 3
+            },
+            {
+              "title": "should access system administration features",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 3745,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing system administration\n"
+                        },
+                        {
+                          "text": "🔐 Starting login process...\n"
+                        },
+                        {
+                          "text": "📝 Filling login form...\n"
+                        },
+                        {
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "📡 Response: 200 http://localhost:5174/api/auth/login\n"
+                        },
+                        {
+                          "text": "✅ Login response received\n"
+                        },
+                        {
+                          "text": "📄 Login response data: { hasSuccess: \u001b[33mtrue\u001b[39m, hasData: \u001b[33mtrue\u001b[39m, hasToken: \u001b[33mtrue\u001b[39m, status: \u001b[33m200\u001b[39m }\n"
+                        },
+                        {
+                          "text": "🎉 Login API successful, waiting for auth state update...\n"
+                        },
+                        {
+                          "text": "🔄 Auth state check 1/10: {\n  isAuthenticated: \u001b[33mtrue\u001b[39m,\n  hasToken: \u001b[33mtrue\u001b[39m,\n  token: \u001b[32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzIwLCJleHAiOjE3NDg2MjI5MjB9.gpR8cMaI84lGpGhzE2osAff7uV8zR6ViemHbvbmLGDc'\u001b[39m\n}\n"
+                        },
+                        {
+                          "text": "✅ Auth state updated successfully\n"
+                        },
+                        {
+                          "text": "ℹ️ System administration section not found\n"
+                        },
+                        {
+                          "text": "✓ System administration test completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T15:35:19.041Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "86f2ddd5ec62206c57c4-6125a24e5e8c603f5214",
+              "file": "admin-panel.spec.js",
+              "line": 282,
+              "column": 3
+            },
+            {
+              "title": "should perform bulk administrative operations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 3687,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing bulk operations\n"
+                        },
+                        {
+                          "text": "🔐 Starting login process...\n"
+                        },
+                        {
+                          "text": "📝 Filling login form...\n"
+                        },
+                        {
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "📡 Response: 200 http://localhost:5174/api/auth/login\n"
+                        },
+                        {
+                          "text": "✅ Login response received\n"
+                        },
+                        {
+                          "text": "📄 Login response data: { hasSuccess: \u001b[33mtrue\u001b[39m, hasData: \u001b[33mtrue\u001b[39m, hasToken: \u001b[33mtrue\u001b[39m, status: \u001b[33m200\u001b[39m }\n"
+                        },
+                        {
+                          "text": "🎉 Login API successful, waiting for auth state update...\n"
+                        },
+                        {
+                          "text": "🔄 Auth state check 1/10: {\n  isAuthenticated: \u001b[33mtrue\u001b[39m,\n  hasToken: \u001b[33mtrue\u001b[39m,\n  token: \u001b[32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzI0LCJleHAiOjE3NDg2MjI5MjR9.83F7VHgC0ikd1oTiTYbLeAaphKGiLgkaZa8ZJmc_MXY'\u001b[39m\n}\n"
+                        },
+                        {
+                          "text": "✅ Auth state updated successfully\n"
+                        },
+                        {
+                          "text": "ℹ️ No bulk operation features found\n"
+                        },
+                        {
+                          "text": "✓ Bulk operations test completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T15:35:22.788Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "86f2ddd5ec62206c57c4-a6a44b990354dda0f0f6",
+              "file": "admin-panel.spec.js",
+              "line": 331,
+              "column": 3
+            },
+            {
+              "title": "should access admin panel with superuser credentials",
               "ok": true,
               "tags": [],
               "tests": [
@@ -2115,17 +2145,68 @@
                   "expectedStatus": "passed",
                   "projectId": "Mobile Safari",
                   "projectName": "Mobile Safari",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 4142,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing admin panel access\n"
+                        },
+                        {
+                          "text": "🔐 Starting login process...\n"
+                        },
+                        {
+                          "text": "📝 Filling login form...\n"
+                        },
+                        {
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "📡 Response: 200 http://localhost:5174/api/auth/login\n"
+                        },
+                        {
+                          "text": "✅ Login response received\n"
+                        },
+                        {
+                          "text": "📄 Login response data: { hasSuccess: \u001b[33mtrue\u001b[39m, hasData: \u001b[33mtrue\u001b[39m, hasToken: \u001b[33mtrue\u001b[39m, status: \u001b[33m200\u001b[39m }\n"
+                        },
+                        {
+                          "text": "🎉 Login API successful, waiting for auth state update...\n"
+                        },
+                        {
+                          "text": "🔄 Auth state check 1/10: {\n  isAuthenticated: \u001b[33mtrue\u001b[39m,\n  hasToken: \u001b[33mtrue\u001b[39m,\n  token: \u001b[32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzI3LCJleHAiOjE3NDg2MjI5Mjd9.oAe6oGuoIEs6XtYBVOyNn9oQG23chdXyqiZs5nncRxM'\u001b[39m\n}\n"
+                        },
+                        {
+                          "text": "✅ Auth state updated successfully\n"
+                        },
+                        {
+                          "text": "✓ Direct admin panel access successful\n"
+                        },
+                        {
+                          "text": "✓ Admin panel access test completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T15:35:24.815Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
-              "id": "a5cbd020b127cbeac4b6-56eca56403c2316ea876",
-              "file": "incremental-flows.spec.js",
-              "line": 452,
+              "id": "86f2ddd5ec62206c57c4-6f051add4f687b73324e",
+              "file": "admin-panel.spec.js",
+              "line": 34,
               "column": 3
             },
             {
-              "title": "should test responsive behavior on mobile viewport",
+              "title": "should manage restaurants in admin panel",
               "ok": true,
               "tags": [],
               "tests": [
@@ -2135,17 +2216,68 @@
                   "expectedStatus": "passed",
                   "projectId": "Mobile Safari",
                   "projectName": "Mobile Safari",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3826,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing restaurant management\n"
+                        },
+                        {
+                          "text": "🔐 Starting login process...\n"
+                        },
+                        {
+                          "text": "📝 Filling login form...\n"
+                        },
+                        {
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "📡 Response: 200 http://localhost:5174/api/auth/login\n"
+                        },
+                        {
+                          "text": "✅ Login response received\n"
+                        },
+                        {
+                          "text": "📄 Login response data: { hasSuccess: \u001b[33mtrue\u001b[39m, hasData: \u001b[33mtrue\u001b[39m, hasToken: \u001b[33mtrue\u001b[39m, status: \u001b[33m200\u001b[39m }\n"
+                        },
+                        {
+                          "text": "🎉 Login API successful, waiting for auth state update...\n"
+                        },
+                        {
+                          "text": "🔄 Auth state check 1/10: {\n  isAuthenticated: \u001b[33mtrue\u001b[39m,\n  hasToken: \u001b[33mtrue\u001b[39m,\n  token: \u001b[32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzMwLCJleHAiOjE3NDg2MjI5MzB9.FtJ_tiAtGicFuH9Y4LYyouVU7f6CVtDQQFOok4Zgi-I'\u001b[39m\n}\n"
+                        },
+                        {
+                          "text": "✅ Auth state updated successfully\n"
+                        },
+                        {
+                          "text": "ℹ️ Restaurant management section not found\n"
+                        },
+                        {
+                          "text": "✓ Restaurant management test completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T15:35:29.113Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
-              "id": "a5cbd020b127cbeac4b6-772b453ef69d5bb1216e",
-              "file": "incremental-flows.spec.js",
-              "line": 475,
+              "id": "86f2ddd5ec62206c57c4-655f3f241a668b7a1da4",
+              "file": "admin-panel.spec.js",
+              "line": 83,
               "column": 3
             },
             {
-              "title": "should handle loading states and error conditions",
+              "title": "should access user management features",
               "ok": true,
               "tags": [],
               "tests": [
@@ -2155,13 +2287,348 @@
                   "expectedStatus": "passed",
                   "projectId": "Mobile Safari",
                   "projectName": "Mobile Safari",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3796,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing user management\n"
+                        },
+                        {
+                          "text": "🔐 Starting login process...\n"
+                        },
+                        {
+                          "text": "📝 Filling login form...\n"
+                        },
+                        {
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "📡 Response: 200 http://localhost:5174/api/auth/login\n"
+                        },
+                        {
+                          "text": "✅ Login response received\n"
+                        },
+                        {
+                          "text": "📄 Login response data: { hasSuccess: \u001b[33mtrue\u001b[39m, hasData: \u001b[33mtrue\u001b[39m, hasToken: \u001b[33mtrue\u001b[39m, status: \u001b[33m200\u001b[39m }\n"
+                        },
+                        {
+                          "text": "🎉 Login API successful, waiting for auth state update...\n"
+                        },
+                        {
+                          "text": "🔄 Auth state check 1/10: {\n  isAuthenticated: \u001b[33mtrue\u001b[39m,\n  hasToken: \u001b[33mtrue\u001b[39m,\n  token: \u001b[32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzM0LCJleHAiOjE3NDg2MjI5MzR9.u3nJkpFjJs7yZt2FoEAGYOBgI5DdSQ3QrvtM7JtVocA'\u001b[39m\n}\n"
+                        },
+                        {
+                          "text": "✅ Auth state updated successfully\n"
+                        },
+                        {
+                          "text": "ℹ️ User management section not found\n"
+                        },
+                        {
+                          "text": "✓ User management test completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T15:35:32.942Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
-              "id": "a5cbd020b127cbeac4b6-324424674ec70537d26a",
-              "file": "incremental-flows.spec.js",
-              "line": 501,
+              "id": "86f2ddd5ec62206c57c4-19223e74ca2e12f0f61b",
+              "file": "admin-panel.spec.js",
+              "line": 132,
+              "column": 3
+            },
+            {
+              "title": "should view analytics and engagement data",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3797,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing analytics dashboard\n"
+                        },
+                        {
+                          "text": "🔐 Starting login process...\n"
+                        },
+                        {
+                          "text": "📝 Filling login form...\n"
+                        },
+                        {
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "📡 Response: 200 http://localhost:5174/api/auth/login\n"
+                        },
+                        {
+                          "text": "✅ Login response received\n"
+                        },
+                        {
+                          "text": "📄 Login response data: { hasSuccess: \u001b[33mtrue\u001b[39m, hasData: \u001b[33mtrue\u001b[39m, hasToken: \u001b[33mtrue\u001b[39m, status: \u001b[33m200\u001b[39m }\n"
+                        },
+                        {
+                          "text": "🎉 Login API successful, waiting for auth state update...\n"
+                        },
+                        {
+                          "text": "🔄 Auth state check 1/10: {\n  isAuthenticated: \u001b[33mtrue\u001b[39m,\n  hasToken: \u001b[33mtrue\u001b[39m,\n  token: \u001b[32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzM4LCJleHAiOjE3NDg2MjI5Mzh9.YAfhOfQbPOzfOPWxGpM2eOzs8wmIVBFCO6pbu59t8do'\u001b[39m\n}\n"
+                        },
+                        {
+                          "text": "✅ Auth state updated successfully\n"
+                        },
+                        {
+                          "text": "ℹ️ Analytics section not found\n"
+                        },
+                        {
+                          "text": "✓ Analytics dashboard test completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T15:35:36.740Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "86f2ddd5ec62206c57c4-61d954e8692df7fc87c9",
+              "file": "admin-panel.spec.js",
+              "line": 179,
+              "column": 3
+            },
+            {
+              "title": "should manage hashtags and categories",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3774,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing hashtag management\n"
+                        },
+                        {
+                          "text": "🔐 Starting login process...\n"
+                        },
+                        {
+                          "text": "📝 Filling login form...\n"
+                        },
+                        {
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "📡 Response: 200 http://localhost:5174/api/auth/login\n"
+                        },
+                        {
+                          "text": "✅ Login response received\n"
+                        },
+                        {
+                          "text": "📄 Login response data: { hasSuccess: \u001b[33mtrue\u001b[39m, hasData: \u001b[33mtrue\u001b[39m, hasToken: \u001b[33mtrue\u001b[39m, status: \u001b[33m200\u001b[39m }\n"
+                        },
+                        {
+                          "text": "🎉 Login API successful, waiting for auth state update...\n"
+                        },
+                        {
+                          "text": "🔄 Auth state check 1/10: {\n  isAuthenticated: \u001b[33mtrue\u001b[39m,\n  hasToken: \u001b[33mtrue\u001b[39m,\n  token: \u001b[32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzQyLCJleHAiOjE3NDg2MjI5NDJ9.KNV95AV7s84W3ziEwnxzjEIogQ2ApdrbtvkTCHNOXbE'\u001b[39m\n}\n"
+                        },
+                        {
+                          "text": "✅ Auth state updated successfully\n"
+                        },
+                        {
+                          "text": "ℹ️ Hashtag management section not found\n"
+                        },
+                        {
+                          "text": "✓ Hashtag management test completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T15:35:40.540Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "86f2ddd5ec62206c57c4-49ea95d538b2af9f795b",
+              "file": "admin-panel.spec.js",
+              "line": 235,
+              "column": 3
+            },
+            {
+              "title": "should access system administration features",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3987,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing system administration\n"
+                        },
+                        {
+                          "text": "🔐 Starting login process...\n"
+                        },
+                        {
+                          "text": "📝 Filling login form...\n"
+                        },
+                        {
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "📡 Response: 200 http://localhost:5174/api/auth/login\n"
+                        },
+                        {
+                          "text": "✅ Login response received\n"
+                        },
+                        {
+                          "text": "📄 Login response data: { hasSuccess: \u001b[33mtrue\u001b[39m, hasData: \u001b[33mtrue\u001b[39m, hasToken: \u001b[33mtrue\u001b[39m, status: \u001b[33m200\u001b[39m }\n"
+                        },
+                        {
+                          "text": "🎉 Login API successful, waiting for auth state update...\n"
+                        },
+                        {
+                          "text": "🔄 Auth state check 1/10: {\n  isAuthenticated: \u001b[33mtrue\u001b[39m,\n  hasToken: \u001b[33mtrue\u001b[39m,\n  token: \u001b[32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzQ2LCJleHAiOjE3NDg2MjI5NDZ9.VuVCun9STgOGPRNRl1aQleckAlJhbeGMmpnyeW2WqpQ'\u001b[39m\n}\n"
+                        },
+                        {
+                          "text": "✅ Auth state updated successfully\n"
+                        },
+                        {
+                          "text": "ℹ️ System administration section not found\n"
+                        },
+                        {
+                          "text": "✓ System administration test completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T15:35:44.317Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "86f2ddd5ec62206c57c4-4ff584aef41a82393d08",
+              "file": "admin-panel.spec.js",
+              "line": 282,
+              "column": 3
+            },
+            {
+              "title": "should perform bulk administrative operations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3848,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing bulk operations\n"
+                        },
+                        {
+                          "text": "🔐 Starting login process...\n"
+                        },
+                        {
+                          "text": "📝 Filling login form...\n"
+                        },
+                        {
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "📡 Response: 200 http://localhost:5174/api/auth/login\n"
+                        },
+                        {
+                          "text": "✅ Login response received\n"
+                        },
+                        {
+                          "text": "📄 Login response data: { hasSuccess: \u001b[33mtrue\u001b[39m, hasData: \u001b[33mtrue\u001b[39m, hasToken: \u001b[33mtrue\u001b[39m, status: \u001b[33m200\u001b[39m }\n"
+                        },
+                        {
+                          "text": "🎉 Login API successful, waiting for auth state update...\n"
+                        },
+                        {
+                          "text": "🔄 Auth state check 1/10: {\n  isAuthenticated: \u001b[33mtrue\u001b[39m,\n  hasToken: \u001b[33mtrue\u001b[39m,\n  token: \u001b[32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzUwLCJleHAiOjE3NDg2MjI5NTB9.CtsNhsqeZ_Y1s2nfceuyNhcdorgbPEDlIxuvwztlbEs'\u001b[39m\n}\n"
+                        },
+                        {
+                          "text": "✅ Auth state updated successfully\n"
+                        },
+                        {
+                          "text": "ℹ️ No bulk operation features found\n"
+                        },
+                        {
+                          "text": "✓ Bulk operations test completed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-05-30T15:35:48.306Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "86f2ddd5ec62206c57c4-9494f0a3bd315ef764a8",
+              "file": "admin-panel.spec.js",
+              "line": 331,
               "column": 3
             }
           ]
@@ -2171,10 +2638,10 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2025-05-30T02:23:38.875Z",
-    "duration": 22731.944,
-    "expected": 19,
-    "skipped": 51,
+    "startTime": "2025-05-30T15:34:23.393Z",
+    "duration": 88796.57299999999,
+    "expected": 35,
+    "skipped": 0,
     "unexpected": 0,
     "flaky": 0
   }

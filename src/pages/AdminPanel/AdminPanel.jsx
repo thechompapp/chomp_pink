@@ -371,6 +371,9 @@ const AdminPanel = () => {
                   <div className="mt-1 text-sm text-blue-700">
                     <ul className="list-disc list-inside space-y-1">
                       <li>Real-time inline editing with auto-save</li>
+                      <li>Google Places modal for restaurant information lookup</li>
+                      <li>Automatic zip code to neighborhood lookup</li>
+                      <li>Auto-setting of city and neighborhood fields</li>
                       <li>Advanced field validation and error feedback</li>
                       <li>Optimized data fetching with caching</li>
                       <li>Bulk operations with row selection</li>
@@ -392,6 +395,7 @@ const AdminPanel = () => {
               enableBulkOperations={true}
               enableSelection={true}
               enableCreate={true}
+              onGlobalRefresh={refetch}
               className="shadow-lg"
             />
           </div>
@@ -432,6 +436,7 @@ const AdminPanel = () => {
               enableBulkOperations={true}
               enableSelection={true}
               enableCreate={true}
+              onGlobalRefresh={refetch}
               className="shadow-lg"
             />
           </div>
@@ -472,6 +477,7 @@ const AdminPanel = () => {
               enableBulkOperations={true}
               enableSelection={true}
               enableCreate={true}
+              onGlobalRefresh={refetch}
               className="shadow-lg"
             />
           </div>
@@ -512,6 +518,7 @@ const AdminPanel = () => {
               enableBulkOperations={true}
               enableSelection={true}
               enableCreate={true}
+              onGlobalRefresh={refetch}
               className="shadow-lg"
             />
           </div>
@@ -552,6 +559,7 @@ const AdminPanel = () => {
               enableBulkOperations={true}
               enableSelection={true}
               enableCreate={true}
+              onGlobalRefresh={refetch}
               className="shadow-lg"
             />
           </div>

@@ -4,7 +4,7 @@
 /* UPDATED: Added support for data cleanup approve/reject actions */
 /* FIXED: Added null checks for row object and properties */
 import React from 'react';
-import { Pencil, Check, X, Trash2, Save, XCircle } from 'lucide-react';
+import { Pencil, Check, X, Trash2, Save, XCircle, MapPin } from 'lucide-react';
 
 const ActionCell = ({
   row = {}, // Default to empty object to prevent null issues
@@ -29,6 +29,8 @@ const ActionCell = ({
   handleDeleteConfirm,
   // Data cleanup specific props
   isDataCleanup,
+  // Google Places specific props for restaurants
+  onOpenGooglePlaces,
 }) => {
   const rowId = row?.id; // Safely access row ID
   const isDeleting = actionState?.deletingId === rowId;
@@ -44,6 +46,7 @@ const ActionCell = ({
     delete: "hover:bg-red-100 dark:hover:bg-red-900 text-red-600 dark:text-red-400",
     approve: "hover:bg-green-100 dark:hover:bg-green-900 text-green-600 dark:text-green-400",
     reject: "hover:bg-red-100 dark:hover:bg-red-900 text-red-600 dark:text-red-400",
+    googlePlaces: "hover:bg-orange-100 dark:hover:bg-orange-900 text-orange-600 dark:text-orange-400",
   };
 
   // --- Internal Click Handlers ---
@@ -111,6 +114,19 @@ const ActionCell = ({
               aria-label="Edit row"
             >
               <Pencil size={16} />
+            </button>
+          )}
+
+          {/* Google Places button for restaurants */}
+          {resourceType === 'restaurants' && onOpenGooglePlaces && !isDataCleanup && (
+            <button
+              onClick={() => onOpenGooglePlaces(row)}
+              disabled={disableActions || isBusy}
+              className={`${buttonBaseClasses} ${buttonVariants.googlePlaces}`}
+              aria-label="Search Google Places"
+              title="Search Google Places for restaurant information"
+            >
+              <MapPin size={16} />
             </button>
           )}
 
