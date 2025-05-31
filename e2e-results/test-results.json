@@ -9,7 +9,7 @@
     "globalTimeout": 0,
     "grep": {},
     "grepInvert": null,
-    "maxFailures": 1,
+    "maxFailures": 0,
     "metadata": {},
     "preserveOutput": "always",
     "reporter": [
@@ -54,7 +54,7 @@
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
         ],
-        "timeout": 0
+        "timeout": 30000
       },
       {
         "outputDir": "/Users/naf/Downloads/doof/e2e-results/test-artifacts",
@@ -68,7 +68,7 @@
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
         ],
-        "timeout": 0
+        "timeout": 30000
       },
       {
         "outputDir": "/Users/naf/Downloads/doof/e2e-results/test-artifacts",
@@ -82,7 +82,7 @@
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
         ],
-        "timeout": 0
+        "timeout": 30000
       },
       {
         "outputDir": "/Users/naf/Downloads/doof/e2e-results/test-artifacts",
@@ -96,7 +96,7 @@
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
         ],
-        "timeout": 0
+        "timeout": 30000
       },
       {
         "outputDir": "/Users/naf/Downloads/doof/e2e-results/test-artifacts",
@@ -110,7 +110,7 @@
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
         ],
-        "timeout": 0
+        "timeout": 30000
       },
       {
         "outputDir": "/Users/naf/Downloads/doof/e2e-results/test-artifacts",
@@ -124,7 +124,7 @@
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
         ],
-        "timeout": 0
+        "timeout": 30000
       }
     ],
     "shard": null,
@@ -171,11 +171,15 @@
     {
       "message": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/restaurant-dish-flows.spec.js",
       "stack": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/restaurant-dish-flows.spec.js"
+    },
+    {
+      "message": "Error: No tests found",
+      "stack": "Error: No tests found"
     }
   ],
   "stats": {
-    "startTime": "2025-05-31T20:34:59.031Z",
-    "duration": 4548.76,
+    "startTime": "2025-05-31T20:59:20.930Z",
+    "duration": 19255.928,
     "expected": 0,
     "skipped": 0,
     "unexpected": 0,
