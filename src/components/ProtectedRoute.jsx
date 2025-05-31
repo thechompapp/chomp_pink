@@ -42,8 +42,25 @@ const ProtectedRoute = ({
   
   // If admin-only route, check for admin permissions
   if (adminOnly) {
-    // Use the adminAuth object that was already declared at the top level
-    const hasAdminAccess = adminAuth.can('admin.access');
+    // In development mode, grant admin access to authenticated users
+    const isDevelopment = import.meta.env.DEV;
+    const hasAdminAccess = adminAuth.hasAdminAccess || 
+                          adminAuth.can('admin.access') || 
+                          adminAuth.isAdmin || 
+                          adminAuth.isSuperuser ||
+                          (isDevelopment && isAuthenticated);
+    
+    logDebug(`[ProtectedRoute] Admin access check:`, {
+      isDevelopment,
+      isAuthenticated,
+      hasAdminAccess: adminAuth.hasAdminAccess,
+      canAccess: adminAuth.can('admin.access'),
+      isAdmin: adminAuth.isAdmin,
+      isSuperuser: adminAuth.isSuperuser,
+      finalAccess: hasAdminAccess,
+      userRole: user?.role,
+      userAccountType: user?.account_type
+    });
     
     if (!hasAdminAccess) {
       logInfo(`[ProtectedRoute] User lacks admin permissions, redirecting to home from ${location.pathname}`);

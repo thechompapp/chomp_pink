@@ -8,7 +8,7 @@ import { engagementService } from '@/services/engagementService';
 import { listService } from '@/services/listService';
 import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
 import useFollowStore from '@/stores/useFollowStore';
-import { useListDetail } from '@/contexts/ListDetailContext';
+import EnhancedListModal from '@/components/modals/EnhancedListModal'; // Enhanced modal
 import Button from '@/components/UI/Button';
 import { formatRelativeDate } from '@/utils/formatting';
 import { logDebug } from '@/utils/logger';
@@ -59,11 +59,11 @@ const ModalListCard = ({ list, onQuickAdd }) => {
   // Local state
   const [isExpanded, setIsExpanded] = useState(false);
   const [isFollowProcessing, setIsFollowProcessing] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false); // Enhanced modal state
   
   // Hook into stores/contexts
   const { user, isAuthenticated  } = useAuth();
   const { isFollowing, toggleFollowStatus } = useFollowStore();
-  const { openListDetail } = useListDetail();
   
   // Get follow status for this list
   const followStatus = isFollowing(list.id);
@@ -165,10 +165,9 @@ const ModalListCard = ({ list, onQuickAdd }) => {
       engagement_type: 'click',
     });
     
-    // Use the modal context to open the list detail
-    console.log(`[ModalListCard] Opening modal for list ${list.id}`);
-    openListDetail(list.id);
-  }, [list.id, openListDetail]);
+    // Open the enhanced modal
+    setIsModalOpen(true);
+  }, [list.id]);
 
   // Optimized toggleExpand with engagement logging for expansion actions
   const toggleExpand = useCallback((e) => {
@@ -192,138 +191,151 @@ const ModalListCard = ({ list, onQuickAdd }) => {
 
   // Direct div implementation (no BaseCard) to ensure no navigation occurs
   return (
-    <div 
-      onClick={handleCardClick}
-      className="bg-white rounded-lg border border-black p-4 flex flex-col h-full overflow-hidden relative w-full cursor-pointer"
-    >
-      {/* QuickAdd button */}
-      {onQuickAdd && isAuthenticated && (
-        <button
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onQuickAdd({
-              id: list.id,
-              name: list.name,
-              type: 'list',
-              description: list.description,
-              tags: list.tags || []
-            });
-          }}
-          aria-label="Quick Add"
-          title="Add list to favorites"
-          className="absolute top-1 right-1 p-1 text-black bg-white rounded-full border border-black z-10"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="12" y1="5" x2="12" y2="19"></line>
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-          </svg>
-        </button>
-      )}
+    <>
+      <div 
+        onClick={handleCardClick}
+        className="bg-white rounded-lg border border-black p-4 flex flex-col h-full overflow-hidden relative w-full cursor-pointer"
+      >
+        {/* QuickAdd button */}
+        {onQuickAdd && isAuthenticated && (
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onQuickAdd({
+                id: list.id,
+                name: list.name,
+                type: 'list',
+                description: list.description,
+                tags: list.tags || []
+              });
+            }}
+            aria-label="Quick Add"
+            title="Add list to favorites"
+            className="absolute top-1 right-1 p-1 text-black bg-white rounded-full border border-black z-10"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+          </button>
+        )}
 
-      {/* Main Content Area */}
-      <div className="flex-grow min-h-0 overflow-hidden flex flex-col">
-        <div className="flex justify-between items-center mb-1">
-          <h3 className="text-base font-semibold text-black line-clamp-2 flex-shrink-0">
-            {list.name}
-          </h3>
-          {/* Only show follow button for authenticated users and not their own lists */}
-          {user && !isOwnList && (
-            <button
-              onClick={handleToggleFollow}
-              className={`ml-2 flex-shrink-0 inline-flex items-center px-2 py-1 text-xs rounded-sm z-10 ${followStatus ? 'bg-black text-white' : 'bg-white text-black border border-black'}`}
-              title={followStatus ? 'Unfollow this list' : 'Follow this list'}
-            >
-              {isFollowProcessing ? (
-                <Loader2 size={12} className="animate-spin mr-1" />
-              ) : (
-                <Star size={12} className={`mr-1 ${followStatus ? 'fill-white' : ''}`} />
-              )}
-              {followStatus ? 'Following' : 'Follow'}
-            </button>
-          )}
-        </div>
-        <p className="text-xs text-black mb-1 flex-shrink-0">
-          {/* Always use actual items array length instead of metadata to ensure accuracy */}
-          {displayItems.length || (list.items?.length || (isLoading ? list.item_count : 0))} items
-          {process.env.NODE_ENV !== 'production' && list.item_count !== displayItems.length && (
-            <span className="text-xs text-red-500 ml-1" title={`DB shows ${list.item_count} items`}>
-              (fixing...)
-            </span>
-          )}
-        </p>
-        <p className="text-xs text-black mb-2 flex-shrink-0">{updatedText}</p>
-
-        {/* Items List (takes remaining space, scrollable if expanded) - Spotify Playlist Style */}
-        <div className={`flex-grow min-h-0 overflow-y-auto no-scrollbar transition-all duration-300 ${isExpanded ? 'max-h-64' : 'max-h-28'}`}>
-          {isLoading && isExpanded ? (
-            <div className="flex items-center justify-center h-full">
-              <Loader2 size={16} className="animate-spin text-black" />
-            </div>
-          ) : error && isExpanded ? (
-            <p className="text-xs text-red-500 mt-1">Could not load items.</p>
-          ) : displayItems.length > 0 ? (
-            <ul className="text-xs divide-y divide-gray-100 rounded border border-black p-1 bg-white">
-              {displayItems.map((item) => (
-                <ListItemDisplay 
-                  key={item.list_item_id} 
-                  item={item} 
-                  listType={list.list_type} 
-                  onQuickAdd={onQuickAdd}
-                />
-              ))}
-            </ul>
-          ) : (
-            !isExpanded && <p className="text-xs text-black italic mt-1">No items preview.</p>
-          )}
-          {/* Placeholder if expanded but no items */}
-          {isExpanded && !isLoading && items.length === 0 && (
-            <p className="text-xs text-black italic mt-1">This list is empty.</p>
-          )}
-        </div>
-      </div>
-
-      {/* Footer Area (Tags & Show More) */}
-      <div className="mt-2 pt-2 border-t border-gray-100 flex-shrink-0">
-        <AnimatePresence>
-          {hasMoreItems && (
-            <motion.div
-              initial={{ opacity: 0.8 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0.8 }}
-            >
-              <Button
-                variant="link"
-                size="sm"
-                onClick={toggleExpand}
-                className="!p-0 !h-auto text-xs text-primary hover:underline focus:outline-none focus:ring-0 mb-1.5 transition-colors duration-200"
-                aria-expanded={isExpanded}
+        {/* Main Content Area */}
+        <div className="flex-grow min-h-0 overflow-hidden flex flex-col">
+          <div className="flex justify-between items-center mb-1">
+            <h3 className="text-base font-semibold text-black line-clamp-2 flex-shrink-0">
+              {list.name}
+            </h3>
+            {/* Only show follow button for authenticated users and not their own lists */}
+            {user && !isOwnList && (
+              <button
+                onClick={handleToggleFollow}
+                className={`ml-2 flex-shrink-0 inline-flex items-center px-2 py-1 text-xs rounded-sm z-10 ${followStatus ? 'bg-black text-white' : 'bg-white text-black border border-black'}`}
+                title={followStatus ? 'Unfollow this list' : 'Follow this list'}
               >
-                {isExpanded ? (
-                  <><ChevronUp size={12} className="mr-0.5 transition-transform duration-200" /> Show Less</>
+                {isFollowProcessing ? (
+                  <Loader2 size={12} className="animate-spin mr-1" />
                 ) : (
-                  <><ChevronDown size={12} className="mr-0.5 transition-transform duration-200" /> Show All ({list.item_count})</>
+                  <Star size={12} className={`mr-1 ${followStatus ? 'fill-white' : ''}`} />
                 )}
-              </Button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-        {tags.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {tags.slice(0, 3).map((tag) => (
-              <span key={tag} className="px-1.5 py-0.5 bg-gray-100 rounded-full text-[10px] text-gray-600 whitespace-nowrap">
-                #{tag}
-              </span>
-            ))}
-            {tags.length > 3 && (
-              <span className="px-1.5 py-0.5 bg-gray-100 rounded-full text-[10px] text-gray-600">
-                +{tags.length - 3}
-              </span>
+                {followStatus ? 'Following' : 'Follow'}
+              </button>
             )}
           </div>
-        )}
+          <p className="text-xs text-black mb-1 flex-shrink-0">
+            {/* Always use actual items array length instead of metadata to ensure accuracy */}
+            {displayItems.length || (list.items?.length || (isLoading ? list.item_count : 0))} items
+            {process.env.NODE_ENV !== 'production' && list.item_count !== displayItems.length && (
+              <span className="text-xs text-red-500 ml-1" title={`DB shows ${list.item_count} items`}>
+                (fixing...)
+              </span>
+            )}
+          </p>
+          <p className="text-xs text-black mb-2 flex-shrink-0">{updatedText}</p>
+
+          {/* Items List (takes remaining space, scrollable if expanded) - Spotify Playlist Style */}
+          <div className={`flex-grow min-h-0 overflow-y-auto no-scrollbar transition-all duration-300 ${isExpanded ? 'max-h-64' : 'max-h-28'}`}>
+            {isLoading && isExpanded ? (
+              <div className="flex items-center justify-center h-full">
+                <Loader2 size={16} className="animate-spin text-black" />
+              </div>
+            ) : error && isExpanded ? (
+              <p className="text-xs text-red-500 mt-1">Could not load items.</p>
+            ) : displayItems.length > 0 ? (
+              <ul className="text-xs divide-y divide-gray-100 rounded border border-black p-1 bg-white">
+                {displayItems.map((item) => (
+                  <ListItemDisplay 
+                    key={item.list_item_id} 
+                    item={item} 
+                    listType={list.list_type} 
+                    onQuickAdd={onQuickAdd}
+                  />
+                ))}
+              </ul>
+            ) : (
+              !isExpanded && <p className="text-xs text-black italic mt-1">No items preview.</p>
+            )}
+            {/* Placeholder if expanded but no items */}
+            {isExpanded && !isLoading && items.length === 0 && (
+              <p className="text-xs text-black italic mt-1">This list is empty.</p>
+            )}
+          </div>
+        </div>
+
+        {/* Footer Area (Tags & Show More) */}
+        <div className="mt-2 pt-2 border-t border-gray-100 flex-shrink-0">
+          <AnimatePresence>
+            {hasMoreItems && (
+              <motion.div
+                initial={{ opacity: 0.8 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0.8 }}
+              >
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={toggleExpand}
+                  className="!p-0 !h-auto text-xs text-primary hover:underline focus:outline-none focus:ring-0 mb-1.5 transition-colors duration-200"
+                  aria-expanded={isExpanded}
+                >
+                  {isExpanded ? (
+                    <><ChevronUp size={12} className="mr-0.5 transition-transform duration-200" /> Show Less</>
+                  ) : (
+                    <><ChevronDown size={12} className="mr-0.5 transition-transform duration-200" /> Show All ({list.item_count})</>
+                  )}
+                </Button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          {tags.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {tags.slice(0, 3).map((tag) => (
+                <span key={tag} className="px-1.5 py-0.5 bg-gray-100 rounded-full text-[10px] text-gray-600 whitespace-nowrap">
+                  #{tag}
+                </span>
+              ))}
+              {tags.length > 3 && (
+                <span className="px-1.5 py-0.5 bg-gray-100 rounded-full text-[10px] text-gray-600">
+                  +{tags.length - 3}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+      
+      {/* Enhanced List Modal */}
+      <EnhancedListModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        list={list}
+        onShare={(listData) => {
+          // Handle sharing functionality
+          console.log('Sharing list:', listData);
+        }}
+      />
+    </>
   );
 };
 

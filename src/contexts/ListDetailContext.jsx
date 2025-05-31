@@ -1,3 +1,9 @@
+/* OBSOLETE: This context is no longer needed with EnhancedListModal
+// The enhanced modal system uses direct component integration instead of global context
+// This file is marked for deletion after testing confirms no regressions
+*/
+
+/*
 // src/context/ListDetailContext.jsx
 import React, { createContext, useContext, useState } from 'react';
 import PropTypes from 'prop-types';
@@ -67,3 +73,4 @@ export const useListDetail = () => {
 ListDetailProvider.propTypes = {
   children: PropTypes.node.isRequired
 };
+*/

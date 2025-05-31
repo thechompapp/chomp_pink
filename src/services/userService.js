@@ -22,20 +22,11 @@ const formatUser = (user) => {
  * Get current user's profile
  * @returns {Promise<Object>} User profile data or null if error
  */
-export const getCurrentUser = async () => {
-  logDebug('[UserService] Fetching current user profile');
-  
-  const result = await handleApiResponse(
-    () => apiClient.get('/api/users/me'),
-    'UserService.getCurrentUser'
+export const getCurrentUser = () => {
+  return handleApiResponse(
+    () => apiClient.get('/users/me'),
+    'userService.getCurrentUser'
   );
-  
-  if (!result.success) {
-    logError('[UserService] Failed to fetch current user:', result.error);
-    return null;
-  }
-  
-  return formatUser(result.data);
 };
 
 /**

@@ -10,8 +10,8 @@ export const submissionService = {
    */
   getPendingSubmissions: async () => {
     const result = await handleApiResponse(
-      () => apiClient.get('/api/admin/submissions'),
-      'SubmissionService.getPendingSubmissions'
+      () => apiClient.get('/admin/submissions'),
+      'submissionService.getSubmissions'
     );
     
     if (!result.success) {
@@ -43,7 +43,7 @@ export const submissionService = {
     logDebug(`[SubmissionService] Fetching submissions for authenticated user with params:`, params);
     
     const result = await handleApiResponse(
-      () => apiClient.get('/api/submissions/user', { params }), // Updated endpoint to match backend route
+      () => apiClient.get('/submissions/user', { params }), // Updated endpoint to match backend route
       'SubmissionService.getUserSubmissions'
     );
     

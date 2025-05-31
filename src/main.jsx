@@ -1,16 +1,7 @@
 // src/main.jsx
 
-// 🔄 AUTHENTICATION COORDINATION SYSTEM
-// Import the centralized authentication coordinator FIRST
-import authCoordinator from './utils/AuthenticationCoordinator';
-
 // Import the unified axios fix module first, before anything else
 import '@/utils/axios-fix';
-
-import './utils/DevModeManager';
-
-// Import authentication synchronization tests (auto-runs in dev mode)
-import './utils/AuthSynchronizationTest';
 
 // Core imports
 import React from 'react';
@@ -26,7 +17,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 
 // Development mode authentication setup
 if (import.meta.env.DEV) {
-  logInfo('[Main] Development mode detected - authentication coordinator will handle admin access');
+  logInfo('[Main] Development mode detected - optimized authentication system active');
 }
 
 // Global error handler for uncaught JavaScript errors
@@ -71,7 +62,7 @@ const Root = () => {
   const [error, setError] = React.useState(null);
 
   React.useEffect(() => {
-    logInfo('[Main] Application mounting with coordinated authentication');
+    logInfo('[Main] Application mounting with optimized authentication');
     return () => logInfo('[Main] Application unmounting');
   }, []);
 
@@ -104,7 +95,7 @@ try {
     throw new Error('Root element not found! Make sure there is a div with id="root" in your HTML.');
   }
   
-  logInfo('[Main] Starting application with coordinated authentication system');
+  logInfo('[Main] Starting application with optimized authentication system');
   
   // Check if we already have a root to prevent duplicate mounting
   let root;

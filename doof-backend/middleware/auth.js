@@ -9,7 +9,7 @@ import { ListModel } from '../models/listModel.js';
 export const requireAuth = async (req, res, next) => {
   // Check for development bypass headers
   const bypassAuth = req.headers['x-bypass-auth'] === 'true';
-  const isPlacesApiRequest = req.headers['x-places-api-request'] === 'true';
+  const isPlacesApiRequest = req.path.includes('/api/places') || req.path.includes('/places');
   const isTestMode = req.headers['x-test-mode'] === 'true';
   const isAdminRoute = req.path.startsWith('/admin');
   const adminApiKey = req.headers['x-admin-api-key'];
@@ -51,7 +51,8 @@ export const requireAuth = async (req, res, next) => {
     console.log(`[Auth Middleware] Places API request detected for ${req.path}, checking authentication`);
     // If we have a token, proceed with normal auth
     // If not, we'll return a specific error for Places API to help debugging
-    if (!authHeader && (!req.cookies || !req.cookies.token)) {
+    const tempAuthHeader = req.headers.authorization;
+    if (!tempAuthHeader && (!req.cookies || !req.cookies.token)) {
       return res.status(401).json({ 
         success: false, 
         message: 'Authentication required for Places API access.', 
@@ -119,13 +120,14 @@ export const requireAuth = async (req, res, next) => {
       account_type: user.account_type
     }, null, 2));
     
-    // Set user data on request object
+    // Set user data on request object with robust role/account_type mapping
     req.user = {
       id: user.id,
       username: user.username,
       email: user.email,
       role: user.role || 'user',
-      account_type: user.role || user.account_type || 'user' // Fallback to role if account_type is not set
+      // Ensure account_type is always set consistently with role
+      account_type: user.role || user.account_type || 'user'
     };
     
     console.log('Request user object set to:', JSON.stringify(req.user, null, 2));
@@ -158,10 +160,34 @@ export const requireSuperuser = (req, res, next) => {
     return next();
   }
   
-  // Standard superuser check
-  if (!req.user || req.user.account_type !== 'superuser') {
-    return res.status(403).json({ success: false, message: 'Access denied: Superuser privileges required.' });
+  // Robust superuser check - check both role and account_type for compatibility
+  const isUserPresent = req.user && req.user.id;
+  const isSuperuserByRole = req.user && req.user.role === 'superuser';
+  const isSuperuserByAccountType = req.user && req.user.account_type === 'superuser';
+  const isSuperuser = isSuperuserByRole || isSuperuserByAccountType;
+  
+  console.log('[requireSuperuser] Authorization check:', {
+    userPresent: isUserPresent,
+    userId: req.user?.id,
+    role: req.user?.role,
+    account_type: req.user?.account_type,
+    isSuperuserByRole,
+    isSuperuserByAccountType,
+    finalDecision: isSuperuser
+  });
+  
+  if (!isUserPresent || !isSuperuser) {
+    return res.status(403).json({ 
+      success: false, 
+      message: 'Access denied: Superuser privileges required.',
+      debug: isDevMode ? {
+        userPresent: isUserPresent,
+        role: req.user?.role,
+        account_type: req.user?.account_type
+      } : undefined
+    });
   }
+  
   next();
 };
 

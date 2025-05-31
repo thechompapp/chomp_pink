@@ -17,14 +17,13 @@ import {
   Share2,
   BookOpen
 } from 'lucide-react';
-import { useListDetail } from '@/contexts/ListDetailContext';
 import { engagementService } from '@/services/engagementService';
 import { listService } from '@/services/listService';
 import { useAuth } from '@/contexts/auth/AuthContext';
 import useFollowStore from '@/stores/useFollowStore';
 import BaseCard from '@/components/UI/BaseCard';
 import Button from '@/components/UI/Button';
-import ListDetailModal from '@/components/UI/ListDetailModal';
+import EnhancedListModal from '@/components/modals/EnhancedListModal';
 import { formatRelativeDate } from '@/utils/formatting';
 import { logDebug, logError } from '@/utils/logger';
 
@@ -602,11 +601,14 @@ const ListCard = (props) => {
       {/* List Detail Modal */}
       <AnimatePresence>
         {isModalOpen && (
-          <ListDetailModal
+          <EnhancedListModal
             isOpen={isModalOpen}
             onClose={handleCloseModal}
-            listId={safeListId}
-            onQuickAdd={onQuickAdd}
+            list={list}
+            onShare={(listData) => {
+              // Handle sharing functionality
+              handleShare({ stopPropagation: () => {}, preventDefault: () => {} });
+            }}
           />
         )}
       </AnimatePresence>

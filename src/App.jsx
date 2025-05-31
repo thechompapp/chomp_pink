@@ -1,207 +1,115 @@
 /* src/App.jsx */
-import React, { Suspense, lazy, useEffect, useState } from 'react';
-import { HelmetProvider } from 'react-helmet-async';
+import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AuthProvider } from './contexts/auth';
-import { QuickAddProvider } from './contexts/QuickAddContext';
-import { ListDetailProvider } from './contexts/ListDetailContext';
-import { PlacesApiProvider } from './contexts/PlacesApiContext';
-import Navbar from './layouts/Navbar';
-import FloatingQuickAdd from './components/FloatingQuickAdd';
-import AddToListModal from './components/AddToListModal';
-import ProtectedRoute from './components/ProtectedRoute';
-import AuthErrorBoundary from './components/AuthErrorBoundary';
-import { logError, logInfo, logDebug } from './utils/logger';
-import offlineModeGuard from './utils/offlineModeGuard';
 
-// Authentication constants
-const AUTH_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
+// Context Providers
+import { AuthProvider } from '@/contexts/auth/AuthContext';
+import { QuickAddProvider } from '@/contexts/QuickAddContext';
+import { PlacesApiProvider } from '@/contexts/PlacesApiContext';
 
-/**
- * Enhanced lazy loading with error handling
- * @param {Function} importFn - Import function to lazily load a component
- * @param {string} name - Component name for logging purposes
- * @returns {React.LazyExoticComponent} Lazy loaded component
- */
-const enhancedLazy = (importFn, name) => {
-  return lazy(() => {
-    logInfo(`[App] Starting lazy load for ${name}`);
-    return importFn().catch(error => {
-      logError(`[App] Failed to lazy load ${name}:`, error);
-      throw error; // Re-throw to trigger suspense fallback/error boundary
-    });
-  });
-};
+// Layout Components
+import Navbar from '@/layouts/Navbar';
+import Footer from '@/layouts/Footer';
 
-// Direct imports for critical pages
-import Home from './pages/Home';
-import LoginPage from './pages/Login';
-const Login = () => <LoginPage />;
-const Register = enhancedLazy(() => import('./pages/Register'), 'Register');
-const Search = enhancedLazy(() => import('./pages/Search'), 'Search');
-const Trending = enhancedLazy(() => import('./pages/Trending'), 'Trending');
-const Lists = enhancedLazy(() => import('./pages/Lists'), 'Lists');
-const MyLists = enhancedLazy(() => import('./pages/Lists/MyLists'), 'MyLists');
-import AdminPanel from './pages/AdminPanel/AdminPanel'; // Enhanced Admin Panel (renamed)
-import AuthTestPage from './pages/AuthTest'; // Direct import for AuthTest
-import AdminAuthDebug from './pages/AdminAuthDebug'; // Import admin auth debug page
+// Page Components
+import Home from '@/pages/Home';
+import Lists from '@/pages/Lists';
+import Search from '@/pages/Search';
+import Login from '@/pages/Login';
+import Register from '@/pages/Register';
+import MyLists from '@/pages/Lists/MyLists';
+import AdminPanel from '@/pages/AdminPanel';
 
-/**
- * Create and configure query client with default options
- * @returns {QueryClient} Configured query client
- */
-const createQueryClient = () => {
-  return new QueryClient({
-    defaultOptions: {
-      queries: {
-        staleTime: 5 * 60 * 1000, 
-        retry: 1,
-      },
+// Component wrappers
+import ProtectedRoute from '@/components/ProtectedRoute';
+import ErrorBoundary from '@/components/ErrorBoundary';
+
+// Utils
+import { logInfo, logError } from '@/utils/logger';
+
+// Create React Query client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      onError: (error) => {
+        logError('[ReactQuery] Query error:', error);
+      }
     },
-  });
-};
-
-// Initialize query client
-const queryClient = createQueryClient();
-
-/**
- * App component - main application container
- */
-function App() {
-  const [quickAddItem, setQuickAddItem] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
-  /**
-   * Handle opening the quick add modal
-   * @param {Object} item - Item to add
-   */
-  const handleOpenQuickAdd = (item) => {
-    setQuickAddItem(item);
-    setIsModalOpen(true);
-  };
-
-  /**
-   * Handle closing the quick add modal
-   */
-  const handleCloseQuickAdd = () => {
-    setIsModalOpen(false);
-    setQuickAddItem(null);
-  };
-
-  /**
-   * Initialize offline mode guard
-   */
-  useEffect(() => {
-    // Initialize offline mode guard
-    if (!offlineModeGuard.initialized) {
-      logInfo('[App] Initializing offline mode guard');
-      offlineModeGuard.initialize();
+    mutations: {
+      retry: false,
+      onError: (error) => {
+        logError('[ReactQuery] Mutation error:', error);
+      }
     }
-    
-    // Force clear offline mode flags
-    offlineModeGuard.clearOfflineModeFlags();
-  }, []);
+  }
+});
 
-  /**
-   * Handle online/offline status changes
-   */
-  useEffect(() => {
-    const handleOnline = () => {
-      logInfo('[App] Browser is online');
-      offlineModeGuard.clearOfflineModeFlags();
-      
-      // Dispatch event to force UI refresh
-      window.dispatchEvent(new CustomEvent('forceUiRefresh', {
-        detail: { timestamp: Date.now() }
-      }));
-    };
-    
-    const handleOffline = () => {
-      logInfo('[App] Browser is offline');
-      localStorage.setItem('offline_mode', 'true');
-    };
-    
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
+function App() {
+  logInfo('[App] Application starting');
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <HelmetProvider>
+    <ErrorBoundary 
+      title="Application Error"
+      message="The DOOF application encountered an unexpected error. Please try refreshing the page."
+    >
+      <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <AuthErrorBoundary>
-            <QuickAddProvider>
-              <ListDetailProvider>
-                <PlacesApiProvider>
-                  <div className="app-container">
-                    <Navbar />
-                    
-                    <main className="main-content pt-16">
-                      <Suspense fallback={<div>Loading...</div>}>
-                        <Routes>
-                          <Route path="/" element={<Home />} />
-                          <Route path="/login" element={<Login />} />
-                          <Route path="/register" element={<Register />} />
-                          <Route path="/search" element={<Search />} />
-                          <Route path="/trending" element={<Trending />} />
-                          <Route path="/lists" element={<Lists />} />
-                          
-                          {/* Protected routes */}
-                          <Route 
-                            path="/my-lists" 
-                            element={
-                              <ProtectedRoute>
-                                <MyLists />
-                              </ProtectedRoute>
-                            } 
-                          />
-                          <Route 
-                            path="/admin" 
-                            element={
-                              <ProtectedRoute adminOnly>
-                                <AdminPanel />
-                              </ProtectedRoute>
-                            } 
-                          />
-                          
-                          {/* Auth test route - only in development */}
-                          {process.env.NODE_ENV === 'development' && (
-                            <Route path="/auth-test" element={<AuthTestPage />} />
-                          )}
-                          
-                          {/* Admin auth debug route - only in development */}
-                          {process.env.NODE_ENV === 'development' && (
-                            <Route path="/admin-auth-debug" element={<AdminAuthDebug />} />
-                          )}
-                          
-                          {/* Fallback for unknown routes */}
-                          <Route path="*" element={<Home />} />
-                        </Routes>
-                      </Suspense>
-                    </main>
-                    
-                    <FloatingQuickAdd onOpenQuickAdd={handleOpenQuickAdd} />
-                    {isModalOpen && (
-                      <AddToListModal 
-                        item={quickAddItem} 
-                        isOpen={isModalOpen} 
-                        onClose={handleCloseQuickAdd} 
+          <QuickAddProvider>
+            <PlacesApiProvider>
+              <div className="min-h-screen flex flex-col">
+                <ErrorBoundary 
+                  title="Navigation Error"
+                  message="There was an error with the navigation. Please try refreshing the page."
+                >
+                  <Navbar />
+                </ErrorBoundary>
+                
+                <main className="flex-grow">
+                  <ErrorBoundary 
+                    title="Page Error"
+                    message="There was an error loading this page content."
+                  >
+                    <Routes>
+                      <Route path="/" element={<Home />} />
+                      <Route path="/lists" element={<Lists />} />
+                      <Route path="/search" element={<Search />} />
+                      <Route path="/login" element={<Login />} />
+                      <Route path="/register" element={<Register />} />
+                      <Route 
+                        path="/my-lists" 
+                        element={
+                          <ProtectedRoute>
+                            <MyLists />
+                          </ProtectedRoute>
+                        } 
                       />
-                    )}
-                  </div>
-                </PlacesApiProvider>
-              </ListDetailProvider>
-            </QuickAddProvider>
-          </AuthErrorBoundary>
+                      <Route 
+                        path="/admin" 
+                        element={
+                          <ProtectedRoute adminOnly={true}>
+                            <AdminPanel />
+                          </ProtectedRoute>
+                        } 
+                      />
+                    </Routes>
+                  </ErrorBoundary>
+                </main>
+                
+                <ErrorBoundary 
+                  title="Footer Error"
+                  message="There was an error with the footer."
+                >
+                  <Footer />
+                </ErrorBoundary>
+              </div>
+            </PlacesApiProvider>
+          </QuickAddProvider>
         </AuthProvider>
-      </HelmetProvider>
-    </QueryClientProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 

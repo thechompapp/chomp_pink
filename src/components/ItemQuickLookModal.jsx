@@ -16,6 +16,11 @@ import Button from '@/components/UI/Button'; // Corrected import path
 import AddToListModal from '@/components/AddToListModal';
 import { Link } from 'react-router-dom';
 
+// Import enhanced modals
+import EnhancedRestaurantModal from '@/components/modals/EnhancedRestaurantModal';
+import EnhancedListModal from '@/components/modals/EnhancedListModal';
+import EnhancedDishModal from '@/components/modals/EnhancedDishModal';
+
 // Fetcher function using specific services
 const fetchItemDetails = async (itemId, itemType) => { // REMOVED: Type hints
   if (!itemId || !itemType) {
@@ -39,7 +44,14 @@ const fetchItemDetails = async (itemId, itemType) => { // REMOVED: Type hints
   }
 };
 
-const ItemQuickLookModal = ({ isOpen, onClose, item }) => {
+const ItemQuickLookModal = ({ 
+  isOpen, 
+  onClose, 
+  item, 
+  useEnhancedModals = false, // New prop to enable enhanced modals
+  onSave,
+  onShare
+}) => {
   const [details, setDetails] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -137,7 +149,41 @@ const ItemQuickLookModal = ({ isOpen, onClose, item }) => {
       }
   }, [fetchParams]); // Dependency on fetchParams
 
-  // Render modal content based on state
+  // If enhanced modals are enabled and we have details, use the enhanced modals
+  if (useEnhancedModals && details && !isLoading && !error) {
+    if (details.type === 'restaurant') {
+      return (
+        <EnhancedRestaurantModal
+          isOpen={isOpen}
+          onClose={onClose}
+          restaurant={details}
+          onSave={onSave}
+          onShare={onShare}
+        />
+      );
+    } else if (details.type === 'dish') {
+      return (
+        <EnhancedDishModal
+          isOpen={isOpen}
+          onClose={onClose}
+          dish={details}
+          onSave={onSave}
+          onShare={onShare}
+        />
+      );
+    } else if (details.type === 'list') {
+      return (
+        <EnhancedListModal
+          isOpen={isOpen}
+          onClose={onClose}
+          list={details}
+          onShare={onShare}
+        />
+      );
+    }
+  }
+
+  // Render modal content based on state (original implementation)
   const renderContent = useCallback(() => {
     if (isLoading) {
       return <LoadingSpinner message="Loading details..." />;

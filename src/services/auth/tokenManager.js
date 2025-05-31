@@ -149,6 +149,14 @@ const tokenManager = {
     return !!tokenManager.getAccessToken() && !tokenManager.isTokenExpired();
   },
   
+  /**
+   * Check if the current token is valid (alias for hasValidTokens for compatibility)
+   * @returns {boolean} True if valid tokens exist
+   */
+  isTokenValid: () => {
+    return tokenManager.hasValidTokens();
+  },
+  
   // Private memory storage fallback
   _memoryTokens: null
 };

@@ -5,17 +5,18 @@
  * Provides easy access to all authentication-related components and utilities.
  */
 
-// Context
-export { AuthProvider, useAuth } from './context/AuthContext';
+// Context (from main contexts directory)
+export { AuthProvider, useAuth } from '@/contexts/auth';
 
 // Components
 export { default as ProtectedRoute } from './components/ProtectedRoute';
+export { default as AdminRoute } from './components/AdminRoute';
 
 // Hooks
 export { default as useAuthRedirect } from './hooks/useAuthRedirect';
 
-// Services
-export { authService } from './services/authService';
+// Services (use consolidated service from services directory)
+export { default as authService } from '@/services/auth/authService';
 
 // Utils
 export { default as tokenUtils } from './utils/tokenUtils';
@@ -23,11 +24,12 @@ export { default as rbacUtils } from './utils/rbacUtils';
 
 // Default export for convenient imports
 export default {
-  AuthProvider: AuthProvider,
-  useAuth: useAuth,
-  ProtectedRoute: ProtectedRoute,
-  useAuthRedirect: useAuthRedirect,
-  authService: authService,
-  tokenUtils: tokenUtils,
-  rbacUtils: rbacUtils
+  AuthProvider,
+  useAuth,
+  ProtectedRoute,
+  AdminRoute,
+  useAuthRedirect,
+  authService,
+  tokenUtils,
+  rbacUtils
 };

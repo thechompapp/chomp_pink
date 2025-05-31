@@ -52,9 +52,10 @@ export async function checkAuthStatus(set, get, forceCheck = false) {
   dispatchOfflineStatusChange(false);
   
   const hasLoggedOut = hasExplicitlyLoggedOut();
+  const isLogoutInProgress = localStorage.getItem('logout_in_progress') === 'true';
   
-  // Handle development mode on localhost
-  if (isDevModeLocalhost() && !hasLoggedOut) {
+  // Handle development mode on localhost - but ONLY if user hasn't explicitly logged out
+  if (isDevModeLocalhost() && !hasLoggedOut && !isLogoutInProgress) {
     logInfo('[AuthOperations] Development mode: Using mock authentication for localhost');
     
     const adminToken = generateAdminToken();
@@ -66,8 +67,20 @@ export async function checkAuthStatus(set, get, forceCheck = false) {
     
     dispatchLoginEvents(devState.user);
     return true;
-  } else if (hasLoggedOut) {
-    logInfo('[AuthOperations] User has explicitly logged out, not auto-authenticating');
+  } else if (hasLoggedOut || isLogoutInProgress) {
+    logInfo('[AuthOperations] User has explicitly logged out or logout in progress, not auto-authenticating');
+    
+    // Clear the logout in progress flag after a short delay
+    if (isLogoutInProgress) {
+      setTimeout(() => {
+        localStorage.removeItem('logout_in_progress');
+      }, 2000);
+    }
+    
+    // Ensure we're in a logged out state
+    const logoutState = createLogoutState();
+    set(logoutState);
+    return false;
   }
   
   set({ error: null });

@@ -1,9 +1,9 @@
 // src/components/UI/ListPreviewCard.jsx
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import { PlusIcon } from '@heroicons/react/24/solid';
 import { Star, ChevronUp, ChevronDown, MessageSquare } from 'lucide-react';
-import { useListDetailModal } from '@/hooks/useListDetailModal';
+import EnhancedListModal from '@/components/modals/EnhancedListModal';
 import { useQuickAdd } from '@/contexts/QuickAddContext';
 import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
 import { formatRelativeDate } from '@/utils/formatters';
@@ -36,7 +36,7 @@ PreviewListItem.propTypes = {
 function ListPreviewCard({ list, className = '' }) {
   const { openQuickAdd } = useQuickAdd();
   const { isAuthenticated  } = useAuth();
-  const { openListDetailModal } = useListDetailModal();
+  const [isModalOpen, setIsModalOpen] = useState(false); // Enhanced modal state
   const PREVIEW_LIMIT = 3;
 
   // Use the shared list interactions hook
@@ -48,7 +48,7 @@ function ListPreviewCard({ list, className = '' }) {
     handleListClick,
     handleToggleFollow
   } = useListInteractions(list, {
-    onListClick: (id) => openListDetailModal(id)
+    onListClick: (id) => setIsModalOpen(true) // Open enhanced modal
   });
 
   // Use the shared list items hook
@@ -166,6 +166,17 @@ function ListPreviewCard({ list, className = '' }) {
         </div>
       </div>
     </BaseCard>
+    
+    {/* Enhanced List Modal */}
+    <EnhancedListModal
+      isOpen={isModalOpen}
+      onClose={() => setIsModalOpen(false)}
+      list={list}
+      onShare={(listData) => {
+        // Handle sharing functionality
+        console.log('Sharing list:', listData);
+      }}
+    />
   );
 }
 

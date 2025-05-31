@@ -186,12 +186,19 @@ class AuthenticationCoordinator {
    */
   async verifyTokenWithBackend(token) {
     try {
+      // Skip verification if explicitly logged out
+      if (localStorage.getItem(STORAGE_KEYS.LOGOUT_FLAG) === 'true') {
+        return false;
+      }
+
       const response = await fetch('/api/auth/status', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
-        }
+        },
+        // Add timeout to prevent hanging requests
+        signal: AbortSignal.timeout(5000) // 5 second timeout
       });
 
       if (response.ok) {
@@ -292,47 +299,153 @@ class AuthenticationCoordinator {
    */
   async performCoordinatedLogout(callAPI = true) {
     try {
-      // 1. Set explicit logout flag FIRST
+      logInfo('[AuthCoordinator] Starting coordinated logout...');
+      
+      // 1. Set explicit logout flag FIRST to prevent race conditions
       localStorage.setItem(STORAGE_KEYS.LOGOUT_FLAG, 'true');
       
-      // 2. Call logout API if requested
-      if (callAPI) {
+      // 2. Get current token before clearing for API call
+      const token = localStorage.getItem(STORAGE_KEYS.TOKEN) || 
+                   localStorage.getItem('auth-token') || 
+                   localStorage.getItem('auth_access_token');
+      
+      // 3. Call logout API if requested and token exists
+      if (callAPI && token) {
         try {
-          const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
-          if (token) {
-            await fetch('/api/auth/logout', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-              }
-            });
+          const response = await fetch('/api/auth/logout', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (response.ok) {
+            logInfo('[AuthCoordinator] Logout API call successful');
+          } else {
+            logWarn('[AuthCoordinator] Logout API returned non-200 status:', response.status);
           }
         } catch (error) {
           logWarn('[AuthCoordinator] Logout API call failed, continuing with local cleanup:', error.message);
         }
       }
 
-      // 3. Clear ALL storage
+      // 4. Clear ALL storage comprehensively
       this.clearAllAuthStorage();
       
-      // 4. Sync unauthenticated state across all systems
+      // 5. Clear additional state not covered by clearAllAuthStorage
+      const additionalKeys = [
+        'auth-token', 'token', 'refreshToken', 'auth_access_token', 
+        'auth_refresh_token', 'auth_token_expiry', 'userData', 'current_user',
+        'admin_api_key', 'admin_access_enabled', 'superuser_override',
+        'auth-authentication-storage', 'user-profile-storage'
+      ];
+      
+      additionalKeys.forEach(key => {
+        localStorage.removeItem(key);
+        sessionStorage.removeItem(key);
+      });
+      
+      // 6. Clear HTTP client headers
+      if (window.axios && window.axios.defaults) {
+        delete window.axios.defaults.headers.common['Authorization'];
+      }
+      
+      // 7. Clear all cookies
+      this.clearAllCookies();
+      
+      // 8. Sync unauthenticated state across all systems
       await this.syncAuthenticatedState(false, null, null);
       
-      // 5. Clear auth cookies
-      this.clearAuthCookies();
+      // 9. Dispatch comprehensive logout events
+      this.dispatchEvent(AUTH_EVENTS.LOGOUT_COMPLETE, { 
+        timestamp: Date.now(),
+        cleared: true,
+        comprehensive: true
+      });
       
-      // 6. Dispatch logout event
-      this.dispatchEvent(AUTH_EVENTS.LOGOUT_COMPLETE, { timestamp: Date.now() });
+      // 10. Force UI refresh across all components
+      window.dispatchEvent(new CustomEvent('forceUiRefresh', {
+        detail: { 
+          source: 'logout',
+          timestamp: Date.now() 
+        }
+      }));
       
-      logInfo('[AuthCoordinator] Logout coordinated successfully across all systems');
+      // 11. Restore logout flag after all clearing
+      localStorage.setItem(STORAGE_KEYS.LOGOUT_FLAG, 'true');
+      
+      logInfo('[AuthCoordinator] Comprehensive logout coordinated successfully across all systems');
       
     } catch (error) {
       logError('[AuthCoordinator] Error in coordinated logout:', error);
       
-      // Even on error, ensure local state is cleared
-      this.clearAllAuthStorage();
-      await this.syncAuthenticatedState(false, null, null);
+      // CRITICAL: Even on error, ensure complete local state clearing
+      this.forceCompleteLogout();
+    }
+  }
+
+  /**
+   * Force complete logout (emergency fallback)
+   */
+  forceCompleteLogout() {
+    try {
+      logWarn('[AuthCoordinator] Forcing complete logout cleanup...');
+      
+      // Clear everything possible
+      if (typeof localStorage !== 'undefined') {
+        const allKeys = Object.keys(localStorage);
+        allKeys.forEach(key => {
+          if (key.includes('auth') || key.includes('token') || key.includes('user')) {
+            localStorage.removeItem(key);
+          }
+        });
+      }
+      
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.clear();
+      }
+      
+      // Clear cookies aggressively
+      this.clearAllCookies();
+      
+      // Clear HTTP headers
+      if (window.axios && window.axios.defaults) {
+        delete window.axios.defaults.headers.common['Authorization'];
+      }
+      
+      // Set logout flag
+      localStorage.setItem(STORAGE_KEYS.LOGOUT_FLAG, 'true');
+      
+      // Force state sync
+      this.syncAuthenticatedState(false, null, null);
+      
+      logInfo('[AuthCoordinator] Force logout completed');
+      
+    } catch (error) {
+      logError('[AuthCoordinator] Error in force logout:', error);
+    }
+  }
+
+  /**
+   * Clear all cookies aggressively
+   */
+  clearAllCookies() {
+    try {
+      // Clear all cookies by setting them to expire
+      document.cookie.split(";").forEach(function(c) { 
+        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+      });
+      
+      // Clear specific auth cookies
+      const authCookies = ['auth-token', 'token', 'session', 'auth'];
+      authCookies.forEach(cookieName => {
+        document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+        document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${window.location.hostname};`;
+      });
+      
+    } catch (error) {
+      logWarn('[AuthCoordinator] Error clearing cookies:', error);
     }
   }
 
@@ -385,6 +498,66 @@ class AuthenticationCoordinator {
    * Sync authenticated state across all systems
    */
   async syncAuthenticatedState(isAuthenticated, user, token) {
+    // Check if user has explicitly logged out - if so, don't sync authenticated state
+    const hasExplicitlyLoggedOut = localStorage.getItem(STORAGE_KEYS.LOGOUT_FLAG) === 'true';
+    const isE2ETesting = localStorage.getItem('e2e_testing_mode') === 'true';
+    const isLogoutInProgress = localStorage.getItem('logout_in_progress') === 'true';
+    
+    if (hasExplicitlyLoggedOut || isE2ETesting || isLogoutInProgress) {
+      logInfo('[AuthCoordinator] User explicitly logged out or testing mode - not syncing authenticated state');
+      
+      // Force logout state instead
+      const logoutState = {
+        isAuthenticated: false,
+        user: null,
+        token: null,
+        isAdmin: false,
+        isSuperuser: false,
+        lastVerified: Date.now()
+      };
+      
+      this.currentState = logoutState;
+      
+      // Clear auth storage instead of setting it
+      localStorage.removeItem('auth-authentication-storage');
+      
+      // Sync logout state to all stores
+      for (const store of this.authStores) {
+        try {
+          if (store && typeof store.setState === 'function') {
+            store.setState({
+              isAuthenticated: false,
+              user: null,
+              token: null,
+              isLoading: false,
+              error: null,
+              isSuperuser: false,
+              superuserStatusReady: true
+            });
+          } else if (store && typeof store.getState === 'function') {
+            // Handle Zustand stores
+            store.setState({
+              isAuthenticated: false,
+              user: null,
+              token: null,
+              isLoading: false,
+              error: null,
+              isSuperuser: false,
+              superuserStatusReady: true
+            });
+          }
+        } catch (error) {
+          logWarn('[AuthCoordinator] Failed to sync logout state to auth store:', error.message);
+        }
+      }
+      
+      // Dispatch logout state sync event
+      this.dispatchEvent(AUTH_EVENTS.STATE_SYNC, logoutState);
+      
+      logDebug('[AuthCoordinator] Logout state synced across all systems');
+      return;
+    }
+    
     const newState = {
       isAuthenticated,
       user,
@@ -495,19 +668,22 @@ class AuthenticationCoordinator {
    * Set up periodic token validation
    */
   setupTokenValidation() {
-    // Use user-friendly token validation for all environments
-    // Only validate on significant events, with reasonable intervals
+    // Use VERY user-friendly token validation
+    // Only validate on absolutely necessary events, with very reasonable intervals
     
-    logInfo('[AuthCoordinator] Setting up user-friendly token validation for all environments');
+    logInfo('[AuthCoordinator] Setting up ultra user-friendly token validation');
     
-    // Validate on page focus (when user returns to tab) - but only after reasonable periods
+    // Track last validation to prevent over-validation
+    this.lastTokenValidation = this.lastTokenValidation || 0;
+    
+    // Validate on page focus (when user returns to tab) - but only after VERY long periods
     window.addEventListener('focus', async () => {
       if (this.currentState.isAuthenticated && this.currentState.token) {
-        const timeSinceLastCheck = Date.now() - (this.lastTokenValidation || 0);
-        // Only validate if it's been more than 1 hour since last check
-        // This prevents constant validation while still catching truly expired tokens
-        if (timeSinceLastCheck > 60 * 60 * 1000) {
-          logInfo('[AuthCoordinator] Validating token on page focus (1 hour+ since last check)');
+        const timeSinceLastCheck = Date.now() - this.lastTokenValidation;
+        // Only validate if it's been more than 4 HOURS since last check
+        // This prevents any validation during normal usage
+        if (timeSinceLastCheck > 4 * 60 * 60 * 1000) {
+          logInfo('[AuthCoordinator] Validating token on page focus (4+ hours since last check)');
           const isValid = await this.verifyTokenWithBackend(this.currentState.token);
           if (!isValid) {
             logInfo('[AuthCoordinator] Token validation failed on focus, logging out');
@@ -515,16 +691,18 @@ class AuthenticationCoordinator {
           } else {
             this.lastTokenValidation = Date.now();
           }
+        } else {
+          logDebug('[AuthCoordinator] Skipping token validation on focus - too recent');
         }
       }
     });
     
-    // Validate on online event (when network comes back) - but be lenient
+    // Validate on online event (when network comes back) - but be VERY lenient
     window.addEventListener('online', async () => {
       if (this.currentState.isAuthenticated && this.currentState.token) {
-        const timeSinceLastCheck = Date.now() - (this.lastTokenValidation || 0);
-        // Only validate on network reconnection if it's been more than 10 minutes
-        if (timeSinceLastCheck > 10 * 60 * 1000) {
+        const timeSinceLastCheck = Date.now() - this.lastTokenValidation;
+        // Only validate on network reconnection if it's been more than 1 HOUR
+        if (timeSinceLastCheck > 60 * 60 * 1000) {
           logInfo('[AuthCoordinator] Validating token on network reconnection');
           const isValid = await this.verifyTokenWithBackend(this.currentState.token);
           if (!isValid) {
@@ -533,11 +711,19 @@ class AuthenticationCoordinator {
           } else {
             this.lastTokenValidation = Date.now();
           }
+        } else {
+          logDebug('[AuthCoordinator] Skipping token validation on reconnection - too recent');
         }
       }
     });
     
-    logInfo('[AuthCoordinator] User-friendly token validation setup complete');
+    // Remove any existing periodic validation intervals
+    if (this.tokenValidationInterval) {
+      clearInterval(this.tokenValidationInterval);
+      this.tokenValidationInterval = null;
+    }
+    
+    logInfo('[AuthCoordinator] Ultra user-friendly token validation setup complete - minimal validation');
   }
 
   /**

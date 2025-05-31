@@ -15,11 +15,11 @@ import {
   UserMinus,
   Share2
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import { engagementService } from '@/services/engagementService';
 import { useAuth } from '@/contexts/auth/AuthContext';
 import { CARD_SPECS } from '@/models/cardModels';
 import { formatRelativeDate } from '@/utils/formatting';
+import EnhancedListModal from '@/components/modals/EnhancedListModal';
 
 // Animation variants for better UX - consistent with other cards
 const listCardVariants = {
@@ -103,7 +103,7 @@ const FollowButton = ({ list, onFollow, onUnfollow }) => {
       whileTap={{ scale: 0.95 }}
       onClick={handleFollowToggle}
       disabled={isProcessing}
-      className={`absolute top-3 right-3 z-20 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 ${
+      className={`w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 ${
         isFollowing 
           ? 'bg-blue-600 text-white hover:bg-blue-700' 
           : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'
@@ -113,11 +113,11 @@ const FollowButton = ({ list, onFollow, onUnfollow }) => {
       data-testid="follow-button"
     >
       {isProcessing ? (
-        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+        <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
       ) : isFollowing ? (
-        <UserMinus size={16} />
+        <UserMinus size={12} />
       ) : (
-        <UserPlus size={16} />
+        <UserPlus size={12} />
       )}
     </motion.button>
   );
@@ -183,10 +183,10 @@ const ListCard = ({
   className = ""
 }) => {
   const [isHovered, setIsHovered] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const { isAuthenticated } = useAuth();
   
   const cleanName = name?.trim() || 'Unnamed List';
-  const linkDestination = `/list/${id}`;
   const safeTags = Array.isArray(tags) ? tags : [];
   const displayItemCount = items_count || (Array.isArray(items) ? items.length : 0);
   
@@ -210,6 +210,12 @@ const ListCard = ({
       return;
     }
 
+    // Prevent default and stop propagation
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
     if (id) {
       engagementService.logEngagement({
         item_id: parseInt(id, 10),
@@ -217,7 +223,39 @@ const ListCard = ({
         engagement_type: 'click',
       });
     }
+
+    // Open modal instead of navigating
+    console.log(`[ListCard] Opening modal for list ${id}`);
+    setIsModalOpen(true);
   }, [id]);
+
+  // Create list object for modal
+  const listForModal = useMemo(() => ({
+    id,
+    name: cleanName,
+    description,
+    list_type,
+    tags: safeTags,
+    items,
+    item_count: displayItemCount,
+    view_count,
+    follow_count,
+    comment_count,
+    is_trending,
+    is_featured,
+    is_public,
+    user,
+    created_by_user,
+    is_following,
+    can_follow,
+    cover_image_url,
+    updated_at,
+    created_at
+  }), [
+    id, cleanName, description, list_type, safeTags, items, displayItemCount,
+    view_count, follow_count, comment_count, is_trending, is_featured, is_public,
+    user, created_by_user, is_following, can_follow, cover_image_url, updated_at, created_at
+  ]);
 
   return (
     <motion.div
@@ -233,7 +271,7 @@ const ListCard = ({
       role="article"
       aria-label={`List: ${cleanName}`}
     >
-      <Link to={linkDestination} onClick={handleCardClick} className="block">
+      <div onClick={handleCardClick} className="block cursor-pointer">
         <div className={CARD_SPECS.FULL_CLASS}>
           {/* List Type Label */}
           <div className="flex justify-between items-start mb-2">
@@ -245,12 +283,30 @@ const ListCard = ({
               testId="list-type-badge"
             />
 
-            {/* Quick Add Button - positioned like secondary action */}
-            <div className="quick-add-button">
-              <QuickAddButton
-                list={{ id, name: cleanName }}
-                onQuickAdd={onQuickAdd}
-              />
+            {/* Action Buttons Container */}
+            <div className="flex items-center space-x-1">
+              {/* Follow Button - positioned first (leftmost) */}
+              <div className="follow-button">
+                <FollowButton
+                  list={{
+                    id,
+                    name: cleanName,
+                    is_following,
+                    created_by_user,
+                    can_follow
+                  }}
+                  onFollow={onFollow}
+                  onUnfollow={onUnfollow}
+                />
+              </div>
+
+              {/* Quick Add Button - positioned second (rightmost) */}
+              <div className="quick-add-button">
+                <QuickAddButton
+                  list={{ id, name: cleanName }}
+                  onQuickAdd={onQuickAdd}
+                />
+              </div>
             </div>
           </div>
 
@@ -405,22 +461,23 @@ const ListCard = ({
                   className="px-1.5 py-0.5 bg-white border border-black rounded-full text-xs text-black font-medium"
                   title={`${safeTags.length - 3} more tags: ${safeTags.slice(3).join(', ')}`}
                 >
-                  +{safeTags.length - 3}
+                  +{safeTags.length - 3} more
                 </motion.span>
               )}
             </motion.div>
           )}
-
-          {/* Follow Button - positioned last to avoid content overlap */}
-          <div className="follow-button">
-            <FollowButton
-              list={{ id, name: cleanName, is_following, created_by_user, can_follow }}
-              onFollow={onFollow}
-              onUnfollow={onUnfollow}
-            />
-          </div>
         </div>
-      </Link>
+      </div>
+
+      {/* Enhanced List Modal */}
+      <EnhancedListModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        list={listForModal}
+        onShare={(listData) => {
+          console.log('Sharing list:', listData);
+        }}
+      />
     </motion.div>
   );
 };
@@ -458,4 +515,4 @@ ListCard.propTypes = {
   className: PropTypes.string,
 };
 
-export default React.memo(ListCard); 
+export default React.memo(ListCard);

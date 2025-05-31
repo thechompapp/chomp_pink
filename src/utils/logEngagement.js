@@ -70,9 +70,9 @@ const logEngagement = async ({ engagement_type, item_type, item_id }) => {
     // Make the API call - fire and forget
     try {
         logInfo(`[logEngagement] Sending payload:`, payload); // Log payload being sent
-        // Use apiClient directly for a POST to /api/engage
-        // Ensure your backend API route '/api/engage' exists and is handled by engageController
-        await apiClient.post('/api/engage', payload);
+        // Use apiClient directly for a POST to /engage
+        // Ensure your backend API route '/engage' exists and is handled by engageController
+        await apiClient.post('/engage', payload);
 
     } catch (error) {
         const errorMessage = error.response?.data?.message || error.message;

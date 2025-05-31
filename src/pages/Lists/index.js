@@ -1,4 +1,9 @@
 // src/pages/Lists/index.js
+
+// Import the main Lists component
+export { default } from './index.jsx';
+
+// Export individual list components
 export { default as ListCard } from './ListCard';
 export { default as ListCardSkeleton } from './ListCardSkeleton';
 export { default as CompactListCard } from './CompactListCard';

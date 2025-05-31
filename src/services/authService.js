@@ -2,13 +2,13 @@
  * Authentication Service
  * 
  * This file provides backward compatibility with the original authService.js.
- * It re-exports the unified auth service from the modular architecture.
+ * It re-exports the consolidated auth service.
  */
-import { authService } from './auth';
+import authService from './auth/authService';
 import { logDebug } from '@/utils/logger';
 
-// Log that we're using the new modular service architecture
-logDebug('[AuthService] Using modular auth service architecture');
+// Log that we're using the consolidated auth service
+logDebug('[AuthService] Using consolidated auth service');
 
 // Export for named imports
 export { authService };

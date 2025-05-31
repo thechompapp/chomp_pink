@@ -1,6 +1,6 @@
 import { CONFIG, TOKEN_CACHE_TTL } from '../utils/config';
 import { getCachedValue, setCachedValue } from '../utils/cache';
-import { logDebug, logError } from '../utils/logger';
+import { logDebug, logError, logWarn } from '../utils/logger';
 
 // Cache auth token to reduce localStorage reads
 let _cachedAuthToken = null;
@@ -60,12 +60,12 @@ export const addAuthHeaders = (config) => {
 /**
  * Handle authentication errors
  * @param {Error} error - Axios error
- * @returns {Promise<Error>} Rejected promise with error
+ * @returns {Promise<e>} Rejected promise with error
  */
 export const handleAuthError = async (error) => {
   const { response, config } = error;
   
-  // Handle 401 Unauthorized
+  // Handle 401 Unauthorized - but be more lenient
   if (response?.status === 401) {
     logWarn('Authentication error', { 
       status: response.status,
@@ -73,15 +73,20 @@ export const handleAuthError = async (error) => {
       message: response.data?.message
     });
     
-    // Clear auth data on 401
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem(CONFIG.STORAGE_KEYS.AUTH_STORAGE);
-      _cachedAuthToken = null;
-      _lastTokenCheck = 0;
-      
-      // Redirect to login if not already there
-      if (!window.location.pathname.includes('/login')) {
-        window.location.href = '/login';
+    // Only clear auth data and redirect for specific auth endpoints
+    // Let other parts of the app handle 401s more gracefully
+    if (config?.url?.includes('/auth/') || config?.url?.includes('/admin/')) {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(CONFIG.STORAGE_KEYS.AUTH_STORAGE);
+        _cachedAuthToken = null;
+        _lastTokenCheck = 0;
+        
+        // Only redirect if not already on login page and user explicitly logged out
+        const isLoggedOut = localStorage.getItem('user_explicitly_logged_out') === 'true';
+        if (isLoggedOut && !window.location.pathname.includes('/login')) {
+          logWarn('Redirecting to login due to auth error on protected endpoint');
+          window.location.href = '/login';
+        }
       }
     }
   }

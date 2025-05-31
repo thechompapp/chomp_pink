@@ -133,6 +133,7 @@ const Register = () => {
                             required
                             className="w-full"
                             aria-describedby="name-error"
+                            data-testid="name-input"
                         />
                     </div>
                     <div>
@@ -149,6 +150,7 @@ const Register = () => {
                             required
                             className="w-full"
                             aria-describedby="email-error"
+                            data-testid="email-input"
                         />
                     </div>
                     <div>
@@ -168,6 +170,7 @@ const Register = () => {
                             required
                             className="w-full"
                             aria-describedby="password-error"
+                            data-testid="password-input"
                         />
                     </div>
                     <div>
@@ -187,6 +190,7 @@ const Register = () => {
                             required
                             className="w-full"
                             aria-describedby="confirmPassword-error"
+                            data-testid="confirm-password-input"
                         />
                     </div>
                     
@@ -205,6 +209,7 @@ const Register = () => {
                             className="w-full"
                             disabled={isLoading}
                             isLoading={isLoading}
+                            data-testid="register-button"
                         >
                             Register
                         </Button>

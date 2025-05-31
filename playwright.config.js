@@ -23,8 +23,8 @@ export default defineConfig({
     timeout: 10000,
   },
   
-  // Run tests in parallel
-  fullyParallel: false, // Set to false to avoid database conflicts
+  // Run tests in files in parallel
+  fullyParallel: true,
   
   // Fail the build on CI if you accidentally left test.only in the source code
   forbidOnly: !!process.env.CI,
@@ -33,13 +33,13 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   
   // Opt out of parallel tests on CI
-  workers: process.env.CI ? 1 : 2,
+  workers: process.env.CI ? 1 : undefined,
   
-  // Reporter configuration
+  // Reporter to use. See https://playwright.dev/docs/test-reporters
   reporter: [
     ['html', { outputFolder: 'e2e-results/html-report' }],
     ['json', { outputFile: 'e2e-results/test-results.json' }],
-    ['junit', { outputFile: 'e2e-results/junit-results.xml' }],
+    ['junit', { outputFile: 'e2e-results/junit-report.xml' }],
     ['list']
   ],
   
@@ -50,75 +50,77 @@ export default defineConfig({
   globalSetup: path.resolve(__dirname, './e2e/global-setup.js'),
   globalTeardown: path.resolve(__dirname, './e2e/global-teardown.js'),
   
-  // Shared settings for all projects
+  // Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions.
   use: {
-    // Base URL for the application
-    baseURL: 'http://localhost:5174',
+    // Base URL to use in actions like `await page.goto('/')`.
+    baseURL: process.env.E2E_BASE_URL || 'http://localhost:5174',
     
-    // Collect trace on failure
+    // Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer
     trace: 'on-first-retry',
     
-    // Record video on failure
-    video: 'retain-on-failure',
-    
-    // Take screenshots on failure
-    screenshot: 'only-on-failure',
-    
-    // Browser context options
-    ignoreHTTPSErrors: true,
-    
-    // Default timeout for actions
+    // Increased timeouts for React applications
     actionTimeout: 15000,
-    
-    // Navigation timeout
     navigationTimeout: 30000,
+    
+    // Better error handling
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
   },
 
-  // Test projects for different browsers
+  // Configure projects for major browsers and mobile devices
   projects: [
     {
-      name: 'chromium',
+      name: 'chromium-desktop',
       use: { 
         ...devices['Desktop Chrome'],
-        // Use a specific viewport for consistency
-        viewport: { width: 1280, height: 720 },
-        // Enable JavaScript
-        javaScriptEnabled: true,
-        // Accept downloads
-        acceptDownloads: true,
-        // Permissions
-        permissions: ['notifications', 'geolocation'],
+        viewport: { width: 1280, height: 720 }
       },
     },
-
+    
     {
-      name: 'firefox',
+      name: 'firefox-desktop',
       use: { 
         ...devices['Desktop Firefox'],
-        viewport: { width: 1280, height: 720 },
+        viewport: { width: 1280, height: 720 }
       },
     },
-
+    
     {
-      name: 'webkit',
+      name: 'webkit-desktop',
       use: { 
         ...devices['Desktop Safari'],
-        viewport: { width: 1280, height: 720 },
+        viewport: { width: 1280, height: 720 }
       },
     },
-
+    
     // Mobile testing
     {
-      name: 'Mobile Chrome',
+      name: 'mobile-chrome',
       use: { 
         ...devices['Pixel 5'],
+        // Increased timeouts for mobile
+        actionTimeout: 20000,
+        navigationTimeout: 45000,
       },
     },
-
+    
     {
-      name: 'Mobile Safari',
+      name: 'mobile-safari',
       use: { 
         ...devices['iPhone 12'],
+        // Increased timeouts for mobile
+        actionTimeout: 20000,
+        navigationTimeout: 45000,
+      },
+    },
+    
+    // Tablet testing
+    {
+      name: 'tablet-ipad',
+      use: { 
+        ...devices['iPad Pro'],
+        actionTimeout: 20000,
+        navigationTimeout: 45000,
       },
     },
   ],

@@ -45,7 +45,7 @@ const logEngagement = async ({ item_type, item_id, engagement_type }) => {
     
     // Use handleApiResponse for consistent error handling
     handleApiResponse(
-        () => apiClient.post('/api/engage', payload),
+        () => apiClient.post('/engage', payload),
         'engagementService.logEngagement'
     ).catch(result => {
         // This is a fire-and-forget operation, so we just log errors but don't throw

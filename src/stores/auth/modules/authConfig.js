@@ -16,13 +16,17 @@ export const AUTH_CONFIG = {
   AUTH_TOKEN_KEY: 'auth-token',
   FORCE_ONLINE_KEY: 'force_online',
   
-  // Cache durations
-  SESSION_CACHE_DURATION: 30 * 60 * 1000, // 30 minutes (increased from 5 minutes)
-  THROTTLE_INTERVAL: 500, // 500ms for state updates
+  // Cache durations - Made much more user-friendly
+  SESSION_CACHE_DURATION: 4 * 60 * 60 * 1000, // 4 hours (increased from 30 minutes)
+  THROTTLE_INTERVAL: 2000, // 2 seconds for state updates (increased from 500ms)
   
   // API timeouts
-  AUTH_CHECK_TIMEOUT: 15000, // 15 seconds
+  AUTH_CHECK_TIMEOUT: 5000, // 5 seconds (reduced from 15 seconds)
   DEV_MODE_TIMEOUT: 100, // 100ms for dev mode bypass
+  
+  // Token validation intervals - MUCH more lenient
+  TOKEN_CHECK_INTERVAL: 2 * 60 * 60 * 1000, // 2 hours between checks
+  NETWORK_RETRY_INTERVAL: 60 * 60 * 1000, // 1 hour between network retries
   
   // Development mode settings
   DEV_MODE: {

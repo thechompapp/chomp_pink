@@ -243,7 +243,7 @@ const PlacesAutocompleteInput = ({
       {showDropdown && placePredictions.length > 0 && (
         <div
           ref={dropdownRef}
-          className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
+          className="absolute z-[60] w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
         >
           {placePredictions.map((prediction) => (
             <div

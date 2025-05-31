@@ -66,8 +66,8 @@ export const getAutocompletePredictions = async (input, types = ['establishment'
   logDebug(`[PlacesService] Fetching autocomplete predictions for: ${input}`);
   
   return handleApiResponse(
-    () => apiClient.get('/api/places/proxy/autocomplete', { params }),
-    'PlacesService Autocomplete'
+    () => apiClient.get('/places/proxy/autocomplete', { params }),
+    'placesService.getAutocompleteSuggestions'
   ).then(data => {
     // Handle zero results case (this is a successful case, just empty)
     if (data?.status === 'ZERO_RESULTS') {
@@ -104,7 +104,7 @@ export const getPlaceDetails = async (placeId, fields = ['place_id', 'name', 'fo
   logDebug(`[PlacesService] Fetching place details for ID: ${placeId}`);
   
   return handleApiResponse(
-    () => apiClient.get('/api/places/proxy/details', { params }),
+    () => apiClient.get('/places/proxy/details', { params }),
     context
   ).then(data => {
     const formatted = formatPlaceDetails(data);

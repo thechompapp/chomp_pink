@@ -1,32 +1,149 @@
 /* src/services/auth/authService.js */
 /**
- * Authentication Service
+ * Consolidated Authentication Service
  * 
- * Handles all authentication-related API calls with:
- * - Consistent error handling
- * - Token management
- * - Offline mode support
+ * Optimized authentication service that handles:
+ * - Login, logout, registration operations
+ * - Token management with automatic refresh
  * - Development mode handling
+ * - Consistent error handling
+ * - Performance optimizations
  */
 import httpClient from '@/services/http/httpClient';
 import tokenManager from './tokenManager';
-import authErrorHandler, { AUTH_ERROR_TYPES } from '@/utils/auth/errorHandler';
+import authErrorHandler from '@/utils/auth/errorHandler';
 import { logDebug, logInfo, logError } from '@/utils/logger';
 
 // Constants
 const AUTH_ENDPOINT = '/auth';
+const DEV_ADMIN_CREDENTIALS = {
+  email: 'admin@example.com',
+  password: 'doof123'
+};
+
+// Storage keys for compatibility with different parts of the app
+const STORAGE_KEYS = {
+  AUTH_TOKEN: 'auth-token',
+  AUTH_STORAGE: 'auth-storage',
+  AUTH_AUTHENTICATION_STORAGE: 'auth-authentication-storage',
+  ADMIN_API_KEY: 'admin_api_key',
+  CURRENT_USER: 'current_user'
+};
+
+// Cache for validation results to avoid repeated regex operations
+const validationCache = new Map();
 
 /**
- * Validate email format
+ * Store tokens in multiple locations for compatibility
+ * @param {Object} tokenData - Token data to store
+ * @param {Object} userData - User data to store
+ */
+const storeTokensCompatibly = (tokenData, userData) => {
+  const { accessToken, refreshToken, expiresIn } = tokenData;
+  
+  try {
+    // Store in tokenManager (our consolidated approach)
+    tokenManager.setTokens({
+      accessToken,
+      refreshToken,
+      expiresIn
+    });
+    
+    // Store in auth-token (expected by HTTP interceptors)
+    localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, accessToken);
+    
+    // Store in auth-storage format (expected by some interceptors)
+    const authStorageData = {
+      state: {
+        token: accessToken,
+        refreshToken,
+        user: userData,
+        isAuthenticated: true,
+        expiryTime: expiresIn ? Date.now() + (expiresIn * 1000) : null
+      },
+      version: 0
+    };
+    localStorage.setItem(STORAGE_KEYS.AUTH_STORAGE, JSON.stringify(authStorageData));
+    
+    // Store in auth-authentication-storage (expected by Zustand auth store)
+    const authenticationStorageData = {
+      state: {
+        token: accessToken,
+        refreshToken,
+        user: userData,
+        isAuthenticated: true,
+        isLoading: false,
+        error: null,
+        lastAuthCheck: Date.now()
+      },
+      version: 0
+    };
+    localStorage.setItem(STORAGE_KEYS.AUTH_AUTHENTICATION_STORAGE, JSON.stringify(authenticationStorageData));
+    
+    // Store user data separately for admin services
+    localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(userData));
+    
+    logDebug('[AuthService] Tokens stored in all compatible formats');
+  } catch (error) {
+    logError('[AuthService] Error storing tokens:', error);
+  }
+};
+
+/**
+ * Clear tokens from all storage locations
+ */
+const clearAllTokenStorage = () => {
+  try {
+    // Clear tokenManager storage
+    tokenManager.clearTokens();
+    
+    // Clear all other storage locations
+    Object.values(STORAGE_KEYS).forEach(key => {
+      localStorage.removeItem(key);
+    });
+    
+    // Clear any remaining auth-related keys
+    const authKeys = [
+      'token',
+      'refreshToken',
+      'auth_access_token',
+      'auth_refresh_token',
+      'auth_token_expiry'
+    ];
+    authKeys.forEach(key => localStorage.removeItem(key));
+    
+    logDebug('[AuthService] All token storage cleared');
+  } catch (error) {
+    logError('[AuthService] Error clearing token storage:', error);
+  }
+};
+
+/**
+ * Optimized email validation with caching
  * @param {string} email - Email to validate
  * @returns {boolean} True if email is valid
  */
 const isValidEmail = (email) => {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  if (!email) return false;
+  
+  if (validationCache.has(email)) {
+    return validationCache.get(email);
+  }
+  
+  const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  validationCache.set(email, isValid);
+  
+  // Prevent cache from growing too large
+  if (validationCache.size > 100) {
+    const firstKey = validationCache.keys().next().value;
+    validationCache.delete(firstKey);
+  }
+  
+  return isValid;
 };
 
 /**
- * Validate password format
+ * Optimized password validation
  * @param {string} password - Password to validate
  * @returns {boolean} True if password is valid
  */
@@ -37,82 +154,165 @@ const isValidPassword = (password) => {
 /**
  * Handle development mode admin login
  * @param {Object} credentials - Login credentials
- * @returns {boolean} True if admin login was handled
+ * @returns {Object|null} Mock admin user data or null
  */
 const handleDevModeAdminLogin = (credentials) => {
-  if (process.env.NODE_ENV === 'development' && 
-      credentials.email === 'admin@example.com' && 
-      credentials.password === 'doof123') {
+  // Always return null to force real API login
+  // This ensures we get real JWT tokens that work with admin endpoints
+  return null;
+  
+  /* OLD CODE - commenting out to force real API login
+  if (process.env.NODE_ENV !== 'development') return null;
+  
+  // Skip development mode bypass during E2E testing to ensure real API calls are made
+  if (typeof window !== 'undefined' && localStorage.getItem('e2e_testing_mode') === 'true') {
+    logInfo('[AuthService] E2E testing mode detected - skipping development mode bypass');
+    return null;
+  }
+  
+  if (credentials.email === DEV_ADMIN_CREDENTIALS.email && 
+      credentials.password === DEV_ADMIN_CREDENTIALS.password) {
     
     logInfo('[AuthService] Using admin credentials in development mode');
     
     // Set admin flags for development mode
-    localStorage.setItem('admin_access_enabled', 'true');
-    localStorage.setItem('superuser_override', 'true');
-    localStorage.setItem('bypass_auth_check', 'true');
+    const devFlags = {
+      'admin_access_enabled': 'true',
+      'superuser_override': 'true',
+      'bypass_auth_check': 'true',
+      'admin_api_key': 'doof-admin-secret-key-dev'
+    };
     
-    return true;
+    Object.entries(devFlags).forEach(([key, value]) => {
+      localStorage.setItem(key, value);
+    });
+    
+    const userData = {
+      id: 1,
+      email: credentials.email,
+      name: 'Admin User',
+      username: 'admin',
+      account_type: 'superuser',
+      role: 'superuser',
+      permissions: ['admin', 'create', 'edit', 'delete']
+    };
+    
+    const tokenData = {
+      accessToken: 'dev-mode-token',
+      refreshToken: 'dev-mode-refresh-token',
+      expiresIn: 86400 // 24 hours
+    };
+    
+    return {
+      user: userData,
+      tokens: tokenData
+    };
   }
   
-  return false;
+  return null;
+  */
 };
 
 /**
- * Clear offline mode flags
+ * Clear offline mode flags efficiently
  */
 const clearOfflineMode = () => {
-  if (typeof localStorage !== 'undefined') {
-    localStorage.removeItem('offline_mode');
-    localStorage.removeItem('offline-mode');
-    localStorage.setItem('force_online', 'true');
+  const offlineKeys = ['offline_mode', 'offline-mode'];
+  
+  offlineKeys.forEach(key => {
+    localStorage.removeItem(key);
+    sessionStorage.removeItem(key);
+  });
+  
+  localStorage.setItem('force_online', 'true');
+};
+
+/**
+ * Validate credentials object
+ * @param {Object} credentials - Credentials to validate
+ * @returns {Object} Validation result
+ */
+const validateCredentials = (credentials) => {
+  if (!credentials) {
+    return { isValid: false, error: 'Credentials are required' };
   }
-  if (typeof sessionStorage !== 'undefined') {
-    sessionStorage.removeItem('offline_mode');
-    sessionStorage.removeItem('offline-mode');
+  
+  if (!credentials.email || !credentials.password) {
+    return { isValid: false, error: 'Email and password are required' };
   }
+  
+  if (!isValidEmail(credentials.email)) {
+    return { isValid: false, error: 'Invalid email format' };
+  }
+  
+  if (!isValidPassword(credentials.password)) {
+    return { isValid: false, error: 'Password must be at least 6 characters' };
+  }
+  
+  return { isValid: true };
+};
+
+/**
+ * Validate user registration data
+ * @param {Object} userData - User data to validate
+ * @returns {Object} Validation result
+ */
+const validateUserData = (userData) => {
+  if (!userData) {
+    return { isValid: false, error: 'User data is required' };
+  }
+  
+  const requiredFields = ['email', 'password'];
+  const missingFields = requiredFields.filter(field => !userData[field]);
+  
+  if (missingFields.length > 0) {
+    return { 
+      isValid: false, 
+      error: `Missing required fields: ${missingFields.join(', ')}` 
+    };
+  }
+  
+  if (!isValidEmail(userData.email)) {
+    return { isValid: false, error: 'Invalid email format' };
+  }
+  
+  if (!isValidPassword(userData.password)) {
+    return { isValid: false, error: 'Password must be at least 6 characters' };
+  }
+  
+  return { isValid: true };
 };
 
 const authService = {
   /**
-   * Log in a user
+   * Optimized login with improved error handling
    * @param {Object} credentials - Login credentials
-   * @param {string} credentials.email - User email
-   * @param {string} credentials.password - User password
    * @returns {Promise<Object>} User data and tokens
    */
   login: async (credentials) => {
     try {
-      // Clear offline mode flags to ensure we're in online mode
+      // Clear offline mode flags
       clearOfflineMode();
       
       // Validate credentials
-      if (!credentials || !credentials.email || !credentials.password) {
-        throw authErrorHandler.createValidationError('Email and password are required');
-      }
-      
-      if (!isValidEmail(credentials.email)) {
-        throw authErrorHandler.createValidationError('Invalid email format');
-      }
-      
-      if (!isValidPassword(credentials.password)) {
-        throw authErrorHandler.createValidationError('Password must be at least 6 characters');
+      const validation = validateCredentials(credentials);
+      if (!validation.isValid) {
+        throw authErrorHandler.createValidationError(validation.error);
       }
       
       // Handle development mode admin login
-      if (handleDevModeAdminLogin(credentials)) {
-        // Return mock admin user for development
+      const devModeResult = handleDevModeAdminLogin(credentials);
+      if (devModeResult) {
+        // Store tokens using compatible storage
+        storeTokensCompatibly(devModeResult.tokens, devModeResult.user);
+        
+        // Return in the same format as API response
         return {
-          user: {
-            id: 1,
-            email: credentials.email,
-            name: 'Admin User',
-            account_type: 'superuser',
-            permissions: ['admin', 'create', 'edit', 'delete']
-          },
-          tokens: {
-            accessToken: 'dev-mode-token',
-            refreshToken: 'dev-mode-refresh-token',
-            expiresIn: 86400 // 24 hours
+          success: true,
+          data: {
+            user: devModeResult.user,
+            token: devModeResult.tokens.accessToken,
+            expiresIn: devModeResult.tokens.expiresIn
           }
         };
       }
@@ -122,55 +322,68 @@ const authService = {
       // Make API request
       const response = await httpClient.post(`${AUTH_ENDPOINT}/login`, credentials);
       
-      // Extract user and token data
-      const { user, accessToken, refreshToken, expiresIn } = response.data;
-      
-      // Store tokens
-      tokenManager.setTokens({
-        accessToken,
-        refreshToken,
-        expiresIn
+      logDebug('[AuthService] Raw login response:', {
+        hasData: !!response.data,
+        hasSuccess: !!response.data?.success,
+        hasToken: !!(response.data?.data?.token || response.data?.token),
+        hasUser: !!(response.data?.data?.user || response.data?.user),
+        responseStructure: Object.keys(response.data || {})
       });
       
+      // Extract token and user data from response
+      let tokenData, userData;
+      if (response.data?.data) {
+        // New format: { success: true, data: { token: '...', user: {...} } }
+        tokenData = {
+          accessToken: response.data.data.token,
+          refreshToken: response.data.data.refreshToken || null,
+          expiresIn: response.data.data.expiresIn || 86400 // Default 24 hours
+        };
+        userData = response.data.data.user;
+      } else {
+        // Legacy format: { token: '...', user: {...} }
+        tokenData = {
+          accessToken: response.data.token,
+          refreshToken: response.data.refreshToken,
+          expiresIn: response.data.expiresIn || 86400
+        };
+        userData = response.data.user;
+      }
+      
+      logInfo('[AuthService] Login successful, storing tokens');
+      
+      // Store tokens using compatible method
+      storeTokensCompatibly(tokenData, userData);
+      
       return {
-        user,
-        tokens: {
-          accessToken,
-          refreshToken,
-          expiresIn
+        success: true,
+        data: {
+          user: userData,
+          token: tokenData.accessToken,
+          expiresIn: tokenData.expiresIn
         }
       };
     } catch (error) {
-      // Handle and standardize error
+      logError('[AuthService] Login error:', error.message);
       const formattedError = authErrorHandler.handleError(error, 'login');
       throw formattedError;
     }
   },
   
   /**
-   * Register a new user
+   * Optimized registration with improved validation
    * @param {Object} userData - User registration data
-   * @param {string} userData.email - User email
-   * @param {string} userData.password - User password
-   * @param {string} userData.name - User name
    * @returns {Promise<Object>} User data and tokens
    */
   register: async (userData) => {
     try {
-      // Clear offline mode flags to ensure we're in online mode
+      // Clear offline mode flags
       clearOfflineMode();
       
       // Validate user data
-      if (!userData || !userData.email || !userData.password || !userData.name) {
-        throw authErrorHandler.createValidationError('Name, email, and password are required');
-      }
-      
-      if (!isValidEmail(userData.email)) {
-        throw authErrorHandler.createValidationError('Invalid email format');
-      }
-      
-      if (!isValidPassword(userData.password)) {
-        throw authErrorHandler.createValidationError('Password must be at least 6 characters');
+      const validation = validateUserData(userData);
+      if (!validation.isValid) {
+        throw authErrorHandler.createValidationError(validation.error);
       }
       
       logDebug('[AuthService] Attempting registration for:', userData.email);
@@ -178,42 +391,51 @@ const authService = {
       // Make API request
       const response = await httpClient.post(`${AUTH_ENDPOINT}/register`, userData);
       
-      // Extract user and token data
-      const { user, accessToken, refreshToken, expiresIn } = response.data;
+      // Extract and validate response data
+      const { user, accessToken, refreshToken, expiresIn } = response.data.data || response.data;
       
-      // Store tokens
-      tokenManager.setTokens({
-        accessToken,
-        refreshToken,
-        expiresIn
-      });
+      if (!user) {
+        throw new Error('Invalid response from server: missing user data');
+      }
       
-      return {
-        user,
-        tokens: {
+      // Store tokens if provided (some registrations may require email verification first)
+      if (accessToken) {
+        const tokenData = {
           accessToken,
           refreshToken,
           expiresIn
-        }
+        };
+        storeTokensCompatibly(tokenData, user);
+      }
+      
+      logInfo('[AuthService] Registration successful for:', userData.email);
+      
+      return {
+        user,
+        tokens: accessToken ? {
+          accessToken,
+          refreshToken,
+          expiresIn
+        } : null
       };
     } catch (error) {
-      // Handle and standardize error
+      logError('[AuthService] Registration error:', error.message);
       const formattedError = authErrorHandler.handleError(error, 'register');
       throw formattedError;
     }
   },
   
   /**
-   * Log out the current user
-   * @returns {Promise<void>}
+   * Optimized logout with improved cleanup
+   * @returns {Promise<Object>} Logout result
    */
   logout: async () => {
     try {
       // Get current token for the request
-      const token = tokenManager.getAccessToken();
+      const token = tokenManager.getAccessToken() || localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
       
       // Clear tokens first to prevent any issues if the request fails
-      tokenManager.clearTokens();
+      clearAllTokenStorage();
       
       // Only make the API call if we have a token and we're not in offline mode
       const isOfflineMode = localStorage.getItem('offline_mode') === 'true';
@@ -227,240 +449,207 @@ const authService = {
             }
           });
           
-          logDebug('[AuthService] Logout successful');
+          logDebug('[AuthService] Logout API call successful');
         } catch (apiError) {
           // Log but don't throw - we still want to clear local tokens
-          logError('[AuthService] Error during logout API call:', apiError);
+          logError('[AuthService] Error during logout API call:', apiError.message);
         }
       }
       
-      // Clear development mode flags
+      // Clear development mode flags efficiently
       if (process.env.NODE_ENV === 'development') {
-        localStorage.removeItem('admin_access_enabled');
-        localStorage.removeItem('superuser_override');
-        localStorage.removeItem('bypass_auth_check');
+        const devFlags = ['admin_access_enabled', 'superuser_override', 'bypass_auth_check', 'admin_api_key'];
+        devFlags.forEach(flag => localStorage.removeItem(flag));
       }
       
-      // Clear user explicitly logged out flag
+      // Set explicit logout flag
       localStorage.setItem('user_explicitly_logged_out', 'true');
+      
+      logInfo('[AuthService] Logout completed successfully');
       
       return { success: true };
     } catch (error) {
-      // Handle and standardize error
-      const formattedError = authErrorHandler.handleError(error, 'logout');
+      logError('[AuthService] Logout error:', error.message);
       
       // Still clear tokens even if there was an error
-      tokenManager.clearTokens();
+      clearAllTokenStorage();
       
+      const formattedError = authErrorHandler.handleError(error, 'logout');
       throw formattedError;
     }
   },
   
   /**
-   * Refresh the authentication token
-   * @returns {Promise<Object>} New tokens
+   * Get current authentication status
+   * @returns {Promise<Object>} Auth status
    */
-  refreshToken: async () => {
+  getAuthStatus: async () => {
     try {
-      // Get refresh token
-      const refreshToken = tokenManager.getRefreshToken();
-      
-      if (!refreshToken) {
-        throw new Error('No refresh token available');
-      }
-      
-      logDebug('[AuthService] Attempting token refresh');
-      
-      // Make API request
-      const response = await httpClient.post(`${AUTH_ENDPOINT}/refresh`, {
-        refreshToken
-      });
-      
-      // Extract token data
-      const { accessToken, refreshToken: newRefreshToken, expiresIn } = response.data;
-      
-      // Store tokens
-      tokenManager.setTokens({
-        accessToken,
-        refreshToken: newRefreshToken,
-        expiresIn
-      });
-      
-      return {
-        accessToken,
-        refreshToken: newRefreshToken,
-        expiresIn
-      };
+      const response = await httpClient.get(`${AUTH_ENDPOINT}/status`);
+      return response.data;
     } catch (error) {
-      // Handle and standardize error
-      const formattedError = authErrorHandler.handleError(error, 'refreshToken');
-      
-      // Clear tokens if refresh failed
-      tokenManager.clearTokens();
-      
-      throw formattedError;
+      logError('[AuthService] Auth status check failed:', error.message);
+      return { isAuthenticated: false, user: null };
     }
   },
   
   /**
-   * Check if user is authenticated
-   * @param {boolean} validateWithApi - Whether to validate with API
-   * @returns {Promise<boolean>} True if authenticated
-   */
-  isAuthenticated: async (validateWithApi = false) => {
-    try {
-      // Check if we have a valid token
-      if (!tokenManager.hasValidTokens()) {
-        return false;
-      }
-      
-      // If we don't need to validate with API, return true
-      if (!validateWithApi) {
-        return true;
-      }
-      
-      // Validate with API
-      const response = await httpClient.get(`${AUTH_ENDPOINT}/validate`);
-      return response.data.valid === true;
-    } catch (error) {
-      // Log but return false instead of throwing
-      logError('[AuthService] Error checking authentication:', error);
-      return false;
-    }
-  },
-  
-  /**
-   * Get the current user profile
+   * Get current authenticated user's profile
    * @returns {Promise<Object>} User profile data
    */
   getCurrentUser: async () => {
     try {
       // Check if we have a valid token
-      if (!tokenManager.hasValidTokens()) {
+      if (!tokenManager.isTokenValid() && !localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN)) {
         throw new Error('Not authenticated');
       }
       
-      // Make API request
       const response = await httpClient.get(`${AUTH_ENDPOINT}/me`);
       
-      return response.data.user;
+      logDebug('[AuthService] Current user fetched successfully');
+      return response.data;
     } catch (error) {
-      // Handle and standardize error
+      logError('[AuthService] Failed to fetch current user:', error.message);
       const formattedError = authErrorHandler.handleError(error, 'getCurrentUser');
       throw formattedError;
     }
   },
   
   /**
-   * Update user profile
-   * @param {Object} userData - User data to update
-   * @returns {Promise<Object>} Updated user data
+   * Check if user is authenticated
+   * @returns {Promise<boolean>} Whether the user is authenticated
    */
-  updateProfile: async (userData) => {
+  isAuthenticated: async () => {
     try {
-      // Check if we have a valid token
-      if (!tokenManager.hasValidTokens()) {
-        throw new Error('Not authenticated');
+      // First check if we have a valid token in any storage location
+      const hasTokenManager = tokenManager.isTokenValid();
+      const hasAuthToken = !!localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+      const hasAuthStorage = !!localStorage.getItem(STORAGE_KEYS.AUTH_STORAGE);
+      
+      if (!hasTokenManager && !hasAuthToken && !hasAuthStorage) {
+        return false;
       }
       
-      // Make API request
-      const response = await httpClient.put(`${AUTH_ENDPOINT}/profile`, userData);
-      
-      return response.data.user;
+      // Verify with the server
+      const authStatus = await this.getAuthStatus();
+      return authStatus.isAuthenticated === true;
     } catch (error) {
-      // Handle and standardize error
-      const formattedError = authErrorHandler.handleError(error, 'updateProfile');
-      throw formattedError;
+      logError('[AuthService] Error checking authentication status:', error.message);
+      return false;
     }
   },
   
   /**
-   * Change user password
-   * @param {Object} passwordData - Password data
-   * @param {string} passwordData.currentPassword - Current password
-   * @param {string} passwordData.newPassword - New password
-   * @returns {Promise<Object>} Success response
+   * Refresh authentication token
+   * @returns {Promise<Object>} New token data
    */
-  changePassword: async (passwordData) => {
+  refreshToken: async () => {
     try {
-      // Validate password data
-      if (!passwordData || !passwordData.currentPassword || !passwordData.newPassword) {
-        throw authErrorHandler.createValidationError('Current and new passwords are required');
+      const refreshToken = tokenManager.getRefreshToken() || 
+        (() => {
+          try {
+            const authStorage = localStorage.getItem(STORAGE_KEYS.AUTH_STORAGE);
+            return authStorage ? JSON.parse(authStorage).state?.refreshToken : null;
+          } catch {
+            return null;
+          }
+        })();
+      
+      if (!refreshToken) {
+        throw new Error('No refresh token available');
       }
       
-      if (!isValidPassword(passwordData.newPassword)) {
-        throw authErrorHandler.createValidationError('New password must be at least 6 characters');
+      const response = await httpClient.post(`${AUTH_ENDPOINT}/refresh-token`, {
+        refreshToken
+      });
+      
+      const { accessToken, refreshToken: newRefreshToken, expiresIn } = response.data;
+      
+      // Update stored tokens using compatible storage
+      const tokenData = {
+        accessToken,
+        refreshToken: newRefreshToken || refreshToken,
+        expiresIn
+      };
+      
+      // Get existing user data
+      let userData = null;
+      try {
+        userData = JSON.parse(localStorage.getItem(STORAGE_KEYS.CURRENT_USER) || 'null');
+      } catch {
+        userData = null;
       }
       
-      // Check if we have a valid token
-      if (!tokenManager.hasValidTokens()) {
-        throw new Error('Not authenticated');
-      }
+      storeTokensCompatibly(tokenData, userData);
       
-      // Make API request
-      const response = await httpClient.post(`${AUTH_ENDPOINT}/change-password`, passwordData);
+      logDebug('[AuthService] Token refreshed successfully');
       
-      return response.data;
+      return tokenData;
     } catch (error) {
-      // Handle and standardize error
-      const formattedError = authErrorHandler.handleError(error, 'changePassword');
+      logError('[AuthService] Token refresh failed:', error.message);
+      
+      // Clear tokens on refresh failure
+      clearAllTokenStorage();
+      
+      const formattedError = authErrorHandler.handleError(error, 'refreshToken');
       throw formattedError;
     }
   },
   
-  /**
-   * Request password reset
-   * @param {string} email - User email
-   * @returns {Promise<Object>} Success response
-   */
-  requestPasswordReset: async (email) => {
-    try {
-      // Validate email
-      if (!email) {
-        throw authErrorHandler.createValidationError('Email is required');
-      }
-      
-      if (!isValidEmail(email)) {
-        throw authErrorHandler.createValidationError('Invalid email format');
-      }
-      
-      // Make API request
-      const response = await httpClient.post(`${AUTH_ENDPOINT}/forgot-password`, { email });
-      
-      return response.data;
-    } catch (error) {
-      // Handle and standardize error
-      const formattedError = authErrorHandler.handleError(error, 'requestPasswordReset');
-      throw formattedError;
-    }
-  },
+  // Token management methods (delegated to tokenManager for backward compatibility)
+  getAccessToken: () => tokenManager.getAccessToken() || localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN),
+  getRefreshToken: () => tokenManager.getRefreshToken(),
+  isTokenValid: () => tokenManager.isTokenValid() || !!localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN),
+  clearTokens: () => clearAllTokenStorage(),
   
   /**
-   * Reset password with token
-   * @param {Object} resetData - Reset data
-   * @param {string} resetData.token - Reset token
-   * @param {string} resetData.password - New password
-   * @returns {Promise<Object>} Success response
+   * Store authentication tokens in all expected locations for compatibility
+   * @param {Object} authData - Authentication data with token and user info
    */
-  resetPassword: async (resetData) => {
+  storeAuthTokens(authData) {
+    if (!authData?.token) {
+      logError('[AuthService] No token provided to store');
+      return;
+    }
+
     try {
-      // Validate reset data
-      if (!resetData || !resetData.token || !resetData.password) {
-        throw authErrorHandler.createValidationError('Token and new password are required');
-      }
+      // Store in all the different formats expected by different parts of the app
       
-      if (!isValidPassword(resetData.password)) {
-        throw authErrorHandler.createValidationError('Password must be at least 6 characters');
-      }
+      // 1. For httpClient/tokenManager compatibility
+      tokenManager.setTokens({
+        accessToken: authData.token,
+        refreshToken: authData.refreshToken || null,
+        expiresIn: authData.expiresIn || 3600 // 1 hour default
+      });
       
-      // Make API request
-      const response = await httpClient.post(`${AUTH_ENDPOINT}/reset-password`, resetData);
+      // 2. For AuthHeaders service (auth-token key)
+      localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, authData.token);
       
-      return response.data;
+      // 3. For auth-storage compatibility  
+      const authStorageData = {
+        token: authData.token,
+        user: authData.user,
+        isAuthenticated: true,
+        expiresAt: authData.expiresAt || (Date.now() + (authData.expiresIn || 3600) * 1000)
+      };
+      localStorage.setItem(STORAGE_KEYS.AUTH_STORAGE, JSON.stringify(authStorageData));
+      
+      // 4. For Zustand auth store compatibility
+      const zustandData = {
+        state: {
+          token: authData.token,
+          user: authData.user,
+          isAuthenticated: true,
+          isLoading: false,
+          error: null
+        },
+        version: 0
+      };
+      localStorage.setItem(STORAGE_KEYS.AUTH_AUTHENTICATION_STORAGE, JSON.stringify(zustandData));
+      
+      logDebug('[AuthService] Tokens stored in all formats successfully');
     } catch (error) {
-      // Handle and standardize error
-      const formattedError = authErrorHandler.handleError(error, 'resetPassword');
-      throw formattedError;
+      logError('[AuthService] Error storing auth tokens:', error);
     }
   }
 };

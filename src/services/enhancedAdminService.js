@@ -9,7 +9,7 @@
  * - Data transformation and normalization
  */
 
-import { getDefaultApiClient } from '@/services/http';
+import httpClient from '@/services/http/httpClient';
 import { handleApiResponse } from '@/utils/serviceHelpers';
 import { logInfo, logError, logDebug, logWarn } from '@/utils/logger';
 
@@ -58,28 +58,6 @@ const VALIDATION_RULES = {
 };
 
 /**
- * Add admin authentication headers to requests
- */
-const addAdminHeaders = (config = {}) => {
-  const adminApiKey = localStorage.getItem('admin_api_key') || 'doof-admin-secret-key-dev';
-  const authToken = localStorage.getItem('auth-token');
-  
-  return {
-    ...config,
-    headers: {
-      ...config.headers,
-      // Primary authentication via JWT token
-      ...(authToken && { 'Authorization': `Bearer ${authToken}` }),
-      // Additional admin headers for legacy support
-      'X-Admin-API-Key': adminApiKey,
-      'X-Bypass-Auth': 'true',
-      'X-Superuser-Override': 'true',
-      'X-Admin-Access': 'true'
-    }
-  };
-};
-
-/**
  * Enhanced Admin Service
  */
 export const enhancedAdminService = {
@@ -91,13 +69,11 @@ export const enhancedAdminService = {
     logInfo('[EnhancedAdminService] Fetching all admin data');
     
     try {
-      const apiClient = getDefaultApiClient();
       const results = {};
       
       // Fetch all endpoints in parallel for better performance
       const promises = Object.entries(ADMIN_ENDPOINTS).map(async ([key, endpoint]) => {
         try {
-          const config = addAdminHeaders();
           
           // Add specific parameters for neighborhoods to get all data (not just default 20)
           let requestUrl = endpoint;
@@ -106,7 +82,7 @@ export const enhancedAdminService = {
             logDebug(`[EnhancedAdminService] Using extended limit for neighborhoods: ${requestUrl}`);
           }
           
-          const response = await apiClient.get(requestUrl, undefined, config);
+          const response = await httpClient.get(requestUrl);
           
           // Extract data from response
           let data = [];
@@ -168,9 +144,7 @@ export const enhancedAdminService = {
     }
     
     try {
-      const apiClient = getDefaultApiClient();
-      const config = addAdminHeaders();
-      const response = await apiClient.get(endpoint, undefined, config);
+      const response = await httpClient.get(endpoint);
       
       // Extract and normalize data
       let data = [];
@@ -198,64 +172,96 @@ export const enhancedAdminService = {
     
     const errors = [];
     
-    // Required validation
-    if (rules.required && (!value || String(value).trim() === '')) {
-      errors.push('This field is required');
+    // Required check
+    if (rules.required && (!value || value.toString().trim() === '')) {
+      errors.push(`${fieldName} is required`);
+      return { valid: false, errors };
     }
     
-    // Skip other validations if empty and not required
-    if (!value && !rules.required) {
+    // Skip other validations if value is empty (and not required)
+    if (!value || value.toString().trim() === '') {
       return { valid: true };
     }
     
-    // Type validation
-    if (rules.type === 'number' && isNaN(Number(value))) {
-      errors.push('Must be a valid number');
-    }
-    
-    // Length validation
-    if (rules.minLength && String(value).length < rules.minLength) {
-      errors.push(`Must be at least ${rules.minLength} characters long`);
-    }
-    
-    if (rules.maxLength && String(value).length > rules.maxLength) {
-      errors.push(`Must be no more than ${rules.maxLength} characters long`);
-    }
-    
-    // Range validation for numbers
+    // Type check
     if (rules.type === 'number') {
       const numValue = Number(value);
-      if (rules.min !== undefined && numValue < rules.min) {
-        errors.push(`Must be at least ${rules.min}`);
-      }
-      if (rules.max !== undefined && numValue > rules.max) {
-        errors.push(`Must be no more than ${rules.max}`);
+      if (isNaN(numValue)) {
+        errors.push(`${fieldName} must be a number`);
+      } else {
+        // Min/Max check for numbers
+        if (rules.min !== undefined && numValue < rules.min) {
+          errors.push(`${fieldName} must be at least ${rules.min}`);
+        }
+        if (rules.max !== undefined && numValue > rules.max) {
+          errors.push(`${fieldName} must be at most ${rules.max}`);
+        }
       }
     }
     
-    // Pattern validation
-    if (rules.pattern && !rules.pattern.test(String(value))) {
-      errors.push('Invalid format');
+    // String length checks
+    const strValue = value.toString();
+    if (rules.minLength && strValue.length < rules.minLength) {
+      errors.push(`${fieldName} must be at least ${rules.minLength} characters`);
+    }
+    if (rules.maxLength && strValue.length > rules.maxLength) {
+      errors.push(`${fieldName} must be at most ${rules.maxLength} characters`);
     }
     
-    // Options validation
+    // Pattern check
+    if (rules.pattern && !rules.pattern.test(strValue)) {
+      errors.push(`${fieldName} format is invalid`);
+    }
+    
+    // Options check
     if (rules.options && !rules.options.includes(value)) {
-      errors.push(`Must be one of: ${rules.options.join(', ')}`);
+      errors.push(`${fieldName} must be one of: ${rules.options.join(', ')}`);
     }
     
-    return {
-      valid: errors.length === 0,
-      errors
-    };
+    return { valid: errors.length === 0, errors };
   },
 
   /**
-   * Update a resource with field validation
+   * Validate complete resource data
+   */
+  validateResourceData(resourceType, data) {
+    const errors = [];
+    const rules = VALIDATION_RULES[resourceType];
+    
+    if (!rules) {
+      return { valid: true, errors: [] };
+    }
+    
+    // Check all required fields
+    Object.entries(rules).forEach(([fieldName, fieldRules]) => {
+      if (fieldRules.required && (!data[fieldName] || data[fieldName].toString().trim() === '')) {
+        errors.push(`${fieldName} is required`);
+      }
+    });
+    
+    // Validate provided fields
+    Object.entries(data).forEach(([fieldName, value]) => {
+      const validation = this.validateField(resourceType, fieldName, value);
+      if (!validation.valid) {
+        errors.push(...validation.errors);
+      }
+    });
+    
+    return { valid: errors.length === 0, errors };
+  },
+
+  /**
+   * Update a specific resource
    */
   async updateResource(resourceType, resourceId, updatedData) {
     logDebug(`[EnhancedAdminService] Updating ${resourceType} ${resourceId}:`, updatedData);
     
-    // Validate all fields
+    const endpoint = ADMIN_ENDPOINTS[resourceType];
+    if (!endpoint) {
+      throw new Error(`Unknown resource type: ${resourceType}`);
+    }
+    
+    // Validate the update data
     const validationErrors = {};
     for (const [fieldName, value] of Object.entries(updatedData)) {
       const validation = this.validateField(resourceType, fieldName, value);
@@ -265,21 +271,16 @@ export const enhancedAdminService = {
     }
     
     if (Object.keys(validationErrors).length > 0) {
-      throw new Error(`Validation failed: ${JSON.stringify(validationErrors)}`);
-    }
-    
-    const endpoint = ADMIN_ENDPOINTS[resourceType];
-    if (!endpoint) {
-      throw new Error(`Unknown resource type: ${resourceType}`);
+      const error = new Error(`Validation failed: ${JSON.stringify(validationErrors)}`);
+      error.isValidationError = true;
+      error.validationErrors = validationErrors;
+      throw error;
     }
     
     try {
-      const apiClient = getDefaultApiClient();
-      const config = addAdminHeaders();
-      const response = await apiClient.put(`${endpoint}/${resourceId}`, updatedData, config);
+      const response = await httpClient.put(`${endpoint}/${resourceId}`, updatedData);
       
       logInfo(`[EnhancedAdminService] Successfully updated ${resourceType} ${resourceId}`);
-      
       return response.data;
     } catch (error) {
       logError(`[EnhancedAdminService] Error updating ${resourceType} ${resourceId}:`, error);
@@ -293,7 +294,12 @@ export const enhancedAdminService = {
   async createResource(resourceType, resourceData) {
     logDebug(`[EnhancedAdminService] Creating ${resourceType}:`, resourceData);
     
-    // Validate all fields
+    const endpoint = ADMIN_ENDPOINTS[resourceType];
+    if (!endpoint) {
+      throw new Error(`Unknown resource type: ${resourceType}`);
+    }
+    
+    // Validate the resource data
     const validationErrors = {};
     for (const [fieldName, value] of Object.entries(resourceData)) {
       const validation = this.validateField(resourceType, fieldName, value);
@@ -303,21 +309,16 @@ export const enhancedAdminService = {
     }
     
     if (Object.keys(validationErrors).length > 0) {
-      throw new Error(`Validation failed: ${JSON.stringify(validationErrors)}`);
-    }
-    
-    const endpoint = ADMIN_ENDPOINTS[resourceType];
-    if (!endpoint) {
-      throw new Error(`Unknown resource type: ${resourceType}`);
+      const error = new Error(`Validation failed: ${JSON.stringify(validationErrors)}`);
+      error.isValidationError = true;
+      error.validationErrors = validationErrors;
+      throw error;
     }
     
     try {
-      const apiClient = getDefaultApiClient();
-      const config = addAdminHeaders();
-      const response = await apiClient.post(endpoint, resourceData, config);
+      const response = await httpClient.post(endpoint, resourceData);
       
       logInfo(`[EnhancedAdminService] Successfully created ${resourceType}`);
-      
       return response.data;
     } catch (error) {
       logError(`[EnhancedAdminService] Error creating ${resourceType}:`, error);
@@ -337,12 +338,9 @@ export const enhancedAdminService = {
     }
     
     try {
-      const apiClient = getDefaultApiClient();
-      const config = addAdminHeaders();
-      const response = await apiClient.delete(`${endpoint}/${resourceId}`, config);
+      const response = await httpClient.delete(`${endpoint}/${resourceId}`);
       
       logInfo(`[EnhancedAdminService] Successfully deleted ${resourceType} ${resourceId}`);
-      
       return response.data;
     } catch (error) {
       logError(`[EnhancedAdminService] Error deleting ${resourceType} ${resourceId}:`, error);
@@ -351,22 +349,15 @@ export const enhancedAdminService = {
   },
 
   /**
-   * Process a submission (approve/reject)
+   * Process submission (approve/reject)
    */
   async processSubmission(submissionId, action, data = {}) {
-    if (!['approve', 'reject'].includes(action)) {
-      throw new Error(`Invalid action: ${action}. Must be 'approve' or 'reject'.`);
-    }
-    
     logDebug(`[EnhancedAdminService] ${action} submission ${submissionId}`);
     
     try {
-      const apiClient = getDefaultApiClient();
-      const config = addAdminHeaders();
-      const response = await apiClient.post(`/admin/submissions/${action}/${submissionId}`, data, config);
+      const response = await httpClient.post(`/admin/submissions/${action}/${submissionId}`, data);
       
       logInfo(`[EnhancedAdminService] Successfully ${action}ed submission ${submissionId}`);
-      
       return response.data;
     } catch (error) {
       logError(`[EnhancedAdminService] Error ${action}ing submission ${submissionId}:`, error);
@@ -375,11 +366,7 @@ export const enhancedAdminService = {
   },
 
   /**
-   * Search resources with query and filters
-   * @param {string} resourceType - Type of resource to search
-   * @param {string} query - Search query
-   * @param {Object} filters - Additional filters
-   * @returns {Promise<Array>} Search results
+   * Search resources with filters
    */
   async searchResources(resourceType, query, filters = {}) {
     logDebug(`[EnhancedAdminService] Searching ${resourceType} with query: ${query}`);
@@ -390,15 +377,12 @@ export const enhancedAdminService = {
     }
     
     try {
-      const apiClient = getDefaultApiClient();
-      const config = addAdminHeaders({
+      const response = await httpClient.get(endpoint, {
         params: {
           search: query,
           ...filters
         }
       });
-      
-      const response = await apiClient.get(endpoint, undefined, config);
       
       // Extract and normalize data
       let data = [];
@@ -409,7 +393,6 @@ export const enhancedAdminService = {
       }
       
       logDebug(`[EnhancedAdminService] Search returned ${data.length} results for ${resourceType}`);
-      
       return data;
     } catch (error) {
       logError(`[EnhancedAdminService] Error searching ${resourceType}:`, error);
@@ -418,40 +401,30 @@ export const enhancedAdminService = {
   },
 
   /**
-   * Validate import data
-   * @param {string} resourceType - Type of resource
-   * @param {FormData} formData - File data to validate
-   * @returns {Promise<Object>} Validation results
+   * Validate import data from file
    */
   async validateImportData(resourceType, formData) {
     logDebug(`[EnhancedAdminService] Validating import data for ${resourceType}`);
     
     try {
-      // Simulate validation process
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Mock validation results
+      // For now, return a mock validation result
+      // In a real implementation, this would send the file to the backend for validation
       const mockValidation = {
         valid: [
-          { row: 1, name: 'Sample Restaurant 1', phone: '+1234567890' },
-          { row: 2, name: 'Sample Restaurant 2', phone: '+1234567891' }
+          { row: 1, data: { name: 'Sample Restaurant 1', city: 'NYC' } },
+          { row: 2, data: { name: 'Sample Restaurant 2', city: 'LA' } }
         ],
         invalid: [
-          { row: 3, message: 'Missing required field: name' },
-          { row: 4, message: 'Invalid phone number format' }
+          { row: 3, errors: ['Name is required'], data: { city: 'Chicago' } }
         ],
-        warnings: [
-          { row: 2, message: 'Website URL should start with https://' }
-        ],
-        summary: [
-          '2 valid records ready for import',
-          '2 invalid records found',
-          '1 warning that can be ignored'
-        ]
+        summary: {
+          totalRows: 3,
+          validRows: 2,
+          invalidRows: 1
+        }
       };
       
       logInfo(`[EnhancedAdminService] Validation completed: ${mockValidation.valid.length} valid, ${mockValidation.invalid.length} invalid`);
-      
       return mockValidation;
     } catch (error) {
       logError(`[EnhancedAdminService] Error validating import data:`, error);
@@ -460,50 +433,51 @@ export const enhancedAdminService = {
   },
 
   /**
-   * Bulk import data
-   * @param {string} resourceType - Type of resource
-   * @param {Array} validData - Valid data to import
-   * @param {Function} progressCallback - Progress callback function
-   * @returns {Promise<Object>} Import results
+   * Bulk import validated data
    */
   async bulkImport(resourceType, validData, progressCallback) {
     logDebug(`[EnhancedAdminService] Starting bulk import of ${validData.length} ${resourceType} records`);
     
+    const endpoint = ADMIN_ENDPOINTS[resourceType];
+    if (!endpoint) {
+      throw new Error(`Unknown resource type: ${resourceType}`);
+    }
+    
+    const results = {
+      success: 0,
+      failed: 0,
+      errors: []
+    };
+    
     try {
-      const results = {
-        success: 0,
-        failed: 0,
-        total: validData.length,
-        errors: []
-      };
-      
-      // Process items in batches
-      const batchSize = 5;
+      // Process in batches to avoid overwhelming the server
+      const batchSize = 10;
       const totalBatches = Math.ceil(validData.length / batchSize);
       
       for (let i = 0; i < totalBatches; i++) {
-        const batch = validData.slice(i * batchSize, (i + 1) * batchSize);
+        const start = i * batchSize;
+        const batch = validData.slice(start, start + batchSize);
         
-        // Simulate processing each batch
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Mock success/failure for each item in batch
-        for (const item of batch) {
-          if (Math.random() > 0.1) { // 90% success rate
-            results.success++;
-          } else {
-            results.failed++;
-            results.errors.push(`Failed to import row ${item.row}: Database error`);
+        try {
+          const response = await httpClient.post(`${endpoint}/bulk`, { records: batch });
+          results.success += batch.length;
+          
+          // Report progress
+          if (progressCallback) {
+            progressCallback({
+              completed: Math.min((i + 1) * batchSize, validData.length),
+              total: validData.length,
+              batchResults: response.data
+            });
           }
+        } catch (error) {
+          results.failed += batch.length;
+          results.errors.push(`Batch ${i + 1}: ${error.message}`);
+          logError(`[EnhancedAdminService] Error in batch ${i + 1}:`, error);
         }
-        
-        // Update progress
-        const progress = ((i + 1) / totalBatches) * 100;
-        progressCallback?.(progress);
       }
       
       logInfo(`[EnhancedAdminService] Bulk import completed: ${results.success} success, ${results.failed} failed`);
-      
       return results;
     } catch (error) {
       logError(`[EnhancedAdminService] Error during bulk import:`, error);
@@ -512,11 +486,7 @@ export const enhancedAdminService = {
   },
 
   /**
-   * Enhanced batch update with progress tracking
-   * @param {string} resourceType - Type of resource
-   * @param {Array} updates - Array of update objects with id and data
-   * @param {Function} progressCallback - Progress callback function
-   * @returns {Promise<Object>} Update results
+   * Batch update multiple resources
    */
   async batchUpdate(resourceType, updates, progressCallback) {
     logDebug(`[EnhancedAdminService] Starting batch update of ${updates.length} ${resourceType} records`);
@@ -526,53 +496,49 @@ export const enhancedAdminService = {
       throw new Error(`Unknown resource type: ${resourceType}`);
     }
     
+    const results = {
+      success: 0,
+      failed: 0,
+      errors: []
+    };
+    
     try {
-      const apiClient = getDefaultApiClient();
-      const results = {
-        success: 0,
-        failed: 0,
-        total: updates.length,
-        errors: []
-      };
-      
-      // Process updates in batches to avoid overwhelming the server
-      const batchSize = 3;
+      // Process in smaller batches to maintain good performance
+      const batchSize = 5;
       const totalBatches = Math.ceil(updates.length / batchSize);
       
       for (let i = 0; i < totalBatches; i++) {
-        const batch = updates.slice(i * batchSize, (i + 1) * batchSize);
+        const start = i * batchSize;
+        const batch = updates.slice(start, start + batchSize);
         
-        // Process each item in the batch
+        // Process batch in parallel
         const batchPromises = batch.map(async (update) => {
           try {
-            const config = addAdminHeaders();
             const { id, ...updateData } = update;
             
-            await apiClient.put(`${endpoint}/${id}`, updateData, config);
+            await httpClient.put(`${endpoint}/${id}`, updateData);
             results.success++;
             
             logDebug(`[EnhancedAdminService] Successfully updated ${resourceType} ${id}`);
           } catch (error) {
             results.failed++;
-            results.errors.push(`Failed to update ${resourceType} ${update.id}: ${error.message}`);
+            results.errors.push(`${resourceType} ${update.id}: ${error.message}`);
             logError(`[EnhancedAdminService] Error updating ${resourceType} ${update.id}:`, error);
           }
         });
         
         await Promise.all(batchPromises);
         
-        // Update progress
-        const progress = ((i + 1) / totalBatches) * 100;
-        progressCallback?.(progress);
-        
-        // Small delay between batches
-        if (i < totalBatches - 1) {
-          await new Promise(resolve => setTimeout(resolve, 200));
+        // Report progress
+        if (progressCallback) {
+          progressCallback({
+            completed: Math.min((i + 1) * batchSize, updates.length),
+            total: updates.length
+          });
         }
       }
       
       logInfo(`[EnhancedAdminService] Batch update completed: ${results.success} success, ${results.failed} failed`);
-      
       return results;
     } catch (error) {
       logError(`[EnhancedAdminService] Error during batch update:`, error);
@@ -581,60 +547,53 @@ export const enhancedAdminService = {
   },
 
   /**
-   * Bulk add restaurants from text input
-   * @param {string} resourceType - Type of resource (should be 'restaurants')
-   * @param {Array} restaurants - Array of restaurant objects
-   * @param {Function} progressCallback - Progress callback function
-   * @returns {Promise<Object>} Results object with success/failed counts
+   * Bulk add restaurants
    */
   async bulkAddRestaurants(resourceType, restaurants, progressCallback) {
     if (resourceType !== 'restaurants') {
       throw new Error('Bulk add is only supported for restaurants');
     }
     
-    const apiClient = getDefaultApiClient();
     logInfo(`[EnhancedAdminService] Starting bulk add of ${restaurants.length} restaurants`);
     
+    const results = {
+      success: 0,
+      failed: 0,
+      errors: []
+    };
+    
     try {
-      const results = {
-        success: 0,
-        failed: 0,
-        total: restaurants.length,
-        errors: []
-      };
-      
-      // Process restaurants in batches for better performance
-      const batchSize = 10;
+      // Process in batches
+      const batchSize = 20;
       const totalBatches = Math.ceil(restaurants.length / batchSize);
       
       for (let i = 0; i < totalBatches; i++) {
-        const batch = restaurants.slice(i * batchSize, (i + 1) * batchSize);
+        const start = i * batchSize;
+        const batch = restaurants.slice(start, start + batchSize);
         
         try {
-          const response = await apiClient.post('/admin/restaurants/bulk', {
+          const response = await httpClient.post('/admin/restaurants/bulk', {
             restaurants: batch
           });
           
-          const batchResults = handleApiResponse(response);
-          results.success += batchResults.success || 0;
-          results.failed += batchResults.failed || 0;
+          results.success += batch.length;
           
-          if (batchResults.errors) {
-            results.errors.push(...batchResults.errors);
+          // Report progress
+          if (progressCallback) {
+            progressCallback({
+              completed: Math.min((i + 1) * batchSize, restaurants.length),
+              total: restaurants.length,
+              batchResults: response.data
+            });
           }
         } catch (error) {
-          logError(`[EnhancedAdminService] Error in batch ${i + 1}:`, error);
           results.failed += batch.length;
           results.errors.push(`Batch ${i + 1}: ${error.message}`);
+          logError(`[EnhancedAdminService] Error in batch ${i + 1}:`, error);
         }
-        
-        // Update progress
-        const progress = ((i + 1) / totalBatches) * 100;
-        progressCallback?.(progress);
       }
       
       logInfo(`[EnhancedAdminService] Bulk add completed: ${results.success} success, ${results.failed} failed`);
-      
       return results;
     } catch (error) {
       logError(`[EnhancedAdminService] Error during bulk add:`, error);
@@ -644,52 +603,36 @@ export const enhancedAdminService = {
 
   /**
    * Bulk add restaurants from uploaded file
-   * @param {string} resourceType - Type of resource (should be 'restaurants')
-   * @param {File} file - Uploaded file
-   * @param {Function} progressCallback - Progress callback function
-   * @returns {Promise<Object>} Results object with success/failed counts
    */
   async bulkAddRestaurantsFromFile(resourceType, file, progressCallback) {
     if (resourceType !== 'restaurants') {
-      throw new Error('Bulk add is only supported for restaurants');
+      throw new Error('File bulk add is only supported for restaurants');
     }
     
     logInfo(`[EnhancedAdminService] Starting bulk add from file: ${file.name}`);
     
     try {
-      progressCallback?.(25);
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('resourceType', resourceType);
       
-      // Read file content
-      const fileContent = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target.result);
-        reader.onerror = (e) => reject(new Error('Failed to read file'));
-        reader.readAsText(file);
+      const response = await httpClient.post('/admin/restaurants/bulk-upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        },
+        onUploadProgress: (progressEvent) => {
+          if (progressCallback) {
+            const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            progressCallback({
+              uploadProgress: progress,
+              completed: progressEvent.loaded,
+              total: progressEvent.total
+            });
+          }
+        }
       });
       
-      progressCallback?.(50);
-      
-      // Parse restaurants from file content
-      const restaurants = fileContent.split('\n')
-        .filter(line => line.trim())
-        .map(line => {
-          const [name, address, city, state, zip] = line.split(',').map(s => s.trim());
-          return { name, address, city, state, zip };
-        })
-        .filter(restaurant => restaurant.name && restaurant.address);
-      
-      progressCallback?.(75);
-      
-      // Use the bulkAddRestaurants method to process
-      const results = await this.bulkAddRestaurants(resourceType, restaurants, (progress) => {
-        // Scale progress from 75-100%
-        const scaledProgress = 75 + (progress * 0.25);
-        progressCallback?.(scaledProgress);
-      });
-      
-      results.records = restaurants.length;
-      
-      return results;
+      return response.data;
     } catch (error) {
       logError(`[EnhancedAdminService] Error during bulk add from file:`, error);
       throw error;
@@ -697,4 +640,4 @@ export const enhancedAdminService = {
   }
 };
 
-export default enhancedAdminService; 
+export default enhancedAdminService;

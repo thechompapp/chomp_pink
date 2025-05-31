@@ -9,6 +9,10 @@ const initialState = {
   isLoading: false, // Generic global loading indicator state
   globalError: null, // Global error message for banners/toasts
   globalSuccess: null, // Global success message for banners/toasts
+  
+  // Search State (needed by SearchBar component)
+  searchQuery: '', // Current search query
+  
   // Example: Submission Modal State (if truly global)
   // isSubmissionModalOpen: false,
 };
@@ -22,6 +26,10 @@ export const useUIStateStore = create(
         ...initialState,
 
         // --- Actions ---
+
+        // Search Actions
+        setSearchQuery: (query) => set({ searchQuery: query || '' }),
+        clearSearchQuery: () => set({ searchQuery: '' }),
 
         // Global Feedback Actions
         setIsLoading: (isLoading) => set({ isLoading }), // Set global loading state
@@ -59,12 +67,11 @@ export const useUIStateStore = create(
         // closeSubmissionModal: () => set({ isSubmissionModalOpen: false }),
 
         // --- REMOVED ---
-        // - searchQuery, activeFilters, cities, neighborhoods, hashtags, cuisines state
+        // - activeFilters, cities, neighborhoods, hashtags, cuisines state
         // - isLoadingFilters, isLoadingCities, isLoadingNeighborhoods, isLoadingCuisines state
         // - filterError, errorCities, errorNeighborhoods, errorCuisines state
         // - cityId, neighborhoodId state
         // - isInitialDataFetched state
-        // - setSearchQuery, clearSearchQuery actions
         // - setActiveFilters, resetFilters actions
         // - fetchFilters, fetchCities, fetchNeighborhoods, fetchCuisines actions
         // - setCityId, setNeighborhoodId, setHashtags, clearAllFilters actions

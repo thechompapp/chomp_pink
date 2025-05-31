@@ -118,19 +118,46 @@ const SearchResultsPage = () => {
                 <h2 className={TYPOGRAPHY.SECTION_TITLE}>{title} ({items.length})</h2>
                 <div className={GRID_LAYOUTS.SEARCH}>
                     {items.map(item => {
-                        const props = { 
-                            key: `${sectionKey}-${item.id}`, 
-                            ...item 
+                        // Safely extract only the needed primitive props
+                        const baseProps = {
+                            key: `${sectionKey}-${item.id}`,
+                            id: item.id,
+                            name: String(item.name || ''),
+                            description: String(item.description || ''),
+                            imageUrl: String(item.imageUrl || item.image_url || ''),
+                            rating: Number(item.rating || 0),
+                            price: item.price ? String(item.price) : '',
+                            address: String(item.address || ''),
+                            city: String(item.city || ''),
+                            restaurant: item.restaurant ? String(item.restaurant) : '',
+                            restaurantId: item.restaurant_id || item.restaurantId,
+                            createdBy: item.created_by ? String(item.created_by) : '',
+                            createdAt: item.created_at ? String(item.created_at) : '',
+                            itemCount: Number(item.itemCount || item.item_count || 0),
+                            // Only include defined primitive values
+                            ...(item.hashtags && Array.isArray(item.hashtags) ? { hashtags: item.hashtags.map(h => String(h)) } : {}),
+                            ...(item.neighborhood ? { neighborhood: String(item.neighborhood) } : {}),
+                            ...(item.phone ? { phone: String(item.phone) } : {}),
+                            ...(item.website ? { website: String(item.website) } : {}),
+                            ...(item.priceRange ? { priceRange: String(item.priceRange) } : {})
                         };
                         
                         // Add onAddToList for restaurant and dish cards
                         if (sectionKey === 'restaurants') {
-                            props.onAddToList = () => handleAddToList({ ...item, type: 'restaurant' });
+                            baseProps.onAddToList = () => handleAddToList({ 
+                                id: item.id, 
+                                name: String(item.name || ''), 
+                                type: 'restaurant' 
+                            });
                         } else if (sectionKey === 'dishes') {
-                            props.onAddToList = () => handleAddToList({ ...item, type: 'dish' });
+                            baseProps.onAddToList = () => handleAddToList({ 
+                                id: item.id, 
+                                name: String(item.name || ''), 
+                                type: 'dish' 
+                            });
                         }
                         
-                        return <CardComponent {...props} />;
+                        return <CardComponent {...baseProps} />;
                     })}
                 </div>
             </div>
@@ -155,7 +182,13 @@ const SearchResultsPage = () => {
     return (
         <div className={`${CONTAINER.MAX_WIDTH} mx-auto ${CONTAINER.PADDING} ${CONTAINER.VERTICAL_SPACING} ${CONTAINER.SECTION_SPACING}`}>
             {/* Keep SearchBar at the top */}
-            <SearchBar onSearch={handleSearch} initialQuery={searchQuery} />
+            <SearchBar 
+                onSearch={handleSearch} 
+                initialQuery={searchQuery}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                contentType={searchType}
+            />
 
             {/* Loading State */}
             {isLoading && searchTriggered && (

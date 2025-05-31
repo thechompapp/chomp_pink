@@ -1,3 +1,8 @@
+/* OBSOLETE: This hook is no longer needed with EnhancedListModal
+// This file is marked for deletion after testing confirms no regressions
+*/
+
+/*
 // src/hooks/useListDetailModal.js
 import { useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';

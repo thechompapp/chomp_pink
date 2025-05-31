@@ -4,7 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/auth';
 import { useAdminAuth } from '../hooks/useAdminAuth';
 import Button from '../components/UI/Button';
-import { logDebug, logInfo } from '../utils/logger';
+import { logDebug, logInfo, logError } from '../utils/logger';
 import { debounce } from '../utils/helpers';
 import offlineModeGuard from '../utils/offlineModeGuard';
 
@@ -20,18 +20,19 @@ const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   
   const location = useLocation();
   const navigate = useNavigate();
   
   // Use the new authentication context
-  const { isAuthenticated, user, logout, isLoading } = useAuth();
+  const { isAuthenticated, user, logout, isLoading: authLoading } = useAuth();
   
   // Use the admin hook for permission checks
   const adminAuth = useAdminAuth();
   
   // Check if user has admin access
-  const isAdmin = user && adminAuth.can('admin.access');
+  const isAdmin = user && adminAuth.hasAdminAccess;
   
   /**
    * Toggle mobile menu
@@ -77,10 +78,59 @@ const Navbar = () => {
    * Handle logout action
    */
   const handleLogout = async () => {
+    console.log('🚨 [Navbar] Logout initiated - DEBUGGING TOKEN CLEARING');
     logInfo('[Navbar] Logout initiated');
     
     try {
-      await logout();
+      // Log current tokens BEFORE logout
+      const tokensBefore = {
+        authToken: localStorage.getItem('auth-token'),
+        token: localStorage.getItem('token'),
+        userData: localStorage.getItem('userData'),
+        authStorage: localStorage.getItem('auth-authentication-storage')
+      };
+      console.log('🔍 [Navbar] Tokens BEFORE logout:', tokensBefore);
+      
+      // Close all menus immediately
+      closeMenus();
+      
+      // Show loading state briefly
+      setIsLoading(true);
+      
+      // Perform logout
+      console.log('🔄 [Navbar] Calling logout function...');
+      const result = await logout();
+      console.log('✅ [Navbar] Logout function completed:', result);
+      
+      // Log tokens AFTER logout function
+      const tokensAfterLogout = {
+        authToken: localStorage.getItem('auth-token'),
+        token: localStorage.getItem('token'),
+        userData: localStorage.getItem('userData'),
+        authStorage: localStorage.getItem('auth-authentication-storage'),
+        explicitLogout: localStorage.getItem('user_explicitly_logged_out')
+      };
+      console.log('🔍 [Navbar] Tokens AFTER logout function:', tokensAfterLogout);
+      
+      // FORCE CLEAR ALL TOKENS MANUALLY (as backup)
+      console.log('🧹 [Navbar] Force clearing all tokens manually...');
+      const allTokenKeys = [
+        'auth-token', 'token', 'refreshToken', 'userData', 'current_user',
+        'admin_api_key', 'admin_access_enabled', 'superuser_override',
+        'auth-authentication-storage', 'auth-storage', 'auth_access_token',
+        'auth_refresh_token', 'auth_token_expiry'
+      ];
+      
+      allTokenKeys.forEach(key => {
+        localStorage.removeItem(key);
+        sessionStorage.removeItem(key);
+      });
+      
+      // Set explicit logout flag AFTER clearing tokens to ensure it persists
+      localStorage.setItem('user_explicitly_logged_out', 'true');
+      
+      // Also set E2E testing mode flag to prevent auto-restoration
+      localStorage.setItem('logout_in_progress', 'true');
       
       // Clear offline mode flags after logout
       if (offlineModeGuard && typeof offlineModeGuard.clearOfflineModeFlags === 'function') {
@@ -88,18 +138,65 @@ const Navbar = () => {
         offlineModeGuard.clearOfflineModeFlags();
       }
       
-      // Close menus
+      // Log tokens AFTER manual clearing
+      const tokensAfterManualClear = {
+        authToken: localStorage.getItem('auth-token'),
+        token: localStorage.getItem('token'),
+        userData: localStorage.getItem('userData'),
+        authStorage: localStorage.getItem('auth-authentication-storage'),
+        explicitLogout: localStorage.getItem('user_explicitly_logged_out')
+      };
+      console.log('🔍 [Navbar] Tokens AFTER manual clearing:', tokensAfterManualClear);
+      
+      // Force complete state refresh
+      window.dispatchEvent(new CustomEvent('auth:logout_complete', {
+        detail: { 
+          source: 'navbar',
+          timestamp: Date.now(),
+          complete: true,
+          manualClear: true
+        }
+      }));
+      
+      // Force UI refresh
+      window.dispatchEvent(new CustomEvent('forceUiRefresh', {
+        detail: { 
+          source: 'navbar-logout',
+          timestamp: Date.now() 
+        }
+      }));
+      
+      // Navigate to home page after a brief delay to ensure state is cleared
+      setTimeout(() => {
+        console.log('🏠 [Navbar] Navigating to home page...');
+        navigate('/', { replace: true });
+      }, 100);
+      
+      console.log('✅ [Navbar] Logout completed successfully');
+      logInfo('[Navbar] Logout completed successfully');
+      
+    } catch (error) {
+      console.error('❌ [Navbar] Error during logout:', error);
+      logError('[Navbar] Error during logout:', error);
+      
+      // Even on error, force clear local state and navigate
       closeMenus();
       
-      // Navigate to home page
-      navigate('/');
+      // Force clear critical tokens
+      ['auth-token', 'token', 'auth-authentication-storage', 'userData'].forEach(key => {
+        localStorage.removeItem(key);
+      });
       
-      // Force UI refresh event
-      window.dispatchEvent(new CustomEvent('forceUiRefresh', {
-        detail: { timestamp: Date.now() }
-      }));
-    } catch (error) {
-      console.error('[Navbar] Error during logout:', error);
+      // Set logout flag
+      localStorage.setItem('user_explicitly_logged_out', 'true');
+      
+      // Navigate anyway
+      navigate('/', { replace: true });
+      
+      // Force refresh as last resort
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     }
   };
   
@@ -117,7 +214,7 @@ const Navbar = () => {
   }, [location.pathname, closeMenus]);
   
   // Render loading state during authentication check
-  if (isLoading) {
+  if (authLoading) {
     return (
       <nav className="fixed top-0 left-0 right-0 z-50 bg-card shadow-md h-16 flex items-center justify-center">
         <div className="animate-pulse">
@@ -277,6 +374,8 @@ const Navbar = () => {
                         onClick={handleLogout}
                         className="block w-full text-left px-4 py-2 text-sm text-destructive hover:bg-destructive/10"
                         role="menuitem"
+                        data-testid="logout-button"
+                        id="logout-button"
                       >
                         Sign out
                       </button>
@@ -412,23 +511,11 @@ const Navbar = () => {
                 >
                   My Submissions
                 </Link>
-                {isAdmin && (
-                  <>
-                    <Link
-                      to="/admin"
-                      className={`block px-3 py-2 rounded-md text-base font-medium ${
-                        location.pathname === '/admin'
-                          ? 'bg-primary/10 text-primary'
-                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                      }`}
-                    >
-                      Admin Panel
-                    </Link>
-                  </>
-                )}
                 <button
                   onClick={handleLogout}
                   className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-destructive hover:bg-destructive/10"
+                  data-testid="mobile-logout-button"
+                  id="mobile-logout-button"
                 >
                   Sign out
                 </button>

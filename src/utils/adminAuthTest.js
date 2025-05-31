@@ -96,7 +96,7 @@ const fixAdminAuth = async () => {
  * Reset admin authentication (clear all auth data)
  * @returns {void}
  */
-const resetAdminAuth = () => {
+const resetAdminAuth = async () => {
   console.log('🗑️ Resetting admin authentication...');
   
   try {
@@ -106,8 +106,8 @@ const resetAdminAuth = () => {
     
     // Setup fresh auth in development
     if (import.meta.env.DEV) {
-      setTimeout(() => {
-        AdminAuthSetup.setupDevelopmentAuth();
+      setTimeout(async () => {
+        await AdminAuthSetup.setupDevelopmentAuth();
         console.log('🔄 Fresh development authentication setup');
       }, 500);
     }

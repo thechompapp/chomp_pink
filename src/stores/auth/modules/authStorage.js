@@ -103,7 +103,15 @@ export function updateStoredToken(token) {
 export function setDevModeFlags() {
   if (typeof localStorage === 'undefined') return;
   
-  localStorage.removeItem(AUTH_CONFIG.EXPLICIT_LOGOUT_KEY);
+  // Don't clear explicit logout flag - respect user's logout intention
+  // Only clear it if this is NOT an explicit logout scenario
+  const hasExplicitlyLoggedOut = localStorage.getItem(AUTH_CONFIG.EXPLICIT_LOGOUT_KEY) === 'true';
+  const isE2ETesting = localStorage.getItem('e2e_testing_mode') === 'true';
+  
+  if (!hasExplicitlyLoggedOut && !isE2ETesting) {
+    localStorage.removeItem(AUTH_CONFIG.EXPLICIT_LOGOUT_KEY);
+  }
+  
   localStorage.setItem(AUTH_CONFIG.BYPASS_AUTH_KEY, 'true');
   logInfo('[AuthStorage] Development mode flags set');
 }
@@ -209,6 +217,16 @@ export function clearAllAuthStorage() {
  * @returns {Object|null} Restored session data or null
  */
 export function restoreSessionFromStorage() {
+  // Check if user has explicitly logged out - if so, don't restore session
+  const hasExplicitlyLoggedOut = localStorage.getItem(AUTH_CONFIG.EXPLICIT_LOGOUT_KEY) === 'true';
+  const isE2ETesting = localStorage.getItem('e2e_testing_mode') === 'true';
+  const isLogoutInProgress = localStorage.getItem('logout_in_progress') === 'true';
+  
+  if (hasExplicitlyLoggedOut || isE2ETesting || isLogoutInProgress) {
+    logInfo('[AuthStorage] Not restoring session - user explicitly logged out or testing mode');
+    return null;
+  }
+  
   const storedData = getStoredAuthData();
   
   if (storedData?.state?.token) {

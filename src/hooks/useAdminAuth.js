@@ -1,8 +1,7 @@
 /**
- * Simplified Admin Authentication Hook - Coordinated Version
+ * Optimized Admin Authentication Hook
  * 
- * Uses the centralized AuthenticationCoordinator for all admin auth state.
- * This eliminates redundancy and ensures synchronization across the app.
+ * Works with the optimized AuthContext for admin authentication state.
  */
 
 import { useMemo } from 'react';
@@ -10,16 +9,12 @@ import { useAuth } from '@/contexts/auth/AuthContext';
 import { logDebug } from '@/utils/logger';
 
 /**
- * Simplified hook for accessing admin authentication state
- * All logic is delegated to the AuthenticationCoordinator
+ * Hook for accessing admin authentication state
  * 
  * @returns {Object} Admin auth state and helper methods
  */
 export function useAdminAuth() {
-  const { isAuthenticated, user, coordinator } = useAuth();
-  
-  // Get coordinator state
-  const coordinatorState = coordinator.getCurrentState();
+  const { isAuthenticated, user, isSuperuser } = useAuth();
   
   // Memoize the admin auth object to prevent unnecessary re-renders
   const adminAuth = useMemo(() => {
@@ -28,9 +23,8 @@ export function useAdminAuth() {
       const isDevelopment = import.meta.env.DEV;
       const forceAdminAccess = isDevelopment && isAuthenticated;
       
-      // Check admin status from coordinator state
-      const isAdmin = forceAdminAccess || coordinatorState.isAdmin;
-      const isSuperuser = forceAdminAccess || coordinatorState.isSuperuser;
+      // Check admin status from user data
+      const isAdmin = forceAdminAccess || isSuperuser;
       const hasAdminAccess = isAdmin || isSuperuser;
       
       return {
@@ -39,12 +33,12 @@ export function useAdminAuth() {
         isSuperuser,
         hasAdminAccess,
         
-        // Ready state - always ready with coordinator
+        // Ready state - always ready with optimized system
         isReady: true,
         isLoading: false,
         
         // User info
-        user: coordinatorState.user,
+        user,
         
         // Permission checking methods
         can: (permission) => {
@@ -95,7 +89,7 @@ export function useAdminAuth() {
         adminOverrideApplied: isDevelopment && isAuthenticated
       };
     }
-  }, [isAuthenticated, user, coordinatorState]);
+  }, [isAuthenticated, user, isSuperuser]);
   
   return adminAuth;
 }

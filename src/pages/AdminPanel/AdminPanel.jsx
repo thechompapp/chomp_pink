@@ -23,7 +23,6 @@ import { BulkOperationsPanel } from '@/components/AdminPanel/BulkOperationsPanel
 import { useAuth } from '@/contexts/auth/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { AdminAuthSetup } from '@/utils/adminAuthSetup';
-import authCoordinator from '@/utils/AuthenticationCoordinator';
 import { logInfo, logWarn, logError } from '@/utils/logger';
 
 /**
@@ -107,19 +106,16 @@ const TAB_CONFIG = {
  */
 const AdminPanel = () => {
   const navigate = useNavigate();
-  const { isAuthenticated, user, coordinator } = useAuth();
+  const { isAuthenticated, user, isSuperuser } = useAuth();
   const [activeTab, setActiveTab] = useState('analytics');
   const [isInitializing, setIsInitializing] = useState(true);
   const [selectedResourceType, setSelectedResourceType] = useState('restaurants');
   const [authReady, setAuthReady] = useState(false);
   const [adminAccess, setAdminAccess] = useState(false);
   
-  // Check admin access using coordinator
+  // Check admin access using optimized auth
   const hasAdminAccess = useMemo(() => {
     if (!isAuthenticated || !user) return false;
-    
-    // Check coordinator state
-    const coordinatorState = coordinator.getCurrentState();
     
     // In development mode, always grant access if authenticated
     if (import.meta.env.DEV && isAuthenticated) {
@@ -127,14 +123,13 @@ const AdminPanel = () => {
     }
     
     // Check admin/superuser status
-    return coordinatorState.isAdmin || coordinatorState.isSuperuser || 
-           user?.role === 'admin' || user?.account_type === 'superuser';
-  }, [isAuthenticated, user, coordinator]);
+    return isSuperuser || user?.role === 'admin' || user?.account_type === 'superuser';
+  }, [isAuthenticated, user, isSuperuser]);
 
   // Authentication verification
   useEffect(() => {
     const verifyAuth = async () => {
-      logInfo('[EnhancedAdminPanel] Verifying authentication with coordinator');
+      logInfo('[EnhancedAdminPanel] Verifying authentication');
       
       if (!isAuthenticated) {
         logWarn('[EnhancedAdminPanel] User not authenticated');
@@ -146,11 +141,6 @@ const AdminPanel = () => {
       // In development mode, ensure admin access is set up
       if (import.meta.env.DEV && isAuthenticated) {
         logInfo('[EnhancedAdminPanel] Development mode - setting up admin access');
-        
-        // Let coordinator handle development admin setup
-        const coordinatorState = coordinator.getCurrentState();
-        logInfo('[EnhancedAdminPanel] Coordinator state:', coordinatorState);
-        
         setAdminAccess(true);
         setAuthReady(true);
         return;
@@ -169,7 +159,7 @@ const AdminPanel = () => {
     };
 
     verifyAuth();
-  }, [isAuthenticated, user, hasAdminAccess, coordinator]);
+  }, [isAuthenticated, user, hasAdminAccess]);
   
   // Fetch all admin data
   const {

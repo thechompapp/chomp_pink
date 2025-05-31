@@ -8,7 +8,7 @@ import { engagementService } from '@/services/engagementService';
 import { listService } from '@/services/listService';
 import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
 import useFollowStore from '@/stores/useFollowStore';
-import { useListDetail } from '@/contexts/ListDetailContext';
+import EnhancedListModal from '@/components/modals/EnhancedListModal'; // Enhanced modal
 import Button from '@/components/UI/Button'; // Assuming this is your custom Button
 import { formatRelativeDate } from '@/utils/formatting';
 import { logDebug, logError } from '@/utils/logger'; // Added logError
@@ -69,10 +69,10 @@ const ModalListPreviewCard = ({ list, onAddToList, // Renamed onQuickAdd to onAd
                                }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isFollowProcessing, setIsFollowProcessing] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false); // Enhanced modal state
   
   const { user, isAuthenticated  } = useAuth();
   const { isFollowing, toggleFollowStatus } = useFollowStore();
-  const { openListDetail } = useListDetail();
   
   const followStatus = list ? isFollowing(list.id) : false;
 
@@ -162,9 +162,9 @@ const ModalListPreviewCard = ({ list, onAddToList, // Renamed onQuickAdd to onAd
       item_type: 'list',
       engagement_type: 'click',
     });
-    logDebug(`[ModalListPreviewCard] Opening modal for list ${list.id}`);
-    openListDetail(list.id);
-  }, [list?.id, openListDetail]);
+    logDebug(`[ModalListPreviewCard] Opening enhanced modal for list ${list.id}`);
+    setIsModalOpen(true);
+  }, [list?.id]);
 
   const toggleExpand = useCallback((e) => {
     if (!list) return;
@@ -302,6 +302,17 @@ const ModalListPreviewCard = ({ list, onAddToList, // Renamed onQuickAdd to onAd
         )}
       </div>
     </div>
+    
+    {/* Enhanced List Modal */}
+    <EnhancedListModal
+      isOpen={isModalOpen}
+      onClose={() => setIsModalOpen(false)}
+      list={list}
+      onShare={(listData) => {
+        // Handle sharing functionality
+        console.log('Sharing list:', listData);
+      }}
+    />
   );
 };
 

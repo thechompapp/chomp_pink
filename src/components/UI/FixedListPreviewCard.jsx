@@ -8,7 +8,7 @@ import { Star, Loader2 } from 'lucide-react';
 import { listService } from '@/services/listService';
 import { logDebug, logError } from '@/utils/logger';
 import { useQuickAdd } from '@/contexts/QuickAddContext';
-import { useListDetail } from '@/contexts/ListDetailContext';
+import EnhancedListModal from '@/components/modals/EnhancedListModal'; // Enhanced modal
 import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
 import useFollowStore from '@/stores/useFollowStore';
 import { formatRelativeDate } from '@/utils/formatting';
@@ -17,9 +17,9 @@ import { engagementService } from '@/services/engagementService';
 function FixedListPreviewCard({ list }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isFollowProcessing, setIsFollowProcessing] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false); // Enhanced modal state
   const { openQuickAdd } = useQuickAdd();
   const { user, isAuthenticated  } = useAuth();
-  const { openListDetail } = useListDetail();
   const listId = list?.id;
   
   // Use the follow store to manage follow status
@@ -56,10 +56,10 @@ function FixedListPreviewCard({ list }) {
       engagement_type: 'click',
     });
     
-    // Open the modal
-    console.log(`[ListPreviewCard] Opening modal for list ${listId}`);
-    openListDetail(listId);
-  }, [listId, openListDetail]);
+    // Open the enhanced modal
+    console.log(`[ListPreviewCard] Opening enhanced modal for list ${listId}`);
+    setIsModalOpen(true);
+  }, [listId]);
 
   // Handle follow/unfollow toggle
   const handleToggleFollow = async (e) => {
@@ -210,6 +210,17 @@ function FixedListPreviewCard({ list }) {
         )}
       </div>
     </div>
+    
+    {/* Enhanced List Modal */}
+    <EnhancedListModal
+      isOpen={isModalOpen}
+      onClose={() => setIsModalOpen(false)}
+      list={list}
+      onShare={(listData) => {
+        // Handle sharing functionality
+        console.log('Sharing list:', listData);
+      }}
+    />
   );
 }
 

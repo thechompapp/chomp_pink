@@ -9,6 +9,7 @@
  * - Search functionality
  * - Error handling and recovery
  * - Performance optimizations
+ * - Data cleanup functionality
  */
 
 import React, { useState, useMemo, useCallback } from 'react';
@@ -33,6 +34,7 @@ import { useEnhancedAdminTable } from '@/hooks/useEnhancedAdminTable';
 import { EnhancedEditableCell } from './EnhancedEditableCell';
 import { COLUMN_CONFIG } from '@/pages/AdminPanel/columnConfig';
 import GooglePlacesModal from './GooglePlacesModal';
+import { DataCleanupButton } from './DataCleanupButton';
 import { enhancedAdminService } from '@/services/enhancedAdminService';
 
 // Table header component
@@ -224,6 +226,8 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
 
 // Toolbar component
 const TableToolbar = ({ 
+  resourceType,
+  data = [],
   searchTerm, 
   onSearch, 
   selectedRows, 
@@ -265,6 +269,14 @@ const TableToolbar = ({
           {selectedRows.size} selected
         </span>
       )}
+      
+      {/* Data Cleanup Button */}
+      <DataCleanupButton
+        resourceType={resourceType}
+        data={data}
+        onRefresh={onRefresh}
+        className="mr-2"
+      />
       
       {/* Bulk edit */}
       {enableBulkOperations && selectedRows.size > 0 && (
@@ -496,6 +508,8 @@ export const EnhancedAdminTable = ({
     <div className={cn("bg-white rounded-lg border", className)}>
       {/* Toolbar */}
       <TableToolbar
+        resourceType={resourceType}
+        data={data}
         searchTerm={searchTerm}
         onSearch={handleSearch}
         selectedRows={selectedRows}

@@ -6,17 +6,34 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useUIStateStore } from '@/stores/useUIStateStore';
 import { searchService } from '@/services/searchService';
 
-const SearchBar = ({ searchQuery, setSearchQuery, contentType }) => {
+const SearchBar = ({ 
+  searchQuery, 
+  setSearchQuery, 
+  contentType = 'all',
+  onSearch,
+  initialQuery,
+  className = ''
+}) => {
   const navigate = useNavigate();
   const storedQuery = useUIStateStore(state => state.searchQuery);
   const setStoredSearchQuery = useUIStateStore(state => state.setSearchQuery);
 
-  const [query, setQuery] = useState(searchQuery || storedQuery || '');
+  // Use initialQuery or searchQuery or storedQuery as fallback
+  const [query, setQuery] = useState(initialQuery || searchQuery || storedQuery || '');
   const [results, setResults] = useState({ dishes: [], restaurants: [], lists: [] });
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState(null);
   const [showResults, setShowResults] = useState(false);
   const searchRef = useRef(null);
+
+  // Create a safe setSearchQuery function that handles missing prop
+  const safeSetSearchQuery = useCallback((value) => {
+    if (typeof setSearchQuery === 'function') {
+      setSearchQuery(value);
+    }
+    // Always update the store as fallback
+    setStoredSearchQuery(value);
+  }, [setSearchQuery, setStoredSearchQuery]);
 
   const performSearch = useCallback(async (searchTerm) => {
     if (!searchTerm || searchTerm.trim().length < 2) {
@@ -42,8 +59,9 @@ const SearchBar = ({ searchQuery, setSearchQuery, contentType }) => {
   }, [contentType]);
 
   useEffect(() => {
-    setQuery(searchQuery || storedQuery || '');
-  }, [searchQuery, storedQuery]);
+    const newQuery = initialQuery || searchQuery || storedQuery || '';
+    setQuery(newQuery);
+  }, [initialQuery, searchQuery, storedQuery]);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -72,11 +90,17 @@ const SearchBar = ({ searchQuery, setSearchQuery, contentType }) => {
     e.preventDefault();
     const trimmedQuery = query.trim();
     if (trimmedQuery) {
-      setSearchQuery(trimmedQuery);
-      setStoredSearchQuery(trimmedQuery);
+      safeSetSearchQuery(trimmedQuery);
       setShowResults(false);
-      if (!window.location.pathname.startsWith('/search') || new URLSearchParams(window.location.search).get('q') !== trimmedQuery) {
-        navigate(`/search?q=${encodeURIComponent(trimmedQuery)}&type=${contentType}`);
+      
+      // If onSearch prop is provided, use it (for Search page)
+      if (typeof onSearch === 'function') {
+        onSearch(trimmedQuery, contentType);
+      } else {
+        // Default navigation behavior (for Home page)
+        if (!window.location.pathname.startsWith('/search') || new URLSearchParams(window.location.search).get('q') !== trimmedQuery) {
+          navigate(`/search?q=${encodeURIComponent(trimmedQuery)}&type=${contentType}`);
+        }
       }
     }
   };
@@ -84,11 +108,10 @@ const SearchBar = ({ searchQuery, setSearchQuery, contentType }) => {
   const handleClearSearch = useCallback(() => {
     setQuery('');
     setResults({ dishes: [], restaurants: [], lists: [] });
-    setSearchQuery('');
-    setStoredSearchQuery('');
+    safeSetSearchQuery('');
     setShowResults(false);
     searchRef.current?.querySelector('input')?.focus();
-  }, [setSearchQuery, setStoredSearchQuery]);
+  }, [safeSetSearchQuery]);
 
   const handleResultClick = useCallback(() => {
     setShowResults(false);
@@ -110,7 +133,7 @@ const SearchBar = ({ searchQuery, setSearchQuery, contentType }) => {
   );
 
   return (
-    <div className="relative w-full" ref={searchRef}>
+    <div className={`relative w-full ${className}`} ref={searchRef}>
       <form onSubmit={handleSearchSubmit} className="flex items-center w-full">
         <div className="relative flex-grow">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -121,13 +144,13 @@ const SearchBar = ({ searchQuery, setSearchQuery, contentType }) => {
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
-              setSearchQuery(e.target.value);
+              safeSetSearchQuery(e.target.value);
               setShowResults(true);
             }}
             onFocus={() => setShowResults(true)}
-            placeholder={`Search ${contentType}...`}
+            placeholder={`Search ${contentType === 'all' ? 'everything' : contentType}...`}
             className="block w-full pl-9 pr-10 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-[#D1B399] focus:border-[#D1B399] sm:text-sm"
-            aria-label={`Search ${contentType}`}
+            aria-label={`Search ${contentType === 'all' ? 'everything' : contentType}`}
             autoComplete="off"
           />
           {query && !isSearching && (
@@ -145,25 +168,25 @@ const SearchBar = ({ searchQuery, setSearchQuery, contentType }) => {
         </div>
       </form>
       {showResults && query && query.trim().length >= 2 && (
-        <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-80 overflow-y-auto">
+        <div className="absolute z-[60] mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-80 overflow-y-auto">
           {error ? (
             <div className="px-3 py-2 text-sm text-red-600">{error}</div>
           ) : !isSearching && !hasResults ? (
             <div className="px-3 py-2 text-sm text-gray-500">No results found for "{query}".</div>
           ) : (
             <ul>
-              {contentType === 'dishes' && results.dishes.length > 0 && (
+              {(contentType === 'dishes' || contentType === 'all') && results.dishes.length > 0 && (
                 <li className="px-3 pt-2 pb-1 text-xs font-semibold text-gray-600">Dishes</li>
               )}
-              {contentType === 'dishes' && results.dishes.map(dish => renderResultItem(dish, 'dish', Utensils))}
-              {contentType === 'restaurants' && results.restaurants.length > 0 && (
+              {(contentType === 'dishes' || contentType === 'all') && results.dishes.map(dish => renderResultItem(dish, 'dish', Utensils))}
+              {(contentType === 'restaurants' || contentType === 'all') && results.restaurants.length > 0 && (
                 <li className="px-3 pt-2 pb-1 text-xs font-semibold text-gray-600">Restaurants</li>
               )}
-              {contentType === 'restaurants' && results.restaurants.map(restaurant => renderResultItem(restaurant, 'restaurant', Store))}
-              {contentType === 'lists' && results.lists.length > 0 && (
+              {(contentType === 'restaurants' || contentType === 'all') && results.restaurants.map(restaurant => renderResultItem(restaurant, 'restaurant', Store))}
+              {(contentType === 'lists' || contentType === 'all') && results.lists.length > 0 && (
                 <li className="px-3 pt-2 pb-1 text-xs font-semibold text-gray-600">Lists</li>
               )}
-              {contentType === 'lists' && results.lists.map(list => renderResultItem(list, 'lists', List))}
+              {(contentType === 'lists' || contentType === 'all') && results.lists.map(list => renderResultItem(list, 'lists', List))}
               {hasResults && (
                 <li className="border-t border-gray-100 mt-1">
                   <button onClick={handleSearchSubmit} className="w-full text-left px-3 py-2 text-sm text-[#A78B71] font-medium hover:bg-gray-100 transition-colors">

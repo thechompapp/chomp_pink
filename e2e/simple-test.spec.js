@@ -85,10 +85,16 @@ test.describe('DOOF Simple Tests', () => {
     if (loginResponse.ok()) {
       const loginData = await loginResponse.json();
       expect(loginData.success).toBe(true);
-      expect(loginData.token).toBeDefined();
+      expect(loginData.data.token).toBeDefined();
+      expect(loginData.data.user).toBeDefined();
+      expect(loginData.data.user.email).toBe('admin@example.com');
       console.log('✓ Auth API working correctly');
+      console.log('✓ Token received:', loginData.data.token.substring(0, 20) + '...');
+      console.log('✓ User data:', { id: loginData.data.user.id, email: loginData.data.user.email });
     } else {
-      console.log('ℹ️ Auth API test failed - may need different credentials');
+      const errorData = await loginResponse.json().catch(() => ({}));
+      console.log('❌ Auth API test failed:', loginResponse.status(), errorData);
+      throw new Error(`Login failed with status ${loginResponse.status()}`);
     }
   });
 }); 

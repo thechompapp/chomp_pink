@@ -44,7 +44,10 @@ const Home = () => {
             </p>
           </div>
           
-          <SearchBar className="mb-6" />
+          <SearchBar 
+            className="mb-6" 
+            contentType={contentType}
+          />
           
           {/* Content Type Toggle */}
           <div className="flex justify-center">

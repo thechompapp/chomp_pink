@@ -74,7 +74,7 @@ const shouldAllowInOfflineMode = (config) => {
   // Allow certain endpoints that are safe for offline
   const { url } = config;
   const allowedEndpoints = [
-    '/auth/refresh',
+    '/auth/refresh-token',
     '/sync/queue',
     // Add other endpoints that should work offline
   ];

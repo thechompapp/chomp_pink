@@ -78,6 +78,13 @@ httpClient.interceptors.request.use(
       const token = tokenManager.getAccessToken();
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
+        if (config.url.includes('/admin/')) {
+          logDebug(`[HttpClient] Admin request - using token: ${token.substring(0, 20)}...`);
+        }
+      } else {
+        if (config.url.includes('/admin/')) {
+          logWarn(`[HttpClient] Admin request - NO TOKEN AVAILABLE for ${config.url}`);
+        }
       }
     }
     
@@ -144,8 +151,39 @@ httpClient.interceptors.response.use(
           throw new Error('No refresh token available');
         }
         
+        // Special handling for development mode with fake refresh tokens
+        if (refreshToken.startsWith('dev-refresh-') && import.meta.env.DEV) {
+          logDebug('[HttpClient] Development mode - re-authenticating instead of refreshing');
+          
+          // Import AdminAuthSetup and re-authenticate
+          const { AdminAuthSetup } = await import('@/utils/adminAuthSetup');
+          const success = await AdminAuthSetup.setupDevelopmentAuth();
+          
+          if (!success) {
+            throw new Error('Development re-authentication failed');
+          }
+          
+          // Get the new token
+          const newToken = tokenManager.getAccessToken();
+          if (!newToken) {
+            throw new Error('No new token after development re-authentication');
+          }
+          
+          // Update authorization header
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          
+          // Process queued requests
+          processRefreshQueue(newToken);
+          
+          // Reset refreshing flag
+          isRefreshing = false;
+          
+          // Retry original request
+          return httpClient(originalRequest);
+        }
+        
         // Attempt to refresh the token
-        const response = await axios.post('/api/auth/refresh', {
+        const response = await axios.post('/api/auth/refresh-token', {
           refreshToken
         });
         

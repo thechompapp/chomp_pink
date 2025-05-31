@@ -1,3 +1,8 @@
+/* OBSOLETE: This component has been replaced by EnhancedListModal
+// This file is marked for deletion after testing confirms no regressions
+*/
+
+/*
 // src/components/FixedListDetailModal.jsx
 import React, { useState, useEffect, useMemo, Fragment } from 'react';
 import PropTypes from 'prop-types';

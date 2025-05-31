@@ -1,745 +1,827 @@
-<testsuites id="" name="" tests="35" failures="0" skipped="0" errors="0" time="88.796573">
-<testsuite name="admin-panel.spec.js" timestamp="2025-05-30T15:34:27.584Z" hostname="chromium" tests="7" failures="0" skipped="0" time="25.876" errors="0">
-<testcase name="Admin Panel Functionality › should access admin panel with superuser credentials" classname="admin-panel.spec.js" time="3.886">
+<testsuites id="" name="" tests="35" failures="12" skipped="0" errors="0" time="106.98572899999999">
+<testsuite name="core-flows.spec.js" timestamp="2025-05-31T17:03:55.597Z" hostname="chromium" tests="7" failures="2" skipped="0" time="25.801" errors="0">
+<testcase name="DOOF Core User Flows › should load the application homepage" classname="core-flows.spec.js" time="1.226">
+<failure message="core-flows.spec.js:38:3 should load the application homepage" type="FAILURE">
+<![CDATA[  [chromium] › core-flows.spec.js:38:3 › DOOF Core User Flows › should load the application homepage 
+
+    Error: locator.isVisible: Error: strict mode violation: locator('nav') resolved to 2 elements:
+        1) <nav class="fixed top-0 left-0 right-0 z-50 transition-all duration-300 bg-card">…</nav> aka getByRole('navigation').filter({ hasText: 'DDoofHomeSearchTrendingListsSign inRegisterOpen main menu' })
+        2) <nav class="space-y-2">…</nav> aka getByText('HomeBrowse ListsSearch')
+
+    Call log:
+        - checking visibility of locator('nav')
+
+
+      47 |     
+      48 |     // Check for navigation elements - use actual navbar structure
+    > 49 |     const hasNavigation = await page.locator('nav').isVisible();
+         |                                                     ^
+      50 |     expect(hasNavigation).toBe(true);
+      51 |     
+      52 |     console.log('✓ Application loaded successfully');
+        at /Users/naf/Downloads/doof/e2e/core-flows.spec.js:49:53
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/core-flows-DOOF-Core-User--4b86b-ad-the-application-homepage-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/core-flows-DOOF-Core-User--4b86b-ad-the-application-homepage-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../e2e-results/test-artifacts/core-flows-DOOF-Core-User--4b86b-ad-the-application-homepage-chromium/error-context.md
+]]>
+</failure>
 <system-out>
-<![CDATA[🧪 Testing admin panel access
-🔐 Starting login process...
-📝 Filling login form...
-🚀 Submitting login form...
-📡 Response: 200 http://localhost:5174/api/auth/login
-✅ Login response received
-📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
-🎉 Login API successful, waiting for auth state update...
-🔄 Auth state check 1/10: {
-  isAuthenticated: [33mtrue[39m,
-  hasToken: [33mtrue[39m,
-  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MjcwLCJleHAiOjE3NDg2MjI4NzB9.LluLmAJJ69lNZKjIGwshUu3gEePfQ3cB5qgtj2Q0weU'[39m
-}
-✅ Auth state updated successfully
-✓ Direct admin panel access successful
-✓ Admin panel access test completed
+<![CDATA[🧹 Authentication state cleared
+🧪 Testing application loading
+🧹 Authentication state cleared
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User--4b86b-ad-the-application-homepage-chromium/test-failed-1.png]]
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User--4b86b-ad-the-application-homepage-chromium/video.webm]]
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User--4b86b-ad-the-application-homepage-chromium/error-context.md]]
 ]]>
 </system-out>
 </testcase>
-<testcase name="Admin Panel Functionality › should manage restaurants in admin panel" classname="admin-panel.spec.js" time="3.642">
+<testcase name="DOOF Core User Flows › should navigate through main pages" classname="core-flows.spec.js" time="1.167">
 <system-out>
-<![CDATA[🧪 Testing restaurant management
-🔐 Starting login process...
-📝 Filling login form...
-🚀 Submitting login form...
-📡 Response: 200 http://localhost:5174/api/auth/login
-✅ Login response received
-📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
-🎉 Login API successful, waiting for auth state update...
-🔄 Auth state check 1/10: {
-  isAuthenticated: [33mtrue[39m,
-  hasToken: [33mtrue[39m,
-  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MjczLCJleHAiOjE3NDg2MjI4NzN9.qu-6T8B9zBNCqSDMq7cZpFHGXJaSNjyUNE23xh2cbWo'[39m
-}
-✅ Auth state updated successfully
-ℹ️ Restaurant management section not found
-✓ Restaurant management test completed
+<![CDATA[🧹 Authentication state cleared
+🧪 Testing navigation
+✓ Trending page accessible
+✓ Navigation completed successfully
+🧹 Authentication state cleared
 ]]>
 </system-out>
 </testcase>
-<testcase name="Admin Panel Functionality › should access user management features" classname="admin-panel.spec.js" time="3.618">
+<testcase name="DOOF Core User Flows › should login successfully" classname="core-flows.spec.js" time="3.135">
 <system-out>
-<![CDATA[🧪 Testing user management
-🔐 Starting login process...
-📝 Filling login form...
-🚀 Submitting login form...
-📡 Response: 200 http://localhost:5174/api/auth/login
-✅ Login response received
-📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
-🎉 Login API successful, waiting for auth state update...
-🔄 Auth state check 1/10: {
-  isAuthenticated: [33mtrue[39m,
-  hasToken: [33mtrue[39m,
-  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5Mjc3LCJleHAiOjE3NDg2MjI4Nzd9.Dy-Xjp46XH5Gc2jmI9tGc77DzoVZyPenAc3nHIChaXk'[39m
-}
-✅ Auth state updated successfully
-ℹ️ User management section not found
-✓ User management test completed
+<![CDATA[🧹 Authentication state cleared
+🧪 Testing login flow
+Current URL after login attempt: http://localhost:5174/login
+ℹ️ Still on login page - may be normal behavior
+✓ Login flow completed
+🧹 Authentication state cleared
 ]]>
 </system-out>
 </testcase>
-<testcase name="Admin Panel Functionality › should view analytics and engagement data" classname="admin-panel.spec.js" time="3.695">
+<testcase name="DOOF Core User Flows › should connect to backend APIs" classname="core-flows.spec.js" time="1.143">
 <system-out>
-<![CDATA[🧪 Testing analytics dashboard
-🔐 Starting login process...
-📝 Filling login form...
-🚀 Submitting login form...
-📡 Response: 200 http://localhost:5174/api/auth/login
-✅ Login response received
-📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
-🎉 Login API successful, waiting for auth state update...
-🔄 Auth state check 1/10: {
-  isAuthenticated: [33mtrue[39m,
-  hasToken: [33mtrue[39m,
-  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MjgxLCJleHAiOjE3NDg2MjI4ODF9.K4R-dVtfezYqOyxSjUhJ6Pptp3iUVb93xYj9RFpVwXU'[39m
-}
-✅ Auth state updated successfully
-ℹ️ Analytics section not found
-✓ Analytics dashboard test completed
+<![CDATA[🧹 Authentication state cleared
+🧪 Testing backend API connectivity
+✓ Backend API connectivity verified
+🧹 Authentication state cleared
+]]>
+</system-out>
+<system-err>
+<![CDATA[⚠️ Auth API test failed: [2mexpect([22m[31mreceived[39m[2m).[22mtoBeDefined[2m()[22m
+
+Received: [31mundefined[39m
+]]>
+</system-err>
+</testcase>
+<testcase name="DOOF Core User Flows › should logout successfully" classname="core-flows.spec.js" time="16.416">
+<failure message="core-flows.spec.js:165:3 should logout successfully" type="FAILURE">
+<![CDATA[  [chromium] › core-flows.spec.js:165:3 › DOOF Core User Flows › should logout successfully ────────
+
+    TimeoutError: page.fill: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('input[name="email"], input[type="email"]')
+
+
+      168 |     // First, navigate to login and login manually
+      169 |     await page.goto('/login');
+    > 170 |     await page.fill('input[name="email"], input[type="email"]', CONFIG.EXISTING_USER.email);
+          |                ^
+      171 |     await page.fill('input[name="password"], input[type="password"]', CONFIG.EXISTING_USER.password);
+      172 |     await page.click('button[type="submit"], button:has-text("Login"), button:has-text("Sign In")');
+      173 |     await page.waitForTimeout(2000);
+        at /Users/naf/Downloads/doof/e2e/core-flows.spec.js:170:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/core-flows-DOOF-Core-User-Flows-should-logout-successfully-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/core-flows-DOOF-Core-User-Flows-should-logout-successfully-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../e2e-results/test-artifacts/core-flows-DOOF-Core-User-Flows-should-logout-successfully-chromium/error-context.md
+]]>
+</failure>
+<system-out>
+<![CDATA[🧹 Authentication state cleared
+🧪 Testing logout flow
+🧹 Authentication state cleared
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User-Flows-should-logout-successfully-chromium/test-failed-1.png]]
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User-Flows-should-logout-successfully-chromium/video.webm]]
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User-Flows-should-logout-successfully-chromium/error-context.md]]
 ]]>
 </system-out>
 </testcase>
-<testcase name="Admin Panel Functionality › should manage hashtags and categories" classname="admin-panel.spec.js" time="3.736">
+<testcase name="DOOF Core User Flows › should handle search functionality" classname="core-flows.spec.js" time="1.076">
 <system-out>
-<![CDATA[🧪 Testing hashtag management
-🔐 Starting login process...
-📝 Filling login form...
-🚀 Submitting login form...
-📡 Response: 200 http://localhost:5174/api/auth/login
-✅ Login response received
-📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
-🎉 Login API successful, waiting for auth state update...
-🔄 Auth state check 1/10: {
-  isAuthenticated: [33mtrue[39m,
-  hasToken: [33mtrue[39m,
-  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5Mjg0LCJleHAiOjE3NDg2MjI4ODR9.rCcjANBiTr7HqTTtFahAbyUpuXGbWFYU6vU4GMq17uw'[39m
-}
-✅ Auth state updated successfully
-ℹ️ Hashtag management section not found
-✓ Hashtag management test completed
+<![CDATA[🧹 Authentication state cleared
+🧪 Testing search functionality
+✓ Search navigation successful
+✓ Search functionality tested
+🧹 Authentication state cleared
 ]]>
 </system-out>
 </testcase>
-<testcase name="Admin Panel Functionality › should access system administration features" classname="admin-panel.spec.js" time="3.656">
+<testcase name="DOOF Core User Flows › should handle protected routes correctly" classname="core-flows.spec.js" time="1.638">
 <system-out>
-<![CDATA[🧪 Testing system administration
-🔐 Starting login process...
-📝 Filling login form...
-🚀 Submitting login form...
-📡 Response: 200 http://localhost:5174/api/auth/login
-✅ Login response received
-📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
-🎉 Login API successful, waiting for auth state update...
-🔄 Auth state check 1/10: {
-  isAuthenticated: [33mtrue[39m,
-  hasToken: [33mtrue[39m,
-  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5Mjg4LCJleHAiOjE3NDg2MjI4ODh9.a6oexYLdWXepYdCuG374IuM5lW5gn5cLEQyUCoC5Src'[39m
-}
-✅ Auth state updated successfully
-ℹ️ System administration section not found
-✓ System administration test completed
-]]>
-</system-out>
-</testcase>
-<testcase name="Admin Panel Functionality › should perform bulk administrative operations" classname="admin-panel.spec.js" time="3.643">
-<system-out>
-<![CDATA[🧪 Testing bulk operations
-🔐 Starting login process...
-📝 Filling login form...
-🚀 Submitting login form...
-📡 Response: 200 http://localhost:5174/api/auth/login
-✅ Login response received
-📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
-🎉 Login API successful, waiting for auth state update...
-🔄 Auth state check 1/10: {
-  isAuthenticated: [33mtrue[39m,
-  hasToken: [33mtrue[39m,
-  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MjkyLCJleHAiOjE3NDg2MjI4OTJ9.4_sW8tpTDjx395dfxAmoB5IwMVoybUH4MN6kLwbRTho'[39m
-}
-✅ Auth state updated successfully
-ℹ️ No bulk operation features found
-✓ Bulk operations test completed
+<![CDATA[🧹 Authentication state cleared
+🧪 Testing protected route access
+ℹ️ Protected route may be accessible without auth or route may not exist
+✓ Protected route access tested
+🧹 Authentication state cleared
 ]]>
 </system-out>
 </testcase>
 </testsuite>
-<testsuite name="admin-panel.spec.js" timestamp="2025-05-30T15:34:27.584Z" hostname="firefox" tests="7" failures="0" skipped="0" time="29.868" errors="0">
-<testcase name="Admin Panel Functionality › should access admin panel with superuser credentials" classname="admin-panel.spec.js" time="4.849">
+<testsuite name="core-flows.spec.js" timestamp="2025-05-31T17:03:55.597Z" hostname="firefox" tests="7" failures="2" skipped="0" time="29.889" errors="0">
+<testcase name="DOOF Core User Flows › should load the application homepage" classname="core-flows.spec.js" time="2.123">
+<failure message="core-flows.spec.js:38:3 should load the application homepage" type="FAILURE">
+<![CDATA[  [firefox] › core-flows.spec.js:38:3 › DOOF Core User Flows › should load the application homepage 
+
+    Error: locator.isVisible: Error: strict mode violation: locator('nav') resolved to 2 elements:
+        1) <nav class="fixed top-0 left-0 right-0 z-50 transition-all duration-300 bg-card">…</nav> aka getByRole('navigation').filter({ hasText: 'DDoofHomeSearchTrendingListsSign inRegisterOpen main menu' })
+        2) <nav class="space-y-2">…</nav> aka getByText('HomeBrowse ListsSearch')
+
+    Call log:
+        - checking visibility of locator('nav')
+
+
+      47 |     
+      48 |     // Check for navigation elements - use actual navbar structure
+    > 49 |     const hasNavigation = await page.locator('nav').isVisible();
+         |                                                     ^
+      50 |     expect(hasNavigation).toBe(true);
+      51 |     
+      52 |     console.log('✓ Application loaded successfully');
+        at /Users/naf/Downloads/doof/e2e/core-flows.spec.js:49:53
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/core-flows-DOOF-Core-User--4b86b-ad-the-application-homepage-firefox/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/core-flows-DOOF-Core-User--4b86b-ad-the-application-homepage-firefox/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../e2e-results/test-artifacts/core-flows-DOOF-Core-User--4b86b-ad-the-application-homepage-firefox/error-context.md
+]]>
+</failure>
 <system-out>
-<![CDATA[🧪 Testing admin panel access
-🔐 Starting login process...
-📝 Filling login form...
-🚀 Submitting login form...
-📡 Response: 200 http://localhost:5174/api/auth/login
-✅ Login response received
-📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
-🎉 Login API successful, waiting for auth state update...
-🔄 Auth state check 1/10: {
-  isAuthenticated: [33mtrue[39m,
-  hasToken: [33mtrue[39m,
-  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MjcxLCJleHAiOjE3NDg2MjI4NzF9.eTg2mhQXR90Kddc6Ou9iROmGGGF20P0BTAQbdU5BVzA'[39m
-}
-✅ Auth state updated successfully
-✓ Direct admin panel access successful
-✓ Admin panel access test completed
+<![CDATA[🧹 Authentication state cleared
+🧪 Testing application loading
+🧹 Authentication state cleared
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User--4b86b-ad-the-application-homepage-firefox/test-failed-1.png]]
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User--4b86b-ad-the-application-homepage-firefox/video.webm]]
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User--4b86b-ad-the-application-homepage-firefox/error-context.md]]
 ]]>
 </system-out>
 </testcase>
-<testcase name="Admin Panel Functionality › should manage restaurants in admin panel" classname="admin-panel.spec.js" time="4.359">
+<testcase name="DOOF Core User Flows › should navigate through main pages" classname="core-flows.spec.js" time="1.759">
 <system-out>
-<![CDATA[🧪 Testing restaurant management
-🔐 Starting login process...
-📝 Filling login form...
-🚀 Submitting login form...
-📡 Response: 200 http://localhost:5174/api/auth/login
-✅ Login response received
-📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
-🎉 Login API successful, waiting for auth state update...
-🔄 Auth state check 1/10: {
-  isAuthenticated: [33mtrue[39m,
-  hasToken: [33mtrue[39m,
-  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5Mjc2LCJleHAiOjE3NDg2MjI4NzZ9.i80KO9CFyTAOYvG1Jt9_w-tGCb7CdWnLkhLOalu55to'[39m
-}
-✅ Auth state updated successfully
-ℹ️ Restaurant management section not found
-✓ Restaurant management test completed
+<![CDATA[🧹 Authentication state cleared
+🧪 Testing navigation
+✓ Trending page accessible
+✓ Navigation completed successfully
+🧹 Authentication state cleared
 ]]>
 </system-out>
 </testcase>
-<testcase name="Admin Panel Functionality › should access user management features" classname="admin-panel.spec.js" time="4.193">
+<testcase name="DOOF Core User Flows › should login successfully" classname="core-flows.spec.js" time="3.649">
 <system-out>
-<![CDATA[🧪 Testing user management
-🔐 Starting login process...
-📝 Filling login form...
-🚀 Submitting login form...
-📡 Response: 200 http://localhost:5174/api/auth/login
-✅ Login response received
-📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
-🎉 Login API successful, waiting for auth state update...
-🔄 Auth state check 1/10: {
-  isAuthenticated: [33mtrue[39m,
-  hasToken: [33mtrue[39m,
-  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MjgwLCJleHAiOjE3NDg2MjI4ODB9.fPYTlONhG3jcsVgyveWqG4zN9r0s2DFvwgcQB9jMPYM'[39m
-}
-✅ Auth state updated successfully
-ℹ️ User management section not found
-✓ User management test completed
+<![CDATA[🧹 Authentication state cleared
+🧪 Testing login flow
+Current URL after login attempt: http://localhost:5174/login
+ℹ️ Still on login page - may be normal behavior
+✓ Login flow completed
+🧹 Authentication state cleared
 ]]>
 </system-out>
 </testcase>
-<testcase name="Admin Panel Functionality › should view analytics and engagement data" classname="admin-panel.spec.js" time="4.06">
+<testcase name="DOOF Core User Flows › should connect to backend APIs" classname="core-flows.spec.js" time="1.188">
 <system-out>
-<![CDATA[🧪 Testing analytics dashboard
-🔐 Starting login process...
-📝 Filling login form...
-🚀 Submitting login form...
-📡 Response: 200 http://localhost:5174/api/auth/login
-✅ Login response received
-📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
-🎉 Login API successful, waiting for auth state update...
-🔄 Auth state check 1/10: {
-  isAuthenticated: [33mtrue[39m,
-  hasToken: [33mtrue[39m,
-  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5Mjg0LCJleHAiOjE3NDg2MjI4ODR9.rCcjANBiTr7HqTTtFahAbyUpuXGbWFYU6vU4GMq17uw'[39m
-}
-✅ Auth state updated successfully
-ℹ️ Analytics section not found
-✓ Analytics dashboard test completed
+<![CDATA[🧹 Authentication state cleared
+🧪 Testing backend API connectivity
+✓ Backend API connectivity verified
+🧹 Authentication state cleared
+]]>
+</system-out>
+<system-err>
+<![CDATA[⚠️ Auth API test failed: [2mexpect([22m[31mreceived[39m[2m).[22mtoBeDefined[2m()[22m
+
+Received: [31mundefined[39m
+]]>
+</system-err>
+</testcase>
+<testcase name="DOOF Core User Flows › should logout successfully" classname="core-flows.spec.js" time="16.731">
+<failure message="core-flows.spec.js:165:3 should logout successfully" type="FAILURE">
+<![CDATA[  [firefox] › core-flows.spec.js:165:3 › DOOF Core User Flows › should logout successfully ─────────
+
+    TimeoutError: page.fill: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('input[name="email"], input[type="email"]')
+
+
+      168 |     // First, navigate to login and login manually
+      169 |     await page.goto('/login');
+    > 170 |     await page.fill('input[name="email"], input[type="email"]', CONFIG.EXISTING_USER.email);
+          |                ^
+      171 |     await page.fill('input[name="password"], input[type="password"]', CONFIG.EXISTING_USER.password);
+      172 |     await page.click('button[type="submit"], button:has-text("Login"), button:has-text("Sign In")');
+      173 |     await page.waitForTimeout(2000);
+        at /Users/naf/Downloads/doof/e2e/core-flows.spec.js:170:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/core-flows-DOOF-Core-User-Flows-should-logout-successfully-firefox/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/core-flows-DOOF-Core-User-Flows-should-logout-successfully-firefox/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../e2e-results/test-artifacts/core-flows-DOOF-Core-User-Flows-should-logout-successfully-firefox/error-context.md
+]]>
+</failure>
+<system-out>
+<![CDATA[🧹 Authentication state cleared
+🧪 Testing logout flow
+🧹 Authentication state cleared
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User-Flows-should-logout-successfully-firefox/test-failed-1.png]]
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User-Flows-should-logout-successfully-firefox/video.webm]]
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User-Flows-should-logout-successfully-firefox/error-context.md]]
 ]]>
 </system-out>
 </testcase>
-<testcase name="Admin Panel Functionality › should manage hashtags and categories" classname="admin-panel.spec.js" time="4.241">
+<testcase name="DOOF Core User Flows › should handle search functionality" classname="core-flows.spec.js" time="1.986">
 <system-out>
-<![CDATA[🧪 Testing hashtag management
-🔐 Starting login process...
-📝 Filling login form...
-🚀 Submitting login form...
-📡 Response: 200 http://localhost:5174/api/auth/login
-✅ Login response received
-📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
-🎉 Login API successful, waiting for auth state update...
-🔄 Auth state check 1/10: {
-  isAuthenticated: [33mtrue[39m,
-  hasToken: [33mtrue[39m,
-  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5Mjg4LCJleHAiOjE3NDg2MjI4ODh9.a6oexYLdWXepYdCuG374IuM5lW5gn5cLEQyUCoC5Src'[39m
-}
-✅ Auth state updated successfully
-ℹ️ Hashtag management section not found
-✓ Hashtag management test completed
+<![CDATA[🧹 Authentication state cleared
+🧪 Testing search functionality
+✓ Search navigation successful
+✓ Search functionality tested
+🧹 Authentication state cleared
 ]]>
 </system-out>
 </testcase>
-<testcase name="Admin Panel Functionality › should access system administration features" classname="admin-panel.spec.js" time="4.042">
+<testcase name="DOOF Core User Flows › should handle protected routes correctly" classname="core-flows.spec.js" time="2.453">
 <system-out>
-<![CDATA[🧪 Testing system administration
-🔐 Starting login process...
-📝 Filling login form...
-🚀 Submitting login form...
-📡 Response: 200 http://localhost:5174/api/auth/login
-✅ Login response received
-📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
-🎉 Login API successful, waiting for auth state update...
-🔄 Auth state check 1/10: {
-  isAuthenticated: [33mtrue[39m,
-  hasToken: [33mtrue[39m,
-  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MjkyLCJleHAiOjE3NDg2MjI4OTJ9.4_sW8tpTDjx395dfxAmoB5IwMVoybUH4MN6kLwbRTho'[39m
-}
-✅ Auth state updated successfully
-ℹ️ System administration section not found
-✓ System administration test completed
-]]>
-</system-out>
-</testcase>
-<testcase name="Admin Panel Functionality › should perform bulk administrative operations" classname="admin-panel.spec.js" time="4.124">
-<system-out>
-<![CDATA[🧪 Testing bulk operations
-🔐 Starting login process...
-📝 Filling login form...
-🚀 Submitting login form...
-📡 Response: 200 http://localhost:5174/api/auth/login
-✅ Login response received
-📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
-🎉 Login API successful, waiting for auth state update...
-🔄 Auth state check 1/10: {
-  isAuthenticated: [33mtrue[39m,
-  hasToken: [33mtrue[39m,
-  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5Mjk3LCJleHAiOjE3NDg2MjI4OTd9.b9f5bufhrotFSwYdVCanYhU7DpCmNZgQOoii81_iQLU'[39m
-}
-✅ Auth state updated successfully
-ℹ️ No bulk operation features found
-✓ Bulk operations test completed
+<![CDATA[🧹 Authentication state cleared
+🧪 Testing protected route access
+ℹ️ Protected route may be accessible without auth or route may not exist
+✓ Protected route access tested
+🧹 Authentication state cleared
 ]]>
 </system-out>
 </testcase>
 </testsuite>
-<testsuite name="admin-panel.spec.js" timestamp="2025-05-30T15:34:27.584Z" hostname="webkit" tests="7" failures="0" skipped="0" time="29.051" errors="0">
-<testcase name="Admin Panel Functionality › should access admin panel with superuser credentials" classname="admin-panel.spec.js" time="4.615">
+<testsuite name="core-flows.spec.js" timestamp="2025-05-31T17:03:55.597Z" hostname="webkit" tests="7" failures="2" skipped="0" time="27.625" errors="0">
+<testcase name="DOOF Core User Flows › should load the application homepage" classname="core-flows.spec.js" time="1.682">
+<failure message="core-flows.spec.js:38:3 should load the application homepage" type="FAILURE">
+<![CDATA[  [webkit] › core-flows.spec.js:38:3 › DOOF Core User Flows › should load the application homepage ─
+
+    Error: locator.isVisible: Error: strict mode violation: locator('nav') resolved to 2 elements:
+        1) <nav class="fixed top-0 left-0 right-0 z-50 transition-all duration-300 bg-card">…</nav> aka getByRole('navigation').filter({ hasText: 'DDoofHomeSearchTrendingListsSign inRegisterOpen main menu' })
+        2) <nav class="space-y-2">…</nav> aka getByText('HomeBrowse ListsSearch')
+
+    Call log:
+        - checking visibility of locator('nav')
+
+
+      47 |     
+      48 |     // Check for navigation elements - use actual navbar structure
+    > 49 |     const hasNavigation = await page.locator('nav').isVisible();
+         |                                                     ^
+      50 |     expect(hasNavigation).toBe(true);
+      51 |     
+      52 |     console.log('✓ Application loaded successfully');
+        at /Users/naf/Downloads/doof/e2e/core-flows.spec.js:49:53
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/core-flows-DOOF-Core-User--4b86b-ad-the-application-homepage-webkit/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/core-flows-DOOF-Core-User--4b86b-ad-the-application-homepage-webkit/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../e2e-results/test-artifacts/core-flows-DOOF-Core-User--4b86b-ad-the-application-homepage-webkit/error-context.md
+]]>
+</failure>
 <system-out>
-<![CDATA[🧪 Testing admin panel access
-🔐 Starting login process...
-📝 Filling login form...
-🚀 Submitting login form...
-📡 Response: 200 http://localhost:5174/api/auth/login
-✅ Login response received
-📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
-🎉 Login API successful, waiting for auth state update...
-🔄 Auth state check 1/10: {
-  isAuthenticated: [33mtrue[39m,
-  hasToken: [33mtrue[39m,
-  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5Mjk3LCJleHAiOjE3NDg2MjI4OTd9.b9f5bufhrotFSwYdVCanYhU7DpCmNZgQOoii81_iQLU'[39m
-}
-✅ Auth state updated successfully
-✓ Direct admin panel access successful
-✓ Admin panel access test completed
+<![CDATA[🧹 Authentication state cleared
+🧪 Testing application loading
+🧹 Authentication state cleared
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User--4b86b-ad-the-application-homepage-webkit/test-failed-1.png]]
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User--4b86b-ad-the-application-homepage-webkit/video.webm]]
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User--4b86b-ad-the-application-homepage-webkit/error-context.md]]
 ]]>
 </system-out>
 </testcase>
-<testcase name="Admin Panel Functionality › should manage restaurants in admin panel" classname="admin-panel.spec.js" time="4.151">
+<testcase name="DOOF Core User Flows › should navigate through main pages" classname="core-flows.spec.js" time="1.756">
 <system-out>
-<![CDATA[🧪 Testing restaurant management
-🔐 Starting login process...
-📝 Filling login form...
-🚀 Submitting login form...
-📡 Response: 200 http://localhost:5174/api/auth/login
-✅ Login response received
-📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
-🎉 Login API successful, waiting for auth state update...
-🔄 Auth state check 1/10: {
-  isAuthenticated: [33mtrue[39m,
-  hasToken: [33mtrue[39m,
-  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzAxLCJleHAiOjE3NDg2MjI5MDF9.kx7k4o_mrJTzX6SlYBdkzSU2cr39XA1pCEyb0aVH4Ws'[39m
-}
-✅ Auth state updated successfully
-ℹ️ Restaurant management section not found
-✓ Restaurant management test completed
+<![CDATA[🧹 Authentication state cleared
+🧪 Testing navigation
+✓ Trending page accessible
+✓ Navigation completed successfully
+🧹 Authentication state cleared
 ]]>
 </system-out>
 </testcase>
-<testcase name="Admin Panel Functionality › should access user management features" classname="admin-panel.spec.js" time="4.22">
+<testcase name="DOOF Core User Flows › should login successfully" classname="core-flows.spec.js" time="3.28">
 <system-out>
-<![CDATA[🧪 Testing user management
-🔐 Starting login process...
-📝 Filling login form...
-🚀 Submitting login form...
-📡 Response: 200 http://localhost:5174/api/auth/login
-✅ Login response received
-📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
-🎉 Login API successful, waiting for auth state update...
-🔄 Auth state check 1/10: {
-  isAuthenticated: [33mtrue[39m,
-  hasToken: [33mtrue[39m,
-  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzA1LCJleHAiOjE3NDg2MjI5MDV9.Zu6fGXzMlsWm5rYuJ_htJxleoPUAX4jZWDYBnwC4eKc'[39m
-}
-✅ Auth state updated successfully
-ℹ️ User management section not found
-✓ User management test completed
+<![CDATA[🧹 Authentication state cleared
+🧪 Testing login flow
+Current URL after login attempt: http://localhost:5174/login
+ℹ️ Still on login page - may be normal behavior
+✓ Login flow completed
+🧹 Authentication state cleared
 ]]>
 </system-out>
 </testcase>
-<testcase name="Admin Panel Functionality › should view analytics and engagement data" classname="admin-panel.spec.js" time="4.002">
+<testcase name="DOOF Core User Flows › should connect to backend APIs" classname="core-flows.spec.js" time="1.396">
 <system-out>
-<![CDATA[🧪 Testing analytics dashboard
-🔐 Starting login process...
-📝 Filling login form...
-🚀 Submitting login form...
-📡 Response: 200 http://localhost:5174/api/auth/login
-✅ Login response received
-📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
-🎉 Login API successful, waiting for auth state update...
-🔄 Auth state check 1/10: {
-  isAuthenticated: [33mtrue[39m,
-  hasToken: [33mtrue[39m,
-  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzEwLCJleHAiOjE3NDg2MjI5MTB9.kC5ji0dGv_kEep26of-4axsoWdbnTjaYp4hr2EKkaJ8'[39m
-}
-✅ Auth state updated successfully
-ℹ️ Analytics section not found
-✓ Analytics dashboard test completed
+<![CDATA[🧹 Authentication state cleared
+🧪 Testing backend API connectivity
+✓ Backend API connectivity verified
+🧹 Authentication state cleared
+]]>
+</system-out>
+<system-err>
+<![CDATA[⚠️ Auth API test failed: [2mexpect([22m[31mreceived[39m[2m).[22mtoBeDefined[2m()[22m
+
+Received: [31mundefined[39m
+]]>
+</system-err>
+</testcase>
+<testcase name="DOOF Core User Flows › should logout successfully" classname="core-flows.spec.js" time="16.29">
+<failure message="core-flows.spec.js:165:3 should logout successfully" type="FAILURE">
+<![CDATA[  [webkit] › core-flows.spec.js:165:3 › DOOF Core User Flows › should logout successfully ──────────
+
+    TimeoutError: page.fill: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('input[name="email"], input[type="email"]')
+        - locator resolved to <input id="email" type="email" name="email" aria-invalid="false" autocomplete="email" data-testid="email-input" placeholder="you@example.com" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#D1B399] focus:border-[#D1B399] sm:text-sm disabled:opacity-60 disabled:bg-gray-50  bg-input text-foreground border-border"/>
+        - fill("admin@example.com")
+      - attempting fill action
+        - waiting for element to be visible, enabled and editable
+      - element was detached from the DOM, retrying
+
+
+      168 |     // First, navigate to login and login manually
+      169 |     await page.goto('/login');
+    > 170 |     await page.fill('input[name="email"], input[type="email"]', CONFIG.EXISTING_USER.email);
+          |                ^
+      171 |     await page.fill('input[name="password"], input[type="password"]', CONFIG.EXISTING_USER.password);
+      172 |     await page.click('button[type="submit"], button:has-text("Login"), button:has-text("Sign In")');
+      173 |     await page.waitForTimeout(2000);
+        at /Users/naf/Downloads/doof/e2e/core-flows.spec.js:170:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/core-flows-DOOF-Core-User-Flows-should-logout-successfully-webkit/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/core-flows-DOOF-Core-User-Flows-should-logout-successfully-webkit/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../e2e-results/test-artifacts/core-flows-DOOF-Core-User-Flows-should-logout-successfully-webkit/error-context.md
+]]>
+</failure>
+<system-out>
+<![CDATA[🧹 Authentication state cleared
+🧪 Testing logout flow
+🧹 Authentication state cleared
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User-Flows-should-logout-successfully-webkit/test-failed-1.png]]
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User-Flows-should-logout-successfully-webkit/video.webm]]
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User-Flows-should-logout-successfully-webkit/error-context.md]]
 ]]>
 </system-out>
 </testcase>
-<testcase name="Admin Panel Functionality › should manage hashtags and categories" classname="admin-panel.spec.js" time="4.094">
+<testcase name="DOOF Core User Flows › should handle search functionality" classname="core-flows.spec.js" time="1.32">
 <system-out>
-<![CDATA[🧪 Testing hashtag management
-🔐 Starting login process...
-📝 Filling login form...
-🚀 Submitting login form...
-📡 Response: 200 http://localhost:5174/api/auth/login
-✅ Login response received
-📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
-🎉 Login API successful, waiting for auth state update...
-🔄 Auth state check 1/10: {
-  isAuthenticated: [33mtrue[39m,
-  hasToken: [33mtrue[39m,
-  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzE0LCJleHAiOjE3NDg2MjI5MTR9.ji82wlptIdMwpWcjenbLZt-8_6I9h5BhRDxpGESDg1E'[39m
-}
-✅ Auth state updated successfully
-ℹ️ Hashtag management section not found
-✓ Hashtag management test completed
+<![CDATA[🧹 Authentication state cleared
+🧪 Testing search functionality
+✓ Search navigation successful
+✓ Search functionality tested
+🧹 Authentication state cleared
 ]]>
 </system-out>
 </testcase>
-<testcase name="Admin Panel Functionality › should access system administration features" classname="admin-panel.spec.js" time="4.058">
+<testcase name="DOOF Core User Flows › should handle protected routes correctly" classname="core-flows.spec.js" time="1.901">
 <system-out>
-<![CDATA[🧪 Testing system administration
-🔐 Starting login process...
-📝 Filling login form...
-🚀 Submitting login form...
-📡 Response: 200 http://localhost:5174/api/auth/login
-✅ Login response received
-📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
-🎉 Login API successful, waiting for auth state update...
-🔄 Auth state check 1/10: {
-  isAuthenticated: [33mtrue[39m,
-  hasToken: [33mtrue[39m,
-  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzE4LCJleHAiOjE3NDg2MjI5MTh9.gQzgvDFE0RzfI4NUAEpzpRlluPBjWuKw7lbKBB_s29A'[39m
-}
-✅ Auth state updated successfully
-ℹ️ System administration section not found
-✓ System administration test completed
-]]>
-</system-out>
-</testcase>
-<testcase name="Admin Panel Functionality › should perform bulk administrative operations" classname="admin-panel.spec.js" time="3.911">
-<system-out>
-<![CDATA[🧪 Testing bulk operations
-🔐 Starting login process...
-📝 Filling login form...
-🚀 Submitting login form...
-📡 Response: 200 http://localhost:5174/api/auth/login
-✅ Login response received
-📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
-🎉 Login API successful, waiting for auth state update...
-🔄 Auth state check 1/10: {
-  isAuthenticated: [33mtrue[39m,
-  hasToken: [33mtrue[39m,
-  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzIyLCJleHAiOjE3NDg2MjI5MjJ9.vh9M_1kdSKm9zAP0Zu341fncRipqPpqerq4YnJnD_GU'[39m
-}
-✅ Auth state updated successfully
-ℹ️ No bulk operation features found
-✓ Bulk operations test completed
-]]>
-</system-out>
-</testcase>
-</testsuite>
-<testsuite name="admin-panel.spec.js" timestamp="2025-05-30T15:34:27.584Z" hostname="Mobile Chrome" tests="7" failures="0" skipped="0" time="26.376" errors="0">
-<testcase name="Admin Panel Functionality › should access admin panel with superuser credentials" classname="admin-panel.spec.js" time="3.899">
-<system-out>
-<![CDATA[🧪 Testing admin panel access
-🔐 Starting login process...
-📝 Filling login form...
-🚀 Submitting login form...
-📡 Response: 200 http://localhost:5174/api/auth/login
-✅ Login response received
-📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
-🎉 Login API successful, waiting for auth state update...
-🔄 Auth state check 1/10: {
-  isAuthenticated: [33mtrue[39m,
-  hasToken: [33mtrue[39m,
-  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzAyLCJleHAiOjE3NDg2MjI5MDJ9.F7UHdW7UWAk3VxV9BBYV9HPKxDWTE4WEemMsMgRvgmk'[39m
-}
-✅ Auth state updated successfully
-✓ Direct admin panel access successful
-✓ Admin panel access test completed
-]]>
-</system-out>
-</testcase>
-<testcase name="Admin Panel Functionality › should manage restaurants in admin panel" classname="admin-panel.spec.js" time="3.84">
-<system-out>
-<![CDATA[🧪 Testing restaurant management
-🔐 Starting login process...
-📝 Filling login form...
-🚀 Submitting login form...
-📡 Response: 200 http://localhost:5174/api/auth/login
-✅ Login response received
-📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
-🎉 Login API successful, waiting for auth state update...
-🔄 Auth state check 1/10: {
-  isAuthenticated: [33mtrue[39m,
-  hasToken: [33mtrue[39m,
-  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzA1LCJleHAiOjE3NDg2MjI5MDV9.Zu6fGXzMlsWm5rYuJ_htJxleoPUAX4jZWDYBnwC4eKc'[39m
-}
-✅ Auth state updated successfully
-ℹ️ Restaurant management section not found
-✓ Restaurant management test completed
-]]>
-</system-out>
-</testcase>
-<testcase name="Admin Panel Functionality › should access user management features" classname="admin-panel.spec.js" time="3.713">
-<system-out>
-<![CDATA[🧪 Testing user management
-🔐 Starting login process...
-📝 Filling login form...
-🚀 Submitting login form...
-📡 Response: 200 http://localhost:5174/api/auth/login
-✅ Login response received
-📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
-🎉 Login API successful, waiting for auth state update...
-🔄 Auth state check 1/10: {
-  isAuthenticated: [33mtrue[39m,
-  hasToken: [33mtrue[39m,
-  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzA5LCJleHAiOjE3NDg2MjI5MDl9.QFR-bTzCVXFrva9EGL898ytFnNVBOBWFpI0F9RUuj34'[39m
-}
-✅ Auth state updated successfully
-ℹ️ User management section not found
-✓ User management test completed
-]]>
-</system-out>
-</testcase>
-<testcase name="Admin Panel Functionality › should view analytics and engagement data" classname="admin-panel.spec.js" time="3.753">
-<system-out>
-<![CDATA[🧪 Testing analytics dashboard
-🔐 Starting login process...
-📝 Filling login form...
-🚀 Submitting login form...
-📡 Response: 200 http://localhost:5174/api/auth/login
-✅ Login response received
-📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
-🎉 Login API successful, waiting for auth state update...
-🔄 Auth state check 1/10: {
-  isAuthenticated: [33mtrue[39m,
-  hasToken: [33mtrue[39m,
-  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzEzLCJleHAiOjE3NDg2MjI5MTN9.BZ3i5FPtyp_z4FP_SUg5iNANpTwWGIOhJFOxnSMDAN4'[39m
-}
-✅ Auth state updated successfully
-ℹ️ Analytics section not found
-✓ Analytics dashboard test completed
-]]>
-</system-out>
-</testcase>
-<testcase name="Admin Panel Functionality › should manage hashtags and categories" classname="admin-panel.spec.js" time="3.739">
-<system-out>
-<![CDATA[🧪 Testing hashtag management
-🔐 Starting login process...
-📝 Filling login form...
-🚀 Submitting login form...
-📡 Response: 200 http://localhost:5174/api/auth/login
-✅ Login response received
-📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
-🎉 Login API successful, waiting for auth state update...
-🔄 Auth state check 1/10: {
-  isAuthenticated: [33mtrue[39m,
-  hasToken: [33mtrue[39m,
-  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzE3LCJleHAiOjE3NDg2MjI5MTd9.jm_SIOuImjvPeT6EqV2jPsyAnX0NjAHICDonpxuH0co'[39m
-}
-✅ Auth state updated successfully
-ℹ️ Hashtag management section not found
-✓ Hashtag management test completed
-]]>
-</system-out>
-</testcase>
-<testcase name="Admin Panel Functionality › should access system administration features" classname="admin-panel.spec.js" time="3.745">
-<system-out>
-<![CDATA[🧪 Testing system administration
-🔐 Starting login process...
-📝 Filling login form...
-🚀 Submitting login form...
-📡 Response: 200 http://localhost:5174/api/auth/login
-✅ Login response received
-📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
-🎉 Login API successful, waiting for auth state update...
-🔄 Auth state check 1/10: {
-  isAuthenticated: [33mtrue[39m,
-  hasToken: [33mtrue[39m,
-  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzIwLCJleHAiOjE3NDg2MjI5MjB9.gpR8cMaI84lGpGhzE2osAff7uV8zR6ViemHbvbmLGDc'[39m
-}
-✅ Auth state updated successfully
-ℹ️ System administration section not found
-✓ System administration test completed
-]]>
-</system-out>
-</testcase>
-<testcase name="Admin Panel Functionality › should perform bulk administrative operations" classname="admin-panel.spec.js" time="3.687">
-<system-out>
-<![CDATA[🧪 Testing bulk operations
-🔐 Starting login process...
-📝 Filling login form...
-🚀 Submitting login form...
-📡 Response: 200 http://localhost:5174/api/auth/login
-✅ Login response received
-📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
-🎉 Login API successful, waiting for auth state update...
-🔄 Auth state check 1/10: {
-  isAuthenticated: [33mtrue[39m,
-  hasToken: [33mtrue[39m,
-  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzI0LCJleHAiOjE3NDg2MjI5MjR9.83F7VHgC0ikd1oTiTYbLeAaphKGiLgkaZa8ZJmc_MXY'[39m
-}
-✅ Auth state updated successfully
-ℹ️ No bulk operation features found
-✓ Bulk operations test completed
+<![CDATA[🧹 Authentication state cleared
+🧪 Testing protected route access
+ℹ️ Protected route may be accessible without auth or route may not exist
+✓ Protected route access tested
+🧹 Authentication state cleared
 ]]>
 </system-out>
 </testcase>
 </testsuite>
-<testsuite name="admin-panel.spec.js" timestamp="2025-05-30T15:34:27.584Z" hostname="Mobile Safari" tests="7" failures="0" skipped="0" time="27.17" errors="0">
-<testcase name="Admin Panel Functionality › should access admin panel with superuser credentials" classname="admin-panel.spec.js" time="4.142">
+<testsuite name="core-flows.spec.js" timestamp="2025-05-31T17:03:55.597Z" hostname="Mobile Chrome" tests="7" failures="3" skipped="0" time="41.202" errors="0">
+<testcase name="DOOF Core User Flows › should load the application homepage" classname="core-flows.spec.js" time="1.125">
+<failure message="core-flows.spec.js:38:3 should load the application homepage" type="FAILURE">
+<![CDATA[  [Mobile Chrome] › core-flows.spec.js:38:3 › DOOF Core User Flows › should load the application homepage 
+
+    Error: locator.isVisible: Error: strict mode violation: locator('nav') resolved to 2 elements:
+        1) <nav class="fixed top-0 left-0 right-0 z-50 transition-all duration-300 bg-card">…</nav> aka getByRole('navigation').filter({ hasText: 'DDoofHomeSearchTrendingListsSign inRegisterOpen main menu' })
+        2) <nav class="space-y-2">…</nav> aka getByText('HomeBrowse ListsSearch')
+
+    Call log:
+        - checking visibility of locator('nav')
+
+
+      47 |     
+      48 |     // Check for navigation elements - use actual navbar structure
+    > 49 |     const hasNavigation = await page.locator('nav').isVisible();
+         |                                                     ^
+      50 |     expect(hasNavigation).toBe(true);
+      51 |     
+      52 |     console.log('✓ Application loaded successfully');
+        at /Users/naf/Downloads/doof/e2e/core-flows.spec.js:49:53
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/core-flows-DOOF-Core-User--4b86b-ad-the-application-homepage-Mobile-Chrome/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/core-flows-DOOF-Core-User--4b86b-ad-the-application-homepage-Mobile-Chrome/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../e2e-results/test-artifacts/core-flows-DOOF-Core-User--4b86b-ad-the-application-homepage-Mobile-Chrome/error-context.md
+]]>
+</failure>
 <system-out>
-<![CDATA[🧪 Testing admin panel access
-🔐 Starting login process...
-📝 Filling login form...
-🚀 Submitting login form...
-📡 Response: 200 http://localhost:5174/api/auth/login
-✅ Login response received
-📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
-🎉 Login API successful, waiting for auth state update...
-🔄 Auth state check 1/10: {
-  isAuthenticated: [33mtrue[39m,
-  hasToken: [33mtrue[39m,
-  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzI3LCJleHAiOjE3NDg2MjI5Mjd9.oAe6oGuoIEs6XtYBVOyNn9oQG23chdXyqiZs5nncRxM'[39m
-}
-✅ Auth state updated successfully
-✓ Direct admin panel access successful
-✓ Admin panel access test completed
+<![CDATA[🧹 Authentication state cleared
+🧪 Testing application loading
+🧹 Authentication state cleared
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User--4b86b-ad-the-application-homepage-Mobile-Chrome/test-failed-1.png]]
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User--4b86b-ad-the-application-homepage-Mobile-Chrome/video.webm]]
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User--4b86b-ad-the-application-homepage-Mobile-Chrome/error-context.md]]
 ]]>
 </system-out>
 </testcase>
-<testcase name="Admin Panel Functionality › should manage restaurants in admin panel" classname="admin-panel.spec.js" time="3.826">
+<testcase name="DOOF Core User Flows › should navigate through main pages" classname="core-flows.spec.js" time="16.563">
+<failure message="core-flows.spec.js:59:3 should navigate through main pages" type="FAILURE">
+<![CDATA[  [Mobile Chrome] › core-flows.spec.js:59:3 › DOOF Core User Flows › should navigate through main pages 
+
+    TimeoutError: page.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('text=Home')
+        - locator resolved to 2 elements. Proceeding with the first one: <a href="/" class="px-3 py-2 text-sm font-medium rounded-md text-primary bg-primary/10">Home</a>
+      - attempting click action
+        2 × waiting for element to be visible, enabled and stable
+          - element is not visible
+        - retrying click action
+        - waiting 20ms
+        2 × waiting for element to be visible, enabled and stable
+          - element is not visible
+        - retrying click action
+          - waiting 100ms
+        29 × waiting for element to be visible, enabled and stable
+           - element is not visible
+         - retrying click action
+           - waiting 500ms
+
+
+      61 |     
+      62 |     // Test Home navigation - match actual link text
+    > 63 |     await page.click('text=Home');
+         |                ^
+      64 |     await page.waitForLoadState('networkidle');
+      65 |     expect(page.url()).toContain('/');
+      66 |     
+        at /Users/naf/Downloads/doof/e2e/core-flows.spec.js:63:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/core-flows-DOOF-Core-User--37f7b-navigate-through-main-pages-Mobile-Chrome/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/core-flows-DOOF-Core-User--37f7b-navigate-through-main-pages-Mobile-Chrome/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../e2e-results/test-artifacts/core-flows-DOOF-Core-User--37f7b-navigate-through-main-pages-Mobile-Chrome/error-context.md
+]]>
+</failure>
 <system-out>
-<![CDATA[🧪 Testing restaurant management
-🔐 Starting login process...
-📝 Filling login form...
-🚀 Submitting login form...
-📡 Response: 200 http://localhost:5174/api/auth/login
-✅ Login response received
-📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
-🎉 Login API successful, waiting for auth state update...
-🔄 Auth state check 1/10: {
-  isAuthenticated: [33mtrue[39m,
-  hasToken: [33mtrue[39m,
-  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzMwLCJleHAiOjE3NDg2MjI5MzB9.FtJ_tiAtGicFuH9Y4LYyouVU7f6CVtDQQFOok4Zgi-I'[39m
-}
-✅ Auth state updated successfully
-ℹ️ Restaurant management section not found
-✓ Restaurant management test completed
+<![CDATA[🧹 Authentication state cleared
+🧪 Testing navigation
+🧹 Authentication state cleared
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User--37f7b-navigate-through-main-pages-Mobile-Chrome/test-failed-1.png]]
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User--37f7b-navigate-through-main-pages-Mobile-Chrome/video.webm]]
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User--37f7b-navigate-through-main-pages-Mobile-Chrome/error-context.md]]
 ]]>
 </system-out>
 </testcase>
-<testcase name="Admin Panel Functionality › should access user management features" classname="admin-panel.spec.js" time="3.796">
+<testcase name="DOOF Core User Flows › should login successfully" classname="core-flows.spec.js" time="3.188">
 <system-out>
-<![CDATA[🧪 Testing user management
-🔐 Starting login process...
-📝 Filling login form...
-🚀 Submitting login form...
-📡 Response: 200 http://localhost:5174/api/auth/login
-✅ Login response received
-📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
-🎉 Login API successful, waiting for auth state update...
-🔄 Auth state check 1/10: {
-  isAuthenticated: [33mtrue[39m,
-  hasToken: [33mtrue[39m,
-  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzM0LCJleHAiOjE3NDg2MjI5MzR9.u3nJkpFjJs7yZt2FoEAGYOBgI5DdSQ3QrvtM7JtVocA'[39m
-}
-✅ Auth state updated successfully
-ℹ️ User management section not found
-✓ User management test completed
+<![CDATA[🧹 Authentication state cleared
+🧪 Testing login flow
+Current URL after login attempt: http://localhost:5174/login
+ℹ️ Still on login page - may be normal behavior
+✓ Login flow completed
+🧹 Authentication state cleared
 ]]>
 </system-out>
 </testcase>
-<testcase name="Admin Panel Functionality › should view analytics and engagement data" classname="admin-panel.spec.js" time="3.797">
+<testcase name="DOOF Core User Flows › should connect to backend APIs" classname="core-flows.spec.js" time="1.17">
 <system-out>
-<![CDATA[🧪 Testing analytics dashboard
-🔐 Starting login process...
-📝 Filling login form...
-🚀 Submitting login form...
-📡 Response: 200 http://localhost:5174/api/auth/login
-✅ Login response received
-📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
-🎉 Login API successful, waiting for auth state update...
-🔄 Auth state check 1/10: {
-  isAuthenticated: [33mtrue[39m,
-  hasToken: [33mtrue[39m,
-  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzM4LCJleHAiOjE3NDg2MjI5Mzh9.YAfhOfQbPOzfOPWxGpM2eOzs8wmIVBFCO6pbu59t8do'[39m
-}
-✅ Auth state updated successfully
-ℹ️ Analytics section not found
-✓ Analytics dashboard test completed
+<![CDATA[🧹 Authentication state cleared
+🧪 Testing backend API connectivity
+✓ Backend API connectivity verified
+🧹 Authentication state cleared
+]]>
+</system-out>
+<system-err>
+<![CDATA[⚠️ Auth API test failed: [2mexpect([22m[31mreceived[39m[2m).[22mtoBeDefined[2m()[22m
+
+Received: [31mundefined[39m
+]]>
+</system-err>
+</testcase>
+<testcase name="DOOF Core User Flows › should logout successfully" classname="core-flows.spec.js" time="16.366">
+<failure message="core-flows.spec.js:165:3 should logout successfully" type="FAILURE">
+<![CDATA[  [Mobile Chrome] › core-flows.spec.js:165:3 › DOOF Core User Flows › should logout successfully ───
+
+    TimeoutError: page.fill: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('input[name="email"], input[type="email"]')
+
+
+      168 |     // First, navigate to login and login manually
+      169 |     await page.goto('/login');
+    > 170 |     await page.fill('input[name="email"], input[type="email"]', CONFIG.EXISTING_USER.email);
+          |                ^
+      171 |     await page.fill('input[name="password"], input[type="password"]', CONFIG.EXISTING_USER.password);
+      172 |     await page.click('button[type="submit"], button:has-text("Login"), button:has-text("Sign In")');
+      173 |     await page.waitForTimeout(2000);
+        at /Users/naf/Downloads/doof/e2e/core-flows.spec.js:170:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/core-flows-DOOF-Core-User-Flows-should-logout-successfully-Mobile-Chrome/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/core-flows-DOOF-Core-User-Flows-should-logout-successfully-Mobile-Chrome/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../e2e-results/test-artifacts/core-flows-DOOF-Core-User-Flows-should-logout-successfully-Mobile-Chrome/error-context.md
+]]>
+</failure>
+<system-out>
+<![CDATA[🧹 Authentication state cleared
+🧪 Testing logout flow
+🧹 Authentication state cleared
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User-Flows-should-logout-successfully-Mobile-Chrome/test-failed-1.png]]
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User-Flows-should-logout-successfully-Mobile-Chrome/video.webm]]
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User-Flows-should-logout-successfully-Mobile-Chrome/error-context.md]]
 ]]>
 </system-out>
 </testcase>
-<testcase name="Admin Panel Functionality › should manage hashtags and categories" classname="admin-panel.spec.js" time="3.774">
+<testcase name="DOOF Core User Flows › should handle search functionality" classname="core-flows.spec.js" time="1.088">
 <system-out>
-<![CDATA[🧪 Testing hashtag management
-🔐 Starting login process...
-📝 Filling login form...
-🚀 Submitting login form...
-📡 Response: 200 http://localhost:5174/api/auth/login
-✅ Login response received
-📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
-🎉 Login API successful, waiting for auth state update...
-🔄 Auth state check 1/10: {
-  isAuthenticated: [33mtrue[39m,
-  hasToken: [33mtrue[39m,
-  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzQyLCJleHAiOjE3NDg2MjI5NDJ9.KNV95AV7s84W3ziEwnxzjEIogQ2ApdrbtvkTCHNOXbE'[39m
-}
-✅ Auth state updated successfully
-ℹ️ Hashtag management section not found
-✓ Hashtag management test completed
+<![CDATA[🧹 Authentication state cleared
+🧪 Testing search functionality
+✓ Search navigation successful
+✓ Search functionality tested
+🧹 Authentication state cleared
 ]]>
 </system-out>
 </testcase>
-<testcase name="Admin Panel Functionality › should access system administration features" classname="admin-panel.spec.js" time="3.987">
+<testcase name="DOOF Core User Flows › should handle protected routes correctly" classname="core-flows.spec.js" time="1.702">
 <system-out>
-<![CDATA[🧪 Testing system administration
-🔐 Starting login process...
-📝 Filling login form...
-🚀 Submitting login form...
-📡 Response: 200 http://localhost:5174/api/auth/login
-✅ Login response received
-📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
-🎉 Login API successful, waiting for auth state update...
-🔄 Auth state check 1/10: {
-  isAuthenticated: [33mtrue[39m,
-  hasToken: [33mtrue[39m,
-  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzQ2LCJleHAiOjE3NDg2MjI5NDZ9.VuVCun9STgOGPRNRl1aQleckAlJhbeGMmpnyeW2WqpQ'[39m
-}
-✅ Auth state updated successfully
-ℹ️ System administration section not found
-✓ System administration test completed
+<![CDATA[🧹 Authentication state cleared
+🧪 Testing protected route access
+ℹ️ Protected route may be accessible without auth or route may not exist
+✓ Protected route access tested
+🧹 Authentication state cleared
 ]]>
 </system-out>
 </testcase>
-<testcase name="Admin Panel Functionality › should perform bulk administrative operations" classname="admin-panel.spec.js" time="3.848">
+</testsuite>
+<testsuite name="core-flows.spec.js" timestamp="2025-05-31T17:03:55.597Z" hostname="Mobile Safari" tests="7" failures="3" skipped="0" time="41.776" errors="0">
+<testcase name="DOOF Core User Flows › should load the application homepage" classname="core-flows.spec.js" time="1.438">
+<failure message="core-flows.spec.js:38:3 should load the application homepage" type="FAILURE">
+<![CDATA[  [Mobile Safari] › core-flows.spec.js:38:3 › DOOF Core User Flows › should load the application homepage 
+
+    Error: locator.isVisible: Error: strict mode violation: locator('nav') resolved to 2 elements:
+        1) <nav class="fixed top-0 left-0 right-0 z-50 transition-all duration-300 bg-card">…</nav> aka getByRole('navigation').filter({ hasText: 'DDoofHomeSearchTrendingListsSign inRegisterOpen main menu' })
+        2) <nav class="space-y-2">…</nav> aka getByText('HomeBrowse ListsSearch')
+
+    Call log:
+        - checking visibility of locator('nav')
+
+
+      47 |     
+      48 |     // Check for navigation elements - use actual navbar structure
+    > 49 |     const hasNavigation = await page.locator('nav').isVisible();
+         |                                                     ^
+      50 |     expect(hasNavigation).toBe(true);
+      51 |     
+      52 |     console.log('✓ Application loaded successfully');
+        at /Users/naf/Downloads/doof/e2e/core-flows.spec.js:49:53
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/core-flows-DOOF-Core-User--4b86b-ad-the-application-homepage-Mobile-Safari/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/core-flows-DOOF-Core-User--4b86b-ad-the-application-homepage-Mobile-Safari/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../e2e-results/test-artifacts/core-flows-DOOF-Core-User--4b86b-ad-the-application-homepage-Mobile-Safari/error-context.md
+]]>
+</failure>
 <system-out>
-<![CDATA[🧪 Testing bulk operations
-🔐 Starting login process...
-📝 Filling login form...
-🚀 Submitting login form...
-📡 Response: 200 http://localhost:5174/api/auth/login
-✅ Login response received
-📄 Login response data: { hasSuccess: [33mtrue[39m, hasData: [33mtrue[39m, hasToken: [33mtrue[39m, status: [33m200[39m }
-🎉 Login API successful, waiting for auth state update...
-🔄 Auth state check 1/10: {
-  isAuthenticated: [33mtrue[39m,
-  hasToken: [33mtrue[39m,
-  token: [32m'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoyLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJzdXBlcnVzZXIiLCJhY2NvdW50X3R5cGUiOiJzdXBlcnVzZXIifSwiaWF0IjoxNzQ4NjE5MzUwLCJleHAiOjE3NDg2MjI5NTB9.CtsNhsqeZ_Y1s2nfceuyNhcdorgbPEDlIxuvwztlbEs'[39m
-}
-✅ Auth state updated successfully
-ℹ️ No bulk operation features found
-✓ Bulk operations test completed
+<![CDATA[🧹 Authentication state cleared
+🧪 Testing application loading
+🧹 Authentication state cleared
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User--4b86b-ad-the-application-homepage-Mobile-Safari/test-failed-1.png]]
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User--4b86b-ad-the-application-homepage-Mobile-Safari/video.webm]]
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User--4b86b-ad-the-application-homepage-Mobile-Safari/error-context.md]]
+]]>
+</system-out>
+</testcase>
+<testcase name="DOOF Core User Flows › should navigate through main pages" classname="core-flows.spec.js" time="16.321">
+<failure message="core-flows.spec.js:59:3 should navigate through main pages" type="FAILURE">
+<![CDATA[  [Mobile Safari] › core-flows.spec.js:59:3 › DOOF Core User Flows › should navigate through main pages 
+
+    TimeoutError: page.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('text=Home')
+        - locator resolved to 2 elements. Proceeding with the first one: <a href="/" class="px-3 py-2 text-sm font-medium rounded-md text-primary bg-primary/10">Home</a>
+      - attempting click action
+        2 × waiting for element to be visible, enabled and stable
+          - element is not visible
+        - retrying click action
+        - waiting 20ms
+        2 × waiting for element to be visible, enabled and stable
+          - element is not visible
+        - retrying click action
+          - waiting 100ms
+        29 × waiting for element to be visible, enabled and stable
+           - element is not visible
+         - retrying click action
+           - waiting 500ms
+
+
+      61 |     
+      62 |     // Test Home navigation - match actual link text
+    > 63 |     await page.click('text=Home');
+         |                ^
+      64 |     await page.waitForLoadState('networkidle');
+      65 |     expect(page.url()).toContain('/');
+      66 |     
+        at /Users/naf/Downloads/doof/e2e/core-flows.spec.js:63:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/core-flows-DOOF-Core-User--37f7b-navigate-through-main-pages-Mobile-Safari/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/core-flows-DOOF-Core-User--37f7b-navigate-through-main-pages-Mobile-Safari/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../e2e-results/test-artifacts/core-flows-DOOF-Core-User--37f7b-navigate-through-main-pages-Mobile-Safari/error-context.md
+]]>
+</failure>
+<system-out>
+<![CDATA[🧹 Authentication state cleared
+🧪 Testing navigation
+🧹 Authentication state cleared
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User--37f7b-navigate-through-main-pages-Mobile-Safari/test-failed-1.png]]
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User--37f7b-navigate-through-main-pages-Mobile-Safari/video.webm]]
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User--37f7b-navigate-through-main-pages-Mobile-Safari/error-context.md]]
+]]>
+</system-out>
+</testcase>
+<testcase name="DOOF Core User Flows › should login successfully" classname="core-flows.spec.js" time="3.375">
+<system-out>
+<![CDATA[🧹 Authentication state cleared
+🧪 Testing login flow
+Current URL after login attempt: http://localhost:5174/login
+ℹ️ Still on login page - may be normal behavior
+✓ Login flow completed
+🧹 Authentication state cleared
+]]>
+</system-out>
+</testcase>
+<testcase name="DOOF Core User Flows › should connect to backend APIs" classname="core-flows.spec.js" time="1.232">
+<system-out>
+<![CDATA[🧹 Authentication state cleared
+🧪 Testing backend API connectivity
+✓ Backend API connectivity verified
+🧹 Authentication state cleared
+]]>
+</system-out>
+<system-err>
+<![CDATA[⚠️ Auth API test failed: [2mexpect([22m[31mreceived[39m[2m).[22mtoBeDefined[2m()[22m
+
+Received: [31mundefined[39m
+]]>
+</system-err>
+</testcase>
+<testcase name="DOOF Core User Flows › should logout successfully" classname="core-flows.spec.js" time="16.273">
+<failure message="core-flows.spec.js:165:3 should logout successfully" type="FAILURE">
+<![CDATA[  [Mobile Safari] › core-flows.spec.js:165:3 › DOOF Core User Flows › should logout successfully ───
+
+    TimeoutError: page.fill: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('input[name="email"], input[type="email"]')
+        - locator resolved to <input id="email" type="email" name="email" aria-invalid="false" autocomplete="email" data-testid="email-input" placeholder="you@example.com" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#D1B399] focus:border-[#D1B399] sm:text-sm disabled:opacity-60 disabled:bg-gray-50  bg-input text-foreground border-border"/>
+        - fill("admin@example.com")
+      - attempting fill action
+        - waiting for element to be visible, enabled and editable
+      - element was detached from the DOM, retrying
+
+
+      168 |     // First, navigate to login and login manually
+      169 |     await page.goto('/login');
+    > 170 |     await page.fill('input[name="email"], input[type="email"]', CONFIG.EXISTING_USER.email);
+          |                ^
+      171 |     await page.fill('input[name="password"], input[type="password"]', CONFIG.EXISTING_USER.password);
+      172 |     await page.click('button[type="submit"], button:has-text("Login"), button:has-text("Sign In")');
+      173 |     await page.waitForTimeout(2000);
+        at /Users/naf/Downloads/doof/e2e/core-flows.spec.js:170:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/core-flows-DOOF-Core-User-Flows-should-logout-successfully-Mobile-Safari/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/core-flows-DOOF-Core-User-Flows-should-logout-successfully-Mobile-Safari/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../e2e-results/test-artifacts/core-flows-DOOF-Core-User-Flows-should-logout-successfully-Mobile-Safari/error-context.md
+]]>
+</failure>
+<system-out>
+<![CDATA[🧹 Authentication state cleared
+🧪 Testing logout flow
+🧹 Authentication state cleared
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User-Flows-should-logout-successfully-Mobile-Safari/test-failed-1.png]]
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User-Flows-should-logout-successfully-Mobile-Safari/video.webm]]
+
+[[ATTACHMENT|test-artifacts/core-flows-DOOF-Core-User-Flows-should-logout-successfully-Mobile-Safari/error-context.md]]
+]]>
+</system-out>
+</testcase>
+<testcase name="DOOF Core User Flows › should handle search functionality" classname="core-flows.spec.js" time="1.318">
+<system-out>
+<![CDATA[🧹 Authentication state cleared
+🧪 Testing search functionality
+✓ Search navigation successful
+✓ Search functionality tested
+🧹 Authentication state cleared
+]]>
+</system-out>
+</testcase>
+<testcase name="DOOF Core User Flows › should handle protected routes correctly" classname="core-flows.spec.js" time="1.819">
+<system-out>
+<![CDATA[🧹 Authentication state cleared
+🧪 Testing protected route access
+ℹ️ Protected route may be accessible without auth or route may not exist
+✓ Protected route access tested
+🧹 Authentication state cleared
 ]]>
 </system-out>
 </testcase>

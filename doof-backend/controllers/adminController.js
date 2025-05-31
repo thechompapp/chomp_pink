@@ -66,11 +66,21 @@ export const getAllResources = async (req, res) => {
     return res.status(400).json({ success: false, message: "Resource type is required." });
   }
   
-  // Ensure user is authenticated and is a superuser
-  if (!req.user || req.user.account_type !== 'superuser') {
+  // Ensure user is authenticated and is a superuser - robust check for both role and account_type
+  const isUserPresent = req.user && req.user.id;
+  const isSuperuserByRole = req.user && req.user.role === 'superuser';
+  const isSuperuserByAccountType = req.user && req.user.account_type === 'superuser';
+  const isSuperuser = isSuperuserByRole || isSuperuserByAccountType;
+  
+  if (!isUserPresent || !isSuperuser) {
     return res.status(403).json({ 
       success: false, 
-      message: 'Access denied: Superuser privileges required.' 
+      message: 'Access denied: Superuser privileges required.',
+      debug: process.env.NODE_ENV === 'development' ? {
+        userPresent: isUserPresent,
+        role: req.user?.role,
+        account_type: req.user?.account_type
+      } : undefined
     });
   }
 

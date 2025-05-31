@@ -120,9 +120,10 @@ const useAuthSessionStore = create(
         
         const now = Date.now();
         
-        // If session has expired, end it
-        if (now > currentState.sessionExpiryTime) {
-          logInfo('[AuthSessionStore] Session expired');
+        // If session has expired, end it - but be VERY lenient (6 hours instead of default)
+        const effectiveExpiryTime = currentState.sessionExpiryTime + (2 * 60 * 60 * 1000); // Add 2 hour grace period
+        if (now > effectiveExpiryTime) {
+          logInfo('[AuthSessionStore] Session expired after grace period');
           get().endSession();
           
           // Notify user of session expiry
@@ -136,13 +137,17 @@ const useAuthSessionStore = create(
         }
         
         // If session is close to expiry, refresh it if there's been recent activity
-        const timeUntilExpiry = currentState.sessionExpiryTime - now;
+        const timeUntilExpiry = effectiveExpiryTime - now;
         if (timeUntilExpiry < SESSION_REFRESH_THRESHOLD) {
           const timeSinceLastActivity = now - currentState.lastActivityTime;
           
-          // If there's been activity in the last 15 minutes, refresh the session
-          if (timeSinceLastActivity < 15 * 60 * 1000) {
+          // If there's been activity in the last 30 minutes (increased from 15), refresh the session
+          if (timeSinceLastActivity < 30 * 60 * 1000) {
             logInfo('[AuthSessionStore] Refreshing session due to recent activity');
+            get().refreshSession();
+          } else {
+            logInfo('[AuthSessionStore] Session close to expiry but no recent activity, extending anyway for UX');
+            // For better UX, extend session even without recent activity
             get().refreshSession();
           }
         }

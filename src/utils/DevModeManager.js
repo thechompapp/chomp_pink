@@ -25,12 +25,22 @@ class DevModeManager {
     try {
       logInfo('[DevModeManager] Performing early initialization for development mode');
       
+      // Check if user has explicitly logged out - if so, don't auto-setup auth
+      const hasExplicitlyLoggedOut = localStorage.getItem('user_explicitly_logged_out') === 'true';
+      const isE2ETesting = localStorage.getItem('e2e_testing_mode') === 'true';
+      
+      if (hasExplicitlyLoggedOut || isE2ETesting) {
+        logInfo('[DevModeManager] User explicitly logged out or E2E testing mode - skipping auto-auth setup');
+        this.initialized = true;
+        return false;
+      }
+      
       // Set development mode flags in localStorage
       localStorage.setItem('admin_api_key', 'doof-admin-secret-key-dev');
       localStorage.setItem('bypass_auth_check', 'true');
       localStorage.setItem('superuser_override', 'true');
       localStorage.setItem('admin_access_enabled', 'true');
-      localStorage.removeItem('user_explicitly_logged_out');
+      // DON'T clear explicit logout flag - respect user's logout intention
       
       // Pre-populate auth storage with admin user to ensure immediate access
       this.setupInitialAuthState();

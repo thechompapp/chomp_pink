@@ -1,5 +1,5 @@
 // src/pages/Login/index.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '../../contexts/auth';
@@ -10,28 +10,52 @@ import offlineModeGuard from '../../utils/offlineModeGuard';
 
 /**
  * Login Page Component
- * Uses the new authentication context for login functionality
+ * Optimized for stability and performance
  */
 const LoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { login, isAuthenticated, isLoading, error } = useAuth();
   
-  const { register, handleSubmit, formState: { errors } } = useForm();
+  // Use refs for form elements to prevent detachment
+  const formRef = useRef(null);
+  const emailRef = useRef(null);
+  const passwordRef = useRef(null);
+  
+  const { register, handleSubmit, formState: { errors }, reset } = useForm({
+    mode: 'onBlur', // Validate on blur to reduce re-renders
+    defaultValues: {
+      email: '',
+      password: ''
+    }
+  });
+  
   const [submitError, setSubmitError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Stable redirect handler
+  const handleRedirect = useCallback((targetPath) => {
+    const from = location.state?.from?.pathname || targetPath || '/';
+    logInfo(`[Login Page] Redirecting to ${from}`);
+    navigate(from, { replace: true });
+  }, [navigate, location.state]);
   
   // Redirect if already authenticated
   useEffect(() => {
-    if (isAuthenticated) {
-      // Redirect to the page the user was trying to access, or home
-      const from = location.state?.from?.pathname || '/';
-      logInfo(`[Login Page] User already authenticated, redirecting to ${from}`);
-      navigate(from, { replace: true });
+    if (isAuthenticated && !isSubmitting) {
+      handleRedirect();
     }
-  }, [isAuthenticated, navigate, location]);
+  }, [isAuthenticated, isSubmitting, handleRedirect]);
   
-  // Form submission handler
-  const onSubmit = async (data) => {
+  // Stable form submission handler
+  const onSubmit = useCallback(async (data) => {
+    // Prevent multiple submissions
+    if (isSubmitting || isLoading) {
+      logDebug('[Login Page] Submission already in progress, ignoring');
+      return;
+    }
+    
+    setIsSubmitting(true);
     setSubmitError('');
     
     // Clear offline mode flags before login attempt
@@ -44,32 +68,56 @@ const LoginPage = () => {
       logDebug('[Login Page] Login attempt with:', { email: data.email });
       
       // Attempt login with credentials
-      await login(data);
+      const result = await login(data);
       
-      // If we get here, login was successful (otherwise it would throw)
-      logInfo('[Login Page] Login successful');
-      
-      // Clear offline mode flags after successful login
-      if (offlineModeGuard && typeof offlineModeGuard.clearOfflineModeFlags === 'function') {
-        logDebug('[Login Page] Clearing offline mode flags after successful login');
-        offlineModeGuard.clearOfflineModeFlags();
+      if (result && result.success) {
+        logInfo('[Login Page] Login successful');
+        
+        // Clear offline mode flags after successful login
+        if (offlineModeGuard && typeof offlineModeGuard.clearOfflineModeFlags === 'function') {
+          logDebug('[Login Page] Clearing offline mode flags after successful login');
+          offlineModeGuard.clearOfflineModeFlags();
+        }
+        
+        // Force UI refresh event
+        window.dispatchEvent(new CustomEvent('forceUiRefresh', {
+          detail: { timestamp: Date.now() }
+        }));
+        
+        // Small delay to ensure state updates
+        setTimeout(() => {
+          handleRedirect();
+        }, 100);
+      } else {
+        throw new Error(result?.error || 'Login failed');
       }
-      
-      // Force UI refresh event
-      window.dispatchEvent(new CustomEvent('forceUiRefresh', {
-        detail: { timestamp: Date.now() }
-      }));
-      
-      // Redirect to the page the user was trying to access, or home
-      const from = location.state?.from?.pathname || '/';
-      navigate(from, { replace: true });
     } catch (error) {
       logError('[Login Page] Error during login:', error);
       
       // Display user-friendly error message
       setSubmitError(error.message || 'An unexpected error occurred');
+    } finally {
+      setIsSubmitting(false);
     }
-  };
+  }, [login, isSubmitting, isLoading, handleRedirect]);
+
+  // Stable error clearing handler
+  const clearSubmitError = useCallback(() => {
+    if (submitError) {
+      setSubmitError('');
+    }
+  }, [submitError]);
+
+  // Clear submit error when user starts typing
+  useEffect(() => {
+    const form = formRef.current;
+    if (!form) return;
+
+    const handleInput = () => clearSubmitError();
+    
+    form.addEventListener('input', handleInput);
+    return () => form.removeEventListener('input', handleInput);
+  }, [clearSubmitError]);
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background p-4">
@@ -84,14 +132,25 @@ const LoginPage = () => {
         
         {/* Content section */}
         <div className="p-6 bg-card">
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          <form 
+            ref={formRef}
+            onSubmit={handleSubmit(onSubmit)} 
+            className="space-y-5"
+            noValidate
+          >
             <div className="space-y-2">
-              <label htmlFor="email" className="block text-sm font-medium text-muted-foreground">Email</label>
+              <label htmlFor="email" className="block text-sm font-medium text-muted-foreground">
+                Email
+              </label>
               <Input
+                ref={emailRef}
                 id="email"
+                name="email"
                 type="email"
                 placeholder="you@example.com"
                 className="bg-input text-foreground border-border"
+                autoComplete="email"
+                data-testid="email-input"
                 {...register("email", { 
                   required: "Email is required",
                   pattern: {
@@ -101,28 +160,37 @@ const LoginPage = () => {
                 })}
               />
               {errors.email && (
-                <p className="text-sm text-destructive">{errors.email.message}</p>
+                <p className="text-sm text-destructive" role="alert">
+                  {errors.email.message}
+                </p>
               )}
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="password" className="block text-sm font-medium text-muted-foreground">Password</label>
+              <label htmlFor="password" className="block text-sm font-medium text-muted-foreground">
+                Password
+              </label>
               <Input
+                ref={passwordRef}
                 id="password"
+                name="password"
                 type="password"
                 placeholder="••••••••"
                 className="bg-input text-foreground border-border"
-                {...register("password", { required: "Password is required" })}
                 autoComplete="current-password"
+                data-testid="password-input"
+                {...register("password", { required: "Password is required" })}
               />
               {errors.password && (
-                <p className="text-sm text-destructive">{errors.password.message}</p>
+                <p className="text-sm text-destructive" role="alert">
+                  {errors.password.message}
+                </p>
               )}
             </div>
 
-            {submitError && (
-              <div className="p-3 bg-destructive/10 text-destructive text-sm rounded-md">
-                {submitError}
+            {(submitError || error) && (
+              <div className="p-3 bg-destructive/10 text-destructive text-sm rounded-md" role="alert">
+                {submitError || error}
               </div>
             )}
 
@@ -130,9 +198,10 @@ const LoginPage = () => {
               type="submit"
               variant="primary"
               className="w-full"
-              disabled={isLoading}
+              disabled={isSubmitting || isLoading}
+              data-testid="submit-button"
             >
-              {isLoading ? 'Signing in...' : 'Sign In'}
+              {isSubmitting || isLoading ? 'Signing in...' : 'Sign In'}
             </Button>
           </form>
         </div>

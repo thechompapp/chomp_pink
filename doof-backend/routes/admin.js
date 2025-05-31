@@ -2,6 +2,7 @@
 import express from 'express';
 import { requireAuth, requireSuperuser } from '../middleware/auth.js'; 
 import * as adminController from '../controllers/adminController.js';
+import * as cleanupController from '../controllers/cleanupController.js';
 
 const router = express.Router();
 
@@ -101,6 +102,11 @@ router.get('/autosuggest/neighborhoods/:cityId', adminController.getAutosuggestN
 
 // Bulk operations
 router.post('/restaurants/bulk', adminController.bulkAddRestaurants);
+
+// Data cleanup endpoints
+router.post('/cleanup/:resourceType/analyze', cleanupController.analyzeData);
+router.post('/cleanup/:resourceType/apply', cleanupController.applyFixes);
+router.get('/cleanup/status/:jobId', cleanupController.getStatus);
 
 // System administrative routes
 router.get('/system/status', adminController.getSystemStatus);

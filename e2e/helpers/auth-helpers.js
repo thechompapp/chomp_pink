@@ -12,13 +12,38 @@ export class AuthHelpers {
     console.log('🔐 Starting login process...');
     
     // Navigate to login page
-    await page.goto('/login');
-    await page.waitForLoadState('networkidle');
+    await page.goto('/login', { waitUntil: 'networkidle' });
     
-    // Fill login form
+    // Wait for login form to be ready with fallback selectors and shorter timeout
+    console.log('⏳ Waiting for login form to be ready...');
+    
+    // Try data-testid first, fall back to generic selectors
+    let emailSelector, passwordSelector, submitSelector;
+    
+    try {
+      await page.waitForSelector('[data-testid="email-input"]', { timeout: 3000 });
+      emailSelector = '[data-testid="email-input"]';
+      passwordSelector = '[data-testid="password-input"]';
+      submitSelector = '[data-testid="submit-button"]';
+      console.log('✓ Using data-testid selectors');
+    } catch (error) {
+      // Fallback to generic selectors
+      await page.waitForSelector('input[type="email"], input[name="email"]', { timeout: 5000 });
+      emailSelector = 'input[type="email"], input[name="email"]';
+      passwordSelector = 'input[type="password"], input[name="password"]';
+      submitSelector = 'button[type="submit"], button:has-text("Sign In"), button:has-text("Login")';
+      console.log('ℹ️ Using fallback selectors (data-testid not found)');
+    }
+    
+    // Ensure all form elements are ready
+    await page.waitForSelector(emailSelector, { timeout: 5000 });
+    await page.waitForSelector(passwordSelector, { timeout: 5000 });
+    await page.waitForSelector(submitSelector, { timeout: 5000 });
+    
+    // Fill login form using determined selectors
     console.log('📝 Filling login form...');
-    await page.fill('input[name="email"], input[type="email"]', email);
-    await page.fill('input[name="password"], input[type="password"]', password);
+    await page.fill(emailSelector, email);
+    await page.fill(passwordSelector, password);
     
     // Submit and wait for response with more flexible matching
     console.log('🚀 Submitting login form...');
@@ -33,8 +58,8 @@ export class AuthHelpers {
           // More flexible URL matching
           return (url.includes('/api/auth/login') || url.includes('/auth/login')) && 
                  (status === 200 || status === 201);
-        }, { timeout: 30000 }),
-        page.click('button[type="submit"]')
+        }, { timeout: 15000 }), // Shorter timeout to prevent hanging
+        page.click(submitSelector)
       ]);
       
       console.log('✅ Login response received');
@@ -164,6 +189,14 @@ export class AuthHelpers {
   }
   
   /**
+   * Alias for login method to match expected naming convention
+   */
+  static async loginUser(page, userData) {
+    const { email, password } = userData;
+    return await AuthHelpers.login(page, email, password);
+  }
+  
+  /**
    * Register a new user
    */
   static async register(page, userData) {
@@ -215,6 +248,13 @@ export class AuthHelpers {
   }
   
   /**
+   * Alias for logout method to match expected naming convention
+   */
+  static async logoutUser(page) {
+    return await AuthHelpers.logout(page);
+  }
+  
+  /**
    * Check if user is authenticated in UI
    */
   static async isAuthenticated(page) {
@@ -256,12 +296,49 @@ export class AuthHelpers {
    * Clear all authentication state
    */
   static async clearAuth(page) {
+    console.log('🧹 Authentication state cleared');
     try {
       await page.evaluate(() => {
         try {
+          // Clear all authentication storage
           localStorage.removeItem('auth-storage');
           localStorage.removeItem('auth-authentication-storage');
+          localStorage.removeItem('auth-token');
+          localStorage.removeItem('token');
+          localStorage.removeItem('current_user');
+          localStorage.removeItem('admin_access_enabled');
+          localStorage.removeItem('superuser_override');
+          localStorage.removeItem('bypass_auth_check');
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('userData');
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('dev_admin_setup');
+          localStorage.removeItem('admin_api_key');
+          
+          // Set explicit logout flag to disable development mode bypass
+          localStorage.setItem('user_explicitly_logged_out', 'true');
+          
+          // Set E2E testing flag to disable AdminAuthSetup system
+          localStorage.setItem('e2e_testing_mode', 'true');
+          
+          // Disable AdminAuthSetup if it exists
+          if (window.AdminAuthSetup) {
+            // Remove event listeners by replacing the methods with no-ops
+            window.AdminAuthSetup.setupDevelopmentAuth = () => {
+              console.log('[E2E] AdminAuthSetup.setupDevelopmentAuth disabled during testing');
+            };
+            window.AdminAuthSetup.restoreDevelopmentAuth = () => {
+              console.log('[E2E] AdminAuthSetup.restoreDevelopmentAuth disabled during testing');
+            };
+            window.AdminAuthSetup.initialize = () => {
+              console.log('[E2E] AdminAuthSetup.initialize disabled during testing');
+            };
+          }
+          
+          // Clear session storage
           sessionStorage.clear();
+          
+          console.log('🧹 Authentication state cleared and AdminAuthSetup disabled');
         } catch (error) {
           // Ignore localStorage access errors
           console.log('localStorage access denied, skipping clear');

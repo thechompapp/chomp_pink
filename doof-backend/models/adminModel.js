@@ -154,7 +154,50 @@ const getResourceConfig = (resourceType) => {
 export const findAllResources = async (resourceType, page = 1, limit = 20, sort = 'id', order = 'asc', filters = {}) => {
   const config = getResourceConfig(resourceType);
   const offset = (page - 1) * limit;
-  let query = format('SELECT * FROM %I', config.tableName);
+  
+  // Handle special cases where we need to join tables for better display
+  let query;
+  let countQuery;
+  
+  if (resourceType === 'dishes') {
+    // For dishes, join with restaurants to get restaurant names
+    query = `
+      SELECT 
+        d.*,
+        r.name AS restaurant_name,
+        r.address AS restaurant_address
+      FROM ${config.tableName} d
+      LEFT JOIN restaurants r ON d.restaurant_id = r.id
+    `;
+    countQuery = `SELECT COUNT(*) FROM ${config.tableName} d LEFT JOIN restaurants r ON d.restaurant_id = r.id`;
+  } else if (resourceType === 'restaurants') {
+    // For restaurants, join with cities and neighborhoods  
+    query = `
+      SELECT 
+        r.*,
+        c.name AS city_name,
+        n.name AS neighborhood_name
+      FROM ${config.tableName} r
+      LEFT JOIN cities c ON r.city_id = c.id
+      LEFT JOIN neighborhoods n ON r.neighborhood_id = n.id
+    `;
+    countQuery = `SELECT COUNT(*) FROM ${config.tableName} r LEFT JOIN cities c ON r.city_id = c.id LEFT JOIN neighborhoods n ON r.neighborhood_id = n.id`;
+  } else if (resourceType === 'neighborhoods') {
+    // For neighborhoods, join with cities
+    query = `
+      SELECT 
+        n.*,
+        c.name AS city_name
+      FROM ${config.tableName} n
+      LEFT JOIN cities c ON n.city_id = c.id
+    `;
+    countQuery = `SELECT COUNT(*) FROM ${config.tableName} n LEFT JOIN cities c ON n.city_id = c.id`;
+  } else {
+    // Default case - simple select
+    query = format('SELECT * FROM %I', config.tableName);
+    countQuery = format('SELECT COUNT(*) FROM %I', config.tableName);
+  }
+  
   const whereClauses = [];
   const queryParams = [];
   let paramIdx = 1;
@@ -165,21 +208,27 @@ export const findAllResources = async (resourceType, page = 1, limit = 20, sort 
       // Added specific filterable keys that might not be in create/update columns directly (e.g. foreign keys used for filtering)
       const filterableKeys = ['search', 'status', 'city_id', 'restaurant_id', 'user_id', 'list_id', 'type', 'account_type'];
       if (knownColumns.includes(key) || filterableKeys.includes(key)) {
+        
+        // For joined queries, prefix the main table alias
+        const tablePrefix = resourceType === 'dishes' ? 'd.' : 
+                           resourceType === 'restaurants' ? 'r.' :
+                           resourceType === 'neighborhoods' ? 'n.' : '';
+        
         if (key === 'search' && (config.allowedCreateColumns.includes('name') || config.allowedUpdateColumns.includes('name'))) {
-          whereClauses.push(format('LOWER(name) LIKE LOWER($%s)', paramIdx++));
+          whereClauses.push(`LOWER(${tablePrefix}name) LIKE LOWER($${paramIdx++})`);
           queryParams.push(`%${value}%`);
         } else if (key.endsWith('_id') || key === 'id' || ['user_id', 'list_id', 'restaurant_id', 'city_id'].includes(key)) {
           const parsedValue = parseInt(value, 10);
           if (!isNaN(parsedValue)) {
-            whereClauses.push(format('%I = $%s', key, paramIdx++));
+            whereClauses.push(`${tablePrefix}${key} = $${paramIdx++}`);
             queryParams.push(parsedValue);
           }
         } else if (typeof value === 'string' && (config.allowedUpdateColumns.includes(key) || config.allowedCreateColumns.includes(key) || ['status', 'type', 'account_type'].includes(key))) {
            if (['status', 'type', 'account_type'].includes(key)) {
-             whereClauses.push(format('%I = $%s', key, paramIdx++));
+             whereClauses.push(`${tablePrefix}${key} = $${paramIdx++}`);
              queryParams.push(value);
            } else {
-             whereClauses.push(format('LOWER(%I) LIKE LOWER($%s)', key, paramIdx++));
+             whereClauses.push(`LOWER(${tablePrefix}${key}) LIKE LOWER($${paramIdx++})`);
              queryParams.push(`%${value}%`);
            }
         }
@@ -189,29 +238,26 @@ export const findAllResources = async (resourceType, page = 1, limit = 20, sort 
 
   if (whereClauses.length > 0) {
     query += ' WHERE ' + whereClauses.join(' AND ');
+    countQuery += ' WHERE ' + whereClauses.join(' AND ');
   }
 
   const allKnownColumns = Array.from(new Set([...config.allowedCreateColumns, ...config.allowedUpdateColumns, 'id', 'created_at', 'updated_at', 'name']));
-  const safeSort = allKnownColumns.includes(sort.toLowerCase()) ? sort : (config.allowedCreateColumns.includes('id') || config.allowedUpdateColumns.includes('id') ? 'id' : allKnownColumns[0] || '1'); // Fallback sort
+  const safeSort = allKnownColumns.includes(sort.toLowerCase()) ? sort : (config.allowedCreateColumns.includes('id') || config.allowedUpdateColumns.includes('id') ? 'id' : allKnownColumns[0] || 'id'); // Fallback sort
   const safeOrder = order.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
 
-  query += format(' ORDER BY %I %s LIMIT $%s OFFSET $%s', safeSort, safeOrder, paramIdx++, paramIdx++);
+  // For joined queries, prefix the sort column with table alias
+  const tablePrefix = resourceType === 'dishes' ? 'd.' : 
+                     resourceType === 'restaurants' ? 'r.' :
+                     resourceType === 'neighborhoods' ? 'n.' : '';
+  const sortColumn = (resourceType === 'dishes' || resourceType === 'restaurants' || resourceType === 'neighborhoods') ? 
+                    `${tablePrefix}${safeSort}` : safeSort;
+
+  query += ` ORDER BY ${sortColumn} ${safeOrder} LIMIT $${paramIdx++} OFFSET $${paramIdx++}`;
   queryParams.push(limit, offset);
   
-  let countQuery = format('SELECT COUNT(*) FROM %I', config.tableName);
   let totalCount;
-
   if (whereClauses.length > 0) {
     const countQueryParams = queryParams.slice(0, whereClauses.length);
-    // Important: Re-index placeholders for count query if they were shared.
-    // The original queryParams for whereClauses are correct.
-    let tempCountQueryWhere = ' WHERE ' + whereClauses.join(' AND ');
-    // To avoid issues with placeholder indexing if paramIdx was used differently for count
-    // we rebuild the placeholder indices for the count query's WHERE clause.
-    let currentPlaceholderCount = 1;
-    tempCountQueryWhere = tempCountQueryWhere.replace(/\$\d+/g, () => `$${currentPlaceholderCount++}`);
-
-    countQuery += tempCountQueryWhere;
     const { rows: totalRows } = await db.query(countQuery, countQueryParams);
     totalCount = parseInt(totalRows[0].count, 10);
   } else {

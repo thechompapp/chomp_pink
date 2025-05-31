@@ -1,3 +1,8 @@
+/* OBSOLETE: This component has been replaced by EnhancedListModal
+// This file is marked for deletion after testing confirms no regressions
+*/
+
+/*
 // src/components/DirectListDetailModal.jsx
 import React, { useState, useEffect, useMemo } from 'react';
 import PropTypes from 'prop-types';
@@ -256,3 +261,4 @@ DirectListDetailModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired
 };
+*/

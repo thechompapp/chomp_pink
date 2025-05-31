@@ -101,11 +101,24 @@ class OfflineModeGuard {
     try {
       // Clear localStorage flags
       if (typeof localStorage !== 'undefined') {
+        // Preserve explicit logout flag - don't clear it when clearing offline mode
+        const explicitLogout = localStorage.getItem('user_explicitly_logged_out');
+        const logoutInProgress = localStorage.getItem('logout_in_progress');
+        
         localStorage.removeItem('offline-mode');
         localStorage.removeItem('offline_mode');
         localStorage.setItem('force_online', 'true');
         localStorage.removeItem('bypass_auth_check');
-        localStorage.removeItem('user_explicitly_logged_out');
+        
+        // Restore explicit logout flag if it was set
+        if (explicitLogout === 'true') {
+          localStorage.setItem('user_explicitly_logged_out', 'true');
+        }
+        
+        // Restore logout in progress flag if it was set
+        if (logoutInProgress === 'true') {
+          localStorage.setItem('logout_in_progress', 'true');
+        }
       }
       
       // Clear sessionStorage flags
