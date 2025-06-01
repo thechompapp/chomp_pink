@@ -135,3 +135,8 @@
 [data-testid^="follow-button"] {
   @apply relative z-50 pointer-events-auto isolate cursor-pointer;
 }
+
+/* Ticker animation utilities */
+.animation-paused {
+  animation-play-state: paused !important;
+}

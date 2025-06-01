@@ -35,7 +35,9 @@ import {
   Download,
   RefreshCw,
   Filter,
-  Eye
+  Eye,
+  Search,
+  Activity
 } from 'lucide-react';
 import { format, subDays, isAfter } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -117,26 +119,37 @@ export const AdminAnalyticsDashboard = ({ adminData = {} }) => {
   const cities = adminData.cities || [];
   const neighborhoods = adminData.neighborhoods || [];
   const hashtags = adminData.hashtags || [];
+  const lists = adminData.lists || [];
   
   // Calculate basic statistics
   const stats = useMemo(() => {
     const now = new Date();
     const weekAgo = subDays(now, 7);
-    const monthAgo = subDays(now, 30);
     
-    // Helper function to count items created in timeframe
-    const countInTimeframe = (items, timeframe) => {
-      const cutoff = timeframe === 'week' ? weekAgo : monthAgo;
+    // Helper function to count recent items
+    const countRecent = (items, dateField = 'created_at') => {
       return items.filter(item => {
-        const createdAt = new Date(item.created_at || item.createdAt || now);
-        return isAfter(createdAt, cutoff);
+        if (!item || !item[dateField]) return false;
+        const itemDate = new Date(item[dateField]);
+        return itemDate >= weekAgo;
       }).length;
     };
     
-    const newRestaurantsWeek = countInTimeframe(restaurants, 'week');
-    const newUsersWeek = countInTimeframe(users, 'week');
-    const newDishesWeek = countInTimeframe(dishes, 'week');
+    // Calculate search engagement stats
+    const searchEngagements = lists.filter(list => 
+      list && list.engagement_type && list.engagement_type.includes('search')
+    ).length;
     
+    const totalSearchViews = lists.filter(list => 
+      list && (list.engagement_type === 'search_view' || list.engagement_type === 'search_result_view')
+    ).length;
+    
+    const totalSearchClicks = lists.filter(list => 
+      list && (list.engagement_type === 'search_click' || list.engagement_type === 'search_result_click')
+    ).length;
+    
+    const searchConversionRate = totalSearchViews > 0 ? (totalSearchClicks / totalSearchViews * 100).toFixed(1) : 0;
+
     return {
       totalRestaurants: restaurants.length,
       totalDishes: dishes.length,
@@ -144,12 +157,17 @@ export const AdminAnalyticsDashboard = ({ adminData = {} }) => {
       totalCities: cities.length,
       totalNeighborhoods: neighborhoods.length,
       totalHashtags: hashtags.length,
-      newRestaurantsWeek,
-      newUsersWeek,
-      newDishesWeek,
-      avgDishesPerRestaurant: restaurants.length > 0 ? (dishes.length / restaurants.length).toFixed(1) : '0'
+      totalLists: lists.length,
+      newRestaurantsWeek: countRecent(restaurants),
+      newDishesWeek: countRecent(dishes),
+      newUsersWeek: countRecent(users),
+      newListsWeek: countRecent(lists),
+      searchEngagements,
+      totalSearchViews,
+      totalSearchClicks,
+      searchConversionRate
     };
-  }, [restaurants, dishes, users, cities, neighborhoods, hashtags]);
+  }, [restaurants, dishes, users, cities, neighborhoods, hashtags, lists]);
   
   // Generate growth data for charts
   const growthData = useMemo(() => {
@@ -159,7 +177,8 @@ export const AdminAnalyticsDashboard = ({ adminData = {} }) => {
         date: format(date, 'MMM dd'),
         restaurants: Math.floor(Math.random() * 10) + stats.totalRestaurants * 0.1,
         users: Math.floor(Math.random() * 15) + stats.totalUsers * 0.1,
-        dishes: Math.floor(Math.random() * 20) + stats.totalDishes * 0.1
+        dishes: Math.floor(Math.random() * 20) + stats.totalDishes * 0.1,
+        lists: Math.floor(Math.random() * 8) + stats.totalLists * 0.1
       };
     });
     return days;
@@ -167,11 +186,15 @@ export const AdminAnalyticsDashboard = ({ adminData = {} }) => {
   
   // City distribution data
   const cityData = useMemo(() => {
-    const cityCounts = restaurants.reduce((acc, restaurant) => {
-      const city = restaurant.city || 'Unknown';
-      acc[city] = (acc[city] || 0) + 1;
-      return acc;
-    }, {});
+    if (!Array.isArray(restaurants)) return [];
+    
+    const cityCounts = restaurants
+      .filter(restaurant => restaurant)
+      .reduce((acc, restaurant) => {
+        const city = restaurant.city || 'Unknown';
+        acc[city] = (acc[city] || 0) + 1;
+        return acc;
+      }, {});
     
     return Object.entries(cityCounts)
       .sort(([,a], [,b]) => b - a)
@@ -181,7 +204,11 @@ export const AdminAnalyticsDashboard = ({ adminData = {} }) => {
   
   // Price range distribution
   const priceRangeData = useMemo(() => {
-    const priceCounts = restaurants.reduce((acc, restaurant) => {
+    if (!Array.isArray(restaurants) || restaurants.length === 0) return [];
+    
+    const validRestaurants = restaurants.filter(restaurant => restaurant);
+    
+    const priceCounts = validRestaurants.reduce((acc, restaurant) => {
       const price = restaurant.price_range || 'Unknown';
       acc[price] = (acc[price] || 0) + 1;
       return acc;
@@ -190,13 +217,14 @@ export const AdminAnalyticsDashboard = ({ adminData = {} }) => {
     return Object.entries(priceCounts).map(([range, count]) => ({
       range,
       count,
-      percentage: Math.round((count / restaurants.length) * 100)
+      percentage: validRestaurants.length > 0 ? Math.round((count / validRestaurants.length) * 100) : 0
     }));
   }, [restaurants]);
   
   // Top hashtags data
   const topHashtagsData = useMemo(() => {
     return hashtags
+      .filter(tag => tag && tag.name)
       .sort((a, b) => (b.usage_count || 0) - (a.usage_count || 0))
       .slice(0, 10)
       .map(tag => ({
@@ -204,6 +232,24 @@ export const AdminAnalyticsDashboard = ({ adminData = {} }) => {
         count: tag.usage_count || 0
       }));
   }, [hashtags]);
+  
+  // Lists type distribution data
+  const listsTypeData = useMemo(() => {
+    if (!Array.isArray(lists) || lists.length === 0) return [];
+    
+    const validLists = lists.filter(list => list);
+    const typeCounts = validLists.reduce((acc, list) => {
+      const type = list.list_type || 'Unknown';
+      acc[type] = (acc[type] || 0) + 1;
+      return acc;
+    }, {});
+    
+    return Object.entries(typeCounts).map(([type, count]) => ({
+      type,
+      count,
+      percentage: validLists.length > 0 ? Math.round((count / validLists.length) * 100) : 0
+    }));
+  }, [lists]);
   
   // Export data function
   const handleExportData = () => {
@@ -213,7 +259,8 @@ export const AdminAnalyticsDashboard = ({ adminData = {} }) => {
       restaurants: restaurants.length,
       dishes: dishes.length,
       users: users.length,
-      cities: cities.length
+      cities: cities.length,
+      lists: lists.length
     };
     
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { 
@@ -262,7 +309,7 @@ export const AdminAnalyticsDashboard = ({ adminData = {} }) => {
       </div>
       
       {/* Statistics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
         <StatCard
           title="Total Restaurants"
           value={stats.totalRestaurants.toLocaleString()}
@@ -288,12 +335,28 @@ export const AdminAnalyticsDashboard = ({ adminData = {} }) => {
           color="purple"
         />
         <StatCard
-          title="Avg Dishes/Restaurant"
-          value={stats.avgDishesPerRestaurant}
-          change="Stable"
-          changeType="neutral"
-          icon={BarChart}
-          color="yellow"
+          title="Total Lists"
+          value={stats.totalLists.toLocaleString()}
+          change={`+${stats.newListsWeek} this week`}
+          changeType="positive"
+          icon={MapPin}
+          color="orange"
+        />
+        <StatCard
+          title="Search Engagements"
+          value={stats.searchEngagements.toLocaleString()}
+          change={`${stats.totalSearchClicks} clicks from search`}
+          changeType="positive"
+          icon={Search}
+          color="indigo"
+        />
+        <StatCard
+          title="Search Conversion"
+          value={`${stats.searchConversionRate}%`}
+          change={`${stats.totalSearchViews} search views`}
+          changeType={stats.searchConversionRate > 15 ? "positive" : "neutral"}
+          icon={TrendingUp}
+          color="emerald"
         />
       </div>
       
@@ -314,6 +377,7 @@ export const AdminAnalyticsDashboard = ({ adminData = {} }) => {
               <option value="restaurants">Restaurants Only</option>
               <option value="users">Users Only</option>
               <option value="dishes">Dishes Only</option>
+              <option value="lists">Lists Only</option>
             </select>
           }
         >
@@ -350,6 +414,15 @@ export const AdminAnalyticsDashboard = ({ adminData = {} }) => {
                   name="Dishes"
                 />
               )}
+              {(selectedMetric === 'growth' || selectedMetric === 'lists') && (
+                <Line 
+                  type="monotone" 
+                  dataKey="lists" 
+                  stroke={CHART_COLORS[3]} 
+                  strokeWidth={2}
+                  name="Lists"
+                />
+              )}
             </LineChart>
           </ResponsiveContainer>
         </ChartContainer>
@@ -368,18 +441,18 @@ export const AdminAnalyticsDashboard = ({ adminData = {} }) => {
         </ChartContainer>
         
         {/* Price Range Distribution */}
-        <ChartContainer title="Price Range Distribution">
+        <ChartContainer title="Lists Type Distribution">
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
-                data={priceRangeData}
+                data={listsTypeData}
                 cx="50%"
                 cy="50%"
                 outerRadius={80}
                 dataKey="count"
-                label={({ range, percentage }) => `${range} (${percentage}%)`}
+                label={({ type, percentage }) => `${type} (${percentage}%)`}
               >
-                {priceRangeData.map((entry, index) => (
+                {listsTypeData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                 ))}
               </Pie>
@@ -404,7 +477,7 @@ export const AdminAnalyticsDashboard = ({ adminData = {} }) => {
       </div>
       
       {/* Additional Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
           <h4 className="text-sm font-medium text-gray-600 mb-3">Geographic Coverage</h4>
           <div className="space-y-2">
@@ -433,10 +506,38 @@ export const AdminAnalyticsDashboard = ({ adminData = {} }) => {
               <span className="font-medium">{stats.totalHashtags}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-sm text-gray-500">Avg Tags/Restaurant</span>
-              <span className="font-medium">
-                {restaurants.length > 0 ? (hashtags.length / restaurants.length).toFixed(1) : '0'}
-              </span>
+              <span className="text-sm text-gray-500">Avg Dishes/Restaurant</span>
+              <span className="font-medium">{stats.avgDishesPerRestaurant}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-500">Avg Items/List</span>
+              <span className="font-medium">{stats.avgItemsPerList}</span>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+          <h4 className="text-sm font-medium text-gray-600 mb-3">Lists Analytics</h4>
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-500">Public Lists</span>
+              <span className="font-medium">{stats.publicLists}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-500">Private Lists</span>
+              <span className="font-medium">{stats.privateLists}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-500">Restaurant Lists</span>
+              <span className="font-medium">{stats.restaurantLists}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-500">Dish Lists</span>
+              <span className="font-medium">{stats.dishLists}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-500">Total List Items</span>
+              <span className="font-medium">{stats.totalListItems}</span>
             </div>
           </div>
         </div>

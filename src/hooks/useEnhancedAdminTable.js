@@ -106,6 +106,9 @@ export const useEnhancedAdminTable = ({
   const processedData = useMemo(() => {
     let data = queryData || initialData || [];
     
+    // Filter out null/undefined items to prevent errors
+    data = data.filter(item => item && typeof item === 'object' && item.id != null);
+    
     // Apply sorting
     if (sortConfig.column) {
       data = [...data].sort((a, b) => {
@@ -311,6 +314,7 @@ export const useEnhancedAdminTable = ({
   
   const handleSelectAll = useCallback((isSelected) => {
     if (isSelected) {
+      // Data is already filtered for null items in processedData
       setSelectedRows(new Set(paginatedData.map(item => item.id)));
     } else {
       setSelectedRows(new Set());

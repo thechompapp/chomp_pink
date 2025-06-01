@@ -38,85 +38,70 @@ export const COLUMN_CONFIG = {
     },
   ],
   restaurants: [
-    { accessor: 'id', header: 'ID', isEditable: false, isSortable: true },
-    { accessor: 'name', header: 'Name', isEditable: true, isSortable: true, isFilterable: true, required: true },
-    { accessor: 'website', header: 'Website', isEditable: true, isSortable: false },
-    { accessor: 'phone', header: 'Phone', isEditable: true, isSortable: false },
+    { accessor: 'id', header: 'ID', isEditable: false, isSortable: true, valueType: 'number' },
+    { accessor: 'name', header: 'Name', isEditable: true, isSortable: true, isFilterable: true },
+    { accessor: 'cuisine', header: 'Cuisine', isEditable: true, isSortable: true, isFilterable: true },
     { accessor: 'address', header: 'Address', isEditable: true, isSortable: false },
-    { accessor: 'city_id', header: 'City', isEditable: true, isSortable: true, isFilterable: true,
-      valueType: 'select',
-      selectOptions: (cities) => cities.map(city => ({ value: city.id, label: city.name })),
-    },
-    { accessor: 'neighborhood_id', header: 'Neighborhood', isEditable: true, isSortable: true, isFilterable: true,
-      valueType: 'select',
-      selectOptions: (_, neighborhoods) => neighborhoods.map(n => ({ value: n.id, label: n.name })),
-      dependsOn: 'city_id',
-    },
-    { accessor: 'price_range', header: 'Price', isEditable: true, isSortable: true, isFilterable: true,
-      valueType: 'select',
-      selectOptions: () => [
-        { value: 1, label: '$' },
-        { value: 2, label: '$$' },
-        { value: 3, label: '$$$' },
-        { value: 4, label: '$$$$' },
-      ],
-    },
+    { accessor: 'phone', header: 'Phone', isEditable: true, isSortable: false },
+    { accessor: 'website', header: 'Website', isEditable: true, isSortable: false },
+    { accessor: 'city_name', header: 'City', isEditable: false, isSortable: true, isFilterable: true },
+    { accessor: 'neighborhood_name', header: 'Neighborhood', isEditable: false, isSortable: true, isFilterable: true },
+    { accessor: 'created_at', header: 'Created', isEditable: false, isSortable: true, valueType: 'date' },
+    { accessor: 'updated_at', header: 'Updated', isEditable: false, isSortable: true, valueType: 'date' }
   ],
   dishes: [
-    { accessor: 'id', header: 'ID', isEditable: false, isSortable: true },
-    { accessor: 'name', header: 'Dish Name', isEditable: true, isSortable: true, isFilterable: true, required: true },
-    { accessor: 'restaurant_id', header: 'Restaurant', isEditable: true, isSortable: true, isFilterable: true,
-      render(value, row) {
-        if (row.restaurant_name) {
-          return row.restaurant_name;
-        }
-        if (row.restaurant_id_display) {
-          return row.restaurant_id_display;
-        }
-        if (value) {
-          return `Restaurant ID: ${value}`;
-        }
-        return '-';
-      }
-    },
-    { accessor: 'price', header: 'Price', isEditable: true, isSortable: true, valueType: 'number' },
-    { accessor: 'description', header: 'Description', isEditable: true, isSortable: false, type: 'textarea' },
+    { accessor: 'id', header: 'ID', isEditable: false, isSortable: true, valueType: 'number' },
+    { accessor: 'name', header: 'Name', isEditable: true, isSortable: true, isFilterable: true },
+    { accessor: 'description', header: 'Description', isEditable: true, isSortable: false },
+    { accessor: 'restaurant_name', header: 'Restaurant', isEditable: false, isSortable: true, isFilterable: true },
+    { accessor: 'restaurant_id', header: 'Restaurant ID', isEditable: true, isSortable: true, valueType: 'number' },
+    { accessor: 'adds', header: 'Adds', isEditable: false, isSortable: true, valueType: 'number' },
+    { accessor: 'created_at', header: 'Created', isEditable: false, isSortable: true, valueType: 'date' },
+    { accessor: 'updated_at', header: 'Updated', isEditable: false, isSortable: true, valueType: 'date' }
   ],
   users: [
-    { accessor: 'id', header: 'ID', isEditable: false, isSortable: true },
-    { accessor: 'email', header: 'Email', isEditable: true, isSortable: true, isFilterable: true, required: true },
-    { accessor: 'username', header: 'Username', isEditable: true, isSortable: true, isFilterable: true, required: true },
-    { accessor: 'full_name', header: 'Name', isEditable: true, isSortable: true },
-    { accessor: 'is_admin', header: 'Admin', isEditable: true, isSortable: true, isFilterable: true,
-      valueType: 'boolean',
-    },
-    { accessor: 'is_verified', header: 'Verified', isEditable: true, isSortable: true, isFilterable: true,
-      valueType: 'boolean',
-    },
+    { accessor: 'id', header: 'ID', isEditable: false, isSortable: true, valueType: 'number' },
+    { accessor: 'username', header: 'Username', isEditable: true, isSortable: true, isFilterable: true },
+    { accessor: 'email', header: 'Email', isEditable: true, isSortable: true, isFilterable: true },
+    { accessor: 'full_name', header: 'Full Name', isEditable: true, isSortable: true, isFilterable: true },
+    { accessor: 'role', header: 'Role', isEditable: true, isSortable: true, isFilterable: true },
+    { accessor: 'account_type', header: 'Account Type', isEditable: false, isSortable: true, isFilterable: true },
+    { accessor: 'created_at', header: 'Created', isEditable: false, isSortable: true, valueType: 'date' },
+    { accessor: 'updated_at', header: 'Updated', isEditable: false, isSortable: true, valueType: 'date' }
   ],
   cities: [
-    { accessor: 'id', header: 'ID', isEditable: false, isSortable: true },
-    { accessor: 'name', header: 'Name', isEditable: true, isSortable: true, isFilterable: true, required: true },
+    { accessor: 'id', header: 'ID', isEditable: false, isSortable: true, valueType: 'number' },
+    { accessor: 'name', header: 'Name', isEditable: true, isSortable: true, isFilterable: true },
     { accessor: 'state', header: 'State', isEditable: true, isSortable: true, isFilterable: true },
     { accessor: 'country', header: 'Country', isEditable: true, isSortable: true, isFilterable: true },
+    { accessor: 'created_at', header: 'Created', isEditable: false, isSortable: true, valueType: 'date' },
+    { accessor: 'updated_at', header: 'Updated', isEditable: false, isSortable: true, valueType: 'date' }
   ],
   neighborhoods: [
-    { accessor: 'id', header: 'ID', isEditable: false, isSortable: true },
-    { accessor: 'name', header: 'Name', isEditable: true, isSortable: true, isFilterable: true, required: true },
-    { accessor: 'city_id', header: 'City', isEditable: true, isSortable: true, isFilterable: true,
-      valueType: 'select',
-      selectOptions: (cities) => cities.map(city => ({ value: city.id, label: city.name })),
-    },
+    { accessor: 'id', header: 'ID', isEditable: false, isSortable: true, valueType: 'number' },
+    { accessor: 'name', header: 'Name', isEditable: true, isSortable: true, isFilterable: true },
+    { accessor: 'city_name', header: 'City', isEditable: false, isSortable: true, isFilterable: true },
+    { accessor: 'city_id', header: 'City ID', isEditable: true, isSortable: true, valueType: 'number' },
+    { accessor: 'zip_code', header: 'ZIP Code', isEditable: true, isSortable: true },
+    { accessor: 'created_at', header: 'Created', isEditable: false, isSortable: true, valueType: 'date' },
+    { accessor: 'updated_at', header: 'Updated', isEditable: false, isSortable: true, valueType: 'date' }
   ],
   hashtags: [
-    { accessor: 'id', header: 'ID', isEditable: false, isSortable: true },
-    { accessor: 'name', header: 'Name', isEditable: true, isSortable: true, isFilterable: true, required: true },
-    { accessor: 'count', header: 'Usage Count', isEditable: false, isSortable: true },
+    { accessor: 'id', header: 'ID', isEditable: false, isSortable: true, valueType: 'number' },
+    { accessor: 'name', header: 'Name', isEditable: true, isSortable: true, isFilterable: true },
+    { accessor: 'category', header: 'Category', isEditable: true, isSortable: true, isFilterable: true },
+    { accessor: 'usage_count', header: 'Usage Count', isEditable: false, isSortable: true, valueType: 'number' },
+    { accessor: 'created_at', header: 'Created', isEditable: false, isSortable: true, valueType: 'date' },
+    { accessor: 'updated_at', header: 'Updated', isEditable: false, isSortable: true, valueType: 'date' }
   ],
   restaurant_chains: [
-    { accessor: 'id', header: 'ID', isEditable: false, isSortable: true },
+    { accessor: 'id', header: 'ID', isEditable: false, isSortable: true, valueType: 'number' },
     { accessor: 'name', header: 'Name', isEditable: true, isSortable: true, isFilterable: true },
-    { accessor: 'restaurant_count', header: 'Restaurant Count', isEditable: false, isSortable: true },
+    { accessor: 'website', header: 'Website', isEditable: true, isSortable: false },
+    { accessor: 'description', header: 'Description', isEditable: true, isSortable: false },
+    { accessor: 'restaurant_count', header: 'Restaurants', isEditable: false, isSortable: true, valueType: 'number' },
+    { accessor: 'created_at', header: 'Created', isEditable: false, isSortable: true, valueType: 'date' },
+    { accessor: 'updated_at', header: 'Updated', isEditable: false, isSortable: true, valueType: 'date' }
   ],
   chains: [
     { accessor: 'id', header: 'ID', isEditable: false, isSortable: true },
@@ -124,102 +109,132 @@ export const COLUMN_CONFIG = {
     { accessor: 'restaurant_count', header: 'Restaurant Count', isEditable: false, isSortable: true },
   ],
   submissions: [
-    {
-      accessor: 'id',
-      header: 'ID',
-      isEditable: false,
-      isSortable: true,
-      render(value) {
-        return `#${value}`;
-      }
-    },
-    {
-      accessor: 'name',
-      header: 'Name',
-      isEditable: false,
-      isSortable: true,
-      render(value) {
-        return value || '-';
-      }
-    },
-    {
-      accessor: 'location',
-      header: 'Address / Location',
-      isEditable: false,
-      isSortable: false,
-      render(value) {
-        return value || '-';
-      }
-    },
-    {
-      accessor: 'city',
-      header: 'City',
-      isEditable: false,
-      isSortable: true,
-      render(value) {
-        return value || '-';
-      }
-    },
-    {
-      accessor: 'neighborhood',
-      header: 'Neighborhood',
-      isEditable: false,
-      isSortable: true,
-      render(value) {
-        return value || '-';
-      }
-    },
-    {
-      accessor: 'user_handle',
-      header: 'Submitted By',
-      isEditable: false,
-      isSortable: true,
-      render(value) {
-        return value || 'Anonymous';
-      }
-    },
-    {
-      accessor: 'restaurant_name',
-      header: 'Restaurant (Dishes)',
-      isEditable: false,
-      isSortable: true,
-      render(name, row) {
-        if (!name) return '-';
-        
-        const dishes = row.dishes || [];
-        return (
-          <div>
-            <div className="font-medium">{name}</div>
-            {dishes.length > 0 && (
-              <div className="text-xs text-muted-foreground">{dishes.length} dish(es) included</div>
-            )}
-          </div>
-        );
-      }
-    },
-    {
-      accessor: 'status',
-      header: 'Status',
-      isEditable: false,
-      isSortable: true,
-      render(status) {
-        const statusMap = {
-          'pending': { label: 'Pending', className: 'bg-yellow-100 text-yellow-800' },
-          'approved': { label: 'Approved', className: 'bg-green-100 text-green-800' },
-          'rejected': { label: 'Rejected', className: 'bg-red-100 text-red-800' },
-        };
-        const { label, className } = statusMap[status] || { label: status, className: 'bg-gray-100' };
-        return <span className={`px-2 py-1 rounded text-xs font-medium ${className}`}>{label}</span>;
-      }
-    },
-    {
-      accessor: 'created_at',
-      header: 'Submitted',
-      isEditable: false,
-      isSortable: true,
-      render(value) {
-        return value ? new Date(value).toLocaleDateString() : '-';
-      }
-    },
+    { accessor: 'id', header: 'ID', isEditable: false, isSortable: true, valueType: 'number' },
+    { accessor: 'type', header: 'Type', isEditable: false, isSortable: true, isFilterable: true },
+    { accessor: 'status', header: 'Status', isEditable: true, isSortable: true, isFilterable: true },
+    { accessor: 'submitted_by_username', header: 'Submitted By', isEditable: false, isSortable: true, isFilterable: true },
+    { accessor: 'restaurant_name', header: 'Restaurant', isEditable: false, isSortable: true, isFilterable: true },
+    { accessor: 'dish_name', header: 'Dish', isEditable: false, isSortable: true, isFilterable: true },
+    { accessor: 'created_at', header: 'Submitted', isEditable: false, isSortable: true, valueType: 'date' },
+    { accessor: 'updated_at', header: 'Updated', isEditable: false, isSortable: true, valueType: 'date' }
+  ],
+  lists: [
+    { accessor: 'id', header: 'ID', isEditable: false, isSortable: true, valueType: 'number' },
+    { accessor: 'name', header: 'List Name', isEditable: true, isSortable: true, isFilterable: true },
+    { accessor: 'description', header: 'Description', isEditable: true, isSortable: false },
+    { accessor: 'list_type', header: 'Type', isEditable: true, isSortable: true, isFilterable: true },
+    { accessor: 'city_name', header: 'City', isEditable: false, isSortable: true, isFilterable: true },
+    { accessor: 'creator_handle', header: 'Creator', isEditable: false, isSortable: true, isFilterable: true },
+    { accessor: 'items_count', header: 'Items', isEditable: false, isSortable: true, valueType: 'number' },
+    { accessor: 'saved_count', header: 'Saves', isEditable: false, isSortable: true, valueType: 'number' },
+    { accessor: 'is_public', header: 'Public', isEditable: true, isSortable: true, valueType: 'boolean' },
+    { accessor: 'created_at', header: 'Created', isEditable: false, isSortable: true, valueType: 'date' },
+    { accessor: 'updated_at', header: 'Updated', isEditable: false, isSortable: true, valueType: 'date' }
   ],
 };
+
+export const getColumnConfig = (resourceType) => {
+  const configs = {
+    restaurants: [
+      { accessor: 'id', header: 'ID', isEditable: false, isSortable: true, valueType: 'number' },
+      { accessor: 'name', header: 'Name', isEditable: true, isSortable: true, isFilterable: true },
+      { accessor: 'cuisine', header: 'Cuisine', isEditable: true, isSortable: true, isFilterable: true },
+      { accessor: 'address', header: 'Address', isEditable: true, isSortable: false },
+      { accessor: 'phone', header: 'Phone', isEditable: true, isSortable: false },
+      { accessor: 'website', header: 'Website', isEditable: true, isSortable: false },
+      { accessor: 'city_name', header: 'City', isEditable: false, isSortable: true, isFilterable: true },
+      { accessor: 'neighborhood_name', header: 'Neighborhood', isEditable: false, isSortable: true, isFilterable: true },
+      { accessor: 'created_at', header: 'Created', isEditable: false, isSortable: true, valueType: 'date' },
+      { accessor: 'updated_at', header: 'Updated', isEditable: false, isSortable: true, valueType: 'date' }
+    ],
+    
+    dishes: [
+      { accessor: 'id', header: 'ID', isEditable: false, isSortable: true, valueType: 'number' },
+      { accessor: 'name', header: 'Name', isEditable: true, isSortable: true, isFilterable: true },
+      { accessor: 'description', header: 'Description', isEditable: true, isSortable: false },
+      { accessor: 'restaurant_name', header: 'Restaurant', isEditable: false, isSortable: true, isFilterable: true },
+      { accessor: 'restaurant_id', header: 'Restaurant ID', isEditable: true, isSortable: true, valueType: 'number' },
+      { accessor: 'adds', header: 'Adds', isEditable: false, isSortable: true, valueType: 'number' },
+      { accessor: 'created_at', header: 'Created', isEditable: false, isSortable: true, valueType: 'date' },
+      { accessor: 'updated_at', header: 'Updated', isEditable: false, isSortable: true, valueType: 'date' }
+    ],
+    
+    users: [
+      { accessor: 'id', header: 'ID', isEditable: false, isSortable: true, valueType: 'number' },
+      { accessor: 'username', header: 'Username', isEditable: true, isSortable: true, isFilterable: true },
+      { accessor: 'email', header: 'Email', isEditable: true, isSortable: true, isFilterable: true },
+      { accessor: 'full_name', header: 'Full Name', isEditable: true, isSortable: true, isFilterable: true },
+      { accessor: 'role', header: 'Role', isEditable: true, isSortable: true, isFilterable: true },
+      { accessor: 'account_type', header: 'Account Type', isEditable: false, isSortable: true, isFilterable: true },
+      { accessor: 'created_at', header: 'Created', isEditable: false, isSortable: true, valueType: 'date' },
+      { accessor: 'updated_at', header: 'Updated', isEditable: false, isSortable: true, valueType: 'date' }
+    ],
+    
+    cities: [
+      { accessor: 'id', header: 'ID', isEditable: false, isSortable: true, valueType: 'number' },
+      { accessor: 'name', header: 'Name', isEditable: true, isSortable: true, isFilterable: true },
+      { accessor: 'state', header: 'State', isEditable: true, isSortable: true, isFilterable: true },
+      { accessor: 'country', header: 'Country', isEditable: true, isSortable: true, isFilterable: true },
+      { accessor: 'created_at', header: 'Created', isEditable: false, isSortable: true, valueType: 'date' },
+      { accessor: 'updated_at', header: 'Updated', isEditable: false, isSortable: true, valueType: 'date' }
+    ],
+    
+    neighborhoods: [
+      { accessor: 'id', header: 'ID', isEditable: false, isSortable: true, valueType: 'number' },
+      { accessor: 'name', header: 'Name', isEditable: true, isSortable: true, isFilterable: true },
+      { accessor: 'city_name', header: 'City', isEditable: false, isSortable: true, isFilterable: true },
+      { accessor: 'city_id', header: 'City ID', isEditable: true, isSortable: true, valueType: 'number' },
+      { accessor: 'zip_code', header: 'ZIP Code', isEditable: true, isSortable: true },
+      { accessor: 'created_at', header: 'Created', isEditable: false, isSortable: true, valueType: 'date' },
+      { accessor: 'updated_at', header: 'Updated', isEditable: false, isSortable: true, valueType: 'date' }
+    ],
+    
+    hashtags: [
+      { accessor: 'id', header: 'ID', isEditable: false, isSortable: true, valueType: 'number' },
+      { accessor: 'name', header: 'Name', isEditable: true, isSortable: true, isFilterable: true },
+      { accessor: 'category', header: 'Category', isEditable: true, isSortable: true, isFilterable: true },
+      { accessor: 'usage_count', header: 'Usage Count', isEditable: false, isSortable: true, valueType: 'number' },
+      { accessor: 'created_at', header: 'Created', isEditable: false, isSortable: true, valueType: 'date' },
+      { accessor: 'updated_at', header: 'Updated', isEditable: false, isSortable: true, valueType: 'date' }
+    ],
+    
+    restaurant_chains: [
+      { accessor: 'id', header: 'ID', isEditable: false, isSortable: true, valueType: 'number' },
+      { accessor: 'name', header: 'Name', isEditable: true, isSortable: true, isFilterable: true },
+      { accessor: 'website', header: 'Website', isEditable: true, isSortable: false },
+      { accessor: 'description', header: 'Description', isEditable: true, isSortable: false },
+      { accessor: 'restaurant_count', header: 'Restaurants', isEditable: false, isSortable: true, valueType: 'number' },
+      { accessor: 'created_at', header: 'Created', isEditable: false, isSortable: true, valueType: 'date' },
+      { accessor: 'updated_at', header: 'Updated', isEditable: false, isSortable: true, valueType: 'date' }
+    ],
+    
+    submissions: [
+      { accessor: 'id', header: 'ID', isEditable: false, isSortable: true, valueType: 'number' },
+      { accessor: 'type', header: 'Type', isEditable: false, isSortable: true, isFilterable: true },
+      { accessor: 'status', header: 'Status', isEditable: true, isSortable: true, isFilterable: true },
+      { accessor: 'submitted_by_username', header: 'Submitted By', isEditable: false, isSortable: true, isFilterable: true },
+      { accessor: 'restaurant_name', header: 'Restaurant', isEditable: false, isSortable: true, isFilterable: true },
+      { accessor: 'dish_name', header: 'Dish', isEditable: false, isSortable: true, isFilterable: true },
+      { accessor: 'created_at', header: 'Submitted', isEditable: false, isSortable: true, valueType: 'date' },
+      { accessor: 'updated_at', header: 'Updated', isEditable: false, isSortable: true, valueType: 'date' }
+    ],
+    
+    lists: [
+      { accessor: 'id', header: 'ID', isEditable: false, isSortable: true, valueType: 'number' },
+      { accessor: 'name', header: 'List Name', isEditable: true, isSortable: true, isFilterable: true },
+      { accessor: 'description', header: 'Description', isEditable: true, isSortable: false },
+      { accessor: 'list_type', header: 'Type', isEditable: true, isSortable: true, isFilterable: true },
+      { accessor: 'city_name', header: 'City', isEditable: false, isSortable: true, isFilterable: true },
+      { accessor: 'creator_handle', header: 'Creator', isEditable: false, isSortable: true, isFilterable: true },
+      { accessor: 'items_count', header: 'Items', isEditable: false, isSortable: true, valueType: 'number' },
+      { accessor: 'saved_count', header: 'Saves', isEditable: false, isSortable: true, valueType: 'number' },
+      { accessor: 'is_public', header: 'Public', isEditable: true, isSortable: true, valueType: 'boolean' },
+      { accessor: 'created_at', header: 'Created', isEditable: false, isSortable: true, valueType: 'date' },
+      { accessor: 'updated_at', header: 'Updated', isEditable: false, isSortable: true, valueType: 'date' }
+    ]
+  };
+  
+  return configs[resourceType] || [];
+};
+
+export default COLUMN_CONFIG;

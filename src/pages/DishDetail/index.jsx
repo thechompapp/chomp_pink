@@ -1,5 +1,5 @@
 /* src/pages/DishDetail/index.jsx */
-import React, { useEffect, useCallback } from 'react'; // Added useCallback
+import React, { useEffect, useCallback, useState } from 'react'; // Added useState
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, MapPin, Share2, PlusCircle, Utensils, Tag } from 'lucide-react'; // Added Utensils, Tag
@@ -8,6 +8,7 @@ import { engagementService } from '@/services/engagementService';
 import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
 import Button from '@/components/UI/Button';
 import PillButton from '@/components/UI/PillButton'; // Import PillButton
+import LoginPromptDialog from '@/components/UI/LoginPromptDialog'; // Import new component
 import { useQuickAdd } from '@/contexts/QuickAddContext';
 import ErrorMessage from '@/components/UI/ErrorMessage';
 import QueryResultDisplay from '@/components/QueryResultDisplay';
@@ -55,6 +56,9 @@ const DishDetail = () => {
     const navigate = useNavigate();
     const isAuthenticated = useAuth().isAuthenticated;
     const { openQuickAdd } = useQuickAdd();
+    
+    // State for login prompt dialog
+    const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
     const queryResult = useQuery({
         queryKey: ['dishDetails', id],
@@ -85,7 +89,8 @@ const DishDetail = () => {
 
     const handleAddToList = useCallback((dish) => {
         if (!isAuthenticated) {
-            navigate('/login', { state: { from: window.location.pathname } });
+            // FIXED: Show login prompt instead of hard redirect
+            setShowLoginPrompt(true);
             return;
         }
         if (!dish || !dish.id) {
@@ -102,7 +107,7 @@ const DishDetail = () => {
             city: dish.city,
             neighborhood: dish.neighborhood,
         });
-    }, [isAuthenticated, openQuickAdd, navigate]);
+    }, [isAuthenticated, openQuickAdd]); // Removed navigate dependency
 
     const handleShare = useCallback(() => {
         if (navigator.share) {
@@ -209,6 +214,15 @@ const DishDetail = () => {
                     </div>
                 )}
             </QueryResultDisplay>
+            
+            {/* Login Prompt Dialog */}
+            <LoginPromptDialog
+                isOpen={showLoginPrompt}
+                onClose={() => setShowLoginPrompt(false)}
+                title="Save Dish to Your List"
+                message={`Log in to save "${queryResult.data?.name || 'this dish'}" to your personal lists and keep track of your favorite foods.`}
+                currentPath={`/dish/${id}`}
+            />
         </div>
     );
 };

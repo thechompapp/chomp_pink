@@ -1,251 +1,367 @@
 // src/hooks/useAdminTable.js
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { adminService } from '../services/adminService';
-import { logDebug, logError } from '../utils/logger';
+import { enhancedAdminService } from '@/services/enhancedAdminService';
+import { logInfo, logWarn, logError } from '@/utils/logger';
 
 /**
- * Custom hook for managing AdminTable state and operations
- * @param {string} tabKey - The current tab/resource type
- * @param {Array} data - The data to display in the table
- * @param {Function} onRefetch - Function to call to refresh data
- * @returns {Object} - Table state and operations
+ * Enhanced Admin Table Hook
+ * Provides comprehensive table functionality for admin data management
  */
-export const useAdminTable = (tabKey, data, onRefetch) => {
-  // State for sorting
-  const [sortConfig, setSortConfig] = useState({ key: 'id', direction: 'asc' });
+export const useAdminTable = (resourceType, initialData = [], options = {}) => {
+  const {
+    pageSize = 20,
+    enableSorting = true,
+    enableFiltering = true,
+    enableSelection = true,
+    enableSearch = true,
+    autoRefresh = false,
+    refreshInterval = 30000
+  } = options;
+
+  // Core state
+  const [data, setData] = useState(initialData);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   
-  // State for editing
-  const [editingId, setEditingId] = useState(null);
-  const [editData, setEditData] = useState({});
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   
-  // State for related data (e.g., restaurant names for dishes)
-  const [relatedData, setRelatedData] = useState({});
-
-  // Define relationship configurations - memoized
-  const relationshipConfigs = useMemo(() => ({
-    dishes: {
-      fields: ['restaurant_id', 'restaurant'],
-      directField: 'restaurant_name',
-      mapKey: 'restaurants',
-      invalidValue: 'Unknown Restaurant',
-      resource: 'restaurants'
-    },
-    restaurants: {
-      fields: ['neighborhood_id', 'neighborhood'],
-      directField: 'neighborhood_name',
-      mapKey: 'neighborhoods',
-      invalidValue: 'Unknown Neighborhood',
-      resource: 'neighborhoods'
-    },
-    neighborhoods: {
-      fields: ['city_id', 'city'],
-      directField: 'city_name',
-      mapKey: 'cities',
-      invalidValue: 'Unknown City',
-      resource: 'cities'
-    }
-  }), []);
-
-  // Define column configurations - memoized
-  const columnConfigurations = useMemo(() => ({
-    dishes: ['restaurant_id', 'price', 'description'],
-    restaurants: ['neighborhood_id', 'address', 'website', 'phone'],
-    neighborhoods: ['city_id', 'borough'],
-    users: ['email', 'account_type'],
-    lists: ['user_id', 'description']
-  }), []);
+  // Sorting state
+  const [sortBy, setSortBy] = useState(null);
+  const [sortDirection, setSortDirection] = useState('asc');
   
-  // Common columns that appear in all tables
-  const commonColumns = useMemo(() => ['id', 'name', 'created_at', 'updated_at'], []);
+  // Filtering state
+  const [filters, setFilters] = useState({});
+  const [searchQuery, setSearchQuery] = useState('');
   
-  // Determine which columns to show based on tabKey - memoized
-  const columns = useMemo(() => {
-    const specificColumns = columnConfigurations[tabKey] || [];
-    return [...specificColumns, ...commonColumns];
-  }, [tabKey, columnConfigurations, commonColumns]);
+  // Selection state
+  const [selectedRows, setSelectedRows] = useState(new Set());
+  const [selectAll, setSelectAll] = useState(false);
+  
+  // Edit state
+  const [editingCell, setEditingCell] = useState(null);
+  const [pendingChanges, setPendingChanges] = useState({});
 
-  // Helper function to create ID-to-name mapping - memoized
-  const createEntityMap = useCallback((entities) => {
-    if (!entities || !Array.isArray(entities)) return {};
+  // Define searchable fields for each resource type
+  const searchableFields = {
+    restaurants: ['name', 'cuisine', 'address'],
+    dishes: ['name', 'description'],
+    users: ['username', 'email', 'full_name'],
+    cities: ['name', 'state', 'country'],
+    neighborhoods: ['name'],
+    hashtags: ['name', 'category'],
+    restaurant_chains: ['name', 'description'],
+    submissions: ['restaurant_name', 'dish_name']
+  };
+
+  // Load data with current parameters
+  const loadData = useCallback(async () => {
+    if (!resourceType) return;
     
-    return entities.reduce((map, entity) => {
-      if (entity && entity.id && entity.name) {
-        map[entity.id] = entity.name;
-      }
-      return map;
-    }, {});
-  }, []);
-
-  // Handle sorting with improved type handling - memoized
-  const sortedData = useMemo(() => {
-    if (!sortConfig.key || !data) return data || [];
+    setLoading(true);
+    setError(null);
     
-    const sortValue = (item, key) => {
-      const value = item[key];
-      // Handle different data types appropriately
-      if (value === null || value === undefined) return '';
-      if (typeof value === 'string') return value.toLowerCase(); // Case-insensitive string comparison
-      return value; // Numbers and other types
-    };
-    
-    // Create a new sorted array
-    return [...data].sort((a, b) => {
-      const valueA = sortValue(a, sortConfig.key);
-      const valueB = sortValue(b, sortConfig.key);
-      
-      if (valueA < valueB) {
-        return sortConfig.direction === 'asc' ? -1 : 1;
-      }
-      if (valueA > valueB) {
-        return sortConfig.direction === 'asc' ? 1 : -1;
-      }
-      return 0;
-    });
-  }, [data, sortConfig]);
-
-  // Fetch related data when component mounts or tabKey changes
-  useEffect(() => {
-    const fetchRelatedData = async () => {
-      try {
-        // Get config for current tab
-        const config = relationshipConfigs[tabKey];
-        
-        if (!config) return;
-        
-        logDebug(`[useAdminTable] Fetching related data for ${tabKey} tab`);
-        
-        // Fetch related data
-        const response = await adminService.getAdminData(config.resource);
-        const relatedDataArray = Array.isArray(response) ? response : [];
-        
-        logDebug(`[useAdminTable] Fetched ${config.resource} data:`, {
-          length: relatedDataArray.length || 0
-        });
-        
-        // Create mapping and update state in one operation
-        const mapping = createEntityMap(relatedDataArray);
-        setRelatedData(prevMap => ({
-          ...prevMap,
-          [config.mapKey]: mapping
-        }));
-      } catch (error) {
-        logError(`[useAdminTable] Error fetching related data for ${tabKey}:`, error);
-      }
-    };
-    
-    fetchRelatedData();
-  }, [tabKey, relationshipConfigs, createEntityMap]);
-
-  // Handle sort request - memoized
-  const requestSort = useCallback((key) => {
-    setSortConfig(prevConfig => {
-      if (prevConfig.key === key) {
-        return {
-          key,
-          direction: prevConfig.direction === 'asc' ? 'desc' : 'asc'
-        };
-      }
-      return { key, direction: 'asc' };
-    });
-  }, []);
-
-  // Start editing an item - memoized
-  const startEditing = useCallback((item) => {
-    setEditingId(item.id);
-    setEditData({ ...item });
-  }, []);
-
-  // Cancel editing - memoized
-  const cancelEditing = useCallback(() => {
-    setEditingId(null);
-    setEditData({});
-  }, []);
-
-  // Save edited item - memoized
-  const saveEdit = useCallback(async () => {
     try {
-      // Don't save if no editingId
-      if (!editingId) return;
+      logInfo(`[useAdminTable] Loading ${resourceType} data`);
       
-      await adminService.updateAdminItem(tabKey, editingId, editData);
-      setEditingId(null);
-      setEditData({});
+      const params = {
+        page: currentPage,
+        limit: pageSize,
+        ...(sortBy && { sort: sortBy, order: sortDirection }),
+        ...(searchQuery && { search: searchQuery }),
+        ...filters
+      };
       
-      if (typeof onRefetch === 'function') {
-        onRefetch();
+      const response = await enhancedAdminService.searchResources(resourceType, searchQuery, {
+        page: currentPage,
+        limit: pageSize,
+        sort: sortBy,
+        order: sortDirection,
+        ...filters
+      });
+      
+      // Handle different response formats
+      if (response.data && response.pagination) {
+        setData(response.data);
+        setTotalPages(response.pagination.totalPages);
+        setTotalCount(response.pagination.totalCount);
+      } else if (Array.isArray(response)) {
+        setData(response);
+        setTotalPages(Math.ceil(response.length / pageSize));
+        setTotalCount(response.length);
+      } else {
+        setData(response.data || response);
+        setTotalPages(1);
+        setTotalCount((response.data || response).length);
       }
-    } catch (error) {
-      logError(`[useAdminTable] Error updating ${tabKey} item:`, error);
+      
+      logInfo(`[useAdminTable] Successfully loaded ${resourceType} data`);
+      
+    } catch (err) {
+      logError(`[useAdminTable] Error loading ${resourceType} data:`, err);
+      setError(err.message);
+      setData([]);
+    } finally {
+      setLoading(false);
     }
-  }, [editingId, editData, tabKey, onRefetch]);
+  }, [resourceType, currentPage, pageSize, sortBy, sortDirection, searchQuery, filters]);
 
-  // Delete an item - memoized
-  const deleteItem = useCallback(async (id) => {
-    if (!id) return;
+  // Load data when dependencies change
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // Auto-refresh functionality
+  useEffect(() => {
+    if (!autoRefresh) return;
     
-    if (window.confirm(`Are you sure you want to delete this ${tabKey.slice(0, -1)}?`)) {
-      try {
-        await adminService.deleteAdminItem(tabKey, id);
+    const interval = setInterval(loadData, refreshInterval);
+    return () => clearInterval(interval);
+  }, [autoRefresh, refreshInterval, loadData]);
+
+  // Filtered and sorted data
+  const processedData = useMemo(() => {
+    let result = [...data];
+    
+    // Apply client-side search if enabled
+    if (searchQuery && enableSearch) {
+      const fields = searchableFields[resourceType] || ['name'];
+      result = result.filter(item => 
+        fields.some(field => 
+          item[field]?.toString().toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      );
+    }
+    
+    // Apply client-side sorting if enabled and not handled by server
+    if (sortBy && enableSorting) {
+      result.sort((a, b) => {
+        const aVal = a[sortBy] || '';
+        const bVal = b[sortBy] || '';
         
-        if (typeof onRefetch === 'function') {
-          onRefetch();
+        // Handle different data types
+        if (typeof aVal === 'number' && typeof bVal === 'number') {
+          return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
         }
-      } catch (error) {
-        logError('[useAdminTable] Error deleting item:', error);
+        
+        const aStr = aVal.toString().toLowerCase();
+        const bStr = bVal.toString().toLowerCase();
+        
+        if (sortDirection === 'asc') {
+          return aStr.localeCompare(bStr);
+        } else {
+          return bStr.localeCompare(aStr);
+        }
+      });
+    }
+    
+    return result;
+  }, [data, searchQuery, sortBy, sortDirection, resourceType, enableSearch, enableSorting]);
+
+  // Pagination
+  const paginatedData = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    return processedData.slice(startIndex, startIndex + pageSize);
+  }, [processedData, currentPage, pageSize]);
+
+  // Handlers
+  const handleSort = useCallback((column) => {
+    if (!enableSorting) return;
+    
+    if (sortBy === column) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(column);
+      setSortDirection('asc');
+    }
+    setCurrentPage(1);
+  }, [sortBy, enableSorting]);
+
+  const handleFilter = useCallback((filterKey, filterValue) => {
+    if (!enableFiltering) return;
+    
+    setFilters(prev => ({
+      ...prev,
+      [filterKey]: filterValue
+    }));
+    setCurrentPage(1);
+  }, [enableFiltering]);
+
+  const handleSearch = useCallback((query) => {
+    if (!enableSearch) return;
+    
+    setSearchQuery(query);
+    setCurrentPage(1);
+  }, [enableSearch]);
+
+  const handlePageChange = useCallback((page) => {
+    setCurrentPage(page);
+  }, []);
+
+  const handleRowSelect = useCallback((rowId, isSelected) => {
+    if (!enableSelection) return;
+    
+    setSelectedRows(prev => {
+      const newSet = new Set(prev);
+      if (isSelected) {
+        newSet.add(rowId);
+      } else {
+        newSet.delete(rowId);
       }
-    }
-  }, [tabKey, onRefetch]);
+      return newSet;
+    });
+  }, [enableSelection]);
 
-  // Get display value for a relationship field - memoized
-  const getRelationshipValue = useCallback((key, value, item) => {
-    const config = relationshipConfigs[tabKey];
-    if (!config || !config.fields.includes(key)) return value;
-
-    // Check if we have the name directly in the data
-    if (config.directField && item[config.directField] && 
-        (!config.invalidValue || item[config.directField] !== config.invalidValue) && 
-        (!config.checkType || typeof item[config.directField] === 'string')) {
-      return item[config.directField];
+  const handleSelectAll = useCallback((isSelected) => {
+    if (!enableSelection) return;
+    
+    if (isSelected) {
+      const allIds = paginatedData.map(item => item.id);
+      setSelectedRows(new Set(allIds));
+      setSelectAll(true);
+    } else {
+      setSelectedRows(new Set());
+      setSelectAll(false);
     }
-    
-    // Otherwise, look up the name in our mapping
-    const idField = config.fields[0]; // e.g., restaurant_id
-    const id = item[idField];
-    
-    if (id && relatedData[config.mapKey] && relatedData[config.mapKey][id]) {
-      return relatedData[config.mapKey][id];
-    }
-    
-    return value || config.invalidValue || 'Unknown';
-  }, [tabKey, relationshipConfigs, relatedData]);
+  }, [enableSelection, paginatedData]);
 
-  // Return memoized values and functions
-  return useMemo(() => ({
-    sortConfig,
-    editingId,
-    editData,
-    relatedData,
-    columns,
-    sortedData,
-    requestSort,
-    startEditing,
-    cancelEditing,
-    saveEdit,
-    deleteItem,
-    getRelationshipValue,
-    setEditData
-  }), [
-    sortConfig,
-    editingId,
-    editData,
-    relatedData,
-    columns,
-    sortedData,
-    requestSort,
-    startEditing,
-    cancelEditing,
-    saveEdit,
-    deleteItem,
-    getRelationshipValue
-  ]);
+  const handleCellEdit = useCallback((rowId, columnKey, value) => {
+    setEditingCell({ rowId, columnKey });
+    setPendingChanges(prev => ({
+      ...prev,
+      [`${rowId}-${columnKey}`]: value
+    }));
+  }, []);
+
+  const handleCellSave = useCallback(async (rowId, columnKey, value) => {
+    try {
+      setLoading(true);
+      
+      await enhancedAdminService.updateResource(resourceType, rowId, {
+        [columnKey]: value
+      });
+      
+      // Update local data
+      setData(prev => prev.map(item => 
+        item.id === rowId ? { ...item, [columnKey]: value } : item
+      ));
+      
+      // Clear pending changes
+      setPendingChanges(prev => {
+        const next = { ...prev };
+        delete next[`${rowId}-${columnKey}`];
+        return next;
+      });
+      
+      setEditingCell(null);
+      
+    } catch (err) {
+      logError(`[useAdminTable] Error saving cell edit:`, err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [resourceType]);
+
+  const handleCellCancel = useCallback((rowId, columnKey) => {
+    setPendingChanges(prev => {
+      const next = { ...prev };
+      delete next[`${rowId}-${columnKey}`];
+      return next;
+    });
+    setEditingCell(null);
+  }, []);
+
+  const handleRefresh = useCallback(() => {
+    loadData();
+  }, [loadData]);
+
+  const handleDelete = useCallback(async (rowIds) => {
+    try {
+      setLoading(true);
+      
+      if (Array.isArray(rowIds)) {
+        await enhancedAdminService.bulkDelete(resourceType, rowIds);
+      } else {
+        await enhancedAdminService.deleteResource(resourceType, rowIds);
+      }
+      
+      // Refresh data
+      await loadData();
+      
+      // Clear selection
+      setSelectedRows(new Set());
+      setSelectAll(false);
+      
+    } catch (err) {
+      logError(`[useAdminTable] Error deleting rows:`, err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [resourceType, loadData]);
+
+  // Return table state and handlers
+  return {
+    // Data
+    data: paginatedData,
+    allData: processedData,
+    rawData: data,
+    
+    // State
+    loading,
+    error,
+    
+    // Pagination
+    currentPage,
+    totalPages,
+    totalCount,
+    pageSize,
+    
+    // Sorting
+    sortBy,
+    sortDirection,
+    
+    // Filtering & Search
+    filters,
+    searchQuery,
+    
+    // Selection
+    selectedRows,
+    selectAll,
+    
+    // Editing
+    editingCell,
+    pendingChanges,
+    
+    // Handlers
+    handleSort,
+    handleFilter,
+    handleSearch,
+    handlePageChange,
+    handleRowSelect,
+    handleSelectAll,
+    handleCellEdit,
+    handleCellSave,
+    handleCellCancel,
+    handleRefresh,
+    handleDelete,
+    
+    // Utils
+    setData,
+    setError,
+    clearSelection: () => {
+      setSelectedRows(new Set());
+      setSelectAll(false);
+    },
+    clearFilters: () => {
+      setFilters({});
+      setSearchQuery('');
+      setCurrentPage(1);
+    }
+  };
 };
+
+export default useAdminTable;

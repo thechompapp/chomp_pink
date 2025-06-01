@@ -11,6 +11,10 @@ const WEIGHTS = {
     view: 1,
     click: 3,
     add_to_list: 5,
+    search_view: 2,        // Higher than regular view - indicates search intent
+    search_click: 4,       // Higher than regular click - strong search intent
+    search_result_view: 2, // When item appears in search results
+    search_result_click: 4 // When item is clicked from search results
 };
 
 export const getTrendingRestaurants = async (limit) => {
@@ -22,6 +26,10 @@ export const getTrendingRestaurants = async (limit) => {
                 SELECT item_id, 
                     SUM(CASE WHEN engagement_type = 'view' THEN ${WEIGHTS.view}
                             WHEN engagement_type = 'click' THEN ${WEIGHTS.click}
+                            WHEN engagement_type = 'search_view' THEN ${WEIGHTS.search_view}
+                            WHEN engagement_type = 'search_click' THEN ${WEIGHTS.search_click}
+                            WHEN engagement_type = 'search_result_view' THEN ${WEIGHTS.search_result_view}
+                            WHEN engagement_type = 'search_result_click' THEN ${WEIGHTS.search_result_click}
                             ELSE 0 END) as score
                 FROM engagements
                 WHERE item_type = 'restaurant'
@@ -50,6 +58,10 @@ export const getTrendingDishes = async (limit) => {
                 SELECT item_id, 
                     SUM(CASE WHEN engagement_type = 'view' THEN ${WEIGHTS.view}
                             WHEN engagement_type = 'click' THEN ${WEIGHTS.click}
+                            WHEN engagement_type = 'search_view' THEN ${WEIGHTS.search_view}
+                            WHEN engagement_type = 'search_click' THEN ${WEIGHTS.search_click}
+                            WHEN engagement_type = 'search_result_view' THEN ${WEIGHTS.search_result_view}
+                            WHEN engagement_type = 'search_result_click' THEN ${WEIGHTS.search_result_click}
                             ELSE 0 END) as score
                 FROM engagements
                 WHERE item_type = 'dish'
@@ -97,6 +109,10 @@ export const getTrendingLists = async (userId, limit) => {
                 SELECT item_id, 
                     SUM(CASE WHEN engagement_type = 'view' THEN ${WEIGHTS.view}
                             WHEN engagement_type = 'add_to_list' THEN ${WEIGHTS.add_to_list}
+                            WHEN engagement_type = 'search_view' THEN ${WEIGHTS.search_view}
+                            WHEN engagement_type = 'search_click' THEN ${WEIGHTS.search_click}
+                            WHEN engagement_type = 'search_result_view' THEN ${WEIGHTS.search_result_view}
+                            WHEN engagement_type = 'search_result_click' THEN ${WEIGHTS.search_result_click}
                             ELSE 0 END) as score
                 FROM engagements
                 WHERE item_type = 'list'

@@ -6,8 +6,18 @@ import { logDebug, logWarn, logError, logInfo } from '@/utils/logger.js'; // Upd
 // Allowed types based on updated schema
 // Schema Check: ['restaurant', 'dish', 'list', 'page']
 const ALLOWED_ITEM_TYPES = ['restaurant', 'dish', 'list', 'page'];
-// Schema Check: ['view', 'click', 'add_to_list', 'share', 'page_view']
-const ALLOWED_ENGAGEMENT_TYPES = ['view', 'click', 'add_to_list', 'share', 'page_view'];
+// Schema Check: ['view', 'click', 'add_to_list', 'share', 'page_view', 'search_view', 'search_click', 'search_result_view', 'search_result_click']
+const ALLOWED_ENGAGEMENT_TYPES = [
+    'view', 
+    'click', 
+    'add_to_list', 
+    'share', 
+    'page_view',
+    'search_view',
+    'search_click', 
+    'search_result_view',
+    'search_result_click'
+];
 
 /**
  * Logs an engagement event to the backend.

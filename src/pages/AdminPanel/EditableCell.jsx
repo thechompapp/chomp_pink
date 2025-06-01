@@ -301,6 +301,16 @@ const EditableCell = ({
     }
   };
 
+  // Handle different input types based on column
+  const getInputType = () => {
+    if (columnKey === 'email') return 'email';
+    if (columnKey === 'website') return 'url';
+    if (columnKey === 'phone') return 'tel';
+    if (columnKey.includes('_at')) return 'datetime-local';
+    if (columnKey === 'id' || columnKey.includes('_id') || columnKey.includes('_count')) return 'number';
+    return 'text';
+  };
+
   // --- Conditional Rendering ---
   if (isEditing) {
       // --- RENDERING FOR EDITING MODE ---
@@ -416,7 +426,7 @@ const EditableCell = ({
                     className="w-full max-w-md"
                     disabled={isSaving}
                     onBlur={handleBlur}
-                    type="number"
+                    type={getInputType()}
                   />
                 );
               }
@@ -490,22 +500,6 @@ const EditableCell = ({
                 inputType = 'url';
               } else if (columnKey === 'email') {
                 inputType = 'email';
-              } else if (columnKey === 'price' || columnKey.includes('_price')) {
-                inputType = 'number';
-                // Add step for decimal values
-                inputElement = (
-                  <Input
-                    value={cellValue || ''}
-                    onChange={(e) => handleDataUpdate({ [columnKey]: e.target.value })}
-                    placeholder={`Enter ${col.header || columnKey}`}
-                    className="w-full max-w-md"
-                    disabled={isSaving}
-                    onBlur={handleBlur}
-                    type={inputType}
-                    step="0.01"
-                  />
-                );
-                break;
               }
               
               if (!inputElement) {

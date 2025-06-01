@@ -259,6 +259,49 @@ export const formatListItem = (itemRow) => {
   }
 };
 
+/**
+* Formats a city data row from the database.
+* @param {object | null | undefined} cityRow - The raw row data.
+* @returns {object | null} The formatted city object or null.
+*/
+export const formatCity = (cityRow) => {
+  if (!cityRow || cityRow.id == null) return null;
+
+  try {
+      const formatted = {
+          // Essential fields
+          id: safeParseInt(cityRow.id),
+          name: safeToString(cityRow.name?.trim()),
+          
+          // Enhanced fields for hierarchical management
+          state_code: safeToString(cityRow.state_code?.trim()?.toUpperCase()),
+          country_code: safeToString(cityRow.country_code?.trim()?.toUpperCase()) || 'USA',
+          is_metro_area: safeToBoolean(cityRow.is_metro_area, false),
+          has_boroughs: safeToBoolean(cityRow.has_boroughs, false),
+          
+          // Counts from enhanced queries
+          neighborhood_count: safeParseInt(cityRow.neighborhood_count, 0),
+          borough_count: safeParseInt(cityRow.borough_count, 0),
+          
+          // Timestamps
+          created_at: safeToDateString(cityRow.created_at),
+          updated_at: safeToDateString(cityRow.updated_at)
+      };
+
+      if (formatted.id === null) {
+           console.error(`[Formatter formatCity] Failed to parse essential ID:`, cityRow);
+           return null;
+      }
+       if (!formatted.name) {
+            console.warn(`[Formatter formatCity] City row ID ${cityRow.id} is missing a name.`);
+            return null; // Name is essential
+       }
+      return formatted;
+  } catch (e) {
+      console.error(`[Formatter formatCity] Error formatting row ID ${cityRow?.id}:`, cityRow, e);
+      return null;
+  }
+};
 
 /**
 * Formats a neighborhood data row from the database.

@@ -22,10 +22,10 @@ export const TAB_CONFIG = {
   restaurants: { label: 'Restaurants', key: 'restaurants' },
   dishes: { label: 'Dishes', key: 'dishes' },
   users: { label: 'Users', key: 'users' },
-  cities: { label: 'Cities', key: 'cities' },
-  neighborhoods: { label: 'Neighborhoods', key: 'neighborhoods' },
+  locations: { label: 'Locations', key: 'locations' },
   hashtags: { label: 'Hashtags', key: 'hashtags' },
-  restaurant_chains: { label: 'Restaurant Chains', key: 'restaurant_chains' }
+  restaurant_chains: { label: 'Restaurant Chains', key: 'restaurant_chains' },
+  lists: { label: 'Lists', key: 'lists' }
 };
 
 /**
@@ -227,8 +227,7 @@ export const DataFilter = {
       restaurants: ['name', 'address', 'neighborhood'],
       dishes: ['name', 'restaurant_name', 'description'],
       users: ['username', 'email', 'first_name', 'last_name'],
-      cities: ['name', 'state', 'country'],
-      neighborhoods: ['name', 'city_name'],
+      locations: ['name', 'state', 'country'],
       hashtags: ['name', 'description'],
       restaurant_chains: ['name', 'description']
     };

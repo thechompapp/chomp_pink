@@ -25,7 +25,7 @@ const handleControllerError = (res, error, message, statusCode = 500) => {
 export const getAnalyticsSummary = async (req, res, next) => {
     try {
         // Model uses default export containing the object
-        const summaryData = await AnalyticsModel.getSiteSummary(); // Use correct function name from model
+        const summaryData = await AnalyticsModel.getSummary(); // Use correct function name from model
         res.json({
             success: true,
             message: 'Analytics summary retrieved successfully.',
@@ -38,16 +38,11 @@ export const getAnalyticsSummary = async (req, res, next) => {
 
 // Controller to get detailed engagement analytics data (example)
 export const getEngagementAnalytics = async (req, res, next) => {
-    const { startDate, endDate, groupBy = 'day' } = req.query; // Example params
-
-    const validGroupBy = ['day', 'week', 'month', 'type'];
-     if (!validGroupBy.includes(groupBy)) {
-         return res.status(400).json({ success: false, message: `Invalid groupBy parameter. Must be one of: ${validGroupBy.join(', ')}` });
-     }
+    const { startDate, endDate, engagementType } = req.query;
 
     try {
         // Model uses default export containing the object
-        const engagementData = await AnalyticsModel.getEngagementDetails({ startDate, endDate, groupBy }); // Pass params if model supports them
+        const engagementData = await AnalyticsModel.getEngagement({ startDate, endDate, engagementType });
         res.json({
             success: true,
             message: 'Engagement analytics retrieved successfully.',
@@ -58,9 +53,26 @@ export const getEngagementAnalytics = async (req, res, next) => {
     }
 };
 
+// Controller to get search-specific analytics data
+export const getSearchAnalytics = async (req, res, next) => {
+    const { startDate, endDate } = req.query;
+
+    try {
+        const searchData = await AnalyticsModel.getSearchAnalytics({ startDate, endDate });
+        res.json({
+            success: true,
+            message: 'Search analytics retrieved successfully.',
+            data: searchData,
+        });
+    } catch (error) {
+        handleControllerError(res, error, 'Error fetching search analytics');
+    }
+};
+
 // Export controller methods individually or as default object
 const analyticsController = {
     getAnalyticsSummary,
     getEngagementAnalytics,
+    getSearchAnalytics,
 };
 export default analyticsController;

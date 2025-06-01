@@ -639,7 +639,9 @@ export const EnhancedAdminTable = ({
                 />
               )}
               
-              {data.map((row) => (
+              {data
+                .filter(row => row && row.id)
+                .map((row) => (
                 <TableRow
                   key={row.id}
                   row={row}

@@ -1,70 +1,72 @@
-/* src/doof-backend/models/listModel.js */
+import { logError, logWarn, logInfo } from '../utils/logger.js';
 import db from '../db/index.js';
 import { formatList, formatListItem } from '../utils/formatters.js';
-// pg-format is not strictly needed for these functions as currently written
-// import format from 'pg-format';
+import format from 'pg-format';
+
+// ========== EXISTING LIST FUNCTIONS ==========
 
 export const findListItemsPreview = async (listId, limit = 3) => {
-    console.log(`[ListModel findListItemsPreview] Called for listId: ${listId}, limit: ${limit}`);
-    const numericListId = parseInt(String(listId), 10);
-    if (isNaN(numericListId) || numericListId <= 0) {
-        console.warn(`[ListModel findListItemsPreview] Invalid listId: ${listId}`);
-        return [];
-    }
-
-    // Fetches city_name via JOINs, photo_url is explicitly NULL
-    const query = `
-      SELECT
-        li.id as list_item_id,
-        li.item_id,
-        li.item_type,
-        li.added_at,
-        CASE
-          WHEN li.item_type = 'restaurant' THEN r.name
-          WHEN li.item_type = 'dish' THEN d.name
-          ELSE NULL
-        END as name,
-        NULL AS photo_url, -- No photo_url from restaurant table
-        CASE
-          WHEN li.item_type = 'dish' THEN dr.name
-          ELSE NULL
-        END as restaurant_name,
-        CASE
-          WHEN li.item_type = 'restaurant' THEN r_city.name
-          WHEN li.item_type = 'dish' THEN dr_city.name
-          ELSE NULL
-        END as city_name
+  console.log(`[ListModel findListItemsPreview] Fetching up to ${limit} preview items for list ${listId}`);
+  
+  try {
+    const listItemQuery = `
+      SELECT li.id, li.item_id, li.item_type, li.added_at
       FROM listitems li
-      LEFT JOIN restaurants r ON li.item_id = r.id AND li.item_type = 'restaurant'
-      LEFT JOIN cities r_city ON r.city_id = r_city.id
-      LEFT JOIN dishes d ON li.item_id = d.id AND li.item_type = 'dish'
-      LEFT JOIN restaurants dr ON d.restaurant_id = dr.id
-      LEFT JOIN cities dr_city ON dr.city_id = dr_city.id
-      WHERE li.list_id = $1::integer
+      WHERE li.list_id = $1
       ORDER BY li.added_at DESC
-      LIMIT $2::integer
+      LIMIT $2
     `;
-    try {
-        const result = await db.query(query, [numericListId, limit]);
-        console.log(`[ListModel findListItemsPreview] Found ${result.rows.length} items for list ${numericListId}`);
-        return result.rows.map(row => {
-            return {
-                id: row.item_id,
-                list_item_id: row.list_item_id,
-                item_type: row.item_type,
-                name: row.name || (row.item_type === 'restaurant' ? 'Restaurant' : 'Dish'),
-                photo_url: row.photo_url, // Will be null
-                restaurant_name: row.restaurant_name,
-                city: row.city_name,
-                added_at: row.added_at
-            };
-        });
-    } catch (error) {
-        console.error(`[ListModel findListItemsPreview] Error fetching preview items for list ${numericListId}:`, error);
-        throw new Error(`Database error fetching preview items for list ${numericListId}.`);
+    
+    const result = await db.query(listItemQuery, [listId, limit]);
+    
+    if (result.rows.length === 0) {
+      console.log(`[ListModel findListItemsPreview] No items found for list ${listId}`);
+      return [];
     }
+    
+    const items = [];
+    
+    for (const row of result.rows) {
+      let itemData = null;
+      
+      if (row.item_type === 'restaurant') {
+        const restaurantQuery = 'SELECT id, name, cuisine, location FROM restaurants WHERE id = $1';
+        const restaurantResult = await db.query(restaurantQuery, [row.item_id]);
+        if (restaurantResult.rows.length > 0) {
+          itemData = {
+            ...restaurantResult.rows[0],
+            type: 'restaurant'
+          };
+        }
+      } else if (row.item_type === 'dish') {
+        const dishQuery = 'SELECT id, name, description, restaurant_id FROM dishes WHERE id = $1';
+        const dishResult = await db.query(dishQuery, [row.item_id]);
+        if (dishResult.rows.length > 0) {
+          itemData = {
+            ...dishResult.rows[0],
+            type: 'dish'
+          };
+        }
+      }
+      
+      if (itemData) {
+        items.push({
+          listitem_id: row.id,
+          item_id: row.item_id,
+          item_type: row.item_type,
+          added_at: row.added_at,
+          item_data: itemData
+        });
+      }
+    }
+    
+    console.log(`[ListModel findListItemsPreview] Found ${items.length} items for list ${listId}`);
+    return items;
+  } catch (error) {
+    console.error(`[ListModel findListItemsPreview] Error fetching preview items for list ${listId}:`, error);
+    throw new Error('Database error fetching list items preview.');
+  }
 };
-
 
 export const findListsByUser = async (userId, { 
   createdByUser, 
@@ -75,454 +77,300 @@ export const findListsByUser = async (userId, {
   cityId, 
   query, 
   hashtags = [],
-  sortBy = 'newest' // Default to 'newest' if not specified
+  sortBy = 'newest'
 } = {}) => {
-  console.log('[ListModel findListsByUser] Starting with params:', { 
-    userId, 
-    createdByUser, 
-    followedByUser, 
-    allLists, 
-    limit, 
-    offset, 
-    cityId, 
-    query, 
-    hashtags,
-    sortBy
+  console.log(`[ListModel findListsByUser] Searching lists for user ${userId} with filters:`, {
+    createdByUser, followedByUser, allLists, limit, offset, cityId, query, hashtags, sortBy
   });
 
-  // Initialize arrays for query parameters
-  const mainValues = [];
+  let params = [];
   let paramIndex = 1;
   const addParam = (val) => {
-    mainValues.push(val);
+    params.push(val);
     return `$${paramIndex++}`;
   };
 
-  // Build the SELECT clause with all necessary fields
-  const selectClause = `
-    SELECT l.*,
-           COALESCE(u.username, l.creator_handle, 'unknown') as creator_handle,
-           (SELECT COUNT(*) FROM listitems li WHERE li.list_id = l.id) as item_count,
-           (CASE WHEN $1::INTEGER > 0 AND EXISTS (
-             SELECT 1 FROM list_follows lf WHERE lf.list_id = l.id AND lf.user_id = $1::INTEGER
-           ) THEN TRUE ELSE FALSE END) as is_following,
-           (CASE WHEN l.user_id = $1::INTEGER THEN TRUE ELSE FALSE END) as created_by_user,
-           u.username as owner_username
-  `;
-
-  // Build the FROM clause with necessary joins
-  let fromClause = `
+  let baseQuery = `
+    SELECT DISTINCT l.id, l.name, l.description, l.list_type, l.saved_count, 
+           l.city_name, l.tags, l.is_public, l.creator_handle, l.user_id, 
+           l.created_at, l.updated_at,
+           u.username as creator_username,
+           CASE WHEN lf.user_id IS NOT NULL THEN true ELSE false END as is_following,
+           COUNT(li.id) as items_count
     FROM lists l
     LEFT JOIN users u ON l.user_id = u.id
+    LEFT JOIN listfollows lf ON l.id = lf.list_id AND lf.user_id = ${addParam(userId)}
     LEFT JOIN listitems li ON l.id = li.list_id
   `;
 
-  // Build the WHERE conditions
-  const conditions = [];
-  
-  // Add user ID parameter for the main query
-  // Use a placeholder value if userId is null to avoid SQL errors
-  const userIdParam = addParam(userId || -1); // -1 is an invalid user ID
-  
-  // Handle different view types
-  if (createdByUser && userId) {
-    conditions.push(`l.user_id = $1`);
-  } else if (followedByUser && userId) {
-    // Use EXISTS to check if user is following the list
-    conditions.push(`EXISTS (SELECT 1 FROM listfollows lf WHERE lf.list_id = l.id AND lf.user_id = $1)`);
-  } else if (allLists && userId) {
-    // Show all public lists or lists owned by the user
-    conditions.push(`(l.is_public = TRUE OR l.user_id = $1)`);
-  } else if (userId) {
-    // Default: show user's own lists and public lists
-    conditions.push(`(l.is_public = TRUE OR l.user_id = $1)`);
-  } else {
-    // No user ID provided, only show public lists
-    conditions.push(`l.is_public = TRUE`);
+  let whereConditions = [];
+
+  if (createdByUser) {
+    whereConditions.push(`l.user_id = ${addParam(userId)}`);
+  } else if (followedByUser) {
+    whereConditions.push(`lf.user_id = ${addParam(userId)}`);
+  } else if (!allLists) {
+    whereConditions.push(`(l.user_id = ${addParam(userId)} OR l.is_public = true)`);
   }
 
-  // Add city filter if provided
   if (cityId) {
-    const cityNameQuery = `SELECT name FROM cities WHERE id = ${addParam(cityId)}`;
-    conditions.push(`l.city_name = (${cityNameQuery})`);
+    const cityQuery = 'SELECT name FROM cities WHERE id = $1';
+    const cityResult = await db.query(cityQuery, [cityId]);
+    if (cityResult.rows.length > 0) {
+      whereConditions.push(`l.city_name = ${addParam(cityResult.rows[0].name)}`);
+    }
   }
 
-  // Add search query filter
   if (query) {
-    const searchTerm = `%${query}%`;
-    conditions.push(`(l.name ILIKE ${addParam(searchTerm)} OR l.description ILIKE ${addParam(searchTerm)})`);
+    whereConditions.push(`(
+      LOWER(l.name) LIKE LOWER(${addParam(`%${query}%`)}) OR 
+      LOWER(l.description) LIKE LOWER(${addParam(`%${query}%`)})
+    )`);
   }
 
-  // Add hashtags filter
-  if (hashtags && hashtags.length > 0) {
-    const tagConditions = hashtags.map(tag => `l.tags @> ARRAY[${addParam(tag)}]`).join(' OR ');
-    conditions.push(`(${tagConditions})`);
+  if (hashtags.length > 0) {
+    for (const hashtag of hashtags) {
+      whereConditions.push(`${addParam(hashtag)} = ANY(l.tags)`);
+    }
   }
 
-  // Build the final WHERE clause
-  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-
-  // Build the ORDER BY clause
-  let orderByClause = '';
-  if (sortBy === 'newest') {
-    orderByClause = 'ORDER BY updated_at DESC';
-  } else if (sortBy === 'popular') {
-    orderByClause = 'ORDER BY saved_count DESC, updated_at DESC';
-  } else {
-    // Default sorting
-    orderByClause = 'ORDER BY updated_at DESC';
+  if (whereConditions.length > 0) {
+    baseQuery += ` WHERE ${whereConditions.join(' AND ')}`;
   }
 
-  // Build the main query
-  const mainQuery = `
-    SELECT * FROM (
-      ${selectClause}
-      ${fromClause}
-      ${whereClause}
-      GROUP BY l.id, u.username
-    ) as list_data
-    ${orderByClause}
-    LIMIT ${addParam(limit)} OFFSET ${addParam(offset)}
-  `;
+  baseQuery += ` GROUP BY l.id, u.username, lf.user_id`;
 
-  // Build the count query - use a simpler approach with the same WHERE clause
-  // but without the parameterized values to avoid binding issues
-  const countQuery = `
-    SELECT COUNT(*) as total FROM (
-      SELECT DISTINCT l.id
-      FROM lists l
-      LEFT JOIN users u ON l.user_id = u.id
-      ${followedByUser && userId ? 'JOIN list_follows lf ON l.id = lf.list_id' : ''}
-      WHERE l.is_public = TRUE
-    ) as subq
-  `;
+  const orderByClause = sortBy === 'oldest' ? 'l.created_at ASC' : 
+                       sortBy === 'alphabetical' ? 'l.name ASC' :
+                       sortBy === 'most_saved' ? 'l.saved_count DESC, l.created_at DESC' :
+                       'l.created_at DESC';
   
-  // For count query, we don't need to pass any parameters since we're just counting public lists
-  const countValues = [];
-
-  console.log('[ListModel findListsByUser] Main Query:', mainQuery);
-  console.log('[ListModel findListsByUser] Query Params:', mainValues);
-  console.log('[ListModel findListsByUser] Count Query:', countQuery);
+  baseQuery += ` ORDER BY ${orderByClause}`;
+  baseQuery += ` LIMIT ${addParam(limit)} OFFSET ${addParam(offset)}`;
 
   try {
-    console.log('[ListModel findListsByUser] Executing main query:', mainQuery);
-    console.log('[ListModel findListsByUser] With parameters:', mainValues);
+    console.log(`[ListModel findListsByUser] Executing query:`, baseQuery);
+    console.log(`[ListModel findListsByUser] With params:`, params);
     
-    // Execute the main query
-    const mainResult = await db.query(mainQuery, mainValues);
-    console.log(`[ListModel findListsByUser] Found ${mainResult.rows.length} lists`);
+    const result = await db.query(baseQuery, params);
     
-    if (mainResult.rows.length > 0) {
-      console.log('[ListModel findListsByUser] First row sample:', JSON.stringify(mainResult.rows[0], null, 2));
-    }
+    const formattedLists = result.rows.map(row => formatList({
+      ...row,
+      items_count: parseInt(row.items_count) || 0
+    }));
 
-    console.log('[ListModel findListsByUser] Executing count query:', countQuery);
-    // Execute the count query without parameters
-    const countResult = await db.query(countQuery, countValues);
-    const total = parseInt(countResult.rows[0]?.total, 10) || 0;
-    console.log(`[ListModel findListsByUser] Total matching lists: ${total}`);
-
-    // Format the results
-    const formattedData = mainResult.rows.map(row => {
-      const formatted = formatList(row);
-      console.log(`[ListModel findListsByUser] Formatted row:`, JSON.stringify(formatted, null, 2));
-      return formatted;
-    });
-
-    // Return the results
-    return {
-      data: formattedData,
-      total,
-    };
+    console.log(`[ListModel findListsByUser] Found ${formattedLists.length} lists for user ${userId}`);
+    return formattedLists;
   } catch (error) {
-    console.error('[ListModel findListsByUser] Database error:', {
-      error: error.message,
-      code: error.code,
-      query: error.query,
-      parameters: error.parameters,
-      stack: error.stack
-    });
-    
-    // Provide more specific error messages for common issues
-    if (error.code === '42P01') {
-      throw new Error('Database table not found. Check if all migrations have been run.');
-    } else if (error.code === '42703') {
-      throw new Error('Database column not found. The schema may be out of date.');
-    } else if (error.code === '22P02') {
-      throw new Error('Invalid input syntax for integer. Check your query parameters.');
-    }
-    
-    throw new Error(`Failed to fetch lists: ${error.message}`);
+    console.error(`[ListModel findListsByUser] Error fetching lists for user ${userId}:`, error);
+    throw new Error('Database error fetching user lists.');
   }
 };
 
 export const findListItemsByListId = async (listId) => {
-  const numericListId = parseInt(String(listId), 10);
-  if (isNaN(numericListId) || numericListId <= 0) {
-    console.warn(`[ListModel findListItemsByListId] Invalid listId: ${listId}`);
-    return [];
-  }
-  // Corrected query:
-  // - Fetches city_name and neighborhood_name via JOINs from actual tables.
-  // - photo_url is explicitly NULL as it's not on the restaurants table.
-  const query = `
-    SELECT
-      li.id AS list_item_id,
-      li.item_id,
-      li.item_type,
-      li.added_at,
-      CASE
-        WHEN li.item_type = 'restaurant' THEN r.name
-        WHEN li.item_type = 'dish' THEN d.name
-        ELSE 'Unknown Item'
-      END as name,
-      CASE
-        WHEN li.item_type = 'restaurant' THEN r_city.name
-        WHEN li.item_type = 'dish' THEN dr_city.name
-        ELSE NULL
-      END as city,
-      CASE
-        WHEN li.item_type = 'restaurant' THEN r_hood.name
-        WHEN li.item_type = 'dish' THEN dr_hood.name
-        ELSE NULL
-      END as neighborhood,
-      CASE
-        WHEN li.item_type = 'dish' THEN dr.name
-        ELSE NULL
-      END as restaurant_name,
-      NULL AS photo_url, -- Set to NULL as per schema and user instruction
-      CASE
-        WHEN li.item_type = 'restaurant' THEN ARRAY(SELECT h.name FROM restauranthashtags rht JOIN hashtags h ON rht.hashtag_id = h.id WHERE rht.restaurant_id = r.id)
-        WHEN li.item_type = 'dish' THEN ARRAY(SELECT h.name FROM dishhashtags dht JOIN hashtags h ON dht.hashtag_id = h.id WHERE dht.dish_id = d.id)
-        ELSE ARRAY[]::TEXT[]
-      END as tags
-    FROM listitems li
-    LEFT JOIN restaurants r ON li.item_id = r.id AND li.item_type = 'restaurant'
-    LEFT JOIN cities r_city ON r.city_id = r_city.id
-    LEFT JOIN neighborhoods r_hood ON r.neighborhood_id = r_hood.id
-    LEFT JOIN dishes d ON li.item_id = d.id AND li.item_type = 'dish'
-    LEFT JOIN restaurants dr ON d.restaurant_id = dr.id
-    LEFT JOIN cities dr_city ON dr.city_id = dr_city.id
-    LEFT JOIN neighborhoods dr_hood ON dr.neighborhood_id = dr_hood.id
-    WHERE li.list_id = $1::integer
-    ORDER BY li.added_at ASC
-  `;
+  console.log(`[ListModel findListItemsByListId] Fetching all items for list ${listId}`);
+  
   try {
-    const result = await db.query(query, [numericListId]);
-    console.log(`[ListModel findListItemsByListId] Found ${result.rows.length} items for list ${numericListId}`);
-    return result.rows.map(row => {
-      const itemDataForFormatter = {
-        id: row.list_item_id,
-        item_id: row.item_id,
-        item_type: row.item_type,
-        name: row.name,
-        added_at: row.added_at,
-        restaurant_name: row.restaurant_name,
-        city: row.city,
-        neighborhood: row.neighborhood,
-        photo_url: row.photo_url, // Will be null
-        tags: row.tags || [],
-      };
-      const formatted = formatListItem(itemDataForFormatter);
-      if (!formatted) {
-          console.warn(`[ListModel findListItemsByListId] Failed to format item:`, itemDataForFormatter);
-          return null;
+    const listItemQuery = `
+      SELECT li.id, li.item_id, li.item_type, li.added_at, li.notes, li.order_index
+      FROM listitems li
+      WHERE li.list_id = $1
+      ORDER BY li.order_index ASC, li.added_at DESC
+    `;
+    
+    const result = await db.query(listItemQuery, [listId]);
+    
+    if (result.rows.length === 0) {
+      console.log(`[ListModel findListItemsByListId] No items found for list ${listId}`);
+      return [];
+    }
+    
+    const items = [];
+    
+    for (const row of result.rows) {
+      let itemData = null;
+      
+      if (row.item_type === 'restaurant') {
+        const restaurantQuery = 'SELECT id, name, cuisine, location, description, city_name, neighborhood_name FROM restaurants WHERE id = $1';
+        const restaurantResult = await db.query(restaurantQuery, [row.item_id]);
+        if (restaurantResult.rows.length > 0) {
+          itemData = {
+            ...restaurantResult.rows[0],
+            type: 'restaurant'
+          };
+        }
+      } else if (row.item_type === 'dish') {
+        const dishQuery = `
+          SELECT d.id, d.name, d.description, d.restaurant_id, d.cuisine,
+                 r.name as restaurant_name, r.location as restaurant_location
+          FROM dishes d
+          LEFT JOIN restaurants r ON d.restaurant_id = r.id
+          WHERE d.id = $1
+        `;
+        const dishResult = await db.query(dishQuery, [row.item_id]);
+        if (dishResult.rows.length > 0) {
+          itemData = {
+            ...dishResult.rows[0],
+            type: 'dish'
+          };
+        }
       }
-      return formatted;
-    }).filter(item => item !== null);
+      
+      if (itemData) {
+        items.push(formatListItem({
+          listitem_id: row.id,
+          item_id: row.item_id,
+          item_type: row.item_type,
+          added_at: row.added_at,
+          notes: row.notes,
+          order_index: row.order_index,
+          item_data: itemData
+        }));
+      }
+    }
+    
+    console.log(`[ListModel findListItemsByListId] Found ${items.length} items for list ${listId}`);
+    return items;
   } catch (error) {
-    console.error(`[ListModel findListItemsByListId] Error fetching items for list ${numericListId}:`, error);
-    throw new Error(`Database error fetching items for list ${numericListId}.`);
+    console.error(`[ListModel findListItemsByListId] Error fetching items for list ${listId}:`, error);
+    throw new Error('Database error fetching list items.');
   }
 };
 
 export const findListByIdRaw = async (listId) => {
-  const numericListId = parseInt(String(listId), 10);
-  if (isNaN(numericListId) || numericListId <= 0) {
-    console.warn(`[ListModel findListByIdRaw] Invalid listId: ${listId}`);
-    return null;
-  }
-  console.log(`[ListModel findListByIdRaw] Querying for list ID: ${numericListId}`);
-  const query = `
-    SELECT l.*,
-           COUNT(DISTINCT li.id) AS item_count,
-           COALESCE(u.username, l.creator_handle) as resolved_creator_handle
-    FROM lists l
-    LEFT JOIN listitems li ON l.id = li.list_id
-    LEFT JOIN users u ON l.user_id = u.id
-    WHERE l.id = $1::integer
-    GROUP BY l.id, u.username
-  `;
+  console.log(`[ListModel findListByIdRaw] Fetching list ${listId} (raw format)`);
+  
   try {
-    const result = await db.query(query, [numericListId]);
+    const query = `
+      SELECT l.*, u.username as creator_username,
+             COUNT(li.id) as items_count
+      FROM lists l
+      LEFT JOIN users u ON l.user_id = u.id
+      LEFT JOIN listitems li ON l.id = li.list_id
+      WHERE l.id = $1
+      GROUP BY l.id, u.username
+    `;
+    
+    const result = await db.query(query, [listId]);
+    
     if (result.rows.length === 0) {
-      console.log(`[ListModel findListByIdRaw] List ${numericListId} not found in DB.`);
+      console.log(`[ListModel findListByIdRaw] List ${listId} not found`);
       return null;
     }
-    const listRow = result.rows[0];
-    console.log(`[ListModel findListByIdRaw] Found list ${numericListId} in DB:`, listRow);
-    listRow.item_count = parseInt(listRow.item_count, 10) || 0;
-    listRow.creator_handle = listRow.resolved_creator_handle || listRow.creator_handle;
-    delete listRow.resolved_creator_handle;
-    return listRow;
+    
+    const list = {
+      ...result.rows[0],
+      items_count: parseInt(result.rows[0].items_count) || 0
+    };
+    
+    console.log(`[ListModel findListByIdRaw] Found list ${listId}:`, list.name);
+    return list;
   } catch (error) {
-    console.error(`[ListModel findListByIdRaw] Error fetching list ${numericListId}:`, error);
-    throw new Error(`Database error fetching list ${numericListId}.`);
+    console.error(`[ListModel findListByIdRaw] Error fetching list ${listId}:`, error);
+    throw new Error('Database error fetching list.');
   }
 };
 
-export const createList = async (listData, userId, userHandle) => {
-  console.log('[ListModel createList] Called with listData:', listData, `userId: ${userId}`, `userHandle: ${userHandle}`);
-  const {
-    name,
-    description,
-    list_type,
-    is_public = true,
-    tags = [],
-    city_name // Expecting city_name (string) as lists table has city_name, not city_id
-  } = listData;
-
-  // The 'lists' table in schema_dump.sql has city_name VARCHAR(100), NO city_id.
-  // So we directly insert the provided city_name.
-  const query = `
-    INSERT INTO lists (user_id, name, description, list_type, is_public, tags, city_name, creator_handle)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-    RETURNING *;
-  `;
-  const queryTags = Array.isArray(tags) ? tags.map(String) : [];
-
-  const values = [
-    userId,
-    name,
-    description,
-    list_type,
-    is_public,
-    queryTags,
-    city_name || null, // Store the provided city_name string
-    userHandle
-  ];
-
+export const createList = async (listData) => {
   try {
-    console.log('[ListModel createList] Executing query:', query);
-    console.log('[ListModel createList] With values:', values);
-    const result = await db.query(query, values);
+    const { name, description, list_type, city_name, tags, is_public, creator_handle, user_id } = listData;
+    
+    const query = `
+      INSERT INTO lists (name, description, list_type, city_name, tags, is_public, creator_handle, user_id, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+      RETURNING *
+    `;
+    
+    const result = await db.query(query, [
+      name, 
+      description, 
+      list_type || 'mixed', 
+      city_name, 
+      tags || [], 
+      is_public !== false, 
+      creator_handle, 
+      user_id
+    ]);
+    
     if (result.rows.length === 0) {
-      console.error('[ListModel createList] List creation failed, no row returned.');
-      throw new Error('List creation failed, no data returned from database.');
+      throw new Error('Failed to create list');
     }
-    const newListRaw = result.rows[0];
-    console.log('[ListModel createList] Successfully created list (raw):', newListRaw);
-    return findListByIdRaw(newListRaw.id);
+    
+    return result.rows[0];
   } catch (error) {
-    console.error('[ListModel createList] Error creating list in database:', error);
-    if (error.code === '23503') {
-        // Check for specific foreign key constraints if possible, though lists.city_name is not an FK
-        if (error.detail?.includes('user_id')) throw new Error('Invalid user reference for creating list.');
-        throw new Error('Invalid reference for creating list.');
-    }
-    if (error.code === '23505') {
-        throw new Error('A list with this identifying information already exists.');
-    }
-    throw new Error('Database error creating list.');
+    logError('Error in createList:', error);
+    throw new Error('Failed to create list');
   }
 };
-
-export const updateList = async (listId, listData) => { console.warn("updateList is a placeholder"); return null; };
 
 export const addItemToList = async (listId, itemId, itemType) => {
-    console.log(`[ListModel addItemToList] Adding item ${itemId} (${itemType}) to list ${listId}`);
-    // Ensure to use 'listitems' table
-    const query = `
-        INSERT INTO listitems (list_id, item_id, item_type)
-        VALUES ($1, $2, $3)
-        ON CONFLICT (list_id, item_type, item_id) DO UPDATE
-          SET added_at = CURRENT_TIMESTAMP
-        RETURNING *;
-    `;
-    try {
-        const result = await db.query(query, [listId, itemId, itemType]);
-        if (result.rows.length === 0) {
-            console.error(`[ListModel addItemToList] Failed to add or update item ${itemId} (${itemType}) in list ${listId}. No row returned.`);
-            const checkQuery = `SELECT * FROM listitems WHERE list_id = $1 AND item_id = $2 AND item_type = $3`;
-            const checkResult = await db.query(checkQuery, [listId, itemId, itemType]);
-            if (checkResult.rows.length > 0) return checkResult.rows[0];
-            throw new Error('Failed to add item to list and could not find existing item.');
-        }
-        console.log('[ListModel addItemToList] Item added/updated in listitems:', result.rows[0]);
-        return result.rows[0];
-    } catch (error) {
-        console.error(`[ListModel addItemToList] Error adding item to list ${listId}:`, error);
-        if (error.message && (error.message.includes('Invalid restaurant ID') || error.message.includes('Invalid dish ID'))) {
-            throw new Error(error.message);
-        }
-        if (error.code === '23503') {
-             throw new Error(`List with ID ${listId} does not exist.`);
-        }
-        throw new Error(`Database error adding item to list ${listId}.`);
+  console.log(`[ListModel addItemToList] Adding item ${itemId} (${itemType}) to list ${listId}`);
+  
+  const query = `
+    INSERT INTO listitems (list_id, item_id, item_type)
+    VALUES ($1, $2, $3)
+    ON CONFLICT (list_id, item_type, item_id) DO UPDATE
+      SET added_at = CURRENT_TIMESTAMP
+    RETURNING *;
+  `;
+  
+  try {
+    const result = await db.query(query, [listId, itemId, itemType]);
+    if (result.rows.length === 0) {
+      console.error(`[ListModel addItemToList] Failed to add or update item ${itemId} (${itemType}) in list ${listId}. No row returned.`);
+      const checkQuery = `SELECT * FROM listitems WHERE list_id = $1 AND item_id = $2 AND item_type = $3`;
+      const checkResult = await db.query(checkQuery, [listId, itemId, itemType]);
+      if (checkResult.rows.length > 0) return checkResult.rows[0];
+      throw new Error('Failed to add item to list and could not find existing item.');
     }
-};
-
-export const checkListTypeCompatibility = async (listId, itemTypeToAdd) => {
-    console.log(`[ListModel checkListTypeCompatibility] Checking list ${listId} for itemType ${itemTypeToAdd}`);
-    if (!['restaurant', 'dish'].includes(itemTypeToAdd)) {
-        console.warn(`[ListModel checkListTypeCompatibility] Invalid itemTypeToAdd: ${itemTypeToAdd}`);
-        return false;
+    console.log('[ListModel addItemToList] Item added/updated in listitems:', result.rows[0]);
+    return result.rows[0];
+  } catch (error) {
+    console.error(`[ListModel addItemToList] Error adding item to list ${listId}:`, error);
+    if (error.message && (error.message.includes('Invalid restaurant ID') || error.message.includes('Invalid dish ID'))) {
+      throw new Error(error.message);
     }
-    try {
-        const listQuery = 'SELECT list_type FROM lists WHERE id = $1';
-        const { rows } = await db.query(listQuery, [listId]);
-        if (rows.length === 0) {
-            console.warn(`[ListModel checkListTypeCompatibility] List ${listId} not found.`);
-            throw new Error(`List with ID ${listId} not found.`);
-        }
-        const currentListType = rows[0].list_type;
-        console.log(`[ListModel checkListTypeCompatibility] Current list type: ${currentListType}`);
-
-        if (currentListType === 'mixed') {
-            return true;
-        }
-        return currentListType === itemTypeToAdd;
-    } catch (error) {
-        console.error(`[ListModel checkListTypeCompatibility] Error checking compatibility for list ${listId}:`, error);
-        if (error.message.startsWith('List with ID')) throw error;
-        throw new Error('Database error checking list type compatibility.');
+    if (error.code === '23503') {
+      throw new Error(`List with ID ${listId} does not exist.`);
     }
+    throw new Error(`Database error adding item to list ${listId}.`);
+  }
 };
 
 export const isFollowing = async (listId, userId) => {
-    const query = 'SELECT 1 FROM listfollows WHERE list_id = $1 AND user_id = $2';
-    try {
-        const result = await db.query(query, [listId, userId]);
-        return result.rows.length > 0;
-    } catch (error) {
-        console.error(`[ListModel isFollowing] Error checking follow status for list ${listId}, user ${userId}:`, error);
-        throw new Error('Database error checking follow status.');
-    }
+  const query = 'SELECT 1 FROM listfollows WHERE list_id = $1 AND user_id = $2';
+  try {
+    const result = await db.query(query, [listId, userId]);
+    return result.rows.length > 0;
+  } catch (error) {
+    console.error(`[ListModel isFollowing] Error checking follow status for list ${listId}, user ${userId}:`, error);
+    throw new Error('Database error checking follow status.');
+  }
 };
 
 export const followList = async (listId, userId) => {
-    const listCheck = await findListByIdRaw(listId);
-    if (!listCheck) throw new Error(`List with ID ${listId} not found.`);
-    const query = 'INSERT INTO listfollows (list_id, user_id) VALUES ($1, $2) ON CONFLICT (list_id, user_id) DO NOTHING RETURNING list_id';
-    try {
-        const result = await db.query(query, [listId, userId]);
-        return result.rows.length > 0;
-    } catch (error) {
-        console.error(`[ListModel followList] Error following list ${listId} for user ${userId}:`, error);
-        if (error.code === '23503') throw new Error('Invalid user or list reference for follow.');
-        throw new Error('Database error following list.');
-    }
+  const listCheck = await findListByIdRaw(listId);
+  if (!listCheck) throw new Error(`List with ID ${listId} not found.`);
+  const query = 'INSERT INTO listfollows (list_id, user_id) VALUES ($1, $2) ON CONFLICT (list_id, user_id) DO NOTHING RETURNING list_id';
+  try {
+    const result = await db.query(query, [listId, userId]);
+    return result.rows.length > 0;
+  } catch (error) {
+    console.error(`[ListModel followList] Error following list ${listId} for user ${userId}:`, error);
+    if (error.code === '23503') throw new Error('Invalid user or list reference for follow.');
+    throw new Error('Database error following list.');
+  }
 };
 
 export const unfollowList = async (listId, userId) => {
-    const query = 'DELETE FROM listfollows WHERE list_id = $1 AND user_id = $2 RETURNING list_id';
-    try {
-        const result = await db.query(query, [listId, userId]);
-        return result.rows.length > 0;
-    } catch (error) {
-        console.error(`[ListModel unfollowList] Error unfollowing list ${listId} for user ${userId}:`, error);
-        throw new Error('Database error unfollowing list.');
-    }
+  const query = 'DELETE FROM listfollows WHERE list_id = $1 AND user_id = $2 RETURNING list_id';
+  try {
+    const result = await db.query(query, [listId, userId]);
+    return result.rows.length > 0;
+  } catch (error) {
+    console.error(`[ListModel unfollowList] Error unfollowing list ${listId} for user ${userId}:`, error);
+    throw new Error('Database error unfollowing list.');
+  }
 };
 
 export const toggleFollowList = async (listId, userId) => {
@@ -530,7 +378,7 @@ export const toggleFollowList = async (listId, userId) => {
   try {
     const list = await findListByIdRaw(listId);
     if (!list) {
-        throw new Error(`List with ID ${listId} not found.`);
+      throw new Error(`List with ID ${listId} not found.`);
     }
     const isCurrentlyFollowing = await isFollowing(listId, userId);
     if (isCurrentlyFollowing) {
@@ -549,26 +397,359 @@ export const toggleFollowList = async (listId, userId) => {
   }
 };
 
-export const updateListSavedCount = async (listId, adjustment) => { console.warn("updateListSavedCount is a placeholder"); return null;};
-export const removeItemFromList = async (listId, listItemId) => { console.warn("removeItemFromList is a placeholder"); return null; };
-export const updateListVisibility = async (listId, is_public) => { console.warn("updateListVisibility is a placeholder"); return null; };
-export const deleteList = async (listId) => { console.warn("deleteList is a placeholder"); return null; };
+// ========== ADMIN FUNCTIONS ==========
 
+/**
+ * Get all lists with optional pagination and filtering
+ */
+export const getAllLists = async ({ page = 1, limit = 50, search = null, userId = null, listType = null, isPublic = null, sort = 'updated_at', order = 'desc' } = {}) => {
+  try {
+    let baseQuery = `
+      SELECT 
+        l.id,
+        l.name,
+        l.description,
+        l.list_type,
+        l.saved_count,
+        l.city_name,
+        l.tags,
+        l.is_public,
+        l.creator_handle,
+        l.user_id,
+        l.created_at,
+        l.updated_at,
+        u.username as creator_username,
+        u.email as creator_email,
+        COUNT(li.id) as items_count
+      FROM lists l
+      LEFT JOIN users u ON l.user_id = u.id
+      LEFT JOIN listitems li ON l.id = li.list_id
+    `;
+    
+    const conditions = [];
+    const queryParams = [];
+    let paramIndex = 1;
+    
+    // Add search filter
+    if (search) {
+      conditions.push(`(
+        LOWER(l.name) LIKE LOWER($${paramIndex}) OR 
+        LOWER(l.description) LIKE LOWER($${paramIndex}) OR
+        LOWER(l.creator_handle) LIKE LOWER($${paramIndex})
+      )`);
+      queryParams.push(`%${search}%`);
+      paramIndex++;
+    }
+    
+    // Add user filter
+    if (userId) {
+      conditions.push(`l.user_id = $${paramIndex}`);
+      queryParams.push(userId);
+      paramIndex++;
+    }
+    
+    // Add list type filter
+    if (listType) {
+      conditions.push(`l.list_type = $${paramIndex}`);
+      queryParams.push(listType);
+      paramIndex++;
+    }
+    
+    // Add public/private filter
+    if (isPublic !== null) {
+      conditions.push(`l.is_public = $${paramIndex}`);
+      queryParams.push(isPublic);
+      paramIndex++;
+    }
+    
+    // Build WHERE clause
+    if (conditions.length > 0) {
+      baseQuery += ` WHERE ${conditions.join(' AND ')}`;
+    }
+    
+    // Add GROUP BY for aggregation
+    baseQuery += ` GROUP BY l.id, u.username, u.email`;
+    
+    // Add sorting
+    const validSortColumns = ['name', 'created_at', 'updated_at', 'saved_count', 'items_count', 'list_type'];
+    const sortColumn = validSortColumns.includes(sort) ? sort : 'updated_at';
+    const sortOrder = order.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+    
+    if (sort === 'items_count') {
+      baseQuery += ` ORDER BY items_count ${sortOrder}`;
+    } else {
+      baseQuery += ` ORDER BY l.${sortColumn} ${sortOrder}`;
+    }
+    
+    // Add pagination
+    const offset = (page - 1) * limit;
+    baseQuery += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    queryParams.push(limit, offset);
+    
+    const result = await db.query(baseQuery, queryParams);
+    
+    // Get total count for pagination
+    let countQuery = 'SELECT COUNT(*) FROM lists l';
+    if (conditions.length > 0) {
+      countQuery += ` WHERE ${conditions.join(' AND ')}`;
+    }
+    
+    const countResult = await db.query(countQuery, queryParams.slice(0, -2)); // Remove LIMIT and OFFSET params
+    const totalCount = parseInt(countResult.rows[0].count);
+    
+    return {
+      lists: result.rows.map(row => ({
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        list_type: row.list_type,
+        saved_count: row.saved_count || 0,
+        city_name: row.city_name,
+        tags: row.tags || [],
+        is_public: row.is_public,
+        creator_handle: row.creator_handle,
+        user_id: row.user_id,
+        creator_username: row.creator_username,
+        creator_email: row.creator_email,
+        items_count: parseInt(row.items_count) || 0,
+        created_at: row.created_at,
+        updated_at: row.updated_at
+      })),
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit)
+      }
+    };
+  } catch (error) {
+    logError('Error in getAllLists:', error);
+    throw new Error('Failed to fetch lists');
+  }
+};
+
+/**
+ * Get a single list by ID
+ */
+export const getListById = async (id) => {
+  try {
+    const query = `
+      SELECT 
+        l.id,
+        l.name,
+        l.description,
+        l.list_type,
+        l.saved_count,
+        l.city_name,
+        l.tags,
+        l.is_public,
+        l.creator_handle,
+        l.user_id,
+        l.created_at,
+        l.updated_at,
+        u.username as creator_username,
+        u.email as creator_email,
+        COUNT(li.id) as items_count
+      FROM lists l
+      LEFT JOIN users u ON l.user_id = u.id
+      LEFT JOIN listitems li ON l.id = li.list_id
+      WHERE l.id = $1
+      GROUP BY l.id, u.username, u.email
+    `;
+    
+    const result = await db.query(query, [id]);
+    
+    if (result.rows.length === 0) {
+      return null;
+    }
+    
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      list_type: row.list_type,
+      saved_count: row.saved_count || 0,
+      city_name: row.city_name,
+      tags: row.tags || [],
+      is_public: row.is_public,
+      creator_handle: row.creator_handle,
+      user_id: row.user_id,
+      creator_username: row.creator_username,
+      creator_email: row.creator_email,
+      items_count: parseInt(row.items_count) || 0,
+      created_at: row.created_at,
+      updated_at: row.updated_at
+    };
+  } catch (error) {
+    logError('Error in getListById:', error);
+    throw new Error('Failed to fetch list');
+  }
+};
+
+/**
+ * Update a list
+ */
+export const updateList = async (id, updateData) => {
+  try {
+    const { name, description, list_type, city_name, tags, is_public, creator_handle } = updateData;
+    
+    const query = `
+      UPDATE lists 
+      SET name = COALESCE($1, name),
+          description = COALESCE($2, description),
+          list_type = COALESCE($3, list_type),
+          city_name = COALESCE($4, city_name),
+          tags = COALESCE($5, tags),
+          is_public = COALESCE($6, is_public),
+          creator_handle = COALESCE($7, creator_handle),
+          updated_at = NOW()
+      WHERE id = $8
+      RETURNING *
+    `;
+    
+    const result = await db.query(query, [name, description, list_type, city_name, tags, is_public, creator_handle, id]);
+    
+    if (result.rows.length === 0) {
+      return null;
+    }
+    
+    return result.rows[0];
+  } catch (error) {
+    logError('Error in updateList:', error);
+    throw new Error('Failed to update list');
+  }
+};
+
+/**
+ * Delete a list
+ */
+export const deleteList = async (id) => {
+  try {
+    const query = 'DELETE FROM lists WHERE id = $1 RETURNING *';
+    const result = await db.query(query, [id]);
+    
+    if (result.rows.length === 0) {
+      return null;
+    }
+    
+    return result.rows[0];
+  } catch (error) {
+    logError('Error in deleteList:', error);
+    throw new Error('Failed to delete list');
+  }
+};
+
+/**
+ * Bulk validate lists data
+ */
+export const bulkValidateLists = async (listsData) => {
+  try {
+    const validatedLists = [];
+    const errors = [];
+    
+    for (let i = 0; i < listsData.length; i++) {
+      const listData = listsData[i];
+      const rowErrors = [];
+      
+      // Validate required fields
+      if (!listData.name || typeof listData.name !== 'string' || listData.name.trim().length === 0) {
+        rowErrors.push('Name is required and must be a non-empty string');
+      }
+      
+      // Validate list_type
+      if (listData.list_type && !['restaurant', 'dish', 'mixed'].includes(listData.list_type)) {
+        rowErrors.push('List type must be one of: restaurant, dish, mixed');
+      }
+      
+      // Validate is_public
+      if (listData.is_public !== undefined && typeof listData.is_public !== 'boolean') {
+        rowErrors.push('is_public must be a boolean');
+      }
+      
+      // Validate tags array
+      if (listData.tags && !Array.isArray(listData.tags)) {
+        rowErrors.push('Tags must be an array');
+      }
+      
+      if (rowErrors.length > 0) {
+        errors.push({ row: i + 1, errors: rowErrors });
+      } else {
+        validatedLists.push({
+          ...listData,
+          list_type: listData.list_type || 'mixed',
+          is_public: listData.is_public !== false,
+          tags: listData.tags || []
+        });
+      }
+    }
+    
+    return {
+      valid: validatedLists,
+      errors: errors,
+      isValid: errors.length === 0
+    };
+  } catch (error) {
+    logError('Error in bulkValidateLists:', error);
+    throw new Error('Failed to validate lists data');
+  }
+};
+
+/**
+ * Bulk create lists
+ */
+export const bulkCreateLists = async (listsData) => {
+  try {
+    if (!Array.isArray(listsData) || listsData.length === 0) {
+      throw new Error('Lists data must be a non-empty array');
+    }
+    
+    // Validate data first
+    const validation = await bulkValidateLists(listsData);
+    if (!validation.isValid) {
+      return { success: false, errors: validation.errors };
+    }
+    
+    const values = validation.valid.map((list, index) => [
+      list.name,
+      list.description || null,
+      list.list_type,
+      list.city_name || null,
+      list.tags,
+      list.is_public,
+      list.creator_handle || null,
+      list.user_id || null
+    ]);
+    
+    const query = format(`
+      INSERT INTO lists (name, description, list_type, city_name, tags, is_public, creator_handle, user_id, created_at, updated_at)
+      VALUES %L
+      RETURNING *
+    `, values.map(val => [...val, 'NOW()', 'NOW()']));
+    
+    const result = await db.query(query);
+    
+    return {
+      success: true,
+      created: result.rows,
+      count: result.rows.length
+    };
+  } catch (error) {
+    logError('Error in bulkCreateLists:', error);
+    throw new Error('Failed to bulk create lists');
+  }
+};
+
+// Export object for backward compatibility
 export const ListModel = {
   findListsByUser,
   findListByIdRaw,
   findListItemsByListId,
   findListItemsPreview,
   createList,
-  updateList,
   addItemToList,
-  checkListTypeCompatibility,
   isFollowing,
   followList,
   unfollowList,
-  toggleFollowList,
-  updateListSavedCount,
-  removeItemFromList,
-  updateListVisibility,
-  deleteList,
-};
+  toggleFollowList
+}; 

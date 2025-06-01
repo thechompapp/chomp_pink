@@ -20,6 +20,7 @@ import { useAuth } from '@/contexts/auth/AuthContext';
 import { CARD_SPECS } from '@/models/cardModels';
 import { formatRelativeDate } from '@/utils/formatting';
 import EnhancedListModal from '@/components/modals/EnhancedListModal';
+import LoginPromptButton from './LoginPromptButton';
 
 // Animation variants for better UX - consistent with other cards
 const listCardVariants = {
@@ -64,27 +65,32 @@ const ListBadge = ({ icon: Icon, text, color = "gray", size = "sm", testId }) =>
 // Follow button component
 const FollowButton = ({ list, onFollow, onUnfollow }) => {
   const { isAuthenticated } = useAuth();
-  const [isFollowing, setIsFollowing] = useState(Boolean(list.is_following));
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(list?.is_following || false);
+
+  // Don't show follow button if no follow handlers are provided
+  if (!onFollow && !onUnfollow) {
+    return null;
+  }
+
+  // Don't show follow button if user owns the list or can't follow
+  if (list.created_by_user || !list.can_follow) {
+    return null;
+  }
 
   const handleFollowToggle = useCallback(async (e) => {
     e.stopPropagation();
     e.preventDefault();
     
     if (isProcessing) return;
-    
     setIsProcessing(true);
     
     try {
       if (isFollowing) {
-        if (onUnfollow) {
-          await onUnfollow(list.id);
-        }
+        await onUnfollow?.(list.id);
         setIsFollowing(false);
       } else {
-        if (onFollow) {
-          await onFollow(list.id);
-        }
+        await onFollow?.(list.id);
         setIsFollowing(true);
       }
     } catch (error) {
@@ -94,8 +100,19 @@ const FollowButton = ({ list, onFollow, onUnfollow }) => {
     }
   }, [isFollowing, isProcessing, onFollow, onUnfollow, list.id]);
 
-  // Don't show follow button if user owns the list or isn't authenticated
-  if (!isAuthenticated || list.created_by_user || !list.can_follow) return null;
+  // Show login prompt for unauthenticated users
+  if (!isAuthenticated) {
+    return (
+      <LoginPromptButton
+        style="icon"
+        icon={UserPlus}
+        title="Follow List"
+        message={`Log in to follow "${list.name}" and get updates when new items are added.`}
+        tooltip="Log in to follow"
+        className="w-6 h-6"
+      />
+    );
+  }
 
   return (
     <motion.button
@@ -138,7 +155,19 @@ const QuickAddButton = ({ list, onQuickAdd }) => {
     }
   }, [onQuickAdd, list]);
 
-  if (!isAuthenticated || !onQuickAdd) return null;
+  // FIXED: Show login prompt instead of hiding button
+  if (!isAuthenticated || !onQuickAdd) {
+    return (
+      <LoginPromptButton
+        style="icon"
+        icon={Plus}
+        title="Add to List"
+        message={`Log in to add items to "${list.name}".`}
+        tooltip="Log in to add items"
+        className="w-6 h-6"
+      />
+    );
+  }
 
   return (
     <motion.button
@@ -285,7 +314,7 @@ const ListCard = ({
 
             {/* Action Buttons Container */}
             <div className="flex items-center space-x-1">
-              {/* Follow Button - positioned first (leftmost) */}
+              {/* Follow Button - for following/unfollowing lists */}
               <div className="follow-button">
                 <FollowButton
                   list={{
@@ -300,13 +329,8 @@ const ListCard = ({
                 />
               </div>
 
-              {/* Quick Add Button - positioned second (rightmost) */}
-              <div className="quick-add-button">
-                <QuickAddButton
-                  list={{ id, name: cleanName }}
-                  onQuickAdd={onQuickAdd}
-                />
-              </div>
+              {/* REMOVED: QuickAdd button - doesn't make sense for list browsing
+                  QuickAdd should only appear when you have a specific item to add TO a list */}
             </div>
           </div>
 

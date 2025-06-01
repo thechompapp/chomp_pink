@@ -19,6 +19,7 @@ import { engagementService } from '@/services/engagementService';
 import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
 import { CARD_SPECS } from '@/models/cardModels';
 import EnhancedDishModal from '@/components/modals/EnhancedDishModal';
+import LoginPromptButton from './LoginPromptButton'; // Import LoginPromptButton
 
 // Animation variants for better UX - fixed to prevent border clipping
 const dishCardVariants = {
@@ -63,10 +64,9 @@ const DishBadge = ({ icon: Icon, text, color = "gray", size = "sm", testId }) =>
 
 // Add to List button component
 const AddToListButton = ({ dish, onAddToList }) => {
-  const { isAuthenticated  } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   const handleAddToList = useCallback((e) => {
-    e.stopPropagation();
     e.preventDefault();
     if (onAddToList) {
       onAddToList({
@@ -77,7 +77,21 @@ const AddToListButton = ({ dish, onAddToList }) => {
     }
   }, [onAddToList, dish]);
 
-  if (!isAuthenticated || !onAddToList) return null;
+  // FIXED: Show login prompt instead of hiding button
+  if (!isAuthenticated || !onAddToList) {
+    return (
+      <div className="absolute top-2 right-2 z-10">
+        <LoginPromptButton
+          style="icon"
+          icon={Plus}
+          title="Save Dish"
+          message={`Log in to save "${dish.name}" to your personal lists.`}
+          tooltip="Log in to save dish"
+          className="absolute top-2 right-2 z-10"
+        />
+      </div>
+    );
+  }
 
   return (
     <motion.button

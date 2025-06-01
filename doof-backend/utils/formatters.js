@@ -85,6 +85,28 @@ export const formatUser = (user) => {
     };
 };
 
+export const formatCity = (city) => {
+    if (!city || !city.id || !city.name) return null;
+    return {
+        id: Number(city.id),
+        name: city.name || 'Unnamed City',
+        
+        // Enhanced fields for hierarchical management
+        state_code: city.state_code || null,
+        country_code: city.country_code || 'USA',
+        is_metro_area: !!city.is_metro_area,
+        has_boroughs: !!city.has_boroughs,
+        
+        // Counts from enhanced queries
+        neighborhood_count: Number(city.neighborhood_count || 0),
+        borough_count: Number(city.borough_count || 0),
+        
+        // Timestamps
+        created_at: city.created_at || null,
+        updated_at: city.updated_at || null
+    };
+};
+
 export const formatListItem = (item) => {
     // list_item_id implies a specific ID for the list-item association, not the item itself
     if (!item || !item.id || !item.item_id || !item.item_type) { // Assuming 'id' is the primary key for listitems
@@ -133,11 +155,27 @@ export const formatNeighborhood = (neighborhood) => {
         city_id: neighborhood.city_id ? Number(neighborhood.city_id) : null,
         city_name: neighborhood.city_name || null, // This usually comes from a JOIN
         borough: neighborhood.borough || null,
-        // Add other relevant fields from schema: zipcode_ranges, parent_id, location_level, geom
-        zipcode_ranges: neighborhood.zipcode_ranges || null,
+        
+        // Enhanced hierarchical fields
+        location_type: neighborhood.location_type || 'neighborhood',
+        is_borough: !!neighborhood.is_borough,
         parent_id: neighborhood.parent_id ? Number(neighborhood.parent_id) : null,
-        location_level: neighborhood.location_level || null,
-        // geom is often large; decide if it's needed in basic format
+        location_level: neighborhood.location_level ? Number(neighborhood.location_level) : null,
+        address_aliases: Array.isArray(neighborhood.address_aliases) ? neighborhood.address_aliases : [],
+        
+        // Other existing fields
+        zipcode_ranges: Array.isArray(neighborhood.zipcode_ranges) ? neighborhood.zipcode_ranges : [],
+        
+        // Timestamps
+        created_at: neighborhood.created_at || null,
+        updated_at: neighborhood.updated_at || null,
+        
+        // Children array for hierarchical display (populated by recursive queries)
+        children: Array.isArray(neighborhood.children) ? neighborhood.children : null,
+        
+        // Additional fields for hierarchy role identification
+        hierarchy_role: neighborhood.hierarchy_role || null,
+        depth: neighborhood.depth ? Number(neighborhood.depth) : null
     };
 };
 

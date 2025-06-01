@@ -22,6 +22,7 @@ import searchRoutes from './routes/search.js';
 import placesRoutes from './routes/places.js';
 import submissionRoutes from './routes/submissions.js';
 import adminRoutes from './routes/admin.js';
+import adminLocationRoutes from './routes/adminLocations.js';
 import engageRoutes from './routes/engage.js';
 import trendingRoutes from './routes/trending.js';
 import neighborhoodRoutes from './routes/neighborhoods.js';
@@ -222,6 +223,7 @@ class AppServer {
       { path: '/api/places', router: placesRoutes },
       { path: '/api/submissions', router: submissionRoutes },
       { path: '/api/admin', router: adminRoutes },
+      { path: '/api/admin/locations', router: adminLocationRoutes },
       { path: '/api/engage', router: engageRoutes },
       { path: '/api/trending', router: trendingRoutes },
       { path: '/api/neighborhoods', router: neighborhoodRoutes },

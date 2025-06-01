@@ -526,14 +526,24 @@ class AuthenticationCoordinator {
    * Sync authenticated state across all systems
    */
   async syncAuthenticatedState(isAuthenticated, user, token) {
-    // Check if user has explicitly logged out - if so, don't sync authenticated state
+    // FIXED: Clear logout flag when syncing authenticated state
+    // The logout flag should only prevent sync when there's no valid auth data
+    if (isAuthenticated && user && token) {
+      // User has valid auth data, clear any logout flags
+      localStorage.removeItem(STORAGE_KEYS.LOGOUT_FLAG);
+      localStorage.removeItem('logout_in_progress');
+      logDebug('[AuthCoordinator] Cleared logout flags due to valid authentication');
+    }
+    
+    // Check if user has explicitly logged out ONLY if we're trying to sync unauthenticated state
     const hasExplicitlyLoggedOut = localStorage.getItem(STORAGE_KEYS.LOGOUT_FLAG) === 'true';
     const isLogoutInProgress = localStorage.getItem('logout_in_progress') === 'true';
     
-    if (hasExplicitlyLoggedOut || isLogoutInProgress) {
-      logInfo('[AuthCoordinator] User explicitly logged out or logout in progress - not syncing authenticated state');
+    // Only respect logout flags if we're trying to sync an unauthenticated state
+    if (!isAuthenticated && (hasExplicitlyLoggedOut || isLogoutInProgress)) {
+      logInfo('[AuthCoordinator] User explicitly logged out or logout in progress - syncing logout state');
       
-      // Force logout state instead
+      // Force logout state
       const logoutState = {
         isAuthenticated: false,
         user: null,

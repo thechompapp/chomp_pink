@@ -6,8 +6,9 @@ import UserModel from '../models/userModel.js';
 import * as CityModel from '../models/cityModel.js';
 import * as NeighborhoodModel from '../models/neighborhoodModel.js';
 import * as HashtagModel from '../models/hashtagModel.js';
-import { ListModel } from '../models/listModel.js';
+import * as ListModel from '../models/listModel.js';
 import SubmissionModel from '../models/submissionModel.js';
+import db from '../db/index.js';
 
 import {
   formatRestaurant,
@@ -668,14 +669,37 @@ export const rejectSubmission = async (req, res) => {
  */
 export const bulkAddRestaurants = async (req, res) => {
   try {
+    // DEBUG: Log the entire request to see what we're receiving
+    console.log(`[DEBUG] Bulk add restaurants - Request body:`, req.body);
+    console.log(`[DEBUG] Bulk add restaurants - Request method:`, req.method);
+    console.log(`[DEBUG] Bulk add restaurants - Content-Type:`, req.headers['content-type']);
+    
     const { restaurants } = req.body;
     
+    console.log(`[DEBUG] Extracted restaurants:`, restaurants);
+    console.log(`[DEBUG] Restaurants type:`, typeof restaurants);
+    console.log(`[DEBUG] Restaurants is array:`, Array.isArray(restaurants));
+    
     if (!restaurants || !Array.isArray(restaurants)) {
+      console.log(`[DEBUG] Validation failed - restaurants is not an array or is missing`);
       return res.status(400).json({
         success: false,
-        message: 'Invalid restaurants data provided'
+        message: 'Invalid restaurants data provided',
+        received: { restaurants, type: typeof restaurants, isArray: Array.isArray(restaurants) }
       });
     }
+    
+    // Helper function to lookup city_id by city name (for backward compatibility)
+    const lookupCityId = async (cityName) => {
+      if (!cityName) return null;
+      try {
+        const result = await db.query('SELECT id FROM cities WHERE name ILIKE $1 LIMIT 1', [cityName.trim()]);
+        return result.rows.length > 0 ? result.rows[0].id : null;
+      } catch (error) {
+        console.error(`Error looking up city "${cityName}":`, error);
+        return null;
+      }
+    };
     
     const results = {
       success: 0,
@@ -687,28 +711,50 @@ export const bulkAddRestaurants = async (req, res) => {
     // Process each restaurant
     for (const restaurant of restaurants) {
       try {
-        // Validate required fields
-        if (!restaurant.name || !restaurant.address) {
-          results.failed++;
-          results.errors.push(`Missing required fields for restaurant: ${restaurant.name || 'Unknown'}`);
-          continue;
+        // Check if this is pre-validated data (has city_id already) or raw data (needs resolution)
+        const isPreValidated = restaurant.city_id !== undefined;
+        
+        let restaurantData;
+        
+        if (isPreValidated) {
+          // Data is already validated and resolved, use directly
+          console.log(`[DEBUG] Processing pre-validated restaurant:`, restaurant);
+          restaurantData = {
+            name: restaurant.name,
+            address: restaurant.address,
+            city_id: restaurant.city_id,
+            neighborhood_id: restaurant.neighborhood_id || null,
+            zip_code: restaurant.zip_code || null,
+            phone: restaurant.phone || null,
+            website: restaurant.website || null,
+            price_range: restaurant.price_range || null
+          };
+        } else {
+          // Raw data that needs validation and resolution
+          if (!restaurant.name || !restaurant.address) {
+            results.failed++;
+            results.errors.push(`Missing required fields for restaurant: ${restaurant.name || 'Unknown'}`);
+            continue;
+          }
+          
+          console.log(`[DEBUG] Processing raw restaurant:`, restaurant);
+          
+          restaurantData = {
+            name: restaurant.name,
+            address: restaurant.address,
+            city_id: await lookupCityId(restaurant.city) || null,
+            neighborhood_id: restaurant.neighborhood_id || null,
+            zip_code: restaurant.zip || null,
+            phone: restaurant.phone || null,
+            website: restaurant.website || null,
+            price_range: restaurant.price_range || null
+          };
         }
         
-        // Create restaurant using the RestaurantModel
-        const restaurantData = {
-          name: restaurant.name,
-          address: restaurant.address,
-          city: restaurant.city || null,
-          state: restaurant.state || null,
-          zip: restaurant.zip || null,
-          phone: restaurant.phone || null,
-          website: restaurant.website || null,
-          price_range: restaurant.price_range || null,
-          created_at: new Date(),
-          updated_at: new Date()
-        };
+        console.log(`[DEBUG] Final restaurant data for creation:`, restaurantData);
         
-        await RestaurantModel.create(restaurantData);
+        const createdRestaurant = await RestaurantModel.createRestaurant(restaurantData);
+        console.log(`[DEBUG] Successfully created restaurant:`, createdRestaurant);
         results.success++;
         
       } catch (error) {
@@ -720,7 +766,12 @@ export const bulkAddRestaurants = async (req, res) => {
     
     console.log(`Bulk add completed: ${results.success} success, ${results.failed} failed`);
     
-    return res.status(200).json({
+    // Clear cache headers to force frontend refresh
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
+    res.status(200).json({
       success: true,
       message: `Bulk add completed: ${results.success} added, ${results.failed} failed`,
       data: results
@@ -851,12 +902,28 @@ export const getAutosuggestNeighborhoodsByCity = async (req, res) => {
 // Generic bulk delete function
 const bulkDelete = async (req, res, resourceType) => {
   try {
+    // DEBUG: Log the entire request to see what we're receiving
+    console.log(`[DEBUG] Bulk delete ${resourceType} - Request body:`, req.body);
+    console.log(`[DEBUG] Bulk delete ${resourceType} - Request method:`, req.method);
+    console.log(`[DEBUG] Bulk delete ${resourceType} - Content-Type:`, req.headers['content-type']);
+    console.log(`[DEBUG] Bulk delete ${resourceType} - Full headers:`, req.headers);
+    
     const { ids } = req.body;
     
+    console.log(`[DEBUG] Extracted ids:`, ids);
+    
     if (!Array.isArray(ids) || ids.length === 0) {
+      console.log(`[DEBUG] Validation failed - ids is not an array or is empty`);
       return res.status(400).json({
         success: false,
-        message: 'Array of IDs is required'
+        message: 'Array of IDs is required',
+        debug: {
+          receivedIds: ids,
+          typeOfIds: typeof ids,
+          isArray: Array.isArray(ids),
+          bodyKeys: Object.keys(req.body),
+          fullBody: req.body
+        }
       });
     }
 
@@ -890,6 +957,11 @@ const bulkDelete = async (req, res, resourceType) => {
         results.errors.push(`Failed to delete ${resourceType} ${id}: ${error.message}`);
       }
     }
+
+    // Clear cache headers to force frontend refresh
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
 
     res.status(200).json({
       success: true,
@@ -1116,3 +1188,926 @@ export const bulkDeleteRestaurantChains = (req, res) => bulkDelete(req, res, 're
 export const bulkUpdateRestaurantChains = (req, res) => bulkUpdate(req, res, 'restaurant_chains');
 export const bulkAddRestaurantChains = (req, res) => bulkAdd(req, res, 'restaurant_chains');
 export const importRestaurantChains = (req, res) => importData(req, res, 'restaurant_chains');
+
+// Lists bulk operations
+export const bulkDeleteLists = (req, res) => bulkDelete(req, res, 'lists');
+export const bulkUpdateLists = (req, res) => bulkUpdate(req, res, 'lists');
+export const bulkAddLists = (req, res) => bulkAdd(req, res, 'lists');
+export const importLists = (req, res) => importData(req, res, 'lists');
+
+/**
+ * Bulk validate restaurants - parse and resolve data without creating
+ * This allows users to preview what will be created before confirming
+ */
+export const bulkValidateRestaurants = async (req, res) => {
+  logInfo(`[AdminController] Starting bulk restaurant validation`);
+  
+  try {
+    const { restaurants } = req.body;
+    
+    if (!restaurants || !Array.isArray(restaurants) || restaurants.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No restaurant data provided'
+      });
+    }
+    
+    // Helper function to look up city by name and create if it doesn't exist
+    const lookupCityId = async (cityName) => {
+      if (!cityName || !cityName.trim()) return null;
+      
+      const cleanName = cityName.trim();
+      
+      // First, try to find existing city
+      const existingCity = await db.query('SELECT id FROM cities WHERE LOWER(name) = LOWER($1)', [cleanName]);
+      
+      if (existingCity.rows.length > 0) {
+        return existingCity.rows[0].id;
+      }
+      
+      // If not found, create new city
+      const newCity = await db.query(
+        'INSERT INTO cities (name, state, country) VALUES ($1, $2, $3) RETURNING id',
+        [cleanName, 'Unknown', 'USA']
+      );
+      
+      return newCity.rows[0].id;
+    };
+    
+    // Helper function to look up neighborhood by name and city, create if it doesn't exist
+    const lookupNeighborhoodId = async (neighborhoodName, cityId) => {
+      if (!neighborhoodName || !neighborhoodName.trim() || !cityId) return null;
+      
+      const cleanName = neighborhoodName.trim();
+      
+      // First, try to find existing neighborhood
+      const existingNeighborhood = await db.query(
+        'SELECT id FROM neighborhoods WHERE LOWER(name) = LOWER($1) AND city_id = $2',
+        [cleanName, cityId]
+      );
+      
+      if (existingNeighborhood.rows.length > 0) {
+        return existingNeighborhood.rows[0].id;
+      }
+      
+      // If not found, create new neighborhood
+      const newNeighborhood = await db.query(
+        'INSERT INTO neighborhoods (name, city_id) VALUES ($1, $2) RETURNING id',
+        [cleanName, cityId]
+      );
+      
+      return newNeighborhood.rows[0].id;
+    };
+    
+    const valid = [];
+    const invalid = [];
+    const warnings = [];
+    
+    for (let i = 0; i < restaurants.length; i++) {
+      const restaurant = restaurants[i];
+      const rowNumber = i + 1;
+      const errors = [];
+      const warns = [];
+      
+      // Validate required fields
+      if (!restaurant.name || !restaurant.name.trim()) {
+        errors.push('Restaurant name is required');
+      }
+      
+      if (!restaurant.address || !restaurant.address.trim()) {
+        errors.push('Restaurant address is required');
+      }
+      
+      if (!restaurant.city || !restaurant.city.trim()) {
+        errors.push('City is required');
+      }
+      
+      // Validate phone format if provided
+      if (restaurant.phone && restaurant.phone.trim()) {
+        const phoneRegex = /^[\d\s\-\(\)\+\.]+$/;
+        if (!phoneRegex.test(restaurant.phone.trim())) {
+          warns.push('Phone number format may be invalid');
+        }
+      }
+      
+      // Validate website format if provided
+      if (restaurant.website && restaurant.website.trim()) {
+        const urlRegex = /^https?:\/\/.+\..+/;
+        if (!urlRegex.test(restaurant.website.trim())) {
+          warns.push('Website URL should start with http:// or https://');
+        }
+      }
+      
+      if (errors.length > 0) {
+        invalid.push({
+          rowNumber,
+          original: restaurant,
+          errors
+        });
+      } else {
+        try {
+          // Look up and resolve city and neighborhood IDs
+          const cityId = await lookupCityId(restaurant.city);
+          const neighborhoodId = restaurant.neighborhood ? 
+            await lookupNeighborhoodId(restaurant.neighborhood, cityId) : null;
+          
+          const resolved = {
+            name: restaurant.name.trim(),
+            address: restaurant.address.trim(),
+            city: restaurant.city.trim(),
+            city_id: cityId,
+            neighborhood: restaurant.neighborhood ? restaurant.neighborhood.trim() : null,
+            neighborhood_id: neighborhoodId,
+            zip: restaurant.zip ? restaurant.zip.trim() : null,
+            phone: restaurant.phone ? restaurant.phone.trim() : null,
+            website: restaurant.website ? restaurant.website.trim() : null
+          };
+          
+          const validItem = {
+            rowNumber,
+            original: restaurant,
+            resolved
+          };
+          
+          if (warns.length > 0) {
+            warnings.push({
+              ...validItem,
+              warnings: warns
+            });
+          }
+          
+          valid.push(validItem);
+        } catch (error) {
+          logError(`Error resolving restaurant data for row ${rowNumber}:`, error);
+          invalid.push({
+            rowNumber,
+            original: restaurant,
+            errors: ['Failed to resolve city/neighborhood data']
+          });
+        }
+      }
+    }
+    
+    logInfo(`[AdminController] Validation complete: ${valid.length} valid, ${invalid.length} invalid, ${warnings.length} warnings`);
+    
+    res.json({
+      success: true,
+      valid,
+      invalid,
+      warnings,
+      summary: {
+        total: restaurants.length,
+        valid: valid.length,
+        invalid: invalid.length,
+        warnings: warnings.length
+      }
+    });
+    
+  } catch (error) {
+    logError('[AdminController] Error in bulk restaurant validation:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error during validation',
+      error: error.message
+    });
+  }
+};
+
+export const bulkValidateDishes = async (req, res) => {
+  logInfo(`[AdminController] Starting bulk dish validation`);
+  
+  try {
+    const { dishes } = req.body;
+    
+    if (!dishes || !Array.isArray(dishes) || dishes.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No dish data provided'
+      });
+    }
+    
+    const valid = [];
+    const invalid = [];
+    const warnings = [];
+    
+    // Get all restaurant IDs for validation
+    const restaurantIds = await db.query('SELECT id FROM restaurants');
+    const validRestaurantIds = new Set(restaurantIds.rows.map(r => r.id));
+    
+    for (let i = 0; i < dishes.length; i++) {
+      const dish = dishes[i];
+      const rowNumber = i + 1;
+      const errors = [];
+      const warns = [];
+      
+      // Validate required fields
+      if (!dish.name || !dish.name.trim()) {
+        errors.push('Dish name is required');
+      }
+      
+      if (!dish.restaurant_id) {
+        errors.push('Restaurant ID is required');
+      } else {
+        const restaurantId = parseInt(dish.restaurant_id);
+        if (isNaN(restaurantId) || !validRestaurantIds.has(restaurantId)) {
+          errors.push('Invalid restaurant ID - restaurant does not exist');
+        }
+      }
+      
+      if (errors.length > 0) {
+        invalid.push({
+          rowNumber,
+          original: dish,
+          errors
+        });
+      } else {
+        const resolved = {
+          name: dish.name.trim(),
+          description: dish.description ? dish.description.trim() : null,
+          restaurant_id: parseInt(dish.restaurant_id)
+        };
+        
+        const validItem = {
+          rowNumber,
+          original: dish,
+          resolved
+        };
+        
+        if (warns.length > 0) {
+          warnings.push({
+            ...validItem,
+            warnings: warns
+          });
+        }
+        
+        valid.push(validItem);
+      }
+    }
+    
+    logInfo(`[AdminController] Dish validation complete: ${valid.length} valid, ${invalid.length} invalid, ${warnings.length} warnings`);
+    
+    res.json({
+      success: true,
+      valid,
+      invalid,
+      warnings,
+      summary: {
+        total: dishes.length,
+        valid: valid.length,
+        invalid: invalid.length,
+        warnings: warnings.length
+      }
+    });
+    
+  } catch (error) {
+    logError('[AdminController] Error in bulk dish validation:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error during validation',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Bulk validate users - parse and resolve data without creating
+ */
+export const bulkValidateUsers = async (req, res) => {
+  try {
+    const { users } = req.body;
+    
+    if (!users || !Array.isArray(users)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid users data provided'
+      });
+    }
+    
+    const results = { valid: [], invalid: [], warnings: [] };
+    
+    for (let i = 0; i < users.length; i++) {
+      const user = users[i];
+      const rowNumber = i + 1;
+      
+      try {
+        // Basic validation
+        if (!user.email || !user.username) {
+          results.invalid.push({
+            rowNumber,
+            original: user,
+            errors: ['Email and username are required']
+          });
+          continue;
+        }
+        
+        // Email validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(user.email)) {
+          results.invalid.push({
+            rowNumber,
+            original: user,
+            errors: ['Invalid email format']
+          });
+          continue;
+        }
+        
+        // Create resolved data
+        const resolved = {
+          email: user.email.toLowerCase(),
+          username: user.username,
+          full_name: user.full_name || '',
+          role: user.role || 'user'
+        };
+        
+        results.valid.push({
+          rowNumber,
+          original: user,
+          resolved
+        });
+        
+      } catch (error) {
+        results.invalid.push({
+          rowNumber,
+          original: user,
+          errors: [`Processing error: ${error.message}`]
+        });
+      }
+    }
+    
+    res.json({
+      success: true,
+      total: users.length,
+      valid: results.valid,
+      invalid: results.invalid,
+      warnings: results.warnings
+    });
+    
+  } catch (error) {
+    console.error('[ERROR] Bulk validate users error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Validation failed',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Bulk validate cities - parse and resolve data without creating
+ */
+export const bulkValidateCities = async (req, res) => {
+  try {
+    const { cities } = req.body;
+    
+    if (!cities || !Array.isArray(cities)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid cities data provided'
+      });
+    }
+    
+    const results = { valid: [], invalid: [], warnings: [] };
+    
+    for (let i = 0; i < cities.length; i++) {
+      const city = cities[i];
+      const rowNumber = i + 1;
+      
+      try {
+        // Basic validation
+        if (!city.name) {
+          results.invalid.push({
+            rowNumber,
+            original: city,
+            errors: ['City name is required']
+          });
+          continue;
+        }
+        
+        // Create resolved data
+        const resolved = {
+          name: city.name,
+          state: city.state || '',
+          country: city.country || 'USA'
+        };
+        
+        results.valid.push({
+          rowNumber,
+          original: city,
+          resolved
+        });
+        
+      } catch (error) {
+        results.invalid.push({
+          rowNumber,
+          original: city,
+          errors: [`Processing error: ${error.message}`]
+        });
+      }
+    }
+    
+    res.json({
+      success: true,
+      total: cities.length,
+      valid: results.valid,
+      invalid: results.invalid,
+      warnings: results.warnings
+    });
+    
+  } catch (error) {
+    console.error('[ERROR] Bulk validate cities error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Validation failed',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Bulk validate neighborhoods - parse and resolve data without creating
+ */
+export const bulkValidateNeighborhoods = async (req, res) => {
+  try {
+    const { neighborhoods } = req.body;
+    
+    if (!neighborhoods || !Array.isArray(neighborhoods)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid neighborhoods data provided'
+      });
+    }
+    
+    const results = { valid: [], invalid: [], warnings: [] };
+    
+    for (let i = 0; i < neighborhoods.length; i++) {
+      const neighborhood = neighborhoods[i];
+      const rowNumber = i + 1;
+      
+      try {
+        // Basic validation
+        if (!neighborhood.name) {
+          results.invalid.push({
+            rowNumber,
+            original: neighborhood,
+            errors: ['Neighborhood name is required']
+          });
+          continue;
+        }
+        
+        // Create resolved data
+        const resolved = {
+          name: neighborhood.name,
+          city_id: neighborhood.city_id ? parseInt(neighborhood.city_id) : null,
+          zip_code: neighborhood.zip_code || ''
+        };
+        
+        results.valid.push({
+          rowNumber,
+          original: neighborhood,
+          resolved
+        });
+        
+      } catch (error) {
+        results.invalid.push({
+          rowNumber,
+          original: neighborhood,
+          errors: [`Processing error: ${error.message}`]
+        });
+      }
+    }
+    
+    res.json({
+      success: true,
+      total: neighborhoods.length,
+      valid: results.valid,
+      invalid: results.invalid,
+      warnings: results.warnings
+    });
+    
+  } catch (error) {
+    console.error('[ERROR] Bulk validate neighborhoods error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Validation failed',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Bulk validate hashtags - parse and resolve data without creating
+ */
+export const bulkValidateHashtags = async (req, res) => {
+  try {
+    const { hashtags } = req.body;
+    
+    if (!hashtags || !Array.isArray(hashtags)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid hashtags data provided'
+      });
+    }
+    
+    const results = { valid: [], invalid: [], warnings: [] };
+    
+    for (let i = 0; i < hashtags.length; i++) {
+      const hashtag = hashtags[i];
+      const rowNumber = i + 1;
+      
+      try {
+        // Basic validation
+        if (!hashtag.name) {
+          results.invalid.push({
+            rowNumber,
+            original: hashtag,
+            errors: ['Hashtag name is required']
+          });
+          continue;
+        }
+        
+        // Clean hashtag name (remove # if present, ensure no spaces)
+        let cleanName = hashtag.name.replace(/^#/, '').toLowerCase();
+        cleanName = cleanName.replace(/\s+/g, '_');
+        
+        if (!cleanName) {
+          results.invalid.push({
+            rowNumber,
+            original: hashtag,
+            errors: ['Invalid hashtag name']
+          });
+          continue;
+        }
+        
+        // Create resolved data
+        const resolved = {
+          name: cleanName,
+          category: hashtag.category || 'general'
+        };
+        
+        results.valid.push({
+          rowNumber,
+          original: hashtag,
+          resolved
+        });
+        
+      } catch (error) {
+        results.invalid.push({
+          rowNumber,
+          original: hashtag,
+          errors: [`Processing error: ${error.message}`]
+        });
+      }
+    }
+    
+    res.json({
+      success: true,
+      total: hashtags.length,
+      valid: results.valid,
+      invalid: results.invalid,
+      warnings: results.warnings
+    });
+    
+  } catch (error) {
+    console.error('[ERROR] Bulk validate hashtags error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Validation failed',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Bulk validate restaurant chains - parse and resolve data without creating
+ */
+export const bulkValidateRestaurantChains = async (req, res) => {
+  try {
+    console.log('[bulkValidateRestaurantChains] Starting validation with body:', req.body);
+    const { data } = req.body;
+    
+    if (!Array.isArray(data)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Data must be an array',
+        validationResults: []
+      });
+    }
+
+    const validationResults = [];
+    const validData = [];
+
+    for (let i = 0; i < data.length; i++) {
+      const item = data[i];
+      const errors = [];
+      
+      // Name validation (required)
+      if (!item.name || typeof item.name !== 'string' || item.name.trim().length === 0) {
+        errors.push('Name is required and must be a non-empty string');
+      }
+      
+      // Description validation (optional but must be string if provided)
+      if (item.description && typeof item.description !== 'string') {
+        errors.push('Description must be a string');
+      }
+      
+      // Website validation (optional but must be string if provided)  
+      if (item.website && typeof item.website !== 'string') {
+        errors.push('Website must be a string');
+      }
+      
+      if (errors.length > 0) {
+        validationResults.push({
+          row: i + 1,
+          isValid: false,
+          errors,
+          data: item
+        });
+      } else {
+        validationResults.push({
+          row: i + 1,
+          isValid: true,
+          errors: [],
+          data: item
+        });
+        validData.push(item);
+      }
+    }
+
+    const hasErrors = validationResults.some(result => !result.isValid);
+    
+    console.log('[bulkValidateRestaurantChains] Validation completed. Valid items:', validData.length, 'Total items:', data.length);
+    
+    res.status(200).json({
+      success: true,
+      message: hasErrors ? 'Validation completed with errors' : 'All data is valid',
+      validationResults,
+      summary: {
+        total: data.length,
+        valid: validData.length,
+        invalid: data.length - validData.length
+      }
+    });
+  } catch (error) {
+    console.error('[bulkValidateRestaurantChains] Error during validation:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to validate restaurant chains data',
+      error: error.message,
+      validationResults: []
+    });
+  }
+};
+
+export const bulkValidateLists = async (req, res) => {
+  try {
+    console.log('[bulkValidateLists] Starting validation with body:', req.body);
+    const { data } = req.body;
+    
+    if (!Array.isArray(data)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Data must be an array',
+        validationResults: []
+      });
+    }
+
+    const validationResults = [];
+    const validData = [];
+
+    for (let i = 0; i < data.length; i++) {
+      const item = data[i];
+      const errors = [];
+      
+      // Name validation (required)
+      if (!item.name || typeof item.name !== 'string' || item.name.trim().length === 0) {
+        errors.push('Name is required and must be a non-empty string');
+      }
+      
+      // Description validation (optional but must be string if provided)
+      if (item.description && typeof item.description !== 'string') {
+        errors.push('Description must be a string');
+      }
+      
+      // List type validation (optional but must be valid enum if provided)
+      if (item.list_type && !['restaurant', 'dish', 'mixed'].includes(item.list_type)) {
+        errors.push('List type must be one of: restaurant, dish, mixed');
+      }
+      
+      // City name validation (optional but must be string if provided)
+      if (item.city_name && typeof item.city_name !== 'string') {
+        errors.push('City name must be a string');
+      }
+      
+      // Tags validation (optional but must be array if provided)
+      if (item.tags && !Array.isArray(item.tags)) {
+        errors.push('Tags must be an array');
+      }
+      
+      // is_public validation (optional but must be boolean if provided)
+      if (item.is_public !== undefined && typeof item.is_public !== 'boolean') {
+        errors.push('is_public must be a boolean');
+      }
+      
+      // creator_handle validation (optional but must be string if provided)
+      if (item.creator_handle && typeof item.creator_handle !== 'string') {
+        errors.push('Creator handle must be a string');
+      }
+      
+      // user_id validation (optional but must be number if provided)
+      if (item.user_id && (typeof item.user_id !== 'number' || item.user_id <= 0)) {
+        errors.push('User ID must be a positive number');
+      }
+      
+      if (errors.length > 0) {
+        validationResults.push({
+          row: i + 1,
+          isValid: false,
+          errors,
+          data: item
+        });
+      } else {
+        validationResults.push({
+          row: i + 1,
+          isValid: true,
+          errors: [],
+          data: item
+        });
+        validData.push(item);
+      }
+    }
+
+    const hasErrors = validationResults.some(result => !result.isValid);
+    
+    console.log('[bulkValidateLists] Validation completed. Valid items:', validData.length, 'Total items:', data.length);
+    
+    res.status(200).json({
+      success: true,
+      message: hasErrors ? 'Validation completed with errors' : 'All data is valid',
+      validationResults,
+      summary: {
+        total: data.length,
+        valid: validData.length,
+        invalid: data.length - validData.length
+      }
+    });
+  } catch (error) {
+    console.error('[bulkValidateLists] Error during validation:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to validate lists data',
+      error: error.message,
+      validationResults: []
+    });
+  }
+};
+
+// ========== LISTS MANAGEMENT ==========
+
+export const getLists = async (req, res) => {
+  try {
+    const { page = 1, limit = 50, search, userId, listType, isPublic, sort = 'updated_at', order = 'desc' } = req.query;
+    
+    const result = await ListModel.getAllLists({
+      page: parseInt(page),
+      limit: parseInt(limit),
+      search,
+      userId,
+      listType,
+      isPublic: isPublic !== undefined ? isPublic === 'true' : null,
+      sort,
+      order
+    });
+    
+    res.status(200).json({
+      success: true,
+      message: 'Lists fetched successfully',
+      data: result.lists,
+      pagination: result.pagination
+    });
+  } catch (error) {
+    console.error('Error fetching lists:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch lists',
+      error: error.message
+    });
+  }
+};
+
+export const getListById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const list = await ListModel.getListById(parseInt(id));
+    
+    if (!list) {
+      return res.status(404).json({
+        success: false,
+        message: 'List not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: 'List fetched successfully',
+      data: list
+    });
+  } catch (error) {
+    console.error('Error fetching list:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch list',
+      error: error.message
+    });
+  }
+};
+
+export const createList = async (req, res) => {
+  try {
+    const listData = req.body;
+    const newList = await ListModel.createList(listData);
+    
+    res.status(201).json({
+      success: true,
+      message: 'List created successfully',
+      data: newList
+    });
+  } catch (error) {
+    console.error('Error creating list:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create list',
+      error: error.message
+    });
+  }
+};
+
+export const updateList = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+    
+    const updatedList = await ListModel.updateList(parseInt(id), updateData);
+    
+    if (!updatedList) {
+      return res.status(404).json({
+        success: false,
+        message: 'List not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: 'List updated successfully',
+      data: updatedList
+    });
+  } catch (error) {
+    console.error('Error updating list:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update list',
+      error: error.message
+    });
+  }
+};
+
+export const deleteList = async (req, res) => {
+  try {
+    const listId = parseInt(req.params.id);
+    
+    if (!listId || isNaN(listId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid list ID'
+      });
+    }
+    
+    const result = await ListModel.deleteList(listId);
+    
+    if (!result) {
+      return res.status(404).json({
+        success: false,
+        message: 'List not found'
+      });
+    }
+    
+    // Clear cache headers to force frontend refresh
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
+    res.status(200).json({
+      success: true,
+      message: 'List deleted successfully',
+      data: result
+    });
+  } catch (error) {
+    console.error('Error deleting list:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete list',
+      error: error.message
+    });
+  }
+};
+
+// ========== SYSTEM MANAGEMENT ==========

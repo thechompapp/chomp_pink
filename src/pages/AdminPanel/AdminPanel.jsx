@@ -13,17 +13,18 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, BarChart3, Settings, Eye } from 'lucide-react';
+import { AlertTriangle, BarChart3, Settings, Eye, Globe } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
 import { enhancedAdminService } from '@/services/enhancedAdminService';
 import { EnhancedAdminTable } from '@/components/AdminPanel/EnhancedAdminTable';
 import { AdminAnalyticsDashboard } from '@/components/AdminPanel/AdminAnalyticsDashboard';
 import { BulkOperationsPanel } from '@/components/AdminPanel/BulkOperationsPanel';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AdminAuthSetup } from '@/utils/adminAuthSetup';
 import { logInfo, logWarn, logError } from '@/utils/logger';
 import ChainManagement from '../Admin/ChainManagement';
+import LocationsTab from '@/components/AdminPanel/LocationsTab';
 
 /**
  * Tab configuration for admin panel
@@ -57,19 +58,12 @@ const TAB_CONFIG = {
     icon: Settings,
     description: 'Manage users data with real-time editing'
   },
-  cities: { 
-    label: 'Cities', 
-    key: 'cities', 
+  locations: { 
+    label: 'Locations', 
+    key: 'locations', 
     enhanced: true, 
-    icon: Settings,
-    description: 'Manage cities data with real-time editing'
-  },
-  neighborhoods: { 
-    label: 'Neighborhoods', 
-    key: 'neighborhoods', 
-    enhanced: true, 
-    icon: Settings,
-    description: 'Manage neighborhoods data with real-time editing'
+    icon: Globe,
+    description: 'Unified management of cities, boroughs, and neighborhoods'
   },
   hashtags: { 
     label: 'Hashtags', 
@@ -99,6 +93,13 @@ const TAB_CONFIG = {
     icon: Settings,
     description: 'Manage submissions data with real-time editing'
   },
+  lists: { 
+    label: 'Lists', 
+    key: 'lists', 
+    enhanced: true, 
+    icon: Settings,
+    description: 'Manage user lists with real-time editing'
+  },
   bulk_operations: {
     label: 'Bulk Operations',
     key: 'bulk_operations',
@@ -113,9 +114,57 @@ const TAB_CONFIG = {
  */
 const AdminPanel = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('analytics');
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Get initial tab from URL params, fallback to 'analytics'
+  const initialTab = searchParams.get('tab') || 'analytics';
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [isInitializing, setIsInitializing] = useState(false);
   const [selectedResourceType, setSelectedResourceType] = useState('restaurants');
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const RESOURCE_TYPES = [
+    { id: 'restaurants', label: 'Restaurants', icon: '🍽️' },
+    { id: 'dishes', label: 'Dishes', icon: '🍕' },
+    { id: 'lists', label: 'Lists', icon: '📝' },
+    { id: 'users', label: 'Users', icon: '👥' },
+    { id: 'locations', label: 'Locations', icon: '🏙️' },
+    { id: 'hashtags', label: 'Hashtags', icon: '#️⃣' },
+    { id: 'restaurant_chains', label: 'Chains', icon: '⛓️' },
+    { id: 'submissions', label: 'Submissions', icon: '📤' }
+  ];
+  
+  // Update URL when tab changes
+  const handleTabChange = (newTab) => {
+    setActiveTab(newTab);
+    // Update URL params to persist tab state
+    const newSearchParams = new URLSearchParams(searchParams);
+    newSearchParams.set('tab', newTab);
+    setSearchParams(newSearchParams, { replace: true });
+    logInfo(`[AdminPanel] Tab changed to: ${newTab}`);
+  };
+  
+  // Listen for URL changes (e.g., browser back/forward)
+  useEffect(() => {
+    const tabFromUrl = searchParams.get('tab');
+    if (tabFromUrl && tabFromUrl !== activeTab && TAB_CONFIG[tabFromUrl]) {
+      setActiveTab(tabFromUrl);
+      logInfo(`[AdminPanel] Tab synced from URL: ${tabFromUrl}`);
+    }
+  }, [searchParams, activeTab]);
+  
+  // Validate tab on mount and redirect if invalid
+  useEffect(() => {
+    const currentTab = searchParams.get('tab');
+    if (currentTab && !TAB_CONFIG[currentTab]) {
+      // Invalid tab in URL, redirect to analytics
+      const newSearchParams = new URLSearchParams(searchParams);
+      newSearchParams.set('tab', 'analytics');
+      setSearchParams(newSearchParams, { replace: true });
+      setActiveTab('analytics');
+      logWarn(`[AdminPanel] Invalid tab in URL: ${currentTab}, redirecting to analytics`);
+    }
+  }, [searchParams, setSearchParams]);
   
   // Fetch all admin data
   const {
@@ -229,18 +278,18 @@ const AdminPanel = () => {
             <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Select Resource Type</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {['restaurants', 'dishes', 'users', 'cities'].map(resourceType => (
+                {RESOURCE_TYPES.map(resource => (
                   <button
-                    key={resourceType}
-                    onClick={() => setSelectedResourceType(resourceType)}
+                    key={resource.id}
+                    onClick={() => setSelectedResourceType(resource.id)}
                     className={cn(
                       "p-3 text-sm font-medium rounded-lg border transition-colors",
-                      selectedResourceType === resourceType
+                      selectedResourceType === resource.id
                         ? "bg-blue-50 border-blue-200 text-blue-700"
                         : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
                     )}
                   >
-                    {resourceType.charAt(0).toUpperCase() + resourceType.slice(1)}
+                    {resource.label}
                   </button>
                 ))}
               </div>
@@ -382,86 +431,18 @@ const AdminPanel = () => {
           </div>
         );
 
-      case 'cities':
+      case 'locations':
         return (
-          <div className="space-y-6">
-            {/* Enhanced Features Notice */}
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
-              <div className="flex items-start">
-                <div className="flex-shrink-0">
-                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
-                </div>
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-blue-800">Enhanced Features Active</h3>
-                  <div className="mt-1 text-sm text-blue-700">
-                    <ul className="list-disc list-inside space-y-1">
-                      <li>Real-time inline editing with auto-save</li>
-                      <li>Advanced field validation and error feedback</li>
-                      <li>Optimized data fetching with caching</li>
-                      <li>Bulk operations with row selection</li>
-                      <li>Advanced sorting and filtering</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Enhanced Admin Table */}
-            <EnhancedAdminTable
-              resourceType="cities"
-              initialData={currentData}
-              cities={cities}
-              neighborhoods={neighborhoods}
-              pageSize={25}
-              enableInlineEditing={true}
-              enableBulkOperations={true}
-              enableSelection={true}
-              enableCreate={true}
-              onGlobalRefresh={refetch}
-              className="shadow-lg"
-            />
-          </div>
-        );
-
-      case 'neighborhoods':
-        return (
-          <div className="space-y-6">
-            {/* Enhanced Features Notice */}
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
-              <div className="flex items-start">
-                <div className="flex-shrink-0">
-                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
-                </div>
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-blue-800">Enhanced Features Active</h3>
-                  <div className="mt-1 text-sm text-blue-700">
-                    <ul className="list-disc list-inside space-y-1">
-                      <li>Real-time inline editing with auto-save</li>
-                      <li>Advanced field validation and error feedback</li>
-                      <li>Optimized data fetching with caching</li>
-                      <li>Bulk operations with row selection</li>
-                      <li>Advanced sorting and filtering</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Enhanced Admin Table */}
-            <EnhancedAdminTable
-              resourceType="neighborhoods"
-              initialData={currentData}
-              cities={cities}
-              neighborhoods={neighborhoods}
-              pageSize={25}
-              enableInlineEditing={true}
-              enableBulkOperations={true}
-              enableSelection={true}
-              enableCreate={true}
-              onGlobalRefresh={refetch}
-              className="shadow-lg"
-            />
-          </div>
+          <LocationsTab
+            cities={cities}
+            neighborhoods={neighborhoods}
+            onCitySelect={(city) => {
+              // Handle city selection
+            }}
+            onNeighborhoodSelect={(neighborhood) => {
+              // Handle neighborhood selection
+            }}
+          />
         );
 
       case 'hashtags':
@@ -612,6 +593,46 @@ const AdminPanel = () => {
             />
           </div>
         );
+
+      case 'lists':
+        return (
+          <div className="space-y-6">
+            {/* Enhanced Features Notice */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-blue-800">Enhanced Features Active</h3>
+                  <div className="mt-1 text-sm text-blue-700">
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>Real-time inline editing with auto-save</li>
+                      <li>Advanced field validation and error feedback</li>
+                      <li>Optimized data fetching with caching</li>
+                      <li>Bulk operations with row selection</li>
+                      <li>List management with type filtering</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Enhanced Admin Table */}
+            <EnhancedAdminTable
+              resourceType="lists"
+              initialData={currentData}
+              cities={cities}
+              neighborhoods={neighborhoods}
+              pageSize={25}
+              enableInlineEditing={true}
+              enableBulkOperations={true}
+              enableSelection={true}
+              enableCreate={true}
+              className="shadow-lg"
+            />
+          </div>
+        );
         
       default:
         return (
@@ -667,7 +688,7 @@ const AdminPanel = () => {
           {Object.entries(TAB_CONFIG).map(([key, { label, enhanced, icon: Icon, description }]) => (
             <button
               key={key}
-              onClick={() => setActiveTab(key)}
+              onClick={() => handleTabChange(key)}
               className={cn(
                 'py-3 px-1 border-b-2 font-medium text-sm whitespace-nowrap relative',
                 activeTab === key
@@ -699,7 +720,7 @@ const AdminPanel = () => {
       
       {/* Footer Stats */}
       <div className="mt-8 pt-6 border-t border-gray-200">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
           <div>
             <p className="text-2xl font-bold text-blue-600">{adminData?.restaurants?.length || 0}</p>
             <p className="text-sm text-gray-600">Restaurants</p>
@@ -713,8 +734,12 @@ const AdminPanel = () => {
             <p className="text-sm text-gray-600">Dishes</p>
           </div>
           <div>
-            <p className="text-2xl font-bold text-orange-600">{adminData?.cities?.length || 0}</p>
-            <p className="text-sm text-gray-600">Cities</p>
+            <p className="text-2xl font-bold text-yellow-600">{adminData?.lists?.length || 0}</p>
+            <p className="text-sm text-gray-600">Lists</p>
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-orange-600">{adminData?.locations?.length || 0}</p>
+            <p className="text-sm text-gray-600">Locations</p>
           </div>
         </div>
       </div>

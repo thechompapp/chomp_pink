@@ -22,38 +22,56 @@ const ADMIN_ENDPOINTS = {
   neighborhoods: '/admin/neighborhoods',
   hashtags: '/admin/hashtags',
   restaurant_chains: '/admin/restaurant_chains',
-  submissions: '/admin/submissions'
+  submissions: '/admin/submissions',
+  lists: '/admin/lists'
 };
 
 // Field validation rules
 const VALIDATION_RULES = {
   restaurants: {
-    name: { required: true, minLength: 2, maxLength: 100 },
-    phone: { pattern: /^\+?[\d\s\-\(\)]+$/ },
-    website: { pattern: /^https?:\/\/.+/ },
-    price_range: { options: ['$', '$$', '$$$', '$$$$'] }
+    name: { type: 'string', required: true, minLength: 1, maxLength: 200 },
+    description: { type: 'string', required: false, maxLength: 1000 },
+    cuisine: { type: 'string', required: false, maxLength: 100 },
+    location: { type: 'string', required: false, maxLength: 200 },
+    city_name: { type: 'string', required: false, maxLength: 100 },
+    neighborhood_name: { type: 'string', required: false, maxLength: 100 },
+    hashtags: { type: 'array', required: false }
   },
   dishes: {
-    name: { required: true, minLength: 2, maxLength: 100 },
-    price: { type: 'number', min: 0, max: 1000 },
-    restaurant_id: { required: true, type: 'number' }
+    name: { type: 'string', required: true, minLength: 1, maxLength: 200 },
+    description: { type: 'string', required: false, maxLength: 1000 },
+    cuisine: { type: 'string', required: false, maxLength: 100 },
+    restaurant_id: { type: 'number', required: false, min: 1 },
+    hashtags: { type: 'array', required: false }
+  },
+  lists: {
+    name: { type: 'string', required: true, minLength: 1, maxLength: 100 },
+    description: { type: 'string', required: false, maxLength: 500 },
+    list_type: { type: 'string', required: true, enum: ['restaurant', 'dish'] },
+    is_public: { type: 'boolean', required: false, default: true },
+    is_pinned: { type: 'boolean', required: false, default: false }
   },
   users: {
-    email: { required: true, pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ },
-    username: { required: true, minLength: 3, maxLength: 50 },
-    full_name: { maxLength: 100 }
+    username: { type: 'string', required: true, minLength: 3, maxLength: 50 },
+    email: { type: 'email', required: true, maxLength: 255 },
+    role: { type: 'enum', required: false, values: ['user', 'admin', 'superuser'] }
   },
   cities: {
-    name: { required: true, minLength: 2, maxLength: 100 },
-    state: { maxLength: 50 },
-    country: { maxLength: 50 }
+    name: { type: 'string', required: true, minLength: 1, maxLength: 100 },
+    state: { type: 'string', required: false, maxLength: 50 },
+    country: { type: 'string', required: false, maxLength: 50 }
   },
   neighborhoods: {
-    name: { required: true, minLength: 2, maxLength: 100 },
-    city_id: { required: true, type: 'number' }
+    name: { type: 'string', required: true, minLength: 1, maxLength: 100 },
+    city_name: { type: 'string', required: true, maxLength: 100 }
   },
   hashtags: {
-    name: { required: true, minLength: 1, maxLength: 50, pattern: /^[a-zA-Z0-9_]+$/ }
+    name: { type: 'string', required: true, minLength: 1, maxLength: 50 }
+  },
+  restaurant_chains: {
+    name: { type: 'string', required: true, minLength: 1, maxLength: 200 },
+    description: { type: 'string', required: false, maxLength: 1000 },
+    website: { type: 'string', required: false, maxLength: 255 }
   }
 };
 
@@ -597,14 +615,33 @@ export const enhancedAdminService = {
   async bulkDelete(resourceType, ids, progressCallback) {
     logDebug(`[EnhancedAdminService] Starting bulk delete of ${ids.length} ${resourceType} records`);
     
+    // DEBUG: Log what we're sending
+    console.log(`[DEBUG] Frontend sending bulk delete request:`, {
+      resourceType,
+      ids,
+      idsLength: ids.length,
+      idsType: typeof ids,
+      isArray: Array.isArray(ids)
+    });
+    
     const endpoint = ADMIN_ENDPOINTS[resourceType];
     if (!endpoint) {
       throw new Error(`Unknown resource type: ${resourceType}`);
     }
     
     try {
-      const response = await httpClient.delete(`${endpoint}/bulk`, { 
-        data: { ids } 
+      console.log(`[DEBUG] Making DELETE request to:`, `${endpoint}/bulk`);
+      console.log(`[DEBUG] Request data:`, { ids });
+      
+      // FIXED: Use the axios() method with explicit config instead of httpClient.delete() 
+      // This ensures the data is properly sent in the request body for DELETE requests
+      const response = await httpClient({
+        method: 'DELETE',
+        url: `${endpoint}/bulk`,
+        data: { ids },
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
       
       logInfo(`[EnhancedAdminService] Bulk delete completed: ${response.data.data.success} deleted, ${response.data.data.failed} failed`);
@@ -615,13 +652,84 @@ export const enhancedAdminService = {
       
       return response.data.data;
     } catch (error) {
+      console.log(`[DEBUG] Bulk delete error:`, error);
+      console.log(`[DEBUG] Error response:`, error.response?.data);
       logError(`[EnhancedAdminService] Error during bulk delete:`, error);
       throw error;
     }
   },
 
   /**
-   * Bulk add resources (for all resource types)
+   * Bulk validate resources (parse and resolve data without creating)
+   */
+  async bulkValidateResources(resourceType, records, progressCallback) {
+    logDebug(`[EnhancedAdminService] Starting bulk validation of ${records.length} ${resourceType} records`);
+    
+    const endpoint = ADMIN_ENDPOINTS[resourceType];
+    if (!endpoint) {
+      throw new Error(`Unknown resource type: ${resourceType}`);
+    }
+
+    try {
+      // Send for validation (parsing and resolution)
+      const requestBody = {};
+      
+      switch (resourceType) {
+        case 'restaurants':
+          requestBody.restaurants = records;
+          break;
+        case 'dishes':
+          requestBody.dishes = records;
+          break;
+        case 'users':
+          requestBody.users = records;
+          break;
+        case 'cities':
+          requestBody.cities = records;
+          break;
+        case 'neighborhoods':
+          requestBody.neighborhoods = records;
+          break;
+        case 'hashtags':
+          requestBody.hashtags = records;
+          break;
+        case 'restaurant_chains':
+          requestBody.restaurant_chains = records;
+          break;
+        default:
+          // Generic field name for unknown resource types
+          requestBody[resourceType] = records;
+      }
+
+      logDebug(`[EnhancedAdminService] Sending validation request to ${endpoint}/validate`, requestBody);
+
+      const response = await httpClient.post(`${endpoint}/validate`, requestBody);
+      
+      logDebug(`[EnhancedAdminService] Validation response:`, response.data);
+      
+      if (progressCallback && typeof progressCallback === 'function') {
+        progressCallback({
+          completed: records.length,
+          total: records.length,
+          phase: 'validation_complete'
+        });
+      }
+
+      return response.data;
+
+    } catch (error) {
+      logError(`[EnhancedAdminService] Bulk validation error:`, error);
+      
+      if (error.response?.data) {
+        throw new Error(error.response.data.message || `Validation failed for ${resourceType}`);
+      }
+      
+      throw new Error(`Network error during ${resourceType} validation: ${error.message}`);
+    }
+  },
+
+  /**
+   * Bulk add resources
    */
   async bulkAddResources(resourceType, records, progressCallback) {
     logDebug(`[EnhancedAdminService] Starting bulk add of ${records.length} ${resourceType} records`);
@@ -630,20 +738,62 @@ export const enhancedAdminService = {
     if (!endpoint) {
       throw new Error(`Unknown resource type: ${resourceType}`);
     }
-    
+
     try {
-      const response = await httpClient.post(`${endpoint}/bulk`, { records });
+      // Send for creation
+      const requestBody = {};
       
-      logInfo(`[EnhancedAdminService] Bulk add completed: ${response.data.data.success} created, ${response.data.data.failed} failed`);
+      switch (resourceType) {
+        case 'restaurants':
+          requestBody.restaurants = records;
+          break;
+        case 'dishes':
+          requestBody.dishes = records;
+          break;
+        case 'users':
+          requestBody.users = records;
+          break;
+        case 'cities':
+          requestBody.cities = records;
+          break;
+        case 'neighborhoods':
+          requestBody.neighborhoods = records;
+          break;
+        case 'hashtags':
+          requestBody.hashtags = records;
+          break;
+        case 'restaurant_chains':
+          requestBody.restaurant_chains = records;
+          break;
+        default:
+          // Generic field name for unknown resource types
+          requestBody[resourceType] = records;
+      }
+
+      logDebug(`[EnhancedAdminService] Sending bulk add request to ${endpoint}/bulk`, requestBody);
+
+      const response = await httpClient.post(`${endpoint}/bulk`, requestBody);
       
-      if (progressCallback) {
-        progressCallback(100);
+      logDebug(`[EnhancedAdminService] Bulk add response:`, response.data);
+      
+      if (progressCallback && typeof progressCallback === 'function') {
+        progressCallback({
+          completed: records.length,
+          total: records.length,
+          phase: 'creation_complete'
+        });
+      }
+
+      return response.data;
+
+    } catch (error) {
+      logError(`[EnhancedAdminService] Bulk add error:`, error);
+      
+      if (error.response?.data) {
+        throw new Error(error.response.data.message || `Creation failed for ${resourceType}`);
       }
       
-      return response.data.data;
-    } catch (error) {
-      logError(`[EnhancedAdminService] Error during bulk add:`, error);
-      throw error;
+      throw new Error(`Network error during ${resourceType} creation: ${error.message}`);
     }
   },
 
@@ -655,22 +805,16 @@ export const enhancedAdminService = {
   },
 
   /**
-   * Bulk add restaurants (legacy method for backward compatibility)
-   */
-  async bulkAddRestaurants(resourceType, restaurants, progressCallback) {
-    return this.bulkAddResources(resourceType, restaurants, progressCallback);
-  },
-
-  /**
-   * Bulk add from file (legacy method for backward compatibility)
+   * Legacy method aliases for backward compatibility
    */
   async bulkAddFromFile(resourceType, file, progressCallback) {
     return this.importFromFile(resourceType, file, progressCallback);
   },
 
-  /**
-   * Bulk add restaurants from file (legacy method for backward compatibility)
-   */
+  async bulkAddRestaurants(resourceType, restaurants, progressCallback) {
+    return this.bulkAddResources(resourceType, restaurants, progressCallback);
+  },
+
   async bulkAddRestaurantsFromFile(resourceType, file, progressCallback) {
     return this.importFromFile(resourceType, file, progressCallback);
   },
@@ -703,99 +847,6 @@ export const enhancedAdminService = {
       }
       
       return response.data.data;
-    } catch (error) {
-      logError(`[EnhancedAdminService] Error during import:`, error);
-      throw error;
-    }
-  },
-
-  /**
-   * Bulk add restaurants
-   */
-  async bulkAddRestaurants(resourceType, restaurants, progressCallback) {
-    if (resourceType !== 'restaurants') {
-      throw new Error('Bulk add is only supported for restaurants');
-    }
-    
-    logInfo(`[EnhancedAdminService] Starting bulk add of ${restaurants.length} restaurants`);
-    
-    const results = {
-      success: 0,
-      failed: 0,
-      errors: []
-    };
-    
-    try {
-      // Process in batches
-      const batchSize = 20;
-      const totalBatches = Math.ceil(restaurants.length / batchSize);
-      
-      for (let i = 0; i < totalBatches; i++) {
-        const start = i * batchSize;
-        const batch = restaurants.slice(start, start + batchSize);
-        
-        try {
-          const response = await httpClient.post('/admin/restaurants/bulk', {
-            restaurants: batch
-          });
-          
-          results.success += batch.length;
-          
-          // Report progress
-          if (progressCallback) {
-            progressCallback({
-              completed: Math.min((i + 1) * batchSize, restaurants.length),
-              total: restaurants.length,
-              batchResults: response.data
-            });
-          }
-        } catch (error) {
-          results.failed += batch.length;
-          results.errors.push(`Batch ${i + 1}: ${error.message}`);
-          logError(`[EnhancedAdminService] Error in batch ${i + 1}:`, error);
-        }
-      }
-      
-      logInfo(`[EnhancedAdminService] Bulk add completed: ${results.success} success, ${results.failed} failed`);
-      return results;
-    } catch (error) {
-      logError(`[EnhancedAdminService] Error during bulk add:`, error);
-      throw error;
-    }
-  },
-
-  /**
-   * Bulk add restaurants from uploaded file
-   */
-  async bulkAddRestaurantsFromFile(resourceType, file, progressCallback) {
-    if (resourceType !== 'restaurants') {
-      throw new Error('File bulk add is only supported for restaurants');
-    }
-    
-    logInfo(`[EnhancedAdminService] Starting bulk add from file: ${file.name}`);
-    
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('resourceType', resourceType);
-      
-      const response = await httpClient.post('/admin/restaurants/bulk-upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        },
-        onUploadProgress: (progressEvent) => {
-          if (progressCallback) {
-            const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-            progressCallback({
-              uploadProgress: progress,
-              completed: progressEvent.loaded,
-              total: progressEvent.total
-            });
-          }
-        }
-      });
-      
-      return response.data;
     } catch (error) {
       logError(`[EnhancedAdminService] Error during import:`, error);
       throw error;

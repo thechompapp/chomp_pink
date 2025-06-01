@@ -17,4 +17,7 @@ router.get('/summary', analyticsController.getAnalyticsSummary); // Access via n
 // GET /api/analytics/engagement
 router.get('/engagement', analyticsController.getEngagementAnalytics); // Access via namespace
 
+// GET /api/analytics/search
+router.get('/search', analyticsController.getSearchAnalytics);
+
 export default router;

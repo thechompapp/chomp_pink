@@ -31,7 +31,16 @@ const logEngagement = async ({ item_type, item_id, engagement_type }) => {
     }
 
     const allowedItemTypes = ['restaurant', 'dish', 'list'];
-    const allowedEngagementTypes = ['view', 'click', 'add_to_list', 'share'];
+    const allowedEngagementTypes = [
+        'view', 
+        'click', 
+        'add_to_list', 
+        'share',
+        'search_view',
+        'search_click',
+        'search_result_view',
+        'search_result_click'
+    ];
 
     if (!allowedItemTypes.includes(item_type)) {
         logWarn(`[logEngagement] Invalid itemType: ${item_type}`);
@@ -69,6 +78,51 @@ const logEngagement = async ({ item_type, item_id, engagement_type }) => {
     });
 };
 
+/**
+ * Helper function to log search-specific engagements
+ */
+const logSearchEngagement = async ({ item_type, item_id, engagement_type, searchQuery, searchContext }) => {
+    const isAuthenticated = useAuthenticationStore.getState().getIsAuthenticated();
+    if (!isAuthenticated) {
+        logDebug(`[engagementService] Skipping search engagement logging for unauthenticated user: ${engagement_type} for ${item_type} ${item_id}`);
+        return;
+    }
+
+    // Validate search engagement type
+    const searchEngagementTypes = ['search_view', 'search_click', 'search_result_view', 'search_result_click'];
+    if (!searchEngagementTypes.includes(engagement_type)) {
+        logWarn(`[engagementService] Invalid search engagement type: ${engagement_type}`);
+        return;
+    }
+
+    // Add search context as metadata if provided
+    const metadata = {};
+    if (searchQuery) metadata.search_query = searchQuery;
+    if (searchContext) metadata.search_context = searchContext;
+
+    // Log the engagement with metadata
+    logDebug(`[engagementService] Logging search engagement: ${engagement_type} for ${item_type} ${item_id} with query: ${searchQuery}`);
+    
+    handleApiResponse(
+        () => apiClient.post('/engage', {
+            item_id: item_id ? Number(item_id) : null,
+            item_type,
+            engagement_type,
+            metadata: Object.keys(metadata).length > 0 ? metadata : undefined
+        }),
+        'engagementService.logSearchEngagement'
+    ).catch(result => {
+        if (!result.success) {
+            if (result.error?.status === 401 || result.error?.statusCode === 401) {
+                logDebug(`[engagementService] Skipping search engagement logging due to authentication error for ${item_type} ${item_id} (${engagement_type})`);
+            } else {
+                logError(`[engagementService] Failed to log search engagement for ${item_type} ${item_id} (${engagement_type}):`, result.error);
+            }
+        }
+    });
+};
+
 export const engagementService = {
-    logEngagement
+    logEngagement,
+    logSearchEngagement
 };

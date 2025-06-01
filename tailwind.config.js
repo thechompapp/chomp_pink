@@ -48,6 +48,18 @@ export default {
         md: "calc(0.5rem - 2px)",
         sm: "calc(0.5rem - 4px)",
       },
+      // Add custom animations for the ticker
+      animation: {
+        'scroll': 'scroll 60s linear infinite',
+        'scroll-slow': 'scroll 90s linear infinite',
+        'scroll-fast': 'scroll 30s linear infinite',
+      },
+      keyframes: {
+        scroll: {
+          '0%': { transform: 'translateX(0)' },
+          '100%': { transform: 'translateX(-50%)' },
+        }
+      }
       // You can also extend fonts, spacing, etc. here if needed
     },
   },

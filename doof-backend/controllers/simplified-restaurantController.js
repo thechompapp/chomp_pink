@@ -1,5 +1,5 @@
 import db from '../db/index.js';
-import { findDishesByRestaurantId } from '../models/dishModel.js';
+import { getDishesByRestaurant } from '../models/dishModel.js';
 
 /**
  * Get all restaurants (simplified for testing)
@@ -146,7 +146,7 @@ export const getRestaurantDishes = async (req, res) => {
     }
     
     // Get dishes for the restaurant using the model function
-    const dishes = await findDishesByRestaurantId(id);
+    const dishes = await getDishesByRestaurant(id);
     
     res.json({ 
       success: true, 

@@ -15,7 +15,8 @@ import {
   TrendingUp,
   MessageSquare,
   Share2,
-  BookOpen
+  BookOpen,
+  Heart
 } from 'lucide-react';
 import { engagementService } from '@/services/engagementService';
 import { listService } from '@/services/listService';
@@ -431,6 +432,51 @@ const ListCard = (props) => {
     };
     return typeColors[type] || 'gray';
   };
+
+  const formatItemData = (item) => {
+    // Format common fields
+    const formattedItem = {
+      id: item.id,
+      name: item.name || 'Unnamed Item',
+      description: item.description || '',
+      item_type: item.item_type || 'unknown',
+      location: '',
+      labels: []
+    };
+
+    // Add type-specific formatting
+    if (item.item_type === 'restaurant') {
+      formattedItem.location = [
+        item.address,
+        item.neighborhood,
+        item.city
+      ].filter(Boolean).join(', ');
+      
+      if (item.cuisine) {
+        formattedItem.labels.push({ 
+          text: item.cuisine, 
+          type: 'cuisine',
+          color: 'bg-blue-100 text-blue-800'
+        });
+      }
+    } else if (item.item_type === 'dish') {
+      if (item.restaurant_name) {
+        formattedItem.location = `at ${item.restaurant_name}`;
+      }
+      
+      if (item.category) {
+        formattedItem.labels.push({ 
+          text: item.category, 
+          type: 'category',
+          color: 'bg-green-100 text-green-800'
+        });
+      }
+    }
+
+    return formattedItem;
+  };
+
+  const formattedItem = formatItemData(list);
 
   return (
     <>

@@ -4,6 +4,7 @@ import Results from './Results'; // Keep relative
 import FilterContainer from '@/components/Filters/FilterContainer'; // Use the new FilterContainer
 import SearchBar from '@/components/UI/SearchBar'; // Use alias
 import ToggleSwitch from '@/components/UI/ToggleSwitch'; // Use alias
+import TrendingTicker from '@/components/UI/TrendingTicker'; // Add trending ticker
 import { logDebug } from '@/utils/logger';
 
 const Home = () => {
@@ -73,6 +74,13 @@ const Home = () => {
           </div>
         </div>
       </div>
+
+      {/* Trending Ticker */}
+      <TrendingTicker 
+        refreshInterval={180000} // 3 minutes
+        scrollSpeed="normal"
+        pauseOnHover={true}
+      />
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

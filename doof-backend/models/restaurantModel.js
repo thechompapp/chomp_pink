@@ -4,6 +4,7 @@ import { formatRestaurant } from '../utils/formatters.js';
 import * as DishModel from './dishModel.js';
 import * as HashtagModel from './hashtagModel.js';
 import format from 'pg-format';
+import { logError, logWarn, logInfo } from '../utils/logger.js';
 
 // Default values for optional fields
 const DEFAULT_RESTAURANT = {
@@ -84,337 +85,383 @@ const autoAssignLocationData = async (restaurantData) => {
 };
 
 /**
- * Find all restaurants with pagination and filtering
- * @param {Object} options - Query options
- * @param {number} options.page - Page number (default: 1)
- * @param {number} options.limit - Items per page (default: 20)
- * @param {string} options.sort - Field to sort by (default: 'created_at')
- * @param {string} options.order - Sort order ('asc' or 'desc', default: 'desc')
- * @param {string} options.search - Search term for restaurant name
- * @param {number} options.userId - Filter by user ID
+ * Enhanced restaurant search with filters and pagination
+ * @param {Object} options - Search options
+ * @param {string} options.query - Search query for restaurant names
+ * @param {number} options.page - Page number for pagination
+ * @param {number} options.limit - Number of results per page
+ * @param {string} options.sort - Sort field
+ * @param {string} options.order - Sort order ('asc' or 'desc')
  * @param {string} options.cuisine - Filter by cuisine type
- * @param {string} options.priceRange - Filter by price range
- * @returns {Promise<Object>} Paginated list of restaurants
+ * @param {number} options.cityId - Filter by city ID
+ * @param {number} options.neighborhoodId - Filter by neighborhood ID
+ * @returns {Promise<Object>} Paginated search results
  */
-export const findAllRestaurants = async (options = {}) => {
+export const searchRestaurants = async (options = {}) => {
   const {
+    query = '',
     page = 1,
     limit = 20,
-    sort = 'created_at',
-    order = 'desc',
-    search,
-    userId,
+    sort = 'name',
+    order = 'asc',
     cuisine,
-    priceRange
+    cityId,
+    neighborhoodId
   } = options;
 
-  const offset = (page - 1) * limit;
-  const queryParams = [];
-  let paramIndex = 0;
-
-  // Build the base query with proper table aliases
-  let query = `
-    SELECT 
-      r.*,
-      c.name AS city_name,
-      n.name AS neighborhood_name,
-      COALESCE(
-        (SELECT ARRAY_AGG(DISTINCT h.name ORDER BY h.name)
-         FROM hashtags h
-         JOIN restauranthashtags rh ON h.id = rh.hashtag_id
-         WHERE rh.restaurant_id = r.id),
-        '{}'::TEXT[]
-      ) AS tags
-    FROM restaurants r
-    LEFT JOIN cities c ON r.city_id = c.id
-    LEFT JOIN neighborhoods n ON r.neighborhood_id = n.id
-  `;
-  
-  let countQuery = 'SELECT COUNT(*) FROM restaurants r';
-  
-  let whereClauses = [];
-  
-  if (search) {
-    whereClauses.push(`r.name ILIKE $${++paramIndex}`);
-    queryParams.push(`%${search}%`);
-  }
-
-  if (cuisine) {
-    whereClauses.push(`r.cuisine = $${++paramIndex}`);
-    queryParams.push(cuisine);
-  }
-
-  if (priceRange) {
-    whereClauses.push(`r.price_range = $${++paramIndex}`);
-    queryParams.push(priceRange);
-  }
-
-  if (whereClauses.length > 0) {
-    query += ` WHERE ${whereClauses.join(' AND ')}`;
-    countQuery += ` WHERE ${whereClauses.join(' AND ')}`;
-  }
-
-  // Add sorting and pagination
-  const validSortColumns = ['name', 'created_at', 'updated_at', 'adds'];
-  const sortColumn = validSortColumns.includes(sort) ? 
-    (sort === 'name' ? 'r.name' : `r.${sort}`) : 'r.created_at';
-  const sortDirection = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-
-  query += ` ORDER BY ${sortColumn} ${sortDirection} 
-             LIMIT ${limit} OFFSET ${offset}`;
-
   try {
-    console.log("[RestaurantModel findAllRestaurants] Query:", query, queryParams);
-    console.log("[RestaurantModel findAllRestaurants] Count Query:", countQuery, queryParams);
+    let baseQuery = `
+      SELECT 
+        r.id,
+        r.name,
+        r.description,
+        r.address,
+        r.cuisine,
+        r.website,
+        r.phone,
+        r.city_id,
+        r.neighborhood_id,
+        r.created_at,
+        r.updated_at,
+        c.name as city_name,
+        n.name as neighborhood_name
+      FROM restaurants r
+      LEFT JOIN cities c ON r.city_id = c.id
+      LEFT JOIN neighborhoods n ON r.neighborhood_id = n.id
+    `;
 
-    // Execute both queries in parallel
-    const [results, countResult] = await Promise.all([
-      db.query(query, queryParams).catch(err => {
-        console.error('Error in main query:', err);
-        throw err;
-      }),
-      db.query(countQuery, queryParams).catch(err => {
-        console.error('Error in count query:', err);
-        throw err;
-      })
-    ]);
+    const whereClauses = [];
+    const queryParams = [];
+    let paramIndex = 1;
 
-    const total = parseInt(countResult.rows[0]?.count || 0, 10);
+    // Add search query
+    if (query) {
+      whereClauses.push(`(
+        LOWER(r.name) LIKE LOWER($${paramIndex}) OR 
+        LOWER(r.description) LIKE LOWER($${paramIndex}) OR
+        LOWER(r.cuisine) LIKE LOWER($${paramIndex})
+      )`);
+      queryParams.push(`%${query}%`);
+      paramIndex++;
+    }
 
-    // Map results to the expected format
+    // Add cuisine filter
+    if (cuisine) {
+      whereClauses.push(`LOWER(r.cuisine) = LOWER($${paramIndex})`);
+      queryParams.push(cuisine);
+      paramIndex++;
+    }
+
+    // Add city filter
+    if (cityId) {
+      whereClauses.push(`r.city_id = $${paramIndex}`);
+      queryParams.push(cityId);
+      paramIndex++;
+    }
+
+    // Add neighborhood filter
+    if (neighborhoodId) {
+      whereClauses.push(`r.neighborhood_id = $${paramIndex}`);
+      queryParams.push(neighborhoodId);
+      paramIndex++;
+    }
+
+    // Build WHERE clause
+    if (whereClauses.length > 0) {
+      baseQuery += ` WHERE ${whereClauses.join(' AND ')}`;
+    }
+
+    // Add sorting
+    const validSortColumns = ['name', 'cuisine', 'created_at', 'updated_at'];
+    const sortColumn = validSortColumns.includes(sort) ? sort : 'name';
+    const sortOrder = order.toLowerCase() === 'desc' ? 'DESC' : 'ASC';
+    baseQuery += ` ORDER BY r.${sortColumn} ${sortOrder}`;
+
+    // Add pagination
+    const offset = (page - 1) * limit;
+    baseQuery += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    queryParams.push(limit, offset);
+
+    const result = await db.query(baseQuery, queryParams);
+
+    // Get total count for pagination
+    let countQuery = 'SELECT COUNT(*) FROM restaurants r';
+    if (whereClauses.length > 0) {
+      countQuery += ` WHERE ${whereClauses.join(' AND ')}`;
+    }
+
+    const countResult = await db.query(countQuery, queryParams.slice(0, -2));
+    const totalCount = parseInt(countResult.rows[0].count);
+
     return {
-      data: results.rows.map(row => ({
-        id: Number(row.id),
-        name: row.name || 'Unnamed Restaurant',
-        description: row.description || null,
-        cuisine: row.cuisine || null,
-        price_range: row.price_range || null,
-        city_name: row.city_name || null,
-        neighborhood_name: row.neighborhood_name || null,
-        tags: row.tags || [],  // Use tags from query if available
-        adds: Number(row.adds || 0),
-        address: row.address || null,
-        google_place_id: row.google_place_id || null,
-        latitude: row.latitude ? Number(row.latitude) : null,
-        longitude: row.longitude ? Number(row.longitude) : null,
-        city_id: row.city_id ? Number(row.city_id) : null,
-        neighborhood_id: row.neighborhood_id ? Number(row.neighborhood_id) : null,
-        created_by: row.created_by ? Number(row.created_by) : null,
-        created_at: row.created_at || null,
-        updated_at: row.updated_at || null
+      restaurants: result.rows.map(row => ({
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        address: row.address,
+        cuisine: row.cuisine,
+        website: row.website,
+        phone: row.phone,
+        city_id: row.city_id,
+        neighborhood_id: row.neighborhood_id,
+        city_name: row.city_name,
+        neighborhood_name: row.neighborhood_name,
+        created_at: row.created_at,
+        updated_at: row.updated_at
       })),
-      total,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit)
+      }
     };
   } catch (error) {
-    console.error('Error in findAllRestaurants model:', {
-      message: error.message,
-      code: error.code,
-      detail: error.detail,
-      hint: error.hint,
-      position: error.position,
-      stack: error.stack
-    });
-    throw new Error(`Database error fetching restaurants: ${error.message}`);
+    logError('Error in searchRestaurants:', error);
+    throw new Error('Failed to search restaurants');
   }
 };
 
-export const findRestaurantById = async (id, userId = null, options = {}) => {
-  const { includeDishes = false } = options;
-  let dishData = [];
-
-  // Selects city_name and neighborhood_name via JOIN. photo_url is removed.
-  const query = `
-    SELECT r.*,
-           c.name AS city_name,
-           n.name AS neighborhood_name,
-           COALESCE(
-               (SELECT ARRAY_AGG(DISTINCT h.name ORDER BY h.name)
-                FROM hashtags h
-                JOIN restauranthashtags rh ON h.id = rh.hashtag_id
-                WHERE rh.restaurant_id = r.id),
-               '{}'::TEXT[]
-           ) AS tags,
-           EXISTS (
-              SELECT 1 FROM listitems li_fav -- Corrected from list_items
-              JOIN lists l_fav ON li_fav.list_id = l_fav.id
-              WHERE li_fav.item_id = r.id AND li_fav.item_type = 'restaurant'
-              AND l_fav.user_id = $2
-            ) AS is_favorited_by_user
-    FROM restaurants r
-    LEFT JOIN cities c ON r.city_id = c.id
-    LEFT JOIN neighborhoods n ON r.neighborhood_id = n.id
-    WHERE r.id = $1
-    GROUP BY r.id, c.name, n.name;
-  `;
+/**
+ * Get all restaurants with optional pagination and filtering
+ */
+export const getAllRestaurants = async ({ page = 1, limit = 50, search = null, cityId = null, cuisine = null, sort = 'name', order = 'asc' } = {}) => {
   try {
-    const result = await db.query(query, [id, userId]);
+    let baseQuery = `
+      SELECT 
+        r.id,
+        r.name,
+        r.description,
+        r.address,
+        r.cuisine,
+        r.website,
+        r.phone,
+        r.city_id,
+        r.neighborhood_id,
+        r.created_at,
+        r.updated_at,
+        c.name as city_name,
+        n.name as neighborhood_name
+      FROM restaurants r
+      LEFT JOIN cities c ON r.city_id = c.id
+      LEFT JOIN neighborhoods n ON r.neighborhood_id = n.id
+    `;
+    
+    const conditions = [];
+    const queryParams = [];
+    let paramIndex = 1;
+    
+    // Add search filter
+    if (search) {
+      conditions.push(`(
+        LOWER(r.name) LIKE LOWER($${paramIndex}) OR 
+        LOWER(r.description) LIKE LOWER($${paramIndex}) OR
+        LOWER(r.address) LIKE LOWER($${paramIndex})
+      )`);
+      queryParams.push(`%${search}%`);
+      paramIndex++;
+    }
+    
+    // Add city filter
+    if (cityId) {
+      conditions.push(`r.city_id = $${paramIndex}`);
+      queryParams.push(cityId);
+      paramIndex++;
+    }
+    
+    // Add cuisine filter
+    if (cuisine) {
+      conditions.push(`LOWER(r.cuisine) = LOWER($${paramIndex})`);
+      queryParams.push(cuisine);
+      paramIndex++;
+    }
+    
+    // Build WHERE clause
+    if (conditions.length > 0) {
+      baseQuery += ` WHERE ${conditions.join(' AND ')}`;
+    }
+    
+    // Add sorting
+    const validSortColumns = ['name', 'cuisine', 'created_at', 'updated_at'];
+    const sortColumn = validSortColumns.includes(sort) ? sort : 'name';
+    const sortOrder = order.toLowerCase() === 'desc' ? 'DESC' : 'ASC';
+    baseQuery += ` ORDER BY r.${sortColumn} ${sortOrder}`;
+    
+    // Add pagination
+    const offset = (page - 1) * limit;
+    baseQuery += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    queryParams.push(limit, offset);
+    
+    const result = await db.query(baseQuery, queryParams);
+    
+    // Get total count for pagination
+    let countQuery = 'SELECT COUNT(*) FROM restaurants r';
+    if (conditions.length > 0) {
+      countQuery += ` WHERE ${conditions.join(' AND ')}`;
+    }
+    
+    const countResult = await db.query(countQuery, queryParams.slice(0, -2));
+    const totalCount = parseInt(countResult.rows[0].count);
+    
+    return {
+      restaurants: result.rows.map(row => ({
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        address: row.address,
+        cuisine: row.cuisine,
+        website: row.website,
+        phone: row.phone,
+        city_id: row.city_id,
+        neighborhood_id: row.neighborhood_id,
+        city_name: row.city_name,
+        neighborhood_name: row.neighborhood_name,
+        created_at: row.created_at,
+        updated_at: row.updated_at
+      })),
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit)
+      }
+    };
+  } catch (error) {
+    logError('Error in getAllRestaurants:', error);
+    throw new Error('Failed to fetch restaurants');
+  }
+};
+
+/**
+ * Get a single restaurant by ID
+ */
+export const getRestaurantById = async (id) => {
+  try {
+    const query = `
+      SELECT 
+        r.id,
+        r.name,
+        r.description,
+        r.address,
+        r.cuisine,
+        r.website,
+        r.phone,
+        r.city_id,
+        r.neighborhood_id,
+        r.created_at,
+        r.updated_at,
+        c.name as city_name,
+        n.name as neighborhood_name
+      FROM restaurants r
+      LEFT JOIN cities c ON r.city_id = c.id
+      LEFT JOIN neighborhoods n ON r.neighborhood_id = n.id
+      WHERE r.id = $1
+    `;
+    
+    const result = await db.query(query, [id]);
+    
     if (result.rows.length === 0) {
       return null;
     }
-    let restaurant = result.rows[0];
-
-    if (includeDishes) {
-      dishData = await DishModel.findDishesByRestaurantId(id, { userId });
-      restaurant.dishes = dishData;
-    }
-    return formatRestaurant(restaurant);
+    
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      address: row.address,
+      cuisine: row.cuisine,
+      website: row.website,
+      phone: row.phone,
+      city_id: row.city_id,
+      neighborhood_id: row.neighborhood_id,
+      city_name: row.city_name,
+      neighborhood_name: row.neighborhood_name,
+      created_at: row.created_at,
+      updated_at: row.updated_at
+    };
   } catch (error) {
-    console.error(`Error in findRestaurantById model for ID ${id}:`, error);
-    throw error;
+    logError('Error in getRestaurantById:', error);
+    throw new Error('Failed to fetch restaurant');
   }
 };
 
-export const createRestaurant = async (restaurantData, client = db) => {
-  // Auto-assign neighborhood and city based on address/zip code
-  const enhancedData = await autoAssignLocationData(restaurantData);
-  
-  const {
-    name, address, city_id, neighborhood_id, zip_code, phone,
-    website, instagram_handle, google_place_id, latitude, longitude,
-    chain_id,
-    tags = [] // Tags to be processed after restaurant creation
-  } = enhancedData;
-
-  // Columns that exist in schema_dump.sql for restaurants table
-  const columnsToInsert = ['name', 'city_id']; // Required fields based on schema (city_id NOT NULL)
-  const valuesToInsert = [name, city_id];
-  const placeholders = ['$1', '$2'];
-  let paramIndex = 2;
-
-  const optionalFields = { address, neighborhood_id, zip_code, phone, website, instagram_handle, google_place_id, latitude, longitude, chain_id };
-
-  for (const col in optionalFields) {
-    if (optionalFields[col] !== undefined && optionalFields[col] !== null) {
-      columnsToInsert.push(format('%I', col));
-      valuesToInsert.push(optionalFields[col]);
-      placeholders.push(`$${++paramIndex}`);
-    }
-  }
-
-  const queryText = `
-      INSERT INTO restaurants (${columnsToInsert.join(', ')})
-      VALUES (${placeholders.join(', ')})
-      RETURNING *;
-    `;
-
-  const useSeparateClient = client === db; // Check if we need to manage the client
-  const dbClient = useSeparateClient ? await db.getClient() : client;
-
+/**
+ * Create a new restaurant
+ */
+export const createRestaurant = async (restaurantData) => {
   try {
-    if (useSeparateClient) await dbClient.query('BEGIN');
-
-    const newRestaurantResult = await dbClient.query(queryText, valuesToInsert);
-    const newRestaurant = newRestaurantResult.rows[0];
-
-    if (tags && tags.length > 0) {
-      const tagIds = await HashtagModel.findOrCreateHashtags(tags, dbClient);
-      await HashtagModel.linkTagsToRestaurant(newRestaurant.id, tagIds, dbClient);
-    }
-
-    if (useSeparateClient) await dbClient.query('COMMIT');
-    return findRestaurantById(newRestaurant.id, null);
-  } catch (error) {
-    if (useSeparateClient) await dbClient.query('ROLLBACK');
-    console.error('Error in createRestaurant model:', error);
-    throw error;
-  } finally {
-    if (useSeparateClient) dbClient.release();
-  }
-};
-
-export const updateRestaurant = async (id, updateData) => {
-  // Auto-assign neighborhood and city if address is being updated
-  const enhancedData = updateData.address ? await autoAssignLocationData(updateData) : updateData;
-  
-  const { tags, ...restaurantFields } = enhancedData;
-  const validColumns = ['name', 'address', 'city_id', 'neighborhood_id', 'zip_code', 'phone', 'website', 'instagram_handle', 'google_place_id', 'latitude', 'longitude', 'adds', 'chain_id'];
-  const client = await db.getClient();
-
-  try {
-    await client.query('BEGIN');
-    const setClauses = [];
-    const queryValues = [];
-    let paramIndex = 1;
-
-    validColumns.forEach(col => {
-        if (restaurantFields.hasOwnProperty(col) && restaurantFields[col] !== undefined) {
-            setClauses.push(format('%I = $%s', col, paramIndex++));
-            queryValues.push(restaurantFields[col]);
-        }
-    });
-
-    if (setClauses.length > 0) {
-      setClauses.push(format('%I = CURRENT_TIMESTAMP', 'updated_at')); // Always update 'updated_at'
-      queryValues.push(id);
-      const restaurantUpdateQuery = `UPDATE restaurants SET ${setClauses.join(', ')} WHERE id = $${paramIndex} RETURNING *;`;
-      await client.query(restaurantUpdateQuery, queryValues);
-    }
-
-    if (tags !== undefined) {
-      await client.query('DELETE FROM restauranthashtags WHERE restaurant_id = $1', [id]);
-      if (tags.length > 0) {
-        const tagIds = await HashtagModel.findOrCreateHashtags(tags, client);
-        await HashtagModel.linkTagsToRestaurant(id, tagIds, client);
-      }
-    }
-
-    await client.query('COMMIT');
-    return findRestaurantById(id, null);
-  } catch (error) {
-    await client.query('ROLLBACK');
-    console.error(`Error in updateRestaurant model for ID ${id}:`, error);
-    throw error;
-  } finally {
-    client.release();
-  }
-};
-
-export const deleteRestaurant = async (id) => {
-  const client = await db.getClient();
-  try {
-    await client.query('BEGIN');
-    await client.query('DELETE FROM restauranthashtags WHERE restaurant_id = $1', [id]);
-    await client.query('DELETE FROM listitems WHERE item_id = $1 AND item_type = \'restaurant\'', [id]); // Use 'listitems'
-    const result = await client.query('DELETE FROM restaurants WHERE id = $1 RETURNING *', [id]);
-    await client.query('COMMIT');
-    return result.rows.length > 0 ? result.rows[0] : null;
-  } catch (error) {
-    await client.query('ROLLBACK');
-    console.error(`Error in deleteRestaurant model for ID ${id}:`, error);
-    throw error;
-  } finally {
-    client.release();
-  }
-};
-
-export const addTagToRestaurant = async (restaurantId, hashtagId) => {
-  try {
+    const { name, description, address, cuisine, website, phone, city_id, neighborhood_id, created_by } = restaurantData;
+    
     const query = `
-      INSERT INTO restauranthashtags (restaurant_id, hashtag_id)
-      VALUES ($1, $2)
-      ON CONFLICT (restaurant_id, hashtag_id) DO NOTHING
-      RETURNING *;
+      INSERT INTO restaurants (name, description, address, cuisine, website, phone, city_id, neighborhood_id, created_by, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+      RETURNING *
     `;
-    const result = await db.query(query, [restaurantId, hashtagId]);
+    
+    const result = await db.query(query, [name, description, address, cuisine, website, phone, city_id, neighborhood_id, created_by]);
+    
+    if (result.rows.length === 0) {
+      throw new Error('Failed to create restaurant');
+    }
+    
     return result.rows[0];
   } catch (error) {
-    console.error(`Error adding tag ${hashtagId} to restaurant ${restaurantId}:`, error);
-    throw error;
+    logError('Error in createRestaurant:', error);
+    throw new Error('Failed to create restaurant');
   }
 };
 
-export const removeTagFromRestaurant = async (restaurantId, hashtagId) => {
+/**
+ * Update a restaurant
+ */
+export const updateRestaurant = async (id, updateData) => {
   try {
+    const { name, description, address, cuisine, website, phone, city_id, neighborhood_id } = updateData;
+    
     const query = `
-      DELETE FROM restauranthashtags
-      WHERE restaurant_id = $1 AND hashtag_id = $2
-      RETURNING *;
+      UPDATE restaurants 
+      SET name = COALESCE($1, name),
+          description = COALESCE($2, description),
+          address = COALESCE($3, address),
+          cuisine = COALESCE($4, cuisine),
+          website = COALESCE($5, website),
+          phone = COALESCE($6, phone),
+          city_id = COALESCE($7, city_id),
+          neighborhood_id = COALESCE($8, neighborhood_id),
+          updated_at = NOW()
+      WHERE id = $9
+      RETURNING *
     `;
-    const result = await db.query(query, [restaurantId, hashtagId]);
-    return result.rows.length > 0;
+    
+    const result = await db.query(query, [name, description, address, cuisine, website, phone, city_id, neighborhood_id, id]);
+    
+    if (result.rows.length === 0) {
+      return null;
+    }
+    
+    return result.rows[0];
   } catch (error) {
-    console.error(`Error removing tag ${hashtagId} from restaurant ${restaurantId}:`, error);
-    throw error;
+    logError('Error in updateRestaurant:', error);
+    throw new Error('Failed to update restaurant');
+  }
+};
+
+/**
+ * Delete a restaurant
+ */
+export const deleteRestaurant = async (id) => {
+  try {
+    const result = await db.query('DELETE FROM restaurants WHERE id = $1 RETURNING *', [id]);
+    
+    if (result.rows.length === 0) {
+      return null;
+    }
+    
+    return result.rows[0];
+  } catch (error) {
+    logError('Error in deleteRestaurant:', error);
+    throw new Error('Failed to delete restaurant');
   }
 };
 
