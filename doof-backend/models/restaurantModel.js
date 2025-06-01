@@ -117,8 +117,6 @@ export const searchRestaurants = async (options = {}) => {
         r.description,
         r.address,
         r.cuisine,
-        r.website,
-        r.phone,
         r.city_id,
         r.neighborhood_id,
         r.created_at,
@@ -200,8 +198,6 @@ export const searchRestaurants = async (options = {}) => {
         description: row.description,
         address: row.address,
         cuisine: row.cuisine,
-        website: row.website,
-        phone: row.phone,
         city_id: row.city_id,
         neighborhood_id: row.neighborhood_id,
         city_name: row.city_name,
@@ -234,8 +230,6 @@ export const getAllRestaurants = async ({ page = 1, limit = 50, search = null, c
         r.description,
         r.address,
         r.cuisine,
-        r.website,
-        r.phone,
         r.city_id,
         r.neighborhood_id,
         r.created_at,
@@ -310,8 +304,6 @@ export const getAllRestaurants = async ({ page = 1, limit = 50, search = null, c
         description: row.description,
         address: row.address,
         cuisine: row.cuisine,
-        website: row.website,
-        phone: row.phone,
         city_id: row.city_id,
         neighborhood_id: row.neighborhood_id,
         city_name: row.city_name,
@@ -344,8 +336,6 @@ export const getRestaurantById = async (id) => {
         r.description,
         r.address,
         r.cuisine,
-        r.website,
-        r.phone,
         r.city_id,
         r.neighborhood_id,
         r.created_at,
@@ -371,8 +361,6 @@ export const getRestaurantById = async (id) => {
       description: row.description,
       address: row.address,
       cuisine: row.cuisine,
-      website: row.website,
-      phone: row.phone,
       city_id: row.city_id,
       neighborhood_id: row.neighborhood_id,
       city_name: row.city_name,
@@ -391,24 +379,31 @@ export const getRestaurantById = async (id) => {
  */
 export const createRestaurant = async (restaurantData) => {
   try {
-    const { name, description, address, cuisine, website, phone, city_id, neighborhood_id, created_by } = restaurantData;
+    const { name, description, address, cuisine, city_id, neighborhood_id, created_by } = restaurantData;
     
     const query = `
-      INSERT INTO restaurants (name, description, address, cuisine, website, phone, city_id, neighborhood_id, created_by, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+      INSERT INTO restaurants (name, description, address, cuisine, city_id, neighborhood_id, created_by, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
       RETURNING *
     `;
     
-    const result = await db.query(query, [name, description, address, cuisine, website, phone, city_id, neighborhood_id, created_by]);
+    const result = await db.query(query, [name, description, address, cuisine, city_id, neighborhood_id, created_by]);
     
     if (result.rows.length === 0) {
       throw new Error('Failed to create restaurant');
     }
     
+    logInfo(`[RestaurantModel] Successfully created restaurant: ${name} (ID: ${result.rows[0].id})`);
     return result.rows[0];
   } catch (error) {
     logError('Error in createRestaurant:', error);
-    throw new Error('Failed to create restaurant');
+    
+    // Handle specific constraint violations
+    if (error.code === '23505' && error.constraint === 'uq_restaurant_name_city') {
+      throw new Error(`Restaurant "${restaurantData.name}" already exists in this city`);
+    }
+    
+    throw new Error(`Failed to create restaurant: ${error.message}`);
   }
 };
 
@@ -417,7 +412,7 @@ export const createRestaurant = async (restaurantData) => {
  */
 export const updateRestaurant = async (id, updateData) => {
   try {
-    const { name, description, address, cuisine, website, phone, city_id, neighborhood_id } = updateData;
+    const { name, description, address, cuisine, city_id, neighborhood_id } = updateData;
     
     const query = `
       UPDATE restaurants 
@@ -425,25 +420,30 @@ export const updateRestaurant = async (id, updateData) => {
           description = COALESCE($2, description),
           address = COALESCE($3, address),
           cuisine = COALESCE($4, cuisine),
-          website = COALESCE($5, website),
-          phone = COALESCE($6, phone),
-          city_id = COALESCE($7, city_id),
-          neighborhood_id = COALESCE($8, neighborhood_id),
+          city_id = COALESCE($5, city_id),
+          neighborhood_id = COALESCE($6, neighborhood_id),
           updated_at = NOW()
-      WHERE id = $9
+      WHERE id = $7
       RETURNING *
     `;
     
-    const result = await db.query(query, [name, description, address, cuisine, website, phone, city_id, neighborhood_id, id]);
+    const result = await db.query(query, [name, description, address, cuisine, city_id, neighborhood_id, id]);
     
     if (result.rows.length === 0) {
       return null;
     }
     
+    logInfo(`[RestaurantModel] Successfully updated restaurant ID: ${id}`);
     return result.rows[0];
   } catch (error) {
     logError('Error in updateRestaurant:', error);
-    throw new Error('Failed to update restaurant');
+    
+    // Handle specific constraint violations
+    if (error.code === '23505' && error.constraint === 'uq_restaurant_name_city') {
+      throw new Error(`Restaurant "${updateData.name}" already exists in this city`);
+    }
+    
+    throw new Error(`Failed to update restaurant: ${error.message}`);
   }
 };
 

@@ -177,6 +177,7 @@ router.post('/cleanup/:resourceType/apply', cleanupController.applyFixes);
 router.get('/cleanup/status/:jobId', cleanupController.getStatus);
 
 // System administrative routes
+router.get('/stats', adminController.getAdminStats);
 router.get('/system/status', adminController.getSystemStatus);
 router.get('/system/logs', adminController.getSystemLogs);
 router.post('/system/clear-cache', adminController.clearSystemCache);

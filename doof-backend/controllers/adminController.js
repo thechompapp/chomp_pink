@@ -9,6 +9,7 @@ import * as HashtagModel from '../models/hashtagModel.js';
 import * as ListModel from '../models/listModel.js';
 import SubmissionModel from '../models/submissionModel.js';
 import db from '../db/index.js';
+import { logInfo, logError } from '../utils/logger.js';
 
 import {
   formatRestaurant,
@@ -525,6 +526,128 @@ export const deleteRestaurantChain = async (req, res) => {
 };
 
 // System Admin Functions
+export const getAdminStats = async (req, res) => {
+  try {
+    logInfo('[AdminController] Fetching admin statistics overview');
+    
+    // Get total counts for all resource types with better filtering
+    const [
+      restaurantsResult,
+      dishesResult, 
+      usersResult,
+      activeUsersResult,
+      citiesResult,
+      neighborhoodsResult,
+      hashtagsResult,
+      listsResult,
+      submissionsResult
+    ] = await Promise.all([
+      // Count restaurants (check if deleted_at column exists first)
+      db.query('SELECT COUNT(*) as total FROM restaurants'),
+      // Count dishes
+      db.query('SELECT COUNT(*) as total FROM dishes'),
+      // Count all users
+      db.query('SELECT COUNT(*) as total FROM users'),
+      // Count active users (exclude test/demo users)
+      db.query(`SELECT COUNT(*) as total FROM users 
+                WHERE email NOT LIKE '%test%' 
+                AND email NOT LIKE '%demo%' 
+                AND email NOT LIKE '%admin%'
+                AND username NOT LIKE '%test%'
+                AND username NOT LIKE '%demo%'
+                AND email NOT LIKE '%@chomp.local'`),
+      // Count cities
+      db.query('SELECT COUNT(*) as total FROM cities'),
+      // Count neighborhoods
+      db.query('SELECT COUNT(*) as total FROM neighborhoods'),
+      // Count hashtags
+      db.query('SELECT COUNT(*) as total FROM hashtags'),
+      // Count lists
+      db.query('SELECT COUNT(*) as total FROM lists'),
+      // Count submissions
+      db.query('SELECT COUNT(*) as total FROM submissions')
+    ]);
+    
+    const totalUsers = parseInt(usersResult.rows[0].total);
+    const activeUsers = parseInt(activeUsersResult.rows[0].total);
+    
+    const stats = {
+      restaurants: parseInt(restaurantsResult.rows[0].total),
+      dishes: parseInt(dishesResult.rows[0].total),
+      users: activeUsers, // Use filtered active users count instead of total
+      totalUsers: totalUsers, // Keep total for reference
+      testUsers: totalUsers - activeUsers, // Calculate test/demo users
+      cities: parseInt(citiesResult.rows[0].total),
+      neighborhoods: parseInt(neighborhoodsResult.rows[0].total),
+      hashtags: parseInt(hashtagsResult.rows[0].total),
+      lists: parseInt(listsResult.rows[0].total),
+      submissions: parseInt(submissionsResult.rows[0].total),
+      locations: parseInt(citiesResult.rows[0].total) + parseInt(neighborhoodsResult.rows[0].total),
+      lastUpdated: new Date().toISOString()
+    };
+    
+    logInfo(`[AdminController] Admin stats: ${JSON.stringify(stats)}`);
+    
+    return res.status(200).json({
+      success: true,
+      message: 'Admin statistics retrieved successfully',
+      data: stats
+    });
+  } catch (error) {
+    logError('[AdminController] Error getting admin stats:', error);
+    
+    // Fallback to simple counting if the filtered queries fail
+    try {
+      logInfo('[AdminController] Falling back to simple count queries');
+      const [
+        restaurantsResult,
+        dishesResult, 
+        usersResult,
+        citiesResult,
+        neighborhoodsResult,
+        hashtagsResult,
+        listsResult,
+        submissionsResult
+      ] = await Promise.all([
+        db.query('SELECT COUNT(*) as total FROM restaurants'),
+        db.query('SELECT COUNT(*) as total FROM dishes'),
+        db.query('SELECT COUNT(*) as total FROM users'),
+        db.query('SELECT COUNT(*) as total FROM cities'),
+        db.query('SELECT COUNT(*) as total FROM neighborhoods'),
+        db.query('SELECT COUNT(*) as total FROM hashtags'),
+        db.query('SELECT COUNT(*) as total FROM lists'),
+        db.query('SELECT COUNT(*) as total FROM submissions')
+      ]);
+      
+      const stats = {
+        restaurants: parseInt(restaurantsResult.rows[0].total),
+        dishes: parseInt(dishesResult.rows[0].total),
+        users: parseInt(usersResult.rows[0].total),
+        cities: parseInt(citiesResult.rows[0].total),
+        neighborhoods: parseInt(neighborhoodsResult.rows[0].total),
+        hashtags: parseInt(hashtagsResult.rows[0].total),
+        lists: parseInt(listsResult.rows[0].total),
+        submissions: parseInt(submissionsResult.rows[0].total),
+        locations: parseInt(citiesResult.rows[0].total) + parseInt(neighborhoodsResult.rows[0].total),
+        lastUpdated: new Date().toISOString(),
+        note: 'Using fallback simple counts due to filtering error'
+      };
+      
+      return res.status(200).json({
+        success: true,
+        message: 'Admin statistics retrieved successfully (fallback)',
+        data: stats
+      });
+    } catch (fallbackError) {
+      logError('[AdminController] Fallback error getting admin stats:', fallbackError);
+      return res.status(500).json({ 
+        success: false, 
+        message: `Failed to get admin stats: ${fallbackError.message}` 
+      });
+    }
+  }
+};
+
 export const getSystemStatus = async (req, res) => {
   try {
     // Get basic server stats
@@ -724,10 +847,8 @@ export const bulkAddRestaurants = async (req, res) => {
             address: restaurant.address,
             city_id: restaurant.city_id,
             neighborhood_id: restaurant.neighborhood_id || null,
-            zip_code: restaurant.zip_code || null,
-            phone: restaurant.phone || null,
-            website: restaurant.website || null,
-            price_range: restaurant.price_range || null
+            description: restaurant.description || null,
+            cuisine: restaurant.cuisine || null
           };
         } else {
           // Raw data that needs validation and resolution
@@ -744,10 +865,8 @@ export const bulkAddRestaurants = async (req, res) => {
             address: restaurant.address,
             city_id: await lookupCityId(restaurant.city) || null,
             neighborhood_id: restaurant.neighborhood_id || null,
-            zip_code: restaurant.zip || null,
-            phone: restaurant.phone || null,
-            website: restaurant.website || null,
-            price_range: restaurant.price_range || null
+            description: restaurant.description || null,
+            cuisine: restaurant.cuisine || null
           };
         }
         

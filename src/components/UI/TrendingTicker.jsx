@@ -29,15 +29,15 @@ import { engagementService } from '@/services/engagementService';
 const fetchTrendingData = async () => {
   try {
     const [restaurants, dishes, lists] = await Promise.all([
-      apiClient.get('/trending/restaurants?limit=8').catch(() => ({ data: [] })),
-      apiClient.get('/trending/dishes?limit=8').catch(() => ({ data: [] })),
-      apiClient.get('/trending/lists?limit=8').catch(() => ({ data: [] }))
+      apiClient.get('/trending/restaurants?limit=8').catch(() => ({ data: { data: [] } })),
+      apiClient.get('/trending/dishes?limit=8').catch(() => ({ data: { data: [] } })),
+      apiClient.get('/trending/lists?limit=8').catch(() => ({ data: { data: [] } }))
     ]);
 
     return {
-      restaurants: Array.isArray(restaurants.data) ? restaurants.data : [],
-      dishes: Array.isArray(dishes.data) ? dishes.data : [],
-      lists: Array.isArray(lists.data) ? lists.data : []
+      restaurants: Array.isArray(restaurants.data?.data) ? restaurants.data.data : [],
+      dishes: Array.isArray(dishes.data?.data) ? dishes.data.data : [],
+      lists: Array.isArray(lists.data?.data) ? lists.data.data : []
     };
   } catch (error) {
     logError('[TrendingTicker] Error fetching trending data:', error);
@@ -168,10 +168,10 @@ const TrendingCard = ({ item, type, onClick }) => {
   return (
     <div
       onClick={handleCardClick}
-      className="flex-shrink-0 w-64 h-24 bg-white border border-gray-200 rounded-lg p-3 cursor-pointer hover:shadow-md transition-all duration-200 hover:border-gray-300 mx-2"
+      className="flex-shrink-0 w-72 h-32 bg-white border border-gray-200 rounded-lg p-4 cursor-pointer hover:shadow-md transition-all duration-200 hover:border-gray-300 mx-2"
     >
       <div className="flex items-start justify-between h-full">
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 pr-3">
           {/* Status indicator */}
           <div className={cn(
             "inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium mb-2",
@@ -183,23 +183,23 @@ const TrendingCard = ({ item, type, onClick }) => {
           </div>
           
           {/* Title */}
-          <h3 className="font-semibold text-sm text-gray-900 truncate mb-1">
+          <h3 className="font-semibold text-sm text-gray-900 truncate mb-2 leading-tight">
             {details.title}
           </h3>
           
           {/* Subtitle */}
-          <p className="text-xs text-gray-500 truncate">
+          <p className="text-xs text-gray-500 truncate mb-1.5 leading-relaxed">
             {details.subtitle}
           </p>
           
           {/* Metric */}
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-xs text-gray-400 leading-relaxed">
             {details.metric}
           </p>
         </div>
         
         {/* Type icon */}
-        <div className="flex-shrink-0 ml-2">
+        <div className="flex-shrink-0">
           <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
             <TypeIcon size={14} className="text-gray-600" />
           </div>
@@ -315,7 +315,7 @@ const TrendingTicker = ({
             isPaused && "animation-paused"
           )}
           style={{
-            width: `${duplicatedItems.length * 272}px` // 264px card width + 8px margin
+            width: `${duplicatedItems.length * 296}px` // 288px card width + 8px margin
           }}
         >
           {duplicatedItems.map((item, index) => (

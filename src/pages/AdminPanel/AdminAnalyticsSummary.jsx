@@ -7,7 +7,7 @@ import ErrorMessage from '@/components/UI/ErrorMessage.jsx';
 import Button from '@/components/UI/Button.jsx';
 import { BarChart, Store, Utensils, List, Users, Loader2, CheckCircle, XCircle, FileText, PieChart, CheckSquare } from 'lucide-react';
 import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
-import useComponentError from '@/hooks/useComponentError';
+import useComponentError from '@/hooks/useComponentError.jsx';
 
 // --- REMOVED: TypeScript interfaces ---
 

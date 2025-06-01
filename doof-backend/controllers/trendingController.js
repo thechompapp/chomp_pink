@@ -18,15 +18,18 @@ export const getTrendingItems = async (req, res, next) => {
         switch (type) {
             case 'restaurants':
                 trendingItems = await TrendingModel.getTrendingRestaurants(limitNum);
-                formattedItems = Array.isArray(trendingItems) ? trendingItems.map(formatRestaurant) : [];
+                formattedItems = Array.isArray(trendingItems) ? 
+                    trendingItems.map(formatRestaurant).filter(item => item !== null) : [];
                 break;
             case 'dishes':
                 trendingItems = await TrendingModel.getTrendingDishes(limitNum);
-                formattedItems = Array.isArray(trendingItems) ? trendingItems.map(formatDish) : [];
+                formattedItems = Array.isArray(trendingItems) ? 
+                    trendingItems.map(formatDish).filter(item => item !== null) : [];
                 break;
             case 'lists':
                 trendingItems = await TrendingModel.getTrendingLists(userId, limitNum);
-                formattedItems = Array.isArray(trendingItems) ? trendingItems.map(formatList) : [];
+                formattedItems = Array.isArray(trendingItems) ? 
+                    trendingItems.map(formatList).filter(item => item !== null) : [];
                 break;
             default:
                 return res.status(400).json({ success: false, message: `Invalid trending type: ${type}` });
