@@ -20,7 +20,6 @@ import { enhancedAdminService } from '@/services/enhancedAdminService';
 import { EnhancedAdminTable } from '@/components/AdminPanel/EnhancedAdminTable';
 import { AdminAnalyticsDashboard } from '@/components/AdminPanel/AdminAnalyticsDashboard';
 import { BulkOperationsPanel } from '@/components/AdminPanel/BulkOperationsPanel';
-import { useAuth } from '@/contexts/auth/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { AdminAuthSetup } from '@/utils/adminAuthSetup';
 import { logInfo, logWarn, logError } from '@/utils/logger';
@@ -114,60 +113,9 @@ const TAB_CONFIG = {
  */
 const AdminPanel = () => {
   const navigate = useNavigate();
-  const { isAuthenticated, user, isSuperuser } = useAuth();
   const [activeTab, setActiveTab] = useState('analytics');
-  const [isInitializing, setIsInitializing] = useState(true);
+  const [isInitializing, setIsInitializing] = useState(false);
   const [selectedResourceType, setSelectedResourceType] = useState('restaurants');
-  const [authReady, setAuthReady] = useState(false);
-  const [adminAccess, setAdminAccess] = useState(false);
-  
-  // Check admin access using optimized auth
-  const hasAdminAccess = useMemo(() => {
-    if (!isAuthenticated || !user) return false;
-    
-    // In development mode, always grant access if authenticated
-    if (import.meta.env.DEV && isAuthenticated) {
-      return true;
-    }
-    
-    // Check admin/superuser status
-    return isSuperuser || user?.role === 'admin' || user?.account_type === 'superuser';
-  }, [isAuthenticated, user, isSuperuser]);
-
-  // Authentication verification
-  useEffect(() => {
-    const verifyAuth = async () => {
-      logInfo('[EnhancedAdminPanel] Verifying authentication');
-      
-      if (!isAuthenticated) {
-        logWarn('[EnhancedAdminPanel] User not authenticated');
-        setAuthReady(true);
-        setAdminAccess(false);
-        return;
-      }
-
-      // In development mode, ensure admin access is set up
-      if (import.meta.env.DEV && isAuthenticated) {
-        logInfo('[EnhancedAdminPanel] Development mode - setting up admin access');
-        setAdminAccess(true);
-        setAuthReady(true);
-        return;
-      }
-
-      // Production mode - check actual permissions
-      if (hasAdminAccess) {
-        logInfo('[EnhancedAdminPanel] Admin access verified');
-        setAdminAccess(true);
-      } else {
-        logWarn('[EnhancedAdminPanel] User does not have admin access');
-        setAdminAccess(false);
-      }
-      
-      setAuthReady(true);
-    };
-
-    verifyAuth();
-  }, [isAuthenticated, user, hasAdminAccess]);
   
   // Fetch all admin data
   const {
@@ -179,7 +127,7 @@ const AdminPanel = () => {
   } = useQuery({
     queryKey: ['enhancedAdminData'],
     queryFn: enhancedAdminService.fetchAllAdminData,
-    enabled: authReady && adminAccess && isAuthenticated,
+    enabled: true,
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
     retry: 1,
@@ -193,94 +141,47 @@ const AdminPanel = () => {
     }
   });
   
-  // Update initialization state when auth is ready
+  // Performance optimizations
+  const tabConfig = useMemo(() => TAB_CONFIG, []);
+  
+  // Update tab effect
   useEffect(() => {
-    if (authReady && adminAccess) {
-      setIsInitializing(false);
-    }
-  }, [authReady, adminAccess]);
+    logInfo(`[EnhancedAdminPanel] Active tab changed to: ${activeTab}`);
+  }, [activeTab]);
   
-  // Show loading state while auth is being verified
-  if (!authReady) {
+  // Early return for data loading
+  if (isFetching && !adminData) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Verifying authentication...</p>
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-gray-600 dark:text-gray-400">Loading admin data...</p>
+          </div>
         </div>
       </div>
     );
   }
   
-  // Show access denied if not authenticated or no admin access
-  if (!isAuthenticated || !adminAccess) {
-    return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6 text-center">
-          <div className="mb-4">
-            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
-              <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 15.5c-.77.833.192 2.5 1.732 2.5z" />
-              </svg>
-            </div>
-          </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Access Denied</h3>
-          <p className="text-sm text-gray-500 mb-4">
-            {!isAuthenticated 
-              ? "You must be logged in to access the admin panel."
-              : "You don't have permission to access the enhanced admin panel."
-            }
-          </p>
-          <div className="space-y-2">
-            <p className="text-xs text-gray-400">
-              Authentication Status: {isAuthenticated ? '✅ Authenticated' : '❌ Not Authenticated'}
-            </p>
-            <p className="text-xs text-gray-400">
-              Admin Access: {adminAccess ? '✅ Granted' : '❌ Denied'}
-            </p>
-            {import.meta.env.DEV && (
-              <p className="text-xs text-blue-600">
-                🔧 Development Mode: Admin access should be automatically granted when authenticated
-              </p>
-            )}
-          </div>
-          <button
-            onClick={() => window.location.href = '/'}
-            className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors"
-          >
-            Go to Home Page
-          </button>
-        </div>
-      </div>
-    );
-  }
-  
-  // Show error state
+  // Error state
   if (isError) {
     return (
-      <div className="container mx-auto p-4">
-        <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <AlertTriangle className="h-5 w-5 text-red-400 mt-0.5" aria-hidden="true" />
-            </div>
-            <div className="ml-3 flex-1">
-              <h3 className="text-sm font-medium text-red-800">
-                Something went wrong in the Enhanced Admin Panel
-              </h3>
-              <div className="mt-2 text-sm text-red-700 space-y-2">
-                <p>
-                  <span className="font-medium">Error:</span>{' '}
-                  {error?.message || 'An unknown error occurred.'}
-                </p>
-                <button
-                  onClick={() => refetch()}
-                  className="mt-2 px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded text-sm"
-                >
-                  Try Again
-                </button>
-              </div>
-            </div>
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+          <AlertTriangle className="h-12 w-12 text-red-500" />
+          <div className="text-center">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+              Error Loading Admin Data
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              {error?.message || 'Failed to load admin data'}
+            </p>
+            <button
+              onClick={() => refetch()}
+              className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors"
+            >
+              Try Again
+            </button>
           </div>
         </div>
       </div>

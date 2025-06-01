@@ -28,7 +28,6 @@ const fetchUserProfile = async (userId) => {
 const Profile = () => {
   const navigate = useNavigate();
   const { user: user } = useAuth();
-  const { isAuthenticated: isAuthenticated } = useAuth();
   const { isLoading: isLoadingAuth } = useAuth();
   const queryClient = useQueryClient();
 
@@ -38,8 +37,8 @@ const Profile = () => {
   const queryResult = useQuery({
     queryKey: ['userProfile', currentUserId], // Use validated ID
     queryFn: () => fetchUserProfile(currentUserId),
-    // ** FIXED: Enable query only if authenticated AND userId is a valid number **
-    enabled: isAuthenticated && typeof currentUserId === 'number' && currentUserId > 0,
+    // Simplified: ProtectedRoute guarantees authentication, just check for valid userId
+    enabled: typeof currentUserId === 'number' && currentUserId > 0,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -55,22 +54,9 @@ const Profile = () => {
     return () => window.removeEventListener('listFollowToggled', handleListFollowToggle);
   }, [queryClient, currentUserId]); // Dependency on potentially changing userId
 
-  // Handle auth loading state
-  if (isLoadingAuth) {
+  // Handle auth loading state - simplified since ProtectedRoute handles authentication
+  if (isLoadingAuth || !currentUserId) {
      return <div className="flex items-center justify-center h-screen"><LoadingSpinner message="Loading user data..." /></div>;
-  }
-
-  // Handle not authenticated state
-  if (!isAuthenticated || !currentUserId) { // Also check if currentUserId is valid
-     return (
-        <div className="container mx-auto px-4 py-8">
-          <div className="bg-red-50 p-6 rounded-lg border border-red-200 text-center">
-            <h2 className="text-xl font-semibold text-red-700 mb-2">Access Denied</h2>
-            <p className="text-red-600 mb-4">Please log in to view your profile.</p>
-            <Button onClick={() => navigate('/login')} variant="secondary" size="sm">Log In</Button>
-          </div>
-        </div>
-      );
   }
 
   // Render profile using QueryResultDisplay

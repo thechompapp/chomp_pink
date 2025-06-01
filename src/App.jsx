@@ -19,6 +19,7 @@ import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import MyLists from '@/pages/Lists/MyLists';
 import AdminPanel from '@/pages/AdminPanel';
+import Profile from '@/pages/Profile';
 
 // Component wrappers
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -81,6 +82,14 @@ function App() {
                         element={
                           <ProtectedRoute>
                             <MyLists />
+                          </ProtectedRoute>
+                        } 
+                      />
+                      <Route 
+                        path="/profile" 
+                        element={
+                          <ProtectedRoute>
+                            <Profile />
                           </ProtectedRoute>
                         } 
                       />

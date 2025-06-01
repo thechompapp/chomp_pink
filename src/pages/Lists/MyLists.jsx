@@ -239,15 +239,6 @@ const MyLists = () => {
     // Implement unfollow functionality
   }, []);
 
-  // Authentication guard
-  if (!isAuthenticated) {
-    return (
-      <div className={`${CONTAINER.MAX_WIDTH} mx-auto ${CONTAINER.PADDING} ${CONTAINER.VERTICAL_SPACING}`}>
-        <ErrorMessage message="Please log in to view your lists." />
-      </div>
-    );
-  }
-
   // Loading state
   if (isLoading && !queryResult) {
     return (
