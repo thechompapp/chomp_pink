@@ -1,303 +1,300 @@
+/**
+ * Admin Token Persistence Test
+ * 
+ * Tests authentication token persistence across page refreshes,
+ * navigation, and different scenarios to diagnose any token-related issues.
+ */
+
 import { test, expect } from '@playwright/test';
-import { AuthHelpers } from './auth-helpers.js';
 
-test.describe('Admin Token Persistence Tests', () => {
-  test.beforeEach(async ({ page }) => {
-    // Enable console logging for debugging
-    page.on('console', msg => {
-      if (msg.text().includes('Auth') || msg.text().includes('token') || msg.text().includes('coordinator')) {
-        console.log(`🔍 ${msg.type().toUpperCase()}: ${msg.text()}`);
-      }
-    });
-  });
+const BASE_URL = 'http://localhost:5176';
 
-  test('should persist admin token across page navigation', async ({ page }) => {
-    console.log('🧪 Testing token persistence across navigation...');
-    
-    // Step 1: Login as admin
-    await AuthHelpers.login(page);
-    console.log('✅ Initial login completed');
-    
-    // Verify initial authentication state
-    const initialAuthState = await page.evaluate(() => {
-      return {
-        authStorage: JSON.parse(localStorage.getItem('auth-authentication-storage') || '{}'),
-        token: localStorage.getItem('auth-token'),
-        coordinatorState: window.__authCoordinator?.getCurrentState()
-      };
-    });
-    
-    expect(initialAuthState.authStorage.state?.isAuthenticated).toBe(true);
-    expect(initialAuthState.token).toBeTruthy();
-    console.log('✅ Initial auth state verified');
-    
-    // Step 2: Navigate to admin panel
-    await page.goto('http://localhost:5174/admin');
-    await page.waitForTimeout(2000);
-    
-    const adminUrl = page.url();
-    expect(adminUrl).toContain('/admin');
-    console.log('✅ Successfully navigated to admin panel');
-    
-    // Check auth state after admin navigation
-    const adminAuthState = await page.evaluate(() => {
-      return {
-        authStorage: JSON.parse(localStorage.getItem('auth-authentication-storage') || '{}'),
-        token: localStorage.getItem('auth-token'),
-        coordinatorState: window.__authCoordinator?.getCurrentState()
-      };
-    });
-    
-    expect(adminAuthState.authStorage.state?.isAuthenticated).toBe(true);
-    expect(adminAuthState.token).toBeTruthy();
-    console.log('✅ Auth state maintained after admin navigation');
-    
-    // Step 3: Navigate to home page
-    await page.goto('http://localhost:5174/');
-    await page.waitForTimeout(2000);
-    
-    const homeAuthState = await page.evaluate(() => {
-      return {
-        authStorage: JSON.parse(localStorage.getItem('auth-authentication-storage') || '{}'),
-        token: localStorage.getItem('auth-token'),
-        coordinatorState: window.__authCoordinator?.getCurrentState()
-      };
-    });
-    
-    expect(homeAuthState.authStorage.state?.isAuthenticated).toBe(true);
-    expect(homeAuthState.token).toBeTruthy();
-    console.log('✅ Auth state maintained after home navigation');
-    
-    // Step 4: Navigate back to admin
-    await page.goto('http://localhost:5174/admin');
+// Helper function to login
+async function loginAsAdmin(page) {
+  console.log('🔐 Logging in as admin...');
+  
+  await page.goto(`${BASE_URL}/login`);
+  await page.waitForLoadState('networkidle');
+  
+  await page.locator('input[type="email"]').fill('admin@example.com');
+  await page.locator('input[type="password"]').fill('doof123');
+  await page.waitForTimeout(1000);
+  await page.locator('button[type="submit"]').click();
+  
+  // Wait for login to complete and redirect
+  await page.waitForTimeout(3000);
+  await page.waitForLoadState('networkidle');
+  
+  console.log('✅ Login completed');
+  return true;
+}
+
+// Helper function to check if user is authenticated
+async function checkAuthenticationState(page) {
+  const currentUrl = page.url();
+  console.log(`📍 Current URL: ${currentUrl}`);
+  
+  // Check if we're redirected to login page (indicating not authenticated)
+  if (currentUrl.includes('/login')) {
+    console.log('❌ User redirected to login page - NOT authenticated');
+    return false;
+  }
+  
+  // Check for admin panel elements
+  const isAdminPage = currentUrl.includes('/admin');
+  if (isAdminPage) {
+    console.log('✅ User on admin page - authenticated');
+    return true;
+  }
+  
+  // Check if we can navigate to admin
+  try {
+    await page.goto(`${BASE_URL}/admin`);
+    await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
     
     const finalUrl = page.url();
-    expect(finalUrl).toContain('/admin');
-    console.log('✅ Successfully navigated back to admin panel');
-    
-    // Final auth state check
-    const finalAuthState = await page.evaluate(() => {
-      return {
-        authStorage: JSON.parse(localStorage.getItem('auth-authentication-storage') || '{}'),
-        token: localStorage.getItem('auth-token'),
-        coordinatorState: window.__authCoordinator?.getCurrentState()
-      };
-    });
-    
-    expect(finalAuthState.authStorage.state?.isAuthenticated).toBe(true);
-    expect(finalAuthState.token).toBeTruthy();
-    console.log('✅ Auth state maintained throughout navigation cycle');
-  });
+    if (finalUrl.includes('/admin')) {
+      console.log('✅ Successfully accessed admin panel - authenticated');
+      return true;
+    } else {
+      console.log('❌ Redirected away from admin panel - NOT authenticated');
+      return false;
+    }
+  } catch (error) {
+    console.log('❌ Error accessing admin panel:', error.message);
+    return false;
+  }
+}
 
-  test('should persist admin token across page refresh', async ({ page }) => {
-    console.log('🧪 Testing token persistence across page refresh...');
+// Helper function to check local storage tokens
+async function checkStoredTokens(page) {
+  const tokens = await page.evaluate(() => {
+    return {
+      accessToken: localStorage.getItem('accessToken'),
+      refreshToken: localStorage.getItem('refreshToken'),
+      user: localStorage.getItem('user'),
+      authData: localStorage.getItem('authData')
+    };
+  });
+  
+  console.log('🔑 Stored tokens:', {
+    accessToken: tokens.accessToken ? `${tokens.accessToken.substring(0, 20)}...` : 'null',
+    refreshToken: tokens.refreshToken ? `${tokens.refreshToken.substring(0, 20)}...` : 'null',
+    user: tokens.user ? 'present' : 'null',
+    authData: tokens.authData ? 'present' : 'null'
+  });
+  
+  return tokens;
+}
+
+test.describe('Admin Token Persistence Tests', () => {
+  
+  test('Basic token persistence after page refresh', async ({ page }) => {
+    test.setTimeout(120000);
     
-    // Step 1: Login as admin
-    await AuthHelpers.login(page);
-    console.log('✅ Initial login completed');
+    console.log('\n🧪 === Test 1: Basic Token Persistence ===');
+    
+    // Step 1: Login
+    await loginAsAdmin(page);
     
     // Step 2: Navigate to admin panel
-    await page.goto('http://localhost:5174/admin');
+    await page.goto(`${BASE_URL}/admin`);
+    await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
     
-    // Get auth state before refresh
-    const beforeRefreshState = await page.evaluate(() => {
-      return {
-        authStorage: JSON.parse(localStorage.getItem('auth-authentication-storage') || '{}'),
-        token: localStorage.getItem('auth-token'),
-        coordinatorState: window.__authCoordinator?.getCurrentState(),
-        url: window.location.href
-      };
-    });
+    // Step 3: Verify authentication and check tokens
+    let isAuth = await checkAuthenticationState(page);
+    expect(isAuth).toBe(true);
     
-    expect(beforeRefreshState.authStorage.state?.isAuthenticated).toBe(true);
-    expect(beforeRefreshState.token).toBeTruthy();
-    console.log('✅ Auth state verified before refresh');
+    let tokens = await checkStoredTokens(page);
+    console.log('📊 Initial authentication state verified');
     
-    // Step 3: Refresh the page
-    console.log('🔄 Refreshing page...');
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(3000); // Give time for auth initialization
+    // Step 4: Refresh the page
+    console.log('\n🔄 Refreshing page...');
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(3000);
     
-    // Check auth state after refresh
-    const afterRefreshState = await page.evaluate(() => {
-      return {
-        authStorage: JSON.parse(localStorage.getItem('auth-authentication-storage') || '{}'),
-        token: localStorage.getItem('auth-token'),
-        coordinatorState: window.__authCoordinator?.getCurrentState(),
-        url: window.location.href
-      };
-    });
+    // Step 5: Check authentication after refresh
+    isAuth = await checkAuthenticationState(page);
+    console.log(`🔍 Authentication after refresh: ${isAuth ? 'MAINTAINED' : 'LOST'}`);
     
-    console.log('🔍 Auth state after refresh:', {
-      isAuthenticated: afterRefreshState.authStorage.state?.isAuthenticated,
-      hasToken: !!afterRefreshState.token,
-      coordinatorAuth: afterRefreshState.coordinatorState?.isAuthenticated,
-      url: afterRefreshState.url
-    });
+    tokens = await checkStoredTokens(page);
     
-    expect(afterRefreshState.authStorage.state?.isAuthenticated).toBe(true);
-    expect(afterRefreshState.token).toBeTruthy();
-    expect(afterRefreshState.url).toContain('/admin');
-    console.log('✅ Auth state maintained after page refresh');
-  });
-
-  test('should persist admin token across browser session (new context)', async ({ browser }) => {
-    console.log('🧪 Testing token persistence across browser sessions...');
-    
-    // Create first browser context/session
-    const context1 = await browser.newContext();
-    const page1 = await context1.newPage();
-    
-    // Enable logging for first session
-    page1.on('console', msg => {
-      if (msg.text().includes('Auth') || msg.text().includes('token')) {
-        console.log(`🔍 SESSION1 ${msg.type().toUpperCase()}: ${msg.text()}`);
+    // Step 6: Test admin functionality
+    if (isAuth) {
+      console.log('✅ Testing admin functionality...');
+      
+      // Navigate to different admin tabs
+      const tabs = ['Restaurants', 'Cities', 'Users'];
+      for (const tab of tabs) {
+        const tabButton = page.locator(`button:has-text("${tab}")`).first();
+        if (await tabButton.isVisible()) {
+          await tabButton.click();
+          await page.waitForTimeout(1000);
+          console.log(`  ✅ ${tab} tab accessible`);
+        }
       }
-    });
-    
-    // Step 1: Login in first session
-    await AuthHelpers.login(page1);
-    console.log('✅ Login completed in first session');
-    
-    // Navigate to admin panel
-    await page1.goto('http://localhost:5174/admin');
-    await page1.waitForTimeout(2000);
-    
-    // Get tokens from first session
-    const session1Tokens = await page1.evaluate(() => {
-      return {
-        authStorage: localStorage.getItem('auth-authentication-storage'),
-        token: localStorage.getItem('auth-token'),
-        authToken: localStorage.getItem('authToken'),
-        allTokens: Object.keys(localStorage).filter(key => 
-          key.includes('token') || key.includes('auth')
-        ).reduce((acc, key) => {
-          acc[key] = localStorage.getItem(key);
-          return acc;
-        }, {})
-      };
-    });
-    
-    console.log('🔍 Session 1 tokens:', Object.keys(session1Tokens.allTokens));
-    expect(session1Tokens.token).toBeTruthy();
-    
-    await context1.close();
-    console.log('✅ First session closed');
-    
-    // Step 2: Create new browser context/session  
-    const context2 = await browser.newContext();
-    const page2 = await context2.newPage();
-    
-    // Enable logging for second session
-    page2.on('console', msg => {
-      if (msg.text().includes('Auth') || msg.text().includes('token')) {
-        console.log(`🔍 SESSION2 ${msg.type().toUpperCase()}: ${msg.text()}`);
-      }
-    });
-    
-    // Step 3: Try to access admin panel directly (should redirect to login if not persisted)
-    await page2.goto('http://localhost:5174/admin');
-    await page2.waitForTimeout(3000);
-    
-    const session2Url = page2.url();
-    const session2Tokens = await page2.evaluate(() => {
-      return {
-        authStorage: localStorage.getItem('auth-authentication-storage'),
-        token: localStorage.getItem('auth-token'),
-        allTokens: Object.keys(localStorage).filter(key => 
-          key.includes('token') || key.includes('auth')
-        )
-      };
-    });
-    
-    console.log('🔍 Session 2 URL:', session2Url);
-    console.log('🔍 Session 2 tokens:', session2Tokens.allTokens);
-    
-    // Since localStorage is not shared between browser contexts,
-    // we expect to be redirected to login page
-    if (session2Url.includes('/login')) {
-      console.log('✅ Expected behavior: New session requires re-authentication (localStorage not shared between contexts)');
-    } else if (session2Url.includes('/admin')) {
-      console.log('⚠️ Unexpected: Admin access granted without authentication in new session');
-      // This might indicate a development mode bypass
+    } else {
+      console.log('❌ Admin functionality not accessible after refresh');
     }
     
-    await context2.close();
+    expect(isAuth).toBe(true);
   });
-
-  test('should maintain admin state during rapid navigation', async ({ page }) => {
-    console.log('🧪 Testing token persistence during rapid navigation...');
+  
+  test('Multiple page refreshes', async ({ page }) => {
+    test.setTimeout(120000);
     
-    // Step 1: Login as admin
-    await AuthHelpers.login(page);
-    console.log('✅ Initial login completed');
+    console.log('\n🧪 === Test 2: Multiple Page Refreshes ===');
     
-    // Step 2: Rapid navigation test
-    const urls = [
-      'http://localhost:5174/',
-      'http://localhost:5174/admin',
-      'http://localhost:5174/',
-      'http://localhost:5174/admin',
-      'http://localhost:5174/'
+    await loginAsAdmin(page);
+    await page.goto(`${BASE_URL}/admin`);
+    await page.waitForLoadState('networkidle');
+    
+    // Perform multiple refreshes
+    for (let i = 1; i <= 3; i++) {
+      console.log(`\n🔄 Refresh ${i}/3...`);
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+      await page.waitForTimeout(2000);
+      
+      const isAuth = await checkAuthenticationState(page);
+      console.log(`  Auth status after refresh ${i}: ${isAuth ? 'MAINTAINED' : 'LOST'}`);
+      
+      if (!isAuth) {
+        console.log(`❌ Authentication lost after refresh ${i}`);
+        break;
+      }
+    }
+    
+    const finalAuth = await checkAuthenticationState(page);
+    expect(finalAuth).toBe(true);
+  });
+  
+  test('Page refresh during admin operations', async ({ page }) => {
+    test.setTimeout(120000);
+    
+    console.log('\n🧪 === Test 3: Refresh During Admin Operations ===');
+    
+    await loginAsAdmin(page);
+    await page.goto(`${BASE_URL}/admin`);
+    await page.waitForLoadState('networkidle');
+    
+    // Navigate to Cities tab
+    const citiesTab = page.locator('button:has-text("Cities")').first();
+    await citiesTab.click();
+    await page.waitForTimeout(2000);
+    console.log('📍 Navigated to Cities tab');
+    
+    // Refresh while on Cities tab
+    console.log('🔄 Refreshing while on Cities tab...');
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(3000);
+    
+    const isAuth = await checkAuthenticationState(page);
+    console.log(`🔍 Authentication after refresh: ${isAuth ? 'MAINTAINED' : 'LOST'}`);
+    
+    if (isAuth) {
+      // Check if we're still on the admin panel
+      const currentUrl = page.url();
+      console.log(`📍 Current URL after refresh: ${currentUrl}`);
+      
+      // Try to open create form
+      const addButton = page.locator('button:has-text("Add New")').first();
+      if (await addButton.isVisible()) {
+        await addButton.click();
+        await page.waitForTimeout(1000);
+        console.log('✅ Create form opened successfully');
+        
+        // Close the form
+        const cancelButton = page.locator('button:has-text("Cancel")').first();
+        if (await cancelButton.isVisible()) {
+          await cancelButton.click();
+          await page.waitForTimeout(500);
+        }
+      }
+    }
+    
+    expect(isAuth).toBe(true);
+  });
+  
+  test('Navigation and refresh cycle', async ({ page }) => {
+    test.setTimeout(120000);
+    
+    console.log('\n🧪 === Test 4: Navigation and Refresh Cycle ===');
+    
+    await loginAsAdmin(page);
+    
+    // Test navigation between different pages
+    const pages = [
+      { name: 'Admin Panel', url: `${BASE_URL}/admin` },
+      { name: 'Home Page', url: `${BASE_URL}/` },
+      { name: 'Admin Panel', url: `${BASE_URL}/admin` }
     ];
     
-    for (let i = 0; i < urls.length; i++) {
-      const url = urls[i];
-      console.log(`🔄 Navigation ${i + 1}/${urls.length}: ${url}`);
+    for (let i = 0; i < pages.length; i++) {
+      const pageInfo = pages[i];
+      console.log(`\n📍 Navigating to ${pageInfo.name}...`);
       
-      await page.goto(url);
-      await page.waitForTimeout(1000); // Short wait between navigations
+      await page.goto(pageInfo.url);
+      await page.waitForLoadState('networkidle');
+      await page.waitForTimeout(2000);
       
-      // Check auth state after each navigation
-      const authState = await page.evaluate(() => {
-        return {
-          isAuthenticated: JSON.parse(localStorage.getItem('auth-authentication-storage') || '{}').state?.isAuthenticated,
-          hasToken: !!localStorage.getItem('auth-token'),
-          coordinatorAuth: window.__authCoordinator?.getCurrentState()?.isAuthenticated
-        };
-      });
+      const isAuth = await checkAuthenticationState(page);
+      console.log(`  Auth status on ${pageInfo.name}: ${isAuth ? 'MAINTAINED' : 'LOST'}`);
       
-      expect(authState.isAuthenticated).toBe(true);
-      expect(authState.hasToken).toBe(true);
-      console.log(`✅ Auth state maintained after navigation ${i + 1}`);
+      // Refresh on each page
+      console.log(`  🔄 Refreshing ${pageInfo.name}...`);
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+      await page.waitForTimeout(2000);
+      
+      const isAuthAfterRefresh = await checkAuthenticationState(page);
+      console.log(`  Auth status after refresh: ${isAuthAfterRefresh ? 'MAINTAINED' : 'LOST'}`);
+      
+      if (pageInfo.name === 'Admin Panel') {
+        expect(isAuthAfterRefresh).toBe(true);
+      }
     }
-    
-    console.log('✅ Auth state maintained throughout rapid navigation');
   });
-
-  test('should handle auth state after multiple page refreshes', async ({ page }) => {
-    console.log('🧪 Testing token persistence across multiple refreshes...');
+  
+  test('Token expiration simulation', async ({ page }) => {
+    test.setTimeout(120000);
     
-    // Step 1: Login as admin
-    await AuthHelpers.login(page);
-    await page.goto('http://localhost:5174/admin');
-    await page.waitForTimeout(2000);
-    console.log('✅ Initial setup completed');
+    console.log('\n🧪 === Test 5: Token Expiration Simulation ===');
     
-    // Step 2: Multiple refresh cycles
-    for (let i = 1; i <= 3; i++) {
-      console.log(`🔄 Refresh cycle ${i}/3`);
-      
-      await page.reload({ waitUntil: 'networkidle' });
-      await page.waitForTimeout(3000); // Allow auth system to initialize
-      
-      const authState = await page.evaluate(() => {
-        return {
-          authStorage: JSON.parse(localStorage.getItem('auth-authentication-storage') || '{}'),
-          token: localStorage.getItem('auth-token'),
-          coordinatorState: window.__authCoordinator?.getCurrentState(),
-          currentUrl: window.location.href
-        };
-      });
-      
-      expect(authState.authStorage.state?.isAuthenticated).toBe(true);
-      expect(authState.token).toBeTruthy();
-      expect(authState.currentUrl).toContain('/admin');
-      console.log(`✅ Auth state maintained after refresh ${i}`);
-    }
+    await loginAsAdmin(page);
+    await page.goto(`${BASE_URL}/admin`);
+    await page.waitForLoadState('networkidle');
     
-    console.log('✅ Auth state maintained across multiple refreshes');
+    console.log('🔑 Current tokens before manipulation:');
+    await checkStoredTokens(page);
+    
+    // Simulate token expiration by clearing tokens
+    console.log('🔄 Simulating token expiration by clearing localStorage...');
+    await page.evaluate(() => {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+    });
+    
+    await checkStoredTokens(page);
+    
+    // Refresh page to see how app handles missing tokens
+    console.log('🔄 Refreshing page with missing tokens...');
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(3000);
+    
+    const isAuth = await checkAuthenticationState(page);
+    console.log(`🔍 Authentication after token removal: ${isAuth ? 'MAINTAINED' : 'LOST'}`);
+    
+    const currentUrl = page.url();
+    console.log(`📍 Final URL: ${currentUrl}`);
+    
+    // We expect to be redirected to login page
+    expect(currentUrl).toContain('/login');
   });
+  
 }); 

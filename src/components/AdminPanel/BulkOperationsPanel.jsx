@@ -23,7 +23,8 @@ import {
   RotateCcw,
   Eye,
   Filter,
-  Plus
+  Plus,
+  Trash2
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
@@ -238,6 +239,7 @@ export const BulkOperationsPanel = ({
   const [bulkUpdateFields, setBulkUpdateFields] = useState({});
   const [bulkAddText, setBulkAddText] = useState('');
   const bulkAddFileInputRef = useRef(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
   
   // Handle file upload and validation
   const handleFileUpload = useCallback(async (file) => {
@@ -409,6 +411,47 @@ export const BulkOperationsPanel = ({
     }
   }, [resourceType, selectedRows, bulkUpdateFields, onOperationComplete]);
   
+  // Handle bulk delete
+  const handleBulkDelete = useCallback(async () => {
+    if (selectedRows.size === 0) {
+      toast.error('No rows selected for deletion');
+      return;
+    }
+    
+    setIsLoading(true);
+    setProgress(0);
+    
+    try {
+      const ids = Array.from(selectedRows);
+      const result = await enhancedAdminService.bulkDelete(
+        resourceType,
+        ids,
+        (progress) => setProgress(progress)
+      );
+      
+      // Add to operation history
+      setOperationHistory(prev => [...prev, {
+        id: Date.now(),
+        type: OPERATION_TYPES.BULK_DELETE,
+        timestamp: new Date(),
+        records: selectedRows.size,
+        success: result.success,
+        failed: result.failed
+      }]);
+      
+      toast.success(`Deleted ${result.success} records, ${result.failed} failed`);
+      setActiveOperation(null);
+      onOperationComplete?.();
+      
+    } catch (error) {
+      console.error('Bulk delete error:', error);
+      toast.error(`Bulk delete failed: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+      setProgress(0);
+    }
+  }, [resourceType, selectedRows, onOperationComplete]);
+  
   // Convert data to CSV
   const convertToCSV = (data) => {
     if (data.length === 0) return '';
@@ -467,16 +510,78 @@ export const BulkOperationsPanel = ({
         email: 'user@example.com',
         username: 'username',
         full_name: 'John Doe'
+      },
+      cities: {
+        name: 'City Name',
+        state: 'State',
+        country: 'Country'
+      },
+      neighborhoods: {
+        name: 'Neighborhood Name',
+        city_id: '1'
+      },
+      hashtags: {
+        name: 'hashtag_name'
+      },
+      restaurant_chains: {
+        name: 'Chain Name',
+        website: 'https://chain.com',
+        description: 'Chain description'
       }
     };
     
     return templates[resourceType] || {};
   };
   
-  // Handle bulk add restaurants
-  const handleBulkAddRestaurants = useCallback(async () => {
+  // Get format example for resource type
+  const getFormatExample = (resourceType) => {
+    const formats = {
+      restaurants: 'Restaurant Name, Address, City, State, ZIP',
+      dishes: 'Dish Name, Price, Description, Restaurant ID',
+      users: 'Email, Username, Full Name',
+      cities: 'City Name, State, Country',
+      neighborhoods: 'Neighborhood Name, City ID',
+      hashtags: 'Hashtag Name (without #)',
+      restaurant_chains: 'Chain Name, Website, Description'
+    };
+    
+    return formats[resourceType] || 'Name, Field1, Field2';
+  };
+  
+  // Get example data for resource type
+  const getExampleData = (resourceType) => {
+    const examples = {
+      restaurants: "Joe's Pizza, 123 Main St, New York, NY, 10001",
+      dishes: 'Margherita Pizza, 12.99, Classic tomato and mozzarella, 1',
+      users: 'john@example.com, johndoe, John Doe',
+      cities: 'New York, NY, USA',
+      neighborhoods: 'Manhattan, 1',
+      hashtags: 'italian_food',
+      restaurant_chains: 'Pizza Express, https://pizzaexpress.com, Italian pizza chain'
+    };
+    
+    return examples[resourceType] || 'Example, Data, Here';
+  };
+  
+  // Get placeholder text for resource type
+  const getPlaceholderText = (resourceType) => {
+    const placeholders = {
+      restaurants: "Restaurant Name, Address, City, State, ZIP\nAnother Restaurant, 456 Oak Ave, Brooklyn, NY, 11201\nThird Place, 789 Pine St, Queens, NY, 11373",
+      dishes: "Dish Name, Price, Description, Restaurant ID\nCheese Pizza, 10.99, Classic cheese pizza, 1\nCaesar Salad, 8.50, Fresh romaine with caesar dressing, 1",
+      users: "Email, Username, Full Name\nuser1@example.com, user1, User One\nuser2@example.com, user2, User Two",
+      cities: "City Name, State, Country\nNew York, NY, USA\nLos Angeles, CA, USA",
+      neighborhoods: "Neighborhood Name, City ID\nManhattan, 1\nBrooklyn, 1",
+      hashtags: "Hashtag Name\nitalian_food\nmexican_cuisine\nvegan_options",
+      restaurant_chains: "Chain Name, Website, Description\nPizza Express, https://pizzaexpress.com, Italian pizza chain\nBurger King, https://burgerking.com, Fast food chain"
+    };
+    
+    return placeholders[resourceType] || "Name, Field1, Field2\nExample 1, Value 1, Value 2\nExample 2, Value 3, Value 4";
+  };
+  
+  // Handle bulk add
+  const handleBulkAdd = useCallback(async () => {
     if (!bulkAddText.trim()) {
-      toast.error('Enter restaurant data');
+      toast.error('Enter data');
       return;
     }
     
@@ -484,8 +589,9 @@ export const BulkOperationsPanel = ({
     setProgress(0);
     
     try {
-      const restaurants = bulkAddText.split('\n').map(line => {
-        const [name, address, city, state, zip] = line.split(',');
+      const data = bulkAddText.split('\n').map(line => {
+        const parts = line.split(',');
+        const [name = '', address = '', city = '', state = '', zip = ''] = parts;
         return {
           name: name.trim(),
           address: address.trim(),
@@ -493,11 +599,11 @@ export const BulkOperationsPanel = ({
           state: state.trim(),
           zip: zip.trim()
         };
-      });
+      }).filter(item => item.name); // Filter out empty lines
       
-      const result = await enhancedAdminService.bulkAddRestaurants(
+      const result = await enhancedAdminService.bulkAdd(
         resourceType,
-        restaurants,
+        data,
         (progress) => setProgress(progress)
       );
       
@@ -506,19 +612,19 @@ export const BulkOperationsPanel = ({
         id: Date.now(),
         type: OPERATION_TYPES.BULK_ADD,
         timestamp: new Date(),
-        records: restaurants.length,
+        records: data.length,
         success: result.success,
         failed: result.failed
       }]);
       
-      toast.success(`Added ${result.success} restaurants, ${result.failed} failed`);
+      toast.success(`Added ${result.success} records, ${result.failed} failed`);
       setBulkAddText('');
       setActiveOperation(null);
       onOperationComplete?.();
       
     } catch (error) {
-      console.error('Bulk add restaurants error:', error);
-      toast.error(`Bulk add restaurants failed: ${error.message}`);
+      console.error('Bulk add error:', error);
+      toast.error(`Bulk add failed: ${error.message}`);
     } finally {
       setIsLoading(false);
       setProgress(0);
@@ -534,7 +640,7 @@ export const BulkOperationsPanel = ({
       setProgress(0);
       
       try {
-        const result = await enhancedAdminService.bulkAddRestaurantsFromFile(
+        const result = await enhancedAdminService.bulkAddFromFile(
           resourceType,
           file,
           (progress) => setProgress(progress)
@@ -550,7 +656,7 @@ export const BulkOperationsPanel = ({
           failed: result.failed
         }]);
         
-        toast.success(`Added ${result.success} restaurants, ${result.failed} failed`);
+        toast.success(`Added ${result.success} records, ${result.failed} failed`);
         setBulkAddText('');
         setActiveOperation(null);
         onOperationComplete?.();
@@ -584,7 +690,7 @@ export const BulkOperationsPanel = ({
       </div>
       
       {/* Operation Buttons */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
         <button
           onClick={() => setActiveOperation(OPERATION_TYPES.BULK_IMPORT)}
           disabled={isLoading}
@@ -612,16 +718,23 @@ export const BulkOperationsPanel = ({
           <span>Bulk Update</span>
         </button>
         
-        {resourceType === 'restaurants' && (
-          <button
-            onClick={() => setActiveOperation(OPERATION_TYPES.BULK_ADD)}
-            disabled={isLoading}
-            className="flex items-center justify-center space-x-2 p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <Plus className="w-5 h-5 text-indigo-600" />
-            <span>Bulk Add</span>
-          </button>
-        )}
+        <button
+          onClick={() => setActiveOperation(OPERATION_TYPES.BULK_DELETE)}
+          disabled={isLoading || selectedRows.size === 0}
+          className="flex items-center justify-center space-x-2 p-4 border border-gray-300 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+        >
+          <Trash2 className="w-5 h-5 text-red-600" />
+          <span>Bulk Delete</span>
+        </button>
+        
+        <button
+          onClick={() => setActiveOperation(OPERATION_TYPES.BULK_ADD)}
+          disabled={isLoading}
+          className="flex items-center justify-center space-x-2 p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+        >
+          <Plus className="w-5 h-5 text-indigo-600" />
+          <span>Bulk Add</span>
+        </button>
         
         <button
           onClick={handleDownloadTemplate}
@@ -751,11 +864,73 @@ export const BulkOperationsPanel = ({
         </div>
       )}
       
+      {/* Bulk Delete Confirmation Panel */}
+      {activeOperation === OPERATION_TYPES.BULK_DELETE && (
+        <div className="bg-white border border-red-200 rounded-lg p-6">
+          <h4 className="text-lg font-medium text-red-900 mb-4">
+            Confirm Bulk Delete ({selectedRows.size} records)
+          </h4>
+          
+          <div className="space-y-4">
+            {/* Warning message */}
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-start">
+                <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 mr-3 flex-shrink-0" />
+                <div>
+                  <h5 className="font-medium text-red-800 mb-1">Warning: This action cannot be undone!</h5>
+                  <p className="text-sm text-red-700">
+                    You are about to permanently delete <strong>{selectedRows.size}</strong> {resourceType} records. 
+                    This action cannot be reversed and may affect related data.
+                  </p>
+                  <p className="text-sm text-red-600 mt-2">
+                    Please type <strong>DELETE</strong> below to confirm this operation.
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Confirmation input */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Type "DELETE" to confirm:
+              </label>
+              <input
+                type="text"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                placeholder="Type DELETE here..."
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                value={deleteConfirmText}
+              />
+            </div>
+            
+            {/* Action buttons */}
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setActiveOperation(null);
+                  setDeleteConfirmText('');
+                }}
+                className="px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBulkDelete}
+                disabled={deleteConfirmText !== 'DELETE' || isLoading}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? 'Deleting...' : `Delete ${selectedRows.size} Records`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Bulk Add Interface */}
-      {activeOperation === OPERATION_TYPES.BULK_ADD && resourceType === 'restaurants' && (
+      {activeOperation === OPERATION_TYPES.BULK_ADD && (
         <div className="bg-white border border-gray-200 rounded-lg p-6">
           <h4 className="text-lg font-medium text-gray-900 mb-4">
-            Bulk Add Restaurants
+            Bulk Add {resourceType.charAt(0).toUpperCase() + resourceType.slice(1)}
           </h4>
           
           <div className="space-y-4">
@@ -763,24 +938,24 @@ export const BulkOperationsPanel = ({
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <h5 className="font-medium text-blue-900 mb-2">Format Instructions</h5>
               <p className="text-sm text-blue-800 mb-2">
-                Enter one restaurant per line using the following format:
+                Enter one {resourceType.slice(0, -1)} per line using the following format:
               </p>
               <code className="block text-sm bg-blue-100 p-2 rounded font-mono">
-                Restaurant Name, Address, City, State, ZIP
+                {getFormatExample(resourceType)}
               </code>
               <p className="text-xs text-blue-600 mt-2">
-                Example: Joe's Pizza, 123 Main St, New York, NY, 10001
+                Example: {getExampleData(resourceType)}
               </p>
             </div>
             
             {/* Text Input */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Restaurant Data (one per line)
+                {resourceType.charAt(0).toUpperCase() + resourceType.slice(1)} Data (one per line)
               </label>
               <textarea
                 className="w-full h-64 border border-gray-300 rounded-md px-3 py-2 text-sm font-mono"
-                placeholder="Restaurant Name, Address, City, State, ZIP&#10;Another Restaurant, 456 Oak Ave, Brooklyn, NY, 11201&#10;Third Place, 789 Pine St, Queens, NY, 11373"
+                placeholder={getPlaceholderText(resourceType)}
                 value={bulkAddText}
                 onChange={(e) => setBulkAddText(e.target.value)}
                 disabled={isLoading}
@@ -823,11 +998,11 @@ export const BulkOperationsPanel = ({
                 Cancel
               </button>
               <button
-                onClick={handleBulkAddRestaurants}
+                onClick={handleBulkAdd}
                 disabled={!bulkAddText.trim() || isLoading}
                 className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
               >
-                {isLoading ? 'Processing...' : 'Add Restaurants'}
+                {isLoading ? 'Processing...' : `Add ${resourceType.charAt(0).toUpperCase() + resourceType.slice(1)}`}
               </button>
             </div>
           </div>

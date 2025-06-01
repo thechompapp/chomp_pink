@@ -1,2 +1,18 @@
-<testsuites id="" name="" tests="0" failures="0" skipped="0" errors="0" time="19.255928">
+<testsuites id="" name="" tests="1" failures="0" skipped="0" errors="0" time="20.480993">
+<testsuite name="form-debug-simple.spec.js" timestamp="2025-06-01T16:02:28.560Z" hostname="chromium-desktop" tests="1" failures="0" skipped="0" time="19.483" errors="0">
+<testcase name="Simple Form Debug › Debug form submission for Cities" classname="form-debug-simple.spec.js" time="19.483">
+<system-out>
+<![CDATA[🔐 Logging in as admin...
+✅ Admin login successful
+✅ Navigated to Cities
+✅ Opened create form
+✅ Filled name field
+📋 Submit button enabled: true
+📋 Submit button enabled after wait: true
+🚀 Form is valid, attempting submission...
+✅ Form submitted
+]]>
+</system-out>
+</testcase>
+</testsuite>
 </testsuites>

@@ -1,24 +1,40 @@
 // src/components/UI/Input.jsx
 import React from 'react';
+import { cn } from '@/lib/utils';
 
 const Input = React.forwardRef(
   ({ label, id, name, type = 'text', className = '', error, ...props }, ref) => {
-    const baseClasses = "block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#D1B399] focus:border-[#D1B399] sm:text-sm disabled:opacity-60 disabled:bg-gray-50";
-    const errorClasses = error ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : '';
+    const baseClasses = "flex h-10 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
+    const errorClasses = error ? 'border-red-500 focus-visible:ring-red-500' : '';
 
-    return (
-      <div>
-        {label && (
-          <label htmlFor={id || name} className="block text-sm font-medium text-gray-700 mb-1">
-            {label}
-          </label>
-        )}
+    // If used without label (shadcn/ui style), return just the input
+    if (!label) {
+      return (
         <input
           type={type}
           id={id || name}
           name={name}
           ref={ref}
-          className={`${baseClasses} ${errorClasses} ${className}`}
+          className={cn(baseClasses, errorClasses, className)}
+          aria-invalid={!!error}
+          aria-describedby={error ? `${id || name}-error` : undefined}
+          {...props}
+        />
+      );
+    }
+
+    // If used with label (original style), return the full component
+    return (
+      <div>
+        <label htmlFor={id || name} className="block text-sm font-medium text-gray-700 mb-1">
+          {label}
+        </label>
+        <input
+          type={type}
+          id={id || name}
+          name={name}
+          ref={ref}
+          className={cn(baseClasses, errorClasses, className)}
           aria-invalid={!!error}
           aria-describedby={error ? `${id || name}-error` : undefined}
           {...props}
@@ -33,6 +49,7 @@ const Input = React.forwardRef(
   }
 );
 
-Input.displayName = 'Input'; // Add display name
+Input.displayName = 'Input';
 
 export default Input;
+export { Input };

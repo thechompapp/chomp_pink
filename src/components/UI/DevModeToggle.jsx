@@ -54,6 +54,23 @@ const DevModeToggle = () => {
     });
   }, []);
   
+  useEffect(() => {
+    // DISABLED: Auto-check causing infinite loops
+    // if (isDevelopment) {
+    //   checkAuthStatus(true);
+    // }
+    
+    // Only check if not explicitly logged out and not in testing mode
+    if (isDevelopment) {
+      const isExplicitLogout = localStorage.getItem('user_explicitly_logged_out') === 'true';
+      const isE2ETesting = localStorage.getItem('e2e_testing_mode') === 'true';
+      
+      if (!isExplicitLogout && !isE2ETesting) {
+        checkAuthStatus(true);
+      }
+    }
+  }, [checkAuthStatus]);
+  
   return (
     <div className="fixed bottom-4 right-4 z-50">
       <button 

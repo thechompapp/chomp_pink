@@ -473,19 +473,15 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
         className={GRID_LAYOUTS.PRIMARY}
         scrollThreshold={0.95} 
       >
-        {items.map((item) => {
+        {items.filter(item => item && item.id != null).map((item) => {
           return (
-            item && item.id != null ? (
-              <CardFactory
-                key={`${contentType}-${item.id}-${item.name}`}
-                type={contentType}
-                data={item}
-                onQuickAdd={openQuickAdd}
-                onAddToList={handleAddToList}
-              />
-            ) : (
-              logWarn('[Results] Attempted to render a null item or item without ID.', item) && null
-            )
+            <CardFactory
+              key={`${contentType}-${item.id}-${item.name}`}
+              type={contentType}
+              data={item}
+              onQuickAdd={openQuickAdd}
+              onAddToList={handleAddToList}
+            />
           );
         })}
         {processedPageError && items.length > 0 && (

@@ -780,3 +780,274 @@ export const getAutosuggestNeighborhoodsByCity = async (req, res) => {
     });
   }
 };
+
+// COMPREHENSIVE BULK OPERATIONS FOR ALL RESOURCE TYPES
+
+// Generic bulk delete function
+const bulkDelete = async (req, res, resourceType) => {
+  try {
+    const { ids } = req.body;
+    
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Array of IDs is required'
+      });
+    }
+
+    // Validate all IDs are numbers
+    const validIds = ids.filter(id => !isNaN(parseInt(id)));
+    if (validIds.length !== ids.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'All IDs must be valid numbers'
+      });
+    }
+
+    const results = {
+      success: 0,
+      failed: 0,
+      errors: []
+    };
+
+    // Delete each item
+    for (const id of validIds) {
+      try {
+        const deleted = await AdminModel.deleteResource(resourceType, parseInt(id));
+        if (deleted) {
+          results.success++;
+        } else {
+          results.failed++;
+          results.errors.push(`${resourceType} with ID ${id} not found`);
+        }
+      } catch (error) {
+        results.failed++;
+        results.errors.push(`Failed to delete ${resourceType} ${id}: ${error.message}`);
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Bulk delete completed: ${results.success} deleted, ${results.failed} failed`,
+      data: results
+    });
+
+  } catch (error) {
+    console.error(`Error in bulk delete ${resourceType}:`, error);
+    res.status(500).json({
+      success: false,
+      message: `Bulk delete ${resourceType} failed`,
+      error: error.message
+    });
+  }
+};
+
+// Generic bulk update function
+const bulkUpdate = async (req, res, resourceType) => {
+  try {
+    const { updates } = req.body;
+    
+    if (!Array.isArray(updates) || updates.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Array of updates is required (each with id and fields to update)'
+      });
+    }
+
+    const results = {
+      success: 0,
+      failed: 0,
+      errors: []
+    };
+
+    // Update each item
+    for (const update of updates) {
+      try {
+        if (!update.id) {
+          results.failed++;
+          results.errors.push('Update missing ID field');
+          continue;
+        }
+
+        const { id, ...updateData } = update;
+        const updated = await AdminModel.updateResource(resourceType, parseInt(id), updateData);
+        
+        if (updated) {
+          results.success++;
+        } else {
+          results.failed++;
+          results.errors.push(`${resourceType} with ID ${id} not found`);
+        }
+      } catch (error) {
+        results.failed++;
+        results.errors.push(`Failed to update ${resourceType} ${update.id}: ${error.message}`);
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Bulk update completed: ${results.success} updated, ${results.failed} failed`,
+      data: results
+    });
+
+  } catch (error) {
+    console.error(`Error in bulk update ${resourceType}:`, error);
+    res.status(500).json({
+      success: false,
+      message: `Bulk update ${resourceType} failed`,
+      error: error.message
+    });
+  }
+};
+
+// Generic bulk add function
+const bulkAdd = async (req, res, resourceType) => {
+  try {
+    const { records } = req.body;
+    
+    if (!Array.isArray(records) || records.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Array of records is required'
+      });
+    }
+
+    const results = {
+      success: 0,
+      failed: 0,
+      errors: [],
+      created: []
+    };
+
+    // Create each item
+    for (const record of records) {
+      try {
+        const created = await AdminModel.createResource(resourceType, record);
+        if (created) {
+          results.success++;
+          results.created.push(created);
+        } else {
+          results.failed++;
+          results.errors.push(`Failed to create ${resourceType} record`);
+        }
+      } catch (error) {
+        results.failed++;
+        results.errors.push(`Failed to create ${resourceType}: ${error.message}`);
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Bulk add completed: ${results.success} created, ${results.failed} failed`,
+      data: results
+    });
+
+  } catch (error) {
+    console.error(`Error in bulk add ${resourceType}:`, error);
+    res.status(500).json({
+      success: false,
+      message: `Bulk add ${resourceType} failed`,
+      error: error.message
+    });
+  }
+};
+
+// Generic import function (file-based bulk add)
+const importData = async (req, res, resourceType) => {
+  try {
+    // Handle file upload and parsing
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({
+        success: false,
+        message: 'File is required'
+      });
+    }
+
+    // Parse CSV/JSON file content
+    let records = [];
+    const fileContent = file.buffer.toString('utf8');
+    
+    if (file.mimetype === 'application/json') {
+      records = JSON.parse(fileContent);
+    } else if (file.mimetype === 'text/csv' || file.originalname.endsWith('.csv')) {
+      // Basic CSV parsing (for production, use a proper CSV parser)
+      const lines = fileContent.split('\n').filter(line => line.trim());
+      const headers = lines[0].split(',').map(h => h.trim());
+      
+      records = lines.slice(1).map(line => {
+        const values = line.split(',').map(v => v.trim());
+        const record = {};
+        headers.forEach((header, index) => {
+          record[header] = values[index];
+        });
+        return record;
+      });
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Unsupported file type. Please use CSV or JSON files.'
+      });
+    }
+
+    if (!Array.isArray(records) || records.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No valid records found in file'
+      });
+    }
+
+    // Use the bulk add function
+    req.body = { records };
+    return bulkAdd(req, res, resourceType);
+
+  } catch (error) {
+    console.error(`Error in import ${resourceType}:`, error);
+    res.status(500).json({
+      success: false,
+      message: `Import ${resourceType} failed`,
+      error: error.message
+    });
+  }
+};
+
+// RESTAURANTS BULK OPERATIONS
+export const bulkDeleteRestaurants = (req, res) => bulkDelete(req, res, 'restaurants');
+export const bulkUpdateRestaurants = (req, res) => bulkUpdate(req, res, 'restaurants');
+export const importRestaurants = (req, res) => importData(req, res, 'restaurants');
+
+// DISHES BULK OPERATIONS  
+export const bulkDeleteDishes = (req, res) => bulkDelete(req, res, 'dishes');
+export const bulkUpdateDishes = (req, res) => bulkUpdate(req, res, 'dishes');
+export const bulkAddDishes = (req, res) => bulkAdd(req, res, 'dishes');
+export const importDishes = (req, res) => importData(req, res, 'dishes');
+
+// USERS BULK OPERATIONS
+export const bulkDeleteUsers = (req, res) => bulkDelete(req, res, 'users');
+export const bulkUpdateUsers = (req, res) => bulkUpdate(req, res, 'users');
+export const bulkAddUsers = (req, res) => bulkAdd(req, res, 'users');
+export const importUsers = (req, res) => importData(req, res, 'users');
+
+// CITIES BULK OPERATIONS
+export const bulkDeleteCities = (req, res) => bulkDelete(req, res, 'cities');
+export const bulkUpdateCities = (req, res) => bulkUpdate(req, res, 'cities');
+export const bulkAddCities = (req, res) => bulkAdd(req, res, 'cities');
+export const importCities = (req, res) => importData(req, res, 'cities');
+
+// NEIGHBORHOODS BULK OPERATIONS
+export const bulkDeleteNeighborhoods = (req, res) => bulkDelete(req, res, 'neighborhoods');
+export const bulkUpdateNeighborhoods = (req, res) => bulkUpdate(req, res, 'neighborhoods');
+export const bulkAddNeighborhoods = (req, res) => bulkAdd(req, res, 'neighborhoods');
+export const importNeighborhoods = (req, res) => importData(req, res, 'neighborhoods');
+
+// HASHTAGS BULK OPERATIONS
+export const bulkDeleteHashtags = (req, res) => bulkDelete(req, res, 'hashtags');
+export const bulkUpdateHashtags = (req, res) => bulkUpdate(req, res, 'hashtags');
+export const bulkAddHashtags = (req, res) => bulkAdd(req, res, 'hashtags');
+export const importHashtags = (req, res) => importData(req, res, 'hashtags');
+
+// RESTAURANT CHAINS BULK OPERATIONS
+export const bulkDeleteRestaurantChains = (req, res) => bulkDelete(req, res, 'restaurant_chains');
+export const bulkUpdateRestaurantChains = (req, res) => bulkUpdate(req, res, 'restaurant_chains');
+export const bulkAddRestaurantChains = (req, res) => bulkAdd(req, res, 'restaurant_chains');
+export const importRestaurantChains = (req, res) => importData(req, res, 'restaurant_chains');

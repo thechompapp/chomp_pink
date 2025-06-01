@@ -14,7 +14,6 @@ import Footer from '@/layouts/Footer';
 
 // Page Components
 import Home from '@/pages/Home';
-import Lists from '@/pages/Lists';
 import Search from '@/pages/Search';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
@@ -74,7 +73,6 @@ function App() {
                   >
                     <Routes>
                       <Route path="/" element={<Home />} />
-                      <Route path="/lists" element={<Lists />} />
                       <Route path="/search" element={<Search />} />
                       <Route path="/login" element={<Login />} />
                       <Route path="/register" element={<Register />} />

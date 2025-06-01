@@ -15,6 +15,9 @@ import { Toaster } from 'react-hot-toast';
 import { BrowserRouter } from 'react-router-dom';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 
+// Import emergency utilities for debugging
+import './utils/emergencyReset.js';
+
 // Development mode authentication setup
 if (import.meta.env.DEV) {
   logInfo('[Main] Development mode detected - optimized authentication system active');

@@ -1,48 +1,122 @@
 /**
  * Optimized Authentication Store Module
  * 
- * Streamlined authentication with consolidated state management
+ * FIXED: Now properly delegates to AuthenticationCoordinator during initialization
+ * This eliminates the race condition that was overriding authenticated state.
  */
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { logInfo, logWarn, logError } from '@/utils/logger.js';
-import authService from '@/services/auth/authService';
+import { checkAuthStatus, login, logout } from './modules/authOperations';
 
 // Constants
 const STORAGE_KEY = 'auth-authentication-storage';
 const SESSION_CACHE_DURATION = 15 * 60 * 1000; // 15 minutes
 
 /**
- * Initial state factory
+ * Get initial state from AuthenticationCoordinator if available
  */
-const createInitialState = () => ({
-  token: null,
-  isAuthenticated: false,
-  user: null,
-  isLoading: false,
-  error: null,
-  lastAuthCheck: null
-});
+const getInitialStateFromCoordinator = () => {
+  try {
+    // Check if coordinator is available globally
+    if (typeof window !== 'undefined' && window.__authCoordinator) {
+      const coordinatorState = window.__authCoordinator.getCurrentState();
+      if (coordinatorState.isAuthenticated && coordinatorState.token && coordinatorState.user) {
+        logInfo('[AuthStore] Using authenticated state from coordinator during initialization');
+        return {
+          token: coordinatorState.token,
+          isAuthenticated: true,
+          user: coordinatorState.user,
+          isLoading: false,
+          error: null,
+          lastAuthCheck: Date.now()
+        };
+      }
+    }
+    
+    // Check localStorage for existing authentication
+    const storedToken = localStorage.getItem('token');
+    const storedUser = localStorage.getItem('current_user');
+    const logoutFlag = localStorage.getItem('user_explicitly_logged_out');
+    
+    // If explicitly logged out, return unauthenticated state
+    if (logoutFlag === 'true') {
+      return {
+        token: null,
+        isAuthenticated: false,
+        user: null,
+        isLoading: false,
+        error: null,
+        lastAuthCheck: null
+      };
+    }
+    
+    // If we have valid token and user data, initialize as authenticated
+    if (storedToken && storedToken !== 'null' && storedUser && storedUser !== 'null') {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        if (parsedUser && parsedUser.id) {
+          logInfo('[AuthStore] Found valid auth data in localStorage, initializing as authenticated');
+          return {
+            token: storedToken,
+            isAuthenticated: true,
+            user: parsedUser,
+            isLoading: false,
+            error: null,
+            lastAuthCheck: Date.now()
+          };
+        }
+      } catch (error) {
+        logWarn('[AuthStore] Error parsing stored user data:', error);
+      }
+    }
+    
+    // Default to unauthenticated
+    logInfo('[AuthStore] No valid auth data found, initializing as unauthenticated');
+    return {
+      token: null,
+      isAuthenticated: false,
+      user: null,
+      isLoading: false,
+      error: null,
+      lastAuthCheck: null
+    };
+  } catch (error) {
+    logError('[AuthStore] Error getting initial state:', error);
+    return {
+      token: null,
+      isAuthenticated: false,
+      user: null,
+      isLoading: false,
+      error: null,
+      lastAuthCheck: null
+    };
+  }
+};
 
 /**
- * Optimized Authentication Store
+ * Authentication Store - properly delegates to AuthenticationCoordinator
  */
 const useAuthenticationStore = create(
   persist(
     (set, get) => ({
-      // Initial state
-      ...createInitialState(),
+      // Initialize with coordinator state if available
+      ...getInitialStateFromCoordinator(),
 
       /**
-       * Set authentication token
+       * Set authentication token - syncs with coordinator
        */
-      setToken: (token) => {
-        set({ token });
-        // Sync with other storage systems
-        if (token) {
-          localStorage.setItem('auth-token', token);
-        } else {
-          localStorage.removeItem('auth-token');
+      setToken: async (token) => {
+        try {
+          // Import coordinator lazily to avoid circular deps
+          const { default: authCoordinator } = await import('@/utils/AuthenticationCoordinator');
+          await authCoordinator.setToken(token);
+          
+          set({ token });
+          logInfo('[AuthStore] Token set and synced with coordinator');
+        } catch (error) {
+          logError('[AuthStore] Error setting token:', error);
+          set({ token, error: error.message });
         }
       },
 
@@ -66,242 +140,85 @@ const useAuthenticationStore = create(
       }),
 
       /**
-       * Optimized authentication status check
+       * Check authentication status - delegates to coordinator
        */
       checkAuthStatus: async (forceCheck = false) => {
-        // Check if user has explicitly logged out - if so, don't check auth status
-        const hasExplicitlyLoggedOut = localStorage.getItem('user_explicitly_logged_out') === 'true';
-        const isE2ETesting = localStorage.getItem('e2e_testing_mode') === 'true';
-        const isLogoutInProgress = localStorage.getItem('logout_in_progress') === 'true';
-        
-        if (hasExplicitlyLoggedOut || isE2ETesting || isLogoutInProgress) {
-          logInfo('[AuthStore] User explicitly logged out or testing mode - not checking auth status');
-          
-          // Force logout state
-          set({
-            ...createInitialState(),
-            lastAuthCheck: Date.now()
-          });
-          
-          // Clear any stale tokens
-          localStorage.removeItem('auth-token');
-          localStorage.removeItem('token');
-          localStorage.removeItem('userData');
-          
-          return false;
-        }
-        
-        const state = get();
-        const now = Date.now();
-        
-        // Use cache if available and not forced
-        if (!forceCheck && 
-            state.isAuthenticated && 
-            state.user && 
-            state.lastAuthCheck &&
-            (now - state.lastAuthCheck) < SESSION_CACHE_DURATION) {
-          
-          // But still validate the token exists and is valid
-          const isValid = authService.isTokenValid();
-          if (isValid) {
-            logInfo('[AuthStore] Using cached auth status');
-            return true;
-          } else {
-            // Token is invalid, force a fresh check
-            logWarn('[AuthStore] Cached token invalid, forcing fresh check');
-          }
-        }
-
-        // Remove development mode bypass to ensure proper authentication
-        // This was causing security issues in E2E tests
-        
-        set({ isLoading: true, error: null });
-
-        try {
-          // Use consolidated auth service for proper token validation
-          const isValid = authService.isTokenValid();
-          
-          if (isValid) {
-            const user = authService.getCurrentUser();
-            if (user) {
-              // Verify token is actually valid by checking localStorage
-              const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
-              if (token && token !== 'null' && token !== 'undefined') {
-                set({
-                  isAuthenticated: true,
-                  user,
-                  token,
-                  lastAuthCheck: now,
-                  isLoading: false,
-                  error: null
-                });
-                return true;
-              }
-            }
-          }
-
-          // Token invalid or missing, clear state
-          logInfo('[AuthStore] No valid authentication found, clearing state');
-          set({
-            ...createInitialState(),
-            lastAuthCheck: now
-          });
-          
-          // Clear any stale tokens
-          localStorage.removeItem('auth-token');
-          localStorage.removeItem('token');
-          localStorage.removeItem('userData');
-          
-          return false;
-        } catch (error) {
-          logError('[AuthStore] Auth check failed:', error);
-          set({
-            isLoading: false,
-            error: error.message,
-            lastAuthCheck: now
-          });
-          return false;
-        }
-      },
-
-      /**
-       * Optimized login function
-       */
-      login: async (formData) => {
-        set({ isLoading: true, error: null });
-        
-        // Clear explicit logout flag
-        localStorage.removeItem('user_explicitly_logged_out');
+        logInfo('[AuthStore] Checking auth status via coordinator');
         
         try {
-          logInfo('[AuthStore] Attempting login');
-          
-          const result = await authService.login(formData);
-          
-          if (result.success) {
-            const newState = {
-              isAuthenticated: true,
-              user: result.data.user,
-              token: result.data.token,
-              isLoading: false,
-              error: null,
-              lastAuthCheck: Date.now()
-            };
-            
-            set(newState);
-            
-            // Notify other systems
-            window.dispatchEvent(new CustomEvent('auth:login_complete', {
-              detail: { isAuthenticated: true, user: result.data.user }
-            }));
-            
-            logInfo('[AuthStore] Login successful');
-            return true;
-          } else {
-            throw new Error(result.message || 'Login failed');
-          }
+          const result = await checkAuthStatus(set, get, forceCheck);
+          logInfo('[AuthStore] Auth status check result:', result);
+          return result;
         } catch (error) {
-          logError('[AuthStore] Login error:', error);
-          set({
+          logError('[AuthStore] Auth status check failed:', error);
+          set({ 
             isAuthenticated: false,
             user: null,
             token: null,
-            isLoading: false,
-            error: error.message || 'Login failed'
+            error: error.message,
+            isLoading: false 
           });
           return false;
         }
       },
 
       /**
-       * Optimized logout function
+       * Login - delegates to coordinator
        */
-      logout: async () => {
-        set({ isLoading: true, error: null });
+      login: async (credentials) => {
+        logInfo('[AuthStore] Login attempt via coordinator');
         
         try {
-          // Step 1: Get current token before clearing
-          const currentToken = get().token || localStorage.getItem('auth-token') || localStorage.getItem('token');
-          
-          // Step 2: Set explicit logout flag FIRST to prevent auto-login attempts
-          localStorage.setItem('user_explicitly_logged_out', 'true');
-          
-          // Step 3: Call auth service logout (this clears tokens and calls API)
-          await authService.logout();
-          
-          // Step 4: Clear ALL possible token storage locations
-          const tokenKeys = [
-            'auth-token', 'token', 'refreshToken', 'auth_access_token', 
-            'auth_refresh_token', 'auth_token_expiry', 'userData', 'current_user',
-            'admin_api_key', 'admin_access_enabled', 'superuser_override'
-          ];
-          
-          tokenKeys.forEach(key => {
-            localStorage.removeItem(key);
-            sessionStorage.removeItem(key);
-          });
-          
-          // Step 5: Clear Zustand persisted storage
-          localStorage.removeItem('auth-authentication-storage');
-          sessionStorage.removeItem('auth-authentication-storage');
-          
-          // Step 6: Reset store state to initial state
-          set(createInitialState());
-          
-          // Step 7: Clear HTTP client auth headers
-          if (window.axios && window.axios.defaults) {
-            delete window.axios.defaults.headers.common['Authorization'];
-          }
-          
-          // Step 8: Clear any cookies
-          document.cookie.split(";").forEach(function(c) { 
-            document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
-          });
-          
-          // Step 9: Notify all systems of logout
-          window.dispatchEvent(new CustomEvent('auth:logout_complete', {
-            detail: { cleared: true, timestamp: Date.now() }
-          }));
-          
-          // Step 10: Force UI refresh
-          window.dispatchEvent(new CustomEvent('forceUiRefresh', {
-            detail: { timestamp: Date.now() }
-          }));
-          
-          logInfo('[AuthStore] Complete logout successful - all tokens and state cleared');
-          
+          const result = await login(set, get, credentials);
+          logInfo('[AuthStore] Login result:', result);
+          return result;
         } catch (error) {
-          logError('[AuthStore] Logout error:', error);
+          logError('[AuthStore] Login failed:', error);
+          set({ 
+            isAuthenticated: false,
+            user: null,
+            token: null,
+            error: error.message,
+            isLoading: false 
+          });
+          return false;
+        }
+      },
+
+      /**
+       * Logout - delegates to coordinator
+       */
+      logout: async () => {
+        logInfo('[AuthStore] Logout via coordinator');
+        
+        try {
+          const result = await logout(set, get);
+          logInfo('[AuthStore] Logout result:', result);
           
-          // CRITICAL: Even on error, ensure complete state clearing
-          // Clear all possible storage locations
-          const allStorageKeys = [
-            'auth-token', 'token', 'refreshToken', 'auth_access_token', 
-            'auth_refresh_token', 'auth_token_expiry', 'userData', 'current_user',
-            'admin_api_key', 'admin_access_enabled', 'superuser_override',
-            'auth-authentication-storage'
-          ];
-          
-          allStorageKeys.forEach(key => {
-            localStorage.removeItem(key);
-            sessionStorage.removeItem(key);
+          // Ensure state is cleared regardless of API result
+          set({
+            token: null,
+            isAuthenticated: false,
+            user: null,
+            isLoading: false,
+            error: null,
+            lastAuthCheck: null
           });
           
-          // Force state reset
-          set(createInitialState());
-          localStorage.setItem('user_explicitly_logged_out', 'true');
+          return result;
+        } catch (error) {
+          logError('[AuthStore] Logout failed:', error);
           
-          // Clear HTTP headers
-          if (window.axios && window.axios.defaults) {
-            delete window.axios.defaults.headers.common['Authorization'];
-          }
-          
-          // Notify systems even on error
-          window.dispatchEvent(new CustomEvent('auth:logout_complete', {
-            detail: { cleared: true, error: true, timestamp: Date.now() }
-          }));
-          
-          logInfo('[AuthStore] Forced logout completed despite error');
+          // Clear state anyway
+          set({
+            token: null,
+            isAuthenticated: false,
+            user: null,
+            isLoading: false,
+            error: null,
+            lastAuthCheck: null
+          });
+          return true;
         }
       },
 
@@ -321,40 +238,71 @@ const useAuthenticationStore = create(
       /**
        * Reset store to initial state
        */
-      reset: () => set(createInitialState())
+      reset: () => set({
+        token: null,
+        isAuthenticated: false,
+        user: null,
+        isLoading: false,
+        error: null,
+        lastAuthCheck: null
+      }),
+
+      /**
+       * Sync state from coordinator (called by coordinator)
+       */
+      syncFromCoordinator: (coordinatorState) => {
+        logInfo('[AuthStore] Syncing state from coordinator:', coordinatorState);
+        set({
+          token: coordinatorState.token,
+          isAuthenticated: coordinatorState.isAuthenticated,
+          user: coordinatorState.user,
+          isLoading: false,
+          error: null,
+          lastAuthCheck: Date.now()
+        });
+      }
     }),
     {
       name: STORAGE_KEY,
       storage: createJSONStorage(() => localStorage),
+      // Only persist essential auth state
       partialize: (state) => ({
         token: state.token,
         user: state.user,
         isAuthenticated: state.isAuthenticated,
         lastAuthCheck: state.lastAuthCheck
       }),
-      onRehydrateStorage: () => (state, error) => {
-        if (error) {
-          logError('[AuthStore] Error rehydrating auth state:', error);
-          return;
-        }
-        
-        // Check if user has explicitly logged out - if so, don't restore auth state
-        const hasExplicitlyLoggedOut = localStorage.getItem('user_explicitly_logged_out') === 'true';
-        const isE2ETesting = localStorage.getItem('e2e_testing_mode') === 'true';
-        const isLogoutInProgress = localStorage.getItem('logout_in_progress') === 'true';
-        
-        if (hasExplicitlyLoggedOut || isE2ETesting || isLogoutInProgress) {
-          logInfo('[AuthStore] User explicitly logged out or testing mode - not restoring auth state');
-          
-          // Clear the persisted auth state and reset to initial state
-          localStorage.removeItem(STORAGE_KEY);
-          
-          // Return initial state instead of persisted state
-          return createInitialState();
-        }
-        
+      onRehydrateStorage: () => (state) => {
         if (state) {
-          logInfo('[AuthStore] Rehydrating auth state from storage');
+          logInfo('[AuthStore] Rehydrating auth state from storage:', {
+            hasToken: !!state.token,
+            hasUser: !!state.user,
+            isAuthenticated: state.isAuthenticated
+          });
+          
+          // CRITICAL FIX: Check coordinator state before trusting persisted state
+          setTimeout(async () => {
+            try {
+              // Import coordinator
+              const { default: authCoordinator } = await import('@/utils/AuthenticationCoordinator');
+              
+              // Check if coordinator has different state
+              const coordinatorState = authCoordinator.getCurrentState();
+              const store = useAuthenticationStore.getState();
+              
+              // If coordinator and store states don't match, use coordinator's state
+              if (coordinatorState.isAuthenticated !== state.isAuthenticated ||
+                  coordinatorState.token !== state.token) {
+                logInfo('[AuthStore] Coordinator state differs from persisted state, syncing from coordinator');
+                store.syncFromCoordinator(coordinatorState);
+              } else if (state.isAuthenticated && (!state.token || !state.user)) {
+                logWarn('[AuthStore] Invalid rehydrated state detected, triggering auth check');
+                store.checkAuthStatus(true);
+              }
+            } catch (error) {
+              logError('[AuthStore] Error syncing with coordinator during rehydration:', error);
+            }
+          }, 100);
         }
       }
     }

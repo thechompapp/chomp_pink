@@ -24,6 +24,7 @@ import { useAuth } from '@/contexts/auth/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { AdminAuthSetup } from '@/utils/adminAuthSetup';
 import { logInfo, logWarn, logError } from '@/utils/logger';
+import ChainManagement from '../Admin/ChainManagement';
 
 /**
  * Tab configuration for admin panel
@@ -84,6 +85,13 @@ const TAB_CONFIG = {
     enhanced: true, 
     icon: Settings,
     description: 'Manage restaurant chains data with real-time editing'
+  },
+  chain_management: {
+    label: 'Chain Management',
+    key: 'chain_management',
+    enhanced: true,
+    icon: BarChart3,
+    description: 'AI-powered chain detection and management tools'
   },
   submissions: { 
     label: 'Submissions', 
@@ -632,6 +640,35 @@ const AdminPanel = () => {
               enableCreate={true}
               className="shadow-lg"
             />
+          </div>
+        );
+
+      case 'chain_management':
+        return (
+          <div className="space-y-6">
+            {/* Enhanced Features Notice */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-blue-800">Enhanced Features Active</h3>
+                  <div className="mt-1 text-sm text-blue-700">
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>AI-powered chain detection and management tools</li>
+                      <li>Automatic restaurant name similarity analysis</li>
+                      <li>Intelligent chain creation suggestions</li>
+                      <li>Confidence scoring for chain matches</li>
+                      <li>Comprehensive chain statistics and analytics</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Chain Management Component */}
+            <ChainManagement />
           </div>
         );
 

@@ -110,13 +110,6 @@ const Navbar = () => {
           {isAuthenticated ? (
             <>
               <Link 
-                to="/lists" 
-                className="text-primary-foreground hover:text-primary-foreground/90 transition-colors"
-              >
-                Lists
-              </Link>
-              
-              <Link 
                 to="/my-lists" 
                 className="text-primary-foreground hover:text-primary-foreground/90 transition-colors"
               >
@@ -194,14 +187,6 @@ const Navbar = () => {
           </Link>
           {isAuthenticated ? (
             <>
-              <Link 
-                to="/lists" 
-                className="block text-primary-foreground hover:text-primary-foreground/90 transition-colors py-2"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Lists
-              </Link>
-              
               <Link 
                 to="/my-lists" 
                 className="block text-primary-foreground hover:text-primary-foreground/90 transition-colors py-2"

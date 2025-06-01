@@ -4,13 +4,15 @@
     "rootDir": "/Users/naf/Downloads/doof/e2e",
     "forbidOnly": false,
     "fullyParallel": true,
-    "globalSetup": "/Users/naf/Downloads/doof/e2e/global-setup.js",
-    "globalTeardown": "/Users/naf/Downloads/doof/e2e/global-teardown.js",
+    "globalSetup": null,
+    "globalTeardown": null,
     "globalTimeout": 0,
     "grep": {},
     "grepInvert": null,
     "maxFailures": 0,
-    "metadata": {},
+    "metadata": {
+      "actualWorkers": 1
+    },
     "preserveOutput": "always",
     "reporter": [
       [
@@ -46,7 +48,9 @@
         "outputDir": "/Users/naf/Downloads/doof/e2e-results/test-artifacts",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {},
+        "metadata": {
+          "actualWorkers": 1
+        },
         "id": "chromium-desktop",
         "name": "chromium-desktop",
         "testDir": "/Users/naf/Downloads/doof/e2e",
@@ -60,7 +64,9 @@
         "outputDir": "/Users/naf/Downloads/doof/e2e-results/test-artifacts",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {},
+        "metadata": {
+          "actualWorkers": 1
+        },
         "id": "firefox-desktop",
         "name": "firefox-desktop",
         "testDir": "/Users/naf/Downloads/doof/e2e",
@@ -74,7 +80,9 @@
         "outputDir": "/Users/naf/Downloads/doof/e2e-results/test-artifacts",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {},
+        "metadata": {
+          "actualWorkers": 1
+        },
         "id": "webkit-desktop",
         "name": "webkit-desktop",
         "testDir": "/Users/naf/Downloads/doof/e2e",
@@ -88,7 +96,9 @@
         "outputDir": "/Users/naf/Downloads/doof/e2e-results/test-artifacts",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {},
+        "metadata": {
+          "actualWorkers": 1
+        },
         "id": "mobile-chrome",
         "name": "mobile-chrome",
         "testDir": "/Users/naf/Downloads/doof/e2e",
@@ -102,7 +112,9 @@
         "outputDir": "/Users/naf/Downloads/doof/e2e-results/test-artifacts",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {},
+        "metadata": {
+          "actualWorkers": 1
+        },
         "id": "mobile-safari",
         "name": "mobile-safari",
         "testDir": "/Users/naf/Downloads/doof/e2e",
@@ -116,7 +128,9 @@
         "outputDir": "/Users/naf/Downloads/doof/e2e-results/test-artifacts",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {},
+        "metadata": {
+          "actualWorkers": 1
+        },
         "id": "tablet-ipad",
         "name": "tablet-ipad",
         "testDir": "/Users/naf/Downloads/doof/e2e",
@@ -131,56 +145,95 @@
     "updateSnapshots": "missing",
     "updateSourceMethod": "patch",
     "version": "1.52.0",
-    "workers": 1,
+    "workers": 4,
     "webServer": null
   },
-  "suites": [],
-  "errors": [
+  "suites": [
     {
-      "message": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/admin-panel.spec.js",
-      "stack": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/admin-panel.spec.js"
-    },
-    {
-      "message": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/admin-token-persistence.spec.js",
-      "stack": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/admin-token-persistence.spec.js"
-    },
-    {
-      "message": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/application-wiring-validation.spec.js",
-      "stack": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/application-wiring-validation.spec.js"
-    },
-    {
-      "message": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/dishes-admin-diagnosis.spec.js",
-      "stack": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/dishes-admin-diagnosis.spec.js"
-    },
-    {
-      "message": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/enhanced-auth-e2e.spec.js",
-      "stack": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/enhanced-auth-e2e.spec.js"
-    },
-    {
-      "message": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/google-places-integration.spec.js",
-      "stack": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/google-places-integration.spec.js"
-    },
-    {
-      "message": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/incremental-flows.spec.js",
-      "stack": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/incremental-flows.spec.js"
-    },
-    {
-      "message": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/restaurant-address-autocomplete.spec.js",
-      "stack": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/restaurant-address-autocomplete.spec.js"
-    },
-    {
-      "message": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/restaurant-dish-flows.spec.js",
-      "stack": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/restaurant-dish-flows.spec.js"
-    },
-    {
-      "message": "Error: No tests found",
-      "stack": "Error: No tests found"
+      "title": "form-debug-simple.spec.js",
+      "file": "form-debug-simple.spec.js",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Simple Form Debug",
+          "file": "form-debug-simple.spec.js",
+          "line": 31,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Debug form submission for Cities",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium-desktop",
+                  "projectName": "chromium-desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 19483,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🔐 Logging in as admin...\n"
+                        },
+                        {
+                          "text": "✅ Admin login successful\n"
+                        },
+                        {
+                          "text": "✅ Navigated to Cities\n"
+                        },
+                        {
+                          "text": "✅ Opened create form\n"
+                        },
+                        {
+                          "text": "✅ Filled name field\n"
+                        },
+                        {
+                          "text": "📋 Submit button enabled: true\n"
+                        },
+                        {
+                          "text": "📋 Submit button enabled after wait: true\n"
+                        },
+                        {
+                          "text": "🚀 Form is valid, attempting submission...\n"
+                        },
+                        {
+                          "text": "✅ Form submitted\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-01T16:02:28.944Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9ceae823f3d7087daa04-fbe554d6fdd587343f02",
+              "file": "form-debug-simple.spec.js",
+              "line": 33,
+              "column": 3
+            }
+          ]
+        }
+      ]
     }
   ],
+  "errors": [],
   "stats": {
-    "startTime": "2025-05-31T20:59:20.930Z",
-    "duration": 19255.928,
-    "expected": 0,
+    "startTime": "2025-06-01T16:02:28.535Z",
+    "duration": 20480.993000000002,
+    "expected": 1,
     "skipped": 0,
     "unexpected": 0,
     "flaky": 0

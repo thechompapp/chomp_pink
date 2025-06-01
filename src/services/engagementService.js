@@ -2,12 +2,21 @@
 import apiClient from '@/services/apiClient.js';
 import { logWarn, logError, logDebug } from '@/utils/logger.js';
 import { handleApiResponse } from '@/utils/serviceHelpers.js';
+import useAuthenticationStore from '@/stores/auth/useAuthenticationStore.js';
 
 /**
  * Logs an engagement event to the backend.
  * Assumes backend endpoint /api/engage exists and handles the POST request.
+ * Gracefully handles unauthenticated users by skipping the API call.
  */
 const logEngagement = async ({ item_type, item_id, engagement_type }) => {
+    // Check if user is authenticated first
+    const isAuthenticated = useAuthenticationStore.getState().getIsAuthenticated();
+    if (!isAuthenticated) {
+        logDebug(`[engagementService] Skipping engagement logging for unauthenticated user: ${engagement_type} for ${item_type} ${item_id}`);
+        return; // Silently skip for unauthenticated users
+    }
+
     // Basic JS Input validation
     if (!item_type || item_id == null || !engagement_type) {
         logWarn('[logEngagement] Missing required parameters:', { itemType: item_type, itemId: item_id, engagementType: engagement_type });
@@ -50,7 +59,12 @@ const logEngagement = async ({ item_type, item_id, engagement_type }) => {
     ).catch(result => {
         // This is a fire-and-forget operation, so we just log errors but don't throw
         if (!result.success) {
-            logError(`[engagementService] Failed to log engagement for ${item_type} ${numericItemId} (${engagement_type}):`, result.error);
+            // Check if this is an authentication error
+            if (result.error?.status === 401 || result.error?.statusCode === 401) {
+                logDebug(`[engagementService] Skipping engagement logging due to authentication error for ${item_type} ${numericItemId} (${engagement_type})`);
+            } else {
+                logError(`[engagementService] Failed to log engagement for ${item_type} ${numericItemId} (${engagement_type}):`, result.error);
+            }
         }
     });
 };

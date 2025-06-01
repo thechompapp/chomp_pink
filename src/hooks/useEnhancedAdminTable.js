@@ -243,6 +243,28 @@ export const useEnhancedAdminTable = ({
     }
   });
   
+  // Create mutation
+  const createMutation = useMutation({
+    mutationFn: async (newData) => {
+      return await enhancedAdminService.createResource(resourceType, newData);
+    },
+    onSuccess: (data) => {
+      toast.success('Created successfully');
+      refetch();
+      setIsCreating(false);
+      setNewResourceData({});
+    },
+    onError: (error) => {
+      logError(`[useEnhancedAdminTable] Create failed:`, error);
+      toast.error(`Create failed: ${error.message}`);
+    }
+  });
+  
+  // Add create/bulk edit state
+  const [isCreating, setIsCreating] = useState(false);
+  const [newResourceData, setNewResourceData] = useState({});
+  const [bulkEditMode, setBulkEditMode] = useState(false);
+  
   // Event handlers
   const handleSort = useCallback((column) => {
     setSortConfig(prev => ({
@@ -326,6 +348,39 @@ export const useEnhancedAdminTable = ({
     bulkUpdateMutation.mutate(bulkUpdates);
   }, [selectedRows, bulkUpdateMutation]);
   
+  const handleCreate = useCallback(() => {
+    setIsCreating(true);
+    setNewResourceData({});
+  }, []);
+  
+  const handleCreateSave = useCallback((data) => {
+    createMutation.mutate(data);
+  }, [createMutation]);
+  
+  const handleCreateCancel = useCallback(() => {
+    setIsCreating(false);
+    setNewResourceData({});
+  }, []);
+  
+  const handleBulkEdit = useCallback(() => {
+    if (selectedRows.size === 0) {
+      toast.error('No rows selected for bulk editing');
+      return;
+    }
+    setBulkEditMode(true);
+  }, [selectedRows]);
+  
+  const handleBulkSave = useCallback(() => {
+    setBulkEditMode(false);
+    toast.success('Bulk changes saved');
+    refetch();
+  }, [refetch]);
+  
+  const handleBulkCancel = useCallback(() => {
+    setBulkEditMode(false);
+    setSelectedRows(new Set());
+  }, []);
+  
   const handleRefresh = useCallback(() => {
     refetch();
   }, [refetch]);
@@ -345,6 +400,8 @@ export const useEnhancedAdminTable = ({
   const isUpdating = updateMutation.isLoading;
   const isDeleting = deleteMutation.isLoading;
   const isBulkUpdating = bulkUpdateMutation.isLoading;
+  const isCreatingNew = createMutation.isLoading;
+  const isBatchUpdating = bulkUpdateMutation.isLoading;
   
   return {
     // Data
@@ -369,6 +426,13 @@ export const useEnhancedAdminTable = ({
     isBulkUpdating,
     error: error || queryError,
     
+    // Create/Edit states
+    isCreating,
+    isCreatingNew,
+    newResourceData,
+    bulkEditMode,
+    isBatchUpdating,
+    
     // Actions
     handleSort,
     handlePageChange,
@@ -380,11 +444,17 @@ export const useEnhancedAdminTable = ({
     handleFieldEdit,
     handleDelete,
     handleBulkUpdate,
+    handleCreate,
+    handleCreateSave,
+    handleCreateCancel,
+    handleBulkEdit,
+    handleBulkSave,
+    handleBulkCancel,
     handleRefresh,
     
-    // Query utilities
-    refetch,
-    queryClient
+    // Selection helpers
+    resetSelection: () => setSelectedRows(new Set()),
+    setCurrentPage
   };
 };
 

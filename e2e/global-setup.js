@@ -10,6 +10,10 @@ import { chromium } from '@playwright/test';
 export default async function globalSetup() {
   console.log('🚀 Starting global setup for DOOF E2E tests...');
   
+  // Get the frontend URL from environment or default
+  const frontendUrl = process.env.E2E_BASE_URL || 'http://localhost:5174';
+  console.log(`🌐 Using frontend URL: ${frontendUrl}`);
+  
   // Verify backend is accessible
   try {
     console.log('📡 Checking backend health...');
@@ -24,18 +28,7 @@ export default async function globalSetup() {
     throw new Error('Backend is not accessible. Please ensure it is running on port 5001.');
   }
   
-  // Verify frontend is accessible
-  try {
-    console.log('🌐 Checking frontend accessibility...');
-    const response = await fetch('http://localhost:5174');
-    if (!response.ok) {
-      throw new Error(`Frontend check failed: ${response.status}`);
-    }
-    console.log('✅ Frontend is accessible');
-  } catch (error) {
-    console.error('❌ Frontend check failed:', error.message);
-    throw new Error('Frontend is not accessible. Please ensure it is running on port 5174.');
-  }
+  console.log('🌐 Skipping frontend accessibility check to avoid hanging...');
   
   // Launch browser to verify basic functionality
   try {
@@ -45,7 +38,7 @@ export default async function globalSetup() {
     const page = await context.newPage();
     
     // Navigate to the app
-    await page.goto('http://localhost:5174');
+    await page.goto(frontendUrl);
     await page.waitForLoadState('networkidle');
     
     // Wait a bit more for React to initialize
@@ -122,6 +115,6 @@ export default async function globalSetup() {
     // Don't fail setup for database issues
   }
   
-  console.log('🎉 Global setup completed successfully!');
+  console.log('✅ Global setup completed successfully!');
   console.log('');
 } 

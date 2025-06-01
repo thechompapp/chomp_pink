@@ -8,7 +8,13 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Company Info */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900">DOOF</h3>
+            <div className="flex items-center">
+              <img 
+                src="/images/dooflogo.png" 
+                alt="DOOF Logo" 
+                className="h-8 w-auto"
+              />
+            </div>
             <p className="text-gray-600 text-sm">
               Discover and share amazing dishes from restaurants in your city.
             </p>
@@ -25,10 +31,10 @@ const Footer = () => {
                 Home
               </Link>
               <Link 
-                to="/lists" 
+                to="/trending" 
                 className="block text-gray-600 hover:text-gray-900 text-sm transition-colors"
               >
-                Browse Lists
+                Trending
               </Link>
               <Link 
                 to="/search" 
@@ -65,7 +71,7 @@ const Footer = () => {
         <div className="mt-8 pt-8 border-t border-gray-200">
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
             <p className="text-gray-500 text-sm">
-              © {new Date().getFullYear()} DOOF. All rights reserved.
+              © {new Date().getFullYear()} Chomp. All rights reserved.
             </p>
             <div className="flex space-x-6">
               <a href="#" className="text-gray-500 hover:text-gray-900 text-sm transition-colors">

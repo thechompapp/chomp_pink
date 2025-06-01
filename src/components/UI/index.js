@@ -7,7 +7,7 @@ export { default as ListCard } from './ListCard';
 export { default as CardFactory } from './CardFactory';
 
 // List Cards
-export { default as ListCardSkeleton } from './ListCardSkeleton';
+// export { default as ListCardSkeleton } from './ListCardSkeleton';
 export { default as CompactListCard } from './CompactListCard';
 
 // Restaurant Cards
@@ -29,7 +29,7 @@ export const CardVariants = {
   List: {
     Default: 'ListCard',
     Compact: 'CompactListCard',
-    Skeleton: 'ListCardSkeleton'
+    // Skeleton: 'ListCardSkeleton'
   },
   // Restaurant Cards
   Restaurant: {
@@ -51,7 +51,7 @@ export const getCardComponent = (type = 'List', variant = 'Default') => {
     List: {
       Default: ListCard,
       Compact: CompactListCard,
-      Skeleton: ListCardSkeleton
+      // Skeleton: ListCardSkeleton
     },
     Restaurant: {
       Default: RestaurantCard,

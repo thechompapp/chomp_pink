@@ -17,6 +17,72 @@ const DEFAULT_RESTAURANT = {
 export const SIMILARITY_THRESHOLD = 0.2;
 export const SINGLE_MATCH_THRESHOLD = 0.9;
 
+// Helper function to extract zip code from address
+const extractZipCodeFromAddress = (address) => {
+  if (!address) return null;
+  const zipMatch = address.match(/\b(\d{5}(?:-\d{4})?)\b/);
+  return zipMatch ? zipMatch[1] : null;
+};
+
+// Helper function to find neighborhood by zip code
+const findNeighborhoodByZipCode = async (zipCode) => {
+  if (!zipCode || !/^\d{5}$/.test(zipCode)) {
+    return null;
+  }
+  
+  try {
+    console.log(`[RestaurantModel] Looking up neighborhood for zip code: ${zipCode}`);
+    
+    const query = `
+      SELECT id, name, city_id 
+      FROM neighborhoods 
+      WHERE $1 = ANY(zipcode_ranges) 
+      ORDER BY name ASC 
+      LIMIT 1
+    `;
+    
+    const result = await db.query(query, [zipCode]);
+    
+    if (result.rows.length > 0) {
+      const neighborhood = result.rows[0];
+      console.log(`[RestaurantModel] Found neighborhood for zip ${zipCode}: ${neighborhood.name} (ID: ${neighborhood.id})`);
+      return neighborhood;
+    } else {
+      console.log(`[RestaurantModel] No neighborhood found for zip code: ${zipCode}`);
+      return null;
+    }
+  } catch (error) {
+    console.error(`[RestaurantModel] Error looking up neighborhood for zip ${zipCode}:`, error);
+    return null;
+  }
+};
+
+// Helper function to auto-assign neighborhood and city based on address
+const autoAssignLocationData = async (restaurantData) => {
+  // Don't override if neighborhood_id is already provided
+  if (restaurantData.neighborhood_id) {
+    return restaurantData;
+  }
+
+  // Try to extract zip code from address
+  const zipCode = extractZipCodeFromAddress(restaurantData.address);
+  if (!zipCode) {
+    return restaurantData;
+  }
+
+  // Look up neighborhood by zip code
+  const neighborhood = await findNeighborhoodByZipCode(zipCode);
+  if (neighborhood) {
+    return {
+      ...restaurantData,
+      neighborhood_id: neighborhood.id,
+      city_id: neighborhood.city_id // Also auto-assign city if not provided
+    };
+  }
+
+  return restaurantData;
+};
+
 /**
  * Find all restaurants with pagination and filtering
  * @param {Object} options - Query options
@@ -199,12 +265,15 @@ export const findRestaurantById = async (id, userId = null, options = {}) => {
 };
 
 export const createRestaurant = async (restaurantData, client = db) => {
+  // Auto-assign neighborhood and city based on address/zip code
+  const enhancedData = await autoAssignLocationData(restaurantData);
+  
   const {
     name, address, city_id, neighborhood_id, zip_code, phone,
     website, instagram_handle, google_place_id, latitude, longitude,
     chain_id,
     tags = [] // Tags to be processed after restaurant creation
-  } = restaurantData;
+  } = enhancedData;
 
   // Columns that exist in schema_dump.sql for restaurants table
   const columnsToInsert = ['name', 'city_id']; // Required fields based on schema (city_id NOT NULL)
@@ -254,7 +323,10 @@ export const createRestaurant = async (restaurantData, client = db) => {
 };
 
 export const updateRestaurant = async (id, updateData) => {
-  const { tags, ...restaurantFields } = updateData;
+  // Auto-assign neighborhood and city if address is being updated
+  const enhancedData = updateData.address ? await autoAssignLocationData(updateData) : updateData;
+  
+  const { tags, ...restaurantFields } = enhancedData;
   const validColumns = ['name', 'address', 'city_id', 'neighborhood_id', 'zip_code', 'phone', 'website', 'instagram_handle', 'google_place_id', 'latitude', 'longitude', 'adds', 'chain_id'];
   const client = await db.getClient();
 

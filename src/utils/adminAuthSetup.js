@@ -14,14 +14,47 @@ export class AdminAuthSetup {
   static async setupDevelopmentAuth() {
     if (typeof window === 'undefined') return false;
 
-    logInfo('[AdminAuthSetup] Setting up development authentication...');
+    // CRITICAL FIX: Prevent infinite loops during setup
+    if (this.isSettingUpAuth) {
+      logDebug('[AdminAuthSetup] Already setting up auth, skipping...');
+      return false;
+    }
+    this.isSettingUpAuth = true;
 
     try {
-      // Check if we're in development mode
       const isDev = import.meta.env.DEV || import.meta.env.MODE === 'development';
       if (!isDev) {
-        logWarn('[AdminAuthSetup] Not in development mode, skipping setup');
+        this.isSettingUpAuth = false;
         return false;
+      }
+
+      // Check for explicit logout - respect user's choice
+      const userExplicitlyLoggedOut = localStorage.getItem('user_explicitly_logged_out') === 'true';
+      const e2eTestingMode = localStorage.getItem('e2e_testing_mode') === 'true';
+      
+      if (userExplicitlyLoggedOut || e2eTestingMode) {
+        logInfo('[AdminAuthSetup] User explicitly logged out or E2E testing - not setting up development auth');
+        this.isSettingUpAuth = false;
+        return false;
+      }
+
+      logInfo('[AdminAuthSetup] Setting up development authentication...');
+
+      // CRITICAL FIX: Check if we already have a valid token
+      const existingToken = localStorage.getItem('authToken');
+      const existingAuthStorage = localStorage.getItem('auth-authentication-storage');
+      
+      if (existingToken && existingAuthStorage) {
+        try {
+          const authData = JSON.parse(existingAuthStorage);
+          if (authData.state?.isAuthenticated && authData.state?.token) {
+            logInfo('[AdminAuthSetup] Valid authentication already exists, skipping API login');
+            this.isSettingUpAuth = false;
+            return true;
+          }
+        } catch (e) {
+          logDebug('[AdminAuthSetup] Existing auth storage invalid, will refresh');
+        }
       }
 
       // Perform actual login to get valid JWT tokens
@@ -94,10 +127,10 @@ export class AdminAuthSetup {
       
       // DON'T clear logout flags - respect user's explicit logout intention
       // Only clear logout flags if this is NOT an explicit logout scenario
-      const isExplicitLogout = localStorage.getItem('user_explicitly_logged_out') === 'true';
-      const isE2ETesting = localStorage.getItem('e2e_testing_mode') === 'true';
+      const currentExplicitLogout = localStorage.getItem('user_explicitly_logged_out') === 'true';
+      const currentE2eTesting = localStorage.getItem('e2e_testing_mode') === 'true';
       
-      if (!isExplicitLogout && !isE2ETesting) {
+      if (!currentExplicitLogout && !currentE2eTesting) {
         localStorage.removeItem('user_explicitly_logged_out');
       }
       
@@ -115,10 +148,12 @@ export class AdminAuthSetup {
       }));
       
       logInfo('[AdminAuthSetup] Development authentication setup complete');
+      this.isSettingUpAuth = false;
       return true;
     } catch (error) {
       console.error('[AdminAuthSetup] Failed to setup development auth:', error);
       toast.error(`Failed to setup development authentication: ${error.message}`);
+      this.isSettingUpAuth = false;
       return false;
     }
   }
@@ -320,11 +355,24 @@ export class AdminAuthSetup {
     const isDev = import.meta.env.DEV || import.meta.env.MODE === 'development';
     if (!isDev) return;
 
+    // CRITICAL FIX: Add flag to prevent infinite loops
+    if (this.isInitializing) {
+      logDebug('[AdminAuthSetup] Already initializing, skipping...');
+      return;
+    }
+    this.isInitializing = true;
+
     // Setup authentication immediately
     await this.setupDevelopmentAuth();
 
     // Listen for logout events and restore auth ONLY if not explicitly logged out
     window.addEventListener('auth:logout_complete', async (event) => {
+      // CRITICAL FIX: Prevent infinite loops
+      if (this.isRestoringAuth) {
+        logDebug('[AdminAuthSetup] Already restoring auth, skipping logout event...');
+        return;
+      }
+      
       // Check if this is an explicit logout by the user
       const isExplicitLogout = localStorage.getItem('user_explicitly_logged_out') === 'true';
       const isE2ETesting = localStorage.getItem('e2e_testing_mode') === 'true';
@@ -336,36 +384,54 @@ export class AdminAuthSetup {
       
       // Only restore if it was an automatic/system logout (not user-initiated)
       logInfo('[AdminAuthSetup] System logout detected, restoring development auth...');
+      this.isRestoringAuth = true;
       setTimeout(async () => {
         await this.restoreDevelopmentAuth();
+        this.isRestoringAuth = false;
       }, 100); // Small delay to let logout complete
     });
 
-    // Listen for storage changes and maintain auth ONLY if not explicitly logged out
+    // CRITICAL FIX: Dramatically reduce storage event triggers
+    let storageEventTimeout = null;
     window.addEventListener('storage', async (e) => {
+      // Ignore our own storage changes to prevent loops
+      if (this.isRestoringAuth || this.isSettingUpAuth) {
+        logDebug('[AdminAuthSetup] Ignoring storage event during auth setup/restoration');
+        return;
+      }
+      
+      // Only react to specific logout-related storage changes
       if (e.key === 'user_explicitly_logged_out' && e.newValue === 'true') {
         logInfo('[AdminAuthSetup] User explicitly logged out, NOT restoring development auth');
         return;
       }
       
-      // Only restore for other storage changes if not explicitly logged out
-      const isExplicitLogout = localStorage.getItem('user_explicitly_logged_out') === 'true';
-      const isE2ETesting = localStorage.getItem('e2e_testing_mode') === 'true';
-      
-      if (!isExplicitLogout && !isE2ETesting) {
-        logInfo('[AdminAuthSetup] Storage change detected, restoring development auth...');
-        setTimeout(async () => {
-          await this.restoreDevelopmentAuth();
-        }, 200);
+      // Throttle storage events to prevent rapid firing
+      if (storageEventTimeout) {
+        clearTimeout(storageEventTimeout);
       }
+      
+      storageEventTimeout = setTimeout(async () => {
+        const isExplicitLogout = localStorage.getItem('user_explicitly_logged_out') === 'true';
+        const isE2ETesting = localStorage.getItem('e2e_testing_mode') === 'true';
+        
+        if (!isExplicitLogout && !isE2ETesting) {
+          logInfo('[AdminAuthSetup] Storage change detected, restoring development auth...');
+          this.isRestoringAuth = true;
+          await this.restoreDevelopmentAuth();
+          this.isRestoringAuth = false;
+        }
+      }, 500); // 500ms throttle to prevent rapid events
     });
 
+    this.isInitializing = false;
     logInfo('[AdminAuthSetup] Development authentication system initialized with explicit logout respect');
   }
 }
 
-// Auto-initialize in development mode
-if (typeof window !== 'undefined' && (import.meta.env.DEV || import.meta.env.MODE === 'development')) {
+// DISABLED: Auto-initialize in development mode to prevent infinite loops
+// The initialization will happen when actually needed by the app
+if (false && typeof window !== 'undefined' && (import.meta.env.DEV || import.meta.env.MODE === 'development')) {
   AdminAuthSetup.initialize().catch(error => {
     console.error('[AdminAuthSetup] Initialization failed:', error);
   });

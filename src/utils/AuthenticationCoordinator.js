@@ -127,51 +127,54 @@ class AuthenticationCoordinator {
         return;
       }
 
-      // Get token from storage
+      // Get token from storage and validate it's not just a string 'null'
       const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
       const savedUser = localStorage.getItem(STORAGE_KEYS.USER);
 
-      if (!token) {
-        logInfo('[AuthCoordinator] No auth token found, setting unauthenticated state');
+      // Check for invalid token values (null strings, empty, etc.)
+      const isValidToken = token && 
+                          token !== 'null' && 
+                          token !== 'undefined' && 
+                          token.trim() !== '' &&
+                          token.length > 10; // Real tokens are much longer
+
+      if (!isValidToken) {
+        logInfo('[AuthCoordinator] No valid auth token found (token:', token, '), setting unauthenticated state');
         await this.syncAuthenticatedState(false, null, null);
         return;
       }
 
-      // Parse saved user data
+      // Parse saved user data and validate it
       let user = null;
-      if (savedUser) {
+      if (savedUser && savedUser !== 'null' && savedUser !== 'undefined') {
         try {
           user = JSON.parse(savedUser);
+          // Validate user object has required properties
+          if (!user || typeof user !== 'object' || !user.id) {
+            throw new Error('Invalid user object structure');
+          }
         } catch (error) {
-          logWarn('[AuthCoordinator] Invalid saved user data, clearing');
+          logWarn('[AuthCoordinator] Invalid saved user data, clearing:', error.message);
           localStorage.removeItem(STORAGE_KEYS.USER);
+          user = null;
         }
       }
 
-      // In development mode, trust the stored token if user data exists
-      // This prevents logout loops during admin panel navigation
-      if (import.meta.env.DEV && user && token) {
-        logInfo('[AuthCoordinator] Development mode: trusting stored credentials');
-        await this.syncAuthenticatedState(true, user, token);
-        
-        // Set up admin access in development
-        this.setupDevelopmentAdminAccess(user);
-        return;
-      }
-
-      // Verify token with backend (only in production or if no user data)
+      // FIXED: Always verify tokens, even in development mode
+      // This prevents authentication bypass with invalid tokens
+      logInfo('[AuthCoordinator] Verifying token with backend (even in dev mode)');
       const isValid = await this.verifyTokenWithBackend(token);
       
-      if (isValid) {
-        logInfo('[AuthCoordinator] Token verified, syncing authenticated state');
+      if (isValid && user) {
+        logInfo('[AuthCoordinator] Token verified successfully, syncing authenticated state');
         await this.syncAuthenticatedState(true, user, token);
         
-        // Set up admin access if in development
-        if (import.meta.env.DEV && user) {
+        // Set up admin access if in development mode
+        if (import.meta.env.DEV) {
           this.setupDevelopmentAdminAccess(user);
         }
       } else {
-        logWarn('[AuthCoordinator] Token verification failed, clearing auth state');
+        logWarn('[AuthCoordinator] Token verification failed or missing user data, clearing auth state');
         await this.performCoordinatedLogout(false);
       }
     } catch (error) {
@@ -186,10 +189,19 @@ class AuthenticationCoordinator {
    */
   async verifyTokenWithBackend(token) {
     try {
-      // Skip verification if explicitly logged out
-      if (localStorage.getItem(STORAGE_KEYS.LOGOUT_FLAG) === 'true') {
+      // Validate token format first
+      if (!token || token === 'null' || token === 'undefined' || token.trim() === '' || token.length < 10) {
+        logWarn('[AuthCoordinator] Invalid token format, skipping verification');
         return false;
       }
+
+      // Skip verification if explicitly logged out
+      if (localStorage.getItem(STORAGE_KEYS.LOGOUT_FLAG) === 'true') {
+        logInfo('[AuthCoordinator] User explicitly logged out, token invalid');
+        return false;
+      }
+
+      logDebug('[AuthCoordinator] Verifying token with backend API');
 
       const response = await fetch('/api/auth/status', {
         method: 'GET',
@@ -198,25 +210,41 @@ class AuthenticationCoordinator {
           'Content-Type': 'application/json'
         },
         // Add timeout to prevent hanging requests
-        signal: AbortSignal.timeout(5000) // 5 second timeout
+        signal: AbortSignal.timeout(8000) // 8 second timeout
       });
+
+      logDebug('[AuthCoordinator] Token verification response status:', response.status);
 
       if (response.ok) {
         const data = await response.json();
-        return data.valid === true;
-      } else if (response.status === 401) {
-        logInfo('[AuthCoordinator] Token expired or invalid');
+        const isValid = data.valid === true || data.success === true || data.authenticated === true;
+        logInfo('[AuthCoordinator] Token verification result:', isValid);
+        return isValid;
+      } else if (response.status === 401 || response.status === 403) {
+        logInfo('[AuthCoordinator] Token expired or unauthorized (status:', response.status, ')');
         return false;
       } else {
         logWarn('[AuthCoordinator] Token verification failed with status:', response.status);
-        // For better UX, assume token is still valid on server errors (500, 503, etc.)
-        // Only treat 401 as definitive token invalidity
+        
+        // For server errors (500, 503, etc.), check if we're in dev mode
+        if (import.meta.env.DEV) {
+          logWarn('[AuthCoordinator] Development mode: treating server error as invalid token to avoid auth loops');
+          return false;
+        }
+        
+        // In production, assume token is still valid on server errors for better UX
         return true;
       }
     } catch (error) {
-      logWarn('[AuthCoordinator] Token verification network error:', error.message);
-      // On network errors, always assume token is still valid to avoid logout loops
-      // This provides much better user experience when there are temporary connectivity issues
+      logError('[AuthCoordinator] Token verification error:', error.message);
+      
+      // Network/timeout errors in development mode = invalid token
+      if (import.meta.env.DEV) {
+        logWarn('[AuthCoordinator] Development mode: treating network error as invalid token');
+        return false;
+      }
+      
+      // In production, assume token is still valid on network errors for better UX
       return true;
     }
   }
@@ -500,11 +528,10 @@ class AuthenticationCoordinator {
   async syncAuthenticatedState(isAuthenticated, user, token) {
     // Check if user has explicitly logged out - if so, don't sync authenticated state
     const hasExplicitlyLoggedOut = localStorage.getItem(STORAGE_KEYS.LOGOUT_FLAG) === 'true';
-    const isE2ETesting = localStorage.getItem('e2e_testing_mode') === 'true';
     const isLogoutInProgress = localStorage.getItem('logout_in_progress') === 'true';
     
-    if (hasExplicitlyLoggedOut || isE2ETesting || isLogoutInProgress) {
-      logInfo('[AuthCoordinator] User explicitly logged out or testing mode - not syncing authenticated state');
+    if (hasExplicitlyLoggedOut || isLogoutInProgress) {
+      logInfo('[AuthCoordinator] User explicitly logged out or logout in progress - not syncing authenticated state');
       
       // Force logout state instead
       const logoutState = {
@@ -885,11 +912,12 @@ class AuthenticationCoordinator {
 // Create and export singleton instance
 const authCoordinator = new AuthenticationCoordinator();
 
-// Initialize on module load
+// Initialize and expose coordinator globally for React stores to access
 if (typeof window !== 'undefined') {
-  // Expose coordinator globally for non-React contexts
+  // Expose coordinator globally for non-React contexts and React store initialization
   window.__authCoordinator = authCoordinator;
   
+  // Initialize coordinator when module loads
   authCoordinator.initialize().catch(error => {
     logError('[AuthCoordinator] Initialization failed:', error);
   });

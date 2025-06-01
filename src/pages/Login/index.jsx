@@ -15,7 +15,7 @@ import offlineModeGuard from '../../utils/offlineModeGuard';
 const LoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, isAuthenticated, isLoading, error } = useAuth();
+  const { login, isAuthenticated, isLoading, error, user } = useAuth();
   
   // Use refs for form elements to prevent detachment
   const formRef = useRef(null);
@@ -43,9 +43,22 @@ const LoginPage = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated && !isSubmitting) {
+      // Check if user has admin/superuser role and redirect accordingly
+      const userRole = user?.role;
+      const userAccountType = user?.account_type;
+      
+      // If user is admin/superuser, redirect to admin panel by default
+      if (userRole === 'superuser' || userAccountType === 'superuser' || userRole === 'admin') {
+        const adminPath = '/admin';
+        logInfo(`[Login Page] Redirecting superuser to admin panel: ${adminPath}`);
+        navigate(adminPath, { replace: true });
+        return;
+      }
+      
+      // For regular users, use normal redirect logic
       handleRedirect();
     }
-  }, [isAuthenticated, isSubmitting, handleRedirect]);
+  }, [isAuthenticated, isSubmitting, user, handleRedirect, navigate]);
   
   // Stable form submission handler
   const onSubmit = useCallback(async (data) => {
@@ -86,6 +99,21 @@ const LoginPage = () => {
         
         // Small delay to ensure state updates
         setTimeout(() => {
+          // Check if user has admin/superuser role for redirect
+          const loginResult = result;
+          const userData = loginResult?.data?.user || result?.user;
+          const userRole = userData?.role;
+          const userAccountType = userData?.account_type;
+          
+          // If user is admin/superuser, redirect to admin panel
+          if (userRole === 'superuser' || userAccountType === 'superuser' || userRole === 'admin') {
+            const adminPath = '/admin';
+            logInfo(`[Login Page] Redirecting superuser to admin panel after login: ${adminPath}`);
+            navigate(adminPath, { replace: true });
+            return;
+          }
+          
+          // For regular users, use normal redirect logic
           handleRedirect();
         }, 100);
       } else {

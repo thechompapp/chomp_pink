@@ -3,6 +3,7 @@ import express from 'express';
 import { requireAuth, requireSuperuser } from '../middleware/auth.js'; 
 import * as adminController from '../controllers/adminController.js';
 import * as cleanupController from '../controllers/cleanupController.js';
+import * as chainController from '../controllers/chainController.js';
 
 const router = express.Router();
 
@@ -57,6 +58,43 @@ router.post('/submissions/approve/:id', adminController.approveSubmission);
 router.post('/submissions/reject/:id', adminController.rejectSubmission);
 router.get('/submissions/:id', adminController.getSubmissionById);
 
+// BULK OPERATIONS (must come before single resource routes to avoid conflicts)
+router.post('/restaurants/bulk', adminController.bulkAddRestaurants);
+router.delete('/restaurants/bulk', adminController.bulkDeleteRestaurants);
+router.put('/restaurants/bulk', adminController.bulkUpdateRestaurants);
+router.post('/restaurants/import', adminController.importRestaurants);
+
+router.delete('/dishes/bulk', adminController.bulkDeleteDishes);
+router.put('/dishes/bulk', adminController.bulkUpdateDishes);
+router.post('/dishes/bulk', adminController.bulkAddDishes);
+router.post('/dishes/import', adminController.importDishes);
+
+router.delete('/users/bulk', adminController.bulkDeleteUsers);
+router.put('/users/bulk', adminController.bulkUpdateUsers);
+router.post('/users/bulk', adminController.bulkAddUsers);
+router.post('/users/import', adminController.importUsers);
+
+router.delete('/cities/bulk', adminController.bulkDeleteCities);
+router.put('/cities/bulk', adminController.bulkUpdateCities);
+router.post('/cities/bulk', adminController.bulkAddCities);
+router.post('/cities/import', adminController.importCities);
+
+router.delete('/neighborhoods/bulk', adminController.bulkDeleteNeighborhoods);
+router.put('/neighborhoods/bulk', adminController.bulkUpdateNeighborhoods);
+router.post('/neighborhoods/bulk', adminController.bulkAddNeighborhoods);
+router.post('/neighborhoods/import', adminController.importNeighborhoods);
+
+router.delete('/hashtags/bulk', adminController.bulkDeleteHashtags);
+router.put('/hashtags/bulk', adminController.bulkUpdateHashtags);
+router.post('/hashtags/bulk', adminController.bulkAddHashtags);
+router.post('/hashtags/import', adminController.importHashtags);
+
+router.delete('/restaurant_chains/bulk', adminController.bulkDeleteRestaurantChains);
+router.put('/restaurant_chains/bulk', adminController.bulkUpdateRestaurantChains);
+router.post('/restaurant_chains/bulk', adminController.bulkAddRestaurantChains);
+router.post('/restaurant_chains/import', adminController.importRestaurantChains);
+
+// SINGLE RESOURCE OPERATIONS
 router.get('/restaurants', adminController.getRestaurants);
 router.get('/restaurants/:id', adminController.getRestaurantById);
 router.post('/restaurants', adminController.createRestaurant);
@@ -95,13 +133,17 @@ router.post('/restaurant_chains', adminController.createRestaurantChain);
 router.put('/restaurant_chains/:id', adminController.updateRestaurantChain);
 router.delete('/restaurant_chains/:id', adminController.deleteRestaurantChain);
 
+// Enhanced chain management routes
+router.get('/chains/scan', chainController.scanForChains);
+router.get('/chains/stats', chainController.getChainStats);
+router.get('/chains', chainController.getAllChains);
+router.post('/chains', chainController.createChain);
+router.put('/chains/:id/remove-restaurant', chainController.removeRestaurantFromChain);
+
 // Autosuggest endpoints for inline editing
 router.get('/autosuggest/cities', adminController.getAutosuggestCities);
 router.get('/autosuggest/neighborhoods', adminController.getAutosuggestNeighborhoods);
 router.get('/autosuggest/neighborhoods/:cityId', adminController.getAutosuggestNeighborhoodsByCity);
-
-// Bulk operations
-router.post('/restaurants/bulk', adminController.bulkAddRestaurants);
 
 // Data cleanup endpoints
 router.post('/cleanup/:resourceType/analyze', cleanupController.analyzeData);

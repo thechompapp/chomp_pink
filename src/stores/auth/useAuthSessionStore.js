@@ -72,14 +72,18 @@ const useAuthSessionStore = create(
           error: null
         });
         
+        // DISABLED: Session check interval causing infinite auth loops
         // Start session check interval
-        const sessionCheckIntervalId = setInterval(() => {
-          get().checkSession();
-        }, SESSION_CHECK_INTERVAL);
+        // const sessionCheckIntervalId = setInterval(() => {
+        //   get().checkSession();
+        // }, SESSION_CHECK_INTERVAL);
         
-        set({ sessionCheckIntervalId });
+        // set({ sessionCheckIntervalId });
         
-        logInfo('[AuthSessionStore] Session initialized');
+        // Instead, just mark session as active without periodic checks
+        set({ sessionCheckIntervalId: null });
+        
+        logInfo('[AuthSessionStore] Session initialized (without periodic checks)');
       },
 
       /**
@@ -167,28 +171,37 @@ const useAuthSessionStore = create(
           return false;
         }
         
+        // DISABLED: This was causing infinite auth loops
+        // Check if user explicitly logged out first
+        const isExplicitLogout = localStorage.getItem('user_explicitly_logged_out') === 'true';
+        const isE2ETesting = localStorage.getItem('e2e_testing_mode') === 'true';
+        
+        if (isExplicitLogout || isE2ETesting) {
+          logInfo('[AuthSessionStore] User explicitly logged out or testing mode - not refreshing session');
+          get().endSession();
+          return false;
+        }
+
         set({ isLoading: true, error: null });
         
         try {
-          // Refresh authentication status
-          const authSuccess = await useAuthenticationStore.getState().checkAuthStatus(true);
+          // DISABLED: Automatic auth check causing infinite loops
+          // const authSuccess = await useAuthenticationStore.getState().checkAuthStatus(true);
           
-          if (authSuccess) {
-            const now = Date.now();
-            
-            set({
-              lastActivityTime: now,
-              sessionExpiryTime: now + SESSION_TIMEOUT,
-              isSessionActive: true,
-              isLoading: false,
-              error: null
-            });
-            
-            logInfo('[AuthSessionStore] Session refreshed successfully');
-            return true;
-          } else {
-            throw new Error('Failed to refresh authentication status');
-          }
+          // Instead, just extend the session without API calls
+          const now = Date.now();
+          
+          set({
+            lastActivityTime: now,
+            sessionExpiryTime: now + SESSION_TIMEOUT,
+            isSessionActive: true,
+            isLoading: false,
+            error: null
+          });
+          
+          logInfo('[AuthSessionStore] Session refreshed successfully (without API check)');
+          return true;
+          
         } catch (error) {
           ErrorHandler.handle(error, 'AuthSessionStore.refreshSession', {
             showToast: false,

@@ -10,9 +10,12 @@
  * - Error handling and recovery
  * - Performance optimizations
  * - Data cleanup functionality
+ * - Virtual scrolling for large datasets
+ * - Dynamic column configuration
+ * - Enhanced caching
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { 
   ChevronUp, 
   ChevronDown, 
@@ -26,13 +29,19 @@ import {
   RefreshCw,
   MoreHorizontal,
   Download,
-  Upload
+  Upload,
+  Save,
+  Loader2
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
 import { useEnhancedAdminTable } from '@/hooks/useEnhancedAdminTable';
 import { EnhancedEditableCell } from './EnhancedEditableCell';
-import { COLUMN_CONFIG } from '@/pages/AdminPanel/columnConfig';
+import { getColumnsForResource } from '@/utils/dynamicColumnConfig';
+import { adminCache } from '@/utils/enhancedCache';
+import { TableRow } from './TableRow';
+import { CreateForm } from './CreateForm';
+import { VirtualizedTable, withVirtualization } from './VirtualizedTable';
 import GooglePlacesModal from './GooglePlacesModal';
 import { DataCleanupButton } from './DataCleanupButton';
 import { enhancedAdminService } from '@/services/enhancedAdminService';
@@ -56,6 +65,7 @@ const TableHeader = ({
             checked={isAllSelected}
             onChange={(e) => onSelectAll(e.target.checked)}
             className="rounded border-gray-300 focus:ring-2 focus:ring-blue-500"
+            aria-label="Select all rows"
           />
         </th>
       )}
@@ -84,92 +94,6 @@ const TableHeader = ({
     </tr>
   </thead>
 );
-
-// Table row component  
-const TableRow = ({ 
-  row, 
-  columns, 
-  resourceType,
-  selectedRows, 
-  onRowSelect, 
-  onFieldEdit,
-  onDelete,
-  onOpenGooglePlaces,
-  cities = [],
-  neighborhoods = [],
-  enableSelection = true,
-  enableInlineEditing = true,
-  isDeleting = false
-}) => {
-  const isSelected = selectedRows.has(row.id);
-  
-  return (
-    <tr className={cn(
-      "hover:bg-gray-50",
-      isSelected && "bg-blue-50"
-    )}>
-      {enableSelection && (
-        <td className="w-12 px-4 py-3">
-          <input
-            type="checkbox"
-            checked={isSelected}
-            onChange={() => onRowSelect(row.id)}
-            className="rounded border-gray-300 focus:ring-2 focus:ring-blue-500"
-          />
-        </td>
-      )}
-      {columns.map((column) => (
-        <td key={column.accessor} className="px-4 py-3 text-sm">
-          {enableInlineEditing && column.isEditable !== false ? (
-            <EnhancedEditableCell
-              resourceType={resourceType}
-              rowId={row.id}
-              fieldName={column.accessor}
-              value={row[column.accessor]}
-              columnConfig={column}
-              cities={cities}
-              neighborhoods={neighborhoods}
-              onSave={onFieldEdit}
-              disabled={!column.isEditable}
-              row={row}
-            />
-          ) : (
-            <div className="min-h-[32px] flex items-center">
-              {column.render ? 
-                column.render(row[column.accessor], row) : 
-                (row[column.accessor] ?? <span className="text-gray-400 italic">N/A</span>)
-              }
-            </div>
-          )}
-        </td>
-      ))}
-      <td className="w-16 px-4 py-3">
-        <div className="flex items-center gap-1">
-          {/* Google Places button for restaurants */}
-          {resourceType === 'restaurants' && onOpenGooglePlaces && (
-            <button
-              onClick={() => onOpenGooglePlaces(row)}
-              className="p-1 text-orange-600 hover:bg-orange-100 rounded"
-              title="Search Google Places"
-            >
-              <Search className="w-4 h-4" />
-            </button>
-          )}
-          
-          {/* Delete button */}
-          <button
-            onClick={() => onDelete(row.id)}
-            disabled={isDeleting}
-            className="p-1 text-red-600 hover:bg-red-100 rounded"
-            title="Delete"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        </div>
-      </td>
-    </tr>
-  );
-};
 
 // Pagination component
 const Pagination = ({ currentPage, totalPages, onPageChange }) => {
@@ -201,7 +125,9 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
             onClick={() => onPageChange(page)}
             className={cn(
               "px-3 py-1 text-sm border rounded",
-              page === currentPage ? "bg-blue-500 text-white" : "hover:bg-gray-50"
+              page === currentPage 
+                ? "bg-blue-500 text-white border-blue-500" 
+                : "hover:bg-gray-50"
             )}
           >
             {page}
@@ -217,14 +143,14 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
         </button>
       </div>
       
-      <span className="text-sm text-gray-500">
+      <div className="text-sm text-gray-500">
         Page {currentPage} of {totalPages}
-      </span>
+      </div>
     </div>
   );
 };
 
-// Toolbar component
+// Table toolbar with enhanced features
 const TableToolbar = ({ 
   resourceType,
   data = [],
@@ -237,120 +163,166 @@ const TableToolbar = ({
   onClearFilters,
   isFetching = false,
   enableBulkOperations = true,
-  enableCreate = true
+  enableCreate = true,
+  onBulkDelete,
+  onToggleVirtualization,
+  isVirtualized = false
 }) => (
-  <div className="flex items-center justify-between p-4 bg-white border-b">
+  <div className="flex items-center justify-between p-4 border-b">
     <div className="flex items-center space-x-4">
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
         <input
           type="text"
-          placeholder="Search..."
+          placeholder={`Search ${resourceType}...`}
           value={searchTerm}
           onChange={(e) => onSearch(e.target.value)}
-          className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
       
-      {/* Clear filters */}
-      <button
-        onClick={onClearFilters}
-        className="px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded"
-      >
-        Clear Filters
-      </button>
+      {/* Cache Status */}
+      <div className="text-xs text-gray-500">
+        Cache: {adminCache.getStats().hitRate} hit rate
+      </div>
     </div>
     
     <div className="flex items-center space-x-2">
-      {/* Selection info */}
-      {selectedRows.size > 0 && (
-        <span className="text-sm text-gray-500">
-          {selectedRows.size} selected
-        </span>
-      )}
-      
-      {/* Data Cleanup Button */}
-      <DataCleanupButton
-        resourceType={resourceType}
-        data={data}
-        onRefresh={onRefresh}
-        className="mr-2"
-      />
-      
-      {/* Bulk edit */}
-      {enableBulkOperations && selectedRows.size > 0 && (
+      {/* Virtualization Toggle */}
+      {data.length > 50 && (
         <button
-          onClick={onBulkEdit}
-          className="px-3 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
+          onClick={onToggleVirtualization}
+          className={cn(
+            "px-3 py-2 text-sm rounded-md transition-colors",
+            isVirtualized 
+              ? "bg-green-100 text-green-800" 
+              : "bg-gray-100 text-gray-800"
+          )}
+          title={isVirtualized ? "Disable virtualization" : "Enable virtualization"}
         >
-          <Edit className="w-4 h-4 mr-1 inline" />
-          Bulk Edit
+          Virtual: {isVirtualized ? 'ON' : 'OFF'}
         </button>
       )}
       
-      {/* Refresh */}
-      <button
-        onClick={onRefresh}
-        disabled={isFetching}
-        className="p-2 text-gray-600 hover:bg-gray-100 rounded"
-        title="Refresh"
-      >
-        <RefreshCw className={cn("w-4 h-4", isFetching && "animate-spin")} />
-      </button>
+      {/* Bulk operations */}
+      {enableBulkOperations && selectedRows.size > 0 && (
+        <>
+          <button
+            onClick={onBulkEdit}
+            className="flex items-center px-3 py-2 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600"
+          >
+            <Edit className="w-4 h-4 mr-1" />
+            Bulk Edit ({selectedRows.size})
+          </button>
+          <button
+            onClick={onBulkDelete}
+            className="flex items-center px-3 py-2 text-sm bg-red-500 text-white rounded-md hover:bg-red-600"
+          >
+            <Trash2 className="w-4 h-4 mr-1" />
+            Delete ({selectedRows.size})
+          </button>
+        </>
+      )}
       
-      {/* Create */}
+      {/* Data cleanup */}
+      <DataCleanupButton resourceType={resourceType} />
+      
+      {/* Create button */}
       {enableCreate && (
         <button
           onClick={onCreate}
-          className="px-3 py-2 text-sm bg-green-500 text-white rounded hover:bg-green-600"
+          className="flex items-center px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600"
         >
-          <Plus className="w-4 h-4 mr-1 inline" />
+          <Plus className="w-4 h-4 mr-2" />
           Add New
         </button>
       )}
+      
+      {/* Refresh button */}
+      <button
+        onClick={onRefresh}
+        disabled={isFetching}
+        className="flex items-center px-3 py-2 text-sm border rounded-md hover:bg-gray-50 disabled:opacity-50"
+      >
+        <RefreshCw className={cn("w-4 h-4", isFetching && "animate-spin")} />
+      </button>
     </div>
   </div>
 );
 
-// Loading component
 const LoadingState = () => (
-  <div className="flex items-center justify-center py-12">
-    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+  <div className="flex items-center justify-center h-64">
+    <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
     <span className="ml-2 text-gray-600">Loading...</span>
   </div>
 );
 
-// Error component
 const ErrorState = ({ error, onRetry }) => (
-  <div className="flex items-center justify-center py-12">
-    <div className="text-center">
-      <p className="text-red-600 mb-4">{error?.message || 'An error occurred'}</p>
-      <button
-        onClick={onRetry}
-        className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-      >
-        Try Again
-      </button>
-    </div>
+  <div className="flex flex-col items-center justify-center h-64 text-red-600">
+    <p className="mb-4">Error: {error?.message || 'Something went wrong'}</p>
+    <button
+      onClick={onRetry}
+      className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+    >
+      Retry
+    </button>
   </div>
 );
 
-// Empty state component
 const EmptyState = ({ resourceType, onCreate }) => (
-  <div className="flex items-center justify-center py-12">
-    <div className="text-center">
-      <p className="text-gray-500 mb-4">No {resourceType} found</p>
-      <button
-        onClick={onCreate}
-        className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-      >
-        <Plus className="w-4 h-4 mr-1 inline" />
-        Add First {resourceType.slice(0, -1)}
-      </button>
-    </div>
+  <div className="flex flex-col items-center justify-center h-64 text-gray-500">
+    <p className="mb-4">No {resourceType} found</p>
+    <button
+      onClick={onCreate}
+      className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+    >
+      Create First {resourceType.slice(0, -1)}
+    </button>
   </div>
 );
+
+// Create enhanced table with virtualization support
+const EnhancedTable = withVirtualization(({ 
+  data,
+  columns,
+  resourceType,
+  selectedRows,
+  handleRowSelect,
+  handleFieldEdit,
+  handleDeleteClick,
+  handleOpenGooglePlaces,
+  cities,
+  neighborhoods,
+  enableSelection,
+  enableInlineEditing,
+  isDeleting
+}) => (
+  <div className="overflow-x-auto">
+    <table className="min-w-full divide-y divide-gray-200">
+      <tbody className="bg-white divide-y divide-gray-200">
+        {data.map((row) => (
+          <TableRow
+            key={row.id}
+            row={row}
+            columns={columns}
+            resourceType={resourceType}
+            selectedRows={selectedRows}
+            onRowSelect={handleRowSelect}
+            onFieldEdit={handleFieldEdit}
+            onDelete={handleDeleteClick}
+            onOpenGooglePlaces={handleOpenGooglePlaces}
+            cities={cities}
+            neighborhoods={neighborhoods}
+            enableSelection={enableSelection}
+            enableInlineEditing={enableInlineEditing}
+            isDeleting={isDeleting}
+          />
+        ))}
+      </tbody>
+    </table>
+  </div>
+));
 
 /**
  * Enhanced Admin Table Component
@@ -366,8 +338,12 @@ export const EnhancedAdminTable = ({
   enableSelection = true,
   enableCreate = true,
   onGlobalRefresh,
-  className = ''
+  className = '',
+  columnOptions = {}
 }) => {
+  // State for enhanced features
+  const [isVirtualized, setIsVirtualized] = useState(false);
+  
   // Google Places modal state
   const [googlePlacesModal, setGooglePlacesModal] = useState({
     isOpen: false,
@@ -375,10 +351,10 @@ export const EnhancedAdminTable = ({
     currentData: {}
   });
 
-  // Get column configuration
+  // Get column configuration with dynamic options
   const columns = useMemo(() => 
-    COLUMN_CONFIG[resourceType] || [], 
-    [resourceType]
+    getColumnsForResource(resourceType, columnOptions),
+    [resourceType, columnOptions]
   );
   
   // Use enhanced admin table hook
@@ -412,8 +388,11 @@ export const EnhancedAdminTable = ({
     isCreating,
     isDeleting,
     isBatchUpdating,
-    clearFilters,
-    resetSelection
+    handleClearFilters,
+    resetSelection,
+    handleCreateSave,
+    handleCreateCancel,
+    isCreatingNew
   } = useEnhancedAdminTable({
     resourceType,
     initialData,
@@ -422,6 +401,23 @@ export const EnhancedAdminTable = ({
     enableInlineEditing,
     enableBulkOperations
   });
+
+  // Cache data whenever it changes
+  useEffect(() => {
+    if (data.length > 0) {
+      adminCache.setResourceData(resourceType, data, { 
+        searchTerm, 
+        page: currentPage 
+      });
+    }
+  }, [data, resourceType, searchTerm, currentPage]);
+
+  // Auto-enable virtualization for large datasets
+  useEffect(() => {
+    if (data.length > 100) {
+      setIsVirtualized(true);
+    }
+  }, [data.length]);
   
   // Google Places modal handlers
   const handleOpenGooglePlaces = useCallback((row) => {
@@ -464,6 +460,9 @@ export const EnhancedAdminTable = ({
       await enhancedAdminService.updateResource(resourceType, restaurantId, updates);
       console.log('[EnhancedAdminTable] Update completed successfully');
       
+      // Invalidate cache for this resource
+      adminCache.invalidateResource(resourceType);
+      
       // Force refresh all data to ensure neighborhoods are up to date
       await handleRefresh();
       console.log('[EnhancedAdminTable] Data refresh completed');
@@ -482,14 +481,41 @@ export const EnhancedAdminTable = ({
     }
   }, [resourceType, handleRefresh, onGlobalRefresh]);
   
-  // Create new item handler
-  const handleCreateNew = useCallback(() => {
-    toast.info('Create form not implemented yet');
-  }, []);
+  const handleDeleteClick = useCallback((itemId) => {
+    // Invalidate cache when deleting
+    adminCache.invalidateResource(resourceType);
+    handleDelete(itemId);
+  }, [handleDelete, resourceType]);
   
-  // Bulk edit save handler
-  const handleBulkSaveClick = useCallback(() => {
-    toast.info('Bulk edit form not implemented yet');
+  // Handle bulk delete
+  const handleBulkDelete = useCallback(async () => {
+    if (selectedRows.size === 0) {
+      toast.error('No rows selected for deletion');
+      return;
+    }
+    
+    try {
+      const ids = Array.from(selectedRows);
+      await enhancedAdminService.bulkDelete(resourceType, ids);
+      
+      // Invalidate cache
+      adminCache.invalidateResource(resourceType);
+      
+      toast.success(`Successfully deleted ${ids.length} ${resourceType}`);
+      resetSelection();
+      handleRefresh();
+    } catch (error) {
+      console.error('Bulk delete error:', error);
+      toast.error(`Bulk delete failed: ${error.message}`);
+    }
+  }, [resourceType, selectedRows, resetSelection, handleRefresh]);
+  
+  const handleCreateNew = useCallback(() => {
+    handleCreate();
+  }, [handleCreate]);
+
+  const handleToggleVirtualization = useCallback(() => {
+    setIsVirtualized(prev => !prev);
   }, []);
   
   if (isLoading) {
@@ -516,10 +542,13 @@ export const EnhancedAdminTable = ({
         onBulkEdit={handleBulkEdit}
         onRefresh={handleRefresh}
         onCreate={handleCreateNew}
-        onClearFilters={clearFilters}
+        onClearFilters={handleClearFilters}
         isFetching={isFetching}
         enableBulkOperations={enableBulkOperations}
         enableCreate={enableCreate}
+        onBulkDelete={handleBulkDelete}
+        onToggleVirtualization={handleToggleVirtualization}
+        isVirtualized={isVirtualized}
       />
       
       {/* Bulk edit mode toolbar */}
@@ -530,7 +559,7 @@ export const EnhancedAdminTable = ({
           </span>
           <div className="flex items-center space-x-2">
             <button
-              onClick={handleBulkSaveClick}
+              onClick={handleBulkSave}
               disabled={isBatchUpdating}
               className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
             >
@@ -547,68 +576,108 @@ export const EnhancedAdminTable = ({
       )}
       
       {/* Table */}
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <TableHeader
+      {isVirtualized ? (
+        <div>
+          {/* Create form for virtualized table */}
+          {isCreating && (
+            <div className="border-b">
+              <table className="w-full">
+                <tbody>
+                  <CreateForm
+                    resourceType={resourceType}
+                    columns={columns}
+                    onSave={handleCreateSave}
+                    onCancel={handleCreateCancel}
+                    isLoading={isCreatingNew}
+                    cities={cities}
+                    neighborhoods={neighborhoods}
+                  />
+                </tbody>
+              </table>
+            </div>
+          )}
+          
+          <VirtualizedTable
+            data={data}
             columns={columns}
-            sortConfig={sortConfig}
-            onSort={handleSort}
+            resourceType={resourceType}
             selectedRows={selectedRows}
-            onSelectAll={handleSelectAll}
-            isAllSelected={isAllSelected}
+            onRowSelect={handleRowSelect}
+            onFieldEdit={handleFieldEdit}
+            onDelete={handleDeleteClick}
+            onOpenGooglePlaces={handleOpenGooglePlaces}
+            cities={cities}
+            neighborhoods={neighborhoods}
             enableSelection={enableSelection}
+            enableInlineEditing={enableInlineEditing}
+            isDeleting={isDeleting}
           />
-          <tbody className="bg-white divide-y divide-gray-200">
-            {data.map((row) => (
-              <TableRow
-                key={row.id}
-                row={row}
-                columns={columns}
-                resourceType={resourceType}
-                selectedRows={selectedRows}
-                onRowSelect={handleRowSelect}
-                onFieldEdit={handleFieldEdit}
-                onDelete={handleDelete}
-                onOpenGooglePlaces={handleOpenGooglePlaces}
-                cities={cities}
-                neighborhoods={neighborhoods}
-                enableSelection={enableSelection}
-                enableInlineEditing={enableInlineEditing}
-                isDeleting={isDeleting}
-              />
-            ))}
-          </tbody>
-        </table>
-      </div>
-      
-      {/* No results message */}
-      {data.length === 0 && searchTerm && (
-        <div className="text-center py-8 text-gray-500">
-          No results found for "{searchTerm}"
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <TableHeader
+              columns={columns}
+              sortConfig={sortConfig}
+              onSort={handleSort}
+              selectedRows={selectedRows}
+              onSelectAll={handleSelectAll}
+              isAllSelected={isAllSelected}
+              enableSelection={enableSelection}
+            />
+            <tbody className="bg-white divide-y divide-gray-200">
+              {/* Create form row */}
+              {isCreating && (
+                <CreateForm
+                  resourceType={resourceType}
+                  columns={columns}
+                  onSave={handleCreateSave}
+                  onCancel={handleCreateCancel}
+                  isLoading={isCreatingNew}
+                  cities={cities}
+                  neighborhoods={neighborhoods}
+                />
+              )}
+              
+              {data.map((row) => (
+                <TableRow
+                  key={row.id}
+                  row={row}
+                  columns={columns}
+                  resourceType={resourceType}
+                  selectedRows={selectedRows}
+                  onRowSelect={handleRowSelect}
+                  onFieldEdit={handleFieldEdit}
+                  onDelete={handleDeleteClick}
+                  onOpenGooglePlaces={handleOpenGooglePlaces}
+                  cities={cities}
+                  neighborhoods={neighborhoods}
+                  enableSelection={enableSelection}
+                  enableInlineEditing={enableInlineEditing}
+                  isDeleting={isDeleting}
+                />
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
       
       {/* Pagination */}
-      <Pagination
-        currentPage={currentPage}
-        totalPages={totalPages}
-        onPageChange={setCurrentPage}
-      />
+      {!isVirtualized && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+        />
+      )}
       
-      {/* Status bar */}
-      <div className="px-4 py-2 bg-gray-50 border-t text-xs text-gray-500">
-        Showing {data.length} of {totalItems} {resourceType}
-        {isUpdating && <span className="ml-2">• Saving...</span>}
-        {isFetching && <span className="ml-2">• Refreshing...</span>}
-      </div>
-
       {/* Google Places Modal */}
       <GooglePlacesModal
         isOpen={googlePlacesModal.isOpen}
         onClose={handleCloseGooglePlaces}
-        onApply={handleApplyGooglePlaces}
         restaurantId={googlePlacesModal.restaurantId}
         currentData={googlePlacesModal.currentData}
+        onApply={handleApplyGooglePlaces}
         cities={cities}
         neighborhoods={neighborhoods}
       />

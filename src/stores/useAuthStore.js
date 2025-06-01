@@ -1,19 +1,17 @@
 /* src/stores/useAuthStore.js */
 /**
- * Legacy useAuthStore - Coordinated Version
+ * Simplified useAuthStore - Direct AuthContext Re-export
  * 
- * This file now re-exports the migration helper to ensure all existing
- * components continue working while using the centralized AuthenticationCoordinator.
- * 
- * All authentication state is now synchronized across the entire application.
+ * FIXED: Removed migration helper complexity, now directly uses AuthContext
+ * This ensures all components use the same authentication source.
  */
 
-// Re-export the migration helper as the default useAuthStore
-export { default, useAuthStoreCompat as useAuthStore } from '@/utils/AuthMigrationHelper';
+// Direct re-export of the AuthContext hook
+export { useAuth as useAuthStore, useAuth as default } from '@/contexts/auth/AuthContext';
 
-// Re-export convenience getters for backward compatibility
+// Convenience getters for backward compatibility
 export const getIsAuthenticated = () => {
-  // In a non-React context, we need to get the coordinator directly
+  // For non-React contexts, check coordinator directly
   if (typeof window !== 'undefined' && window.__authCoordinator) {
     return window.__authCoordinator.getCurrentState().isAuthenticated;
   }
@@ -21,6 +19,7 @@ export const getIsAuthenticated = () => {
 };
 
 export const getCurrentUser = () => {
+  // For non-React contexts, check coordinator directly  
   if (typeof window !== 'undefined' && window.__authCoordinator) {
     return window.__authCoordinator.getCurrentState().user;
   }
@@ -35,6 +34,7 @@ export const getToken = () => {
 };
 
 export const getIsSuperuser = () => {
+  // For non-React contexts, check coordinator directly
   if (typeof window !== 'undefined' && window.__authCoordinator) {
     return window.__authCoordinator.getCurrentState().isSuperuser;
   }
@@ -42,6 +42,6 @@ export const getIsSuperuser = () => {
 };
 
 export const getSuperuserStatusReady = () => {
-  // With coordinator, status is always ready
+  // Always ready with the simplified system
   return true;
 };

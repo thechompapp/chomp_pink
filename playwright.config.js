@@ -47,8 +47,8 @@ export default defineConfig({
   outputDir: 'e2e-results/test-artifacts',
   
   // Global setup and teardown
-  globalSetup: path.resolve(__dirname, './e2e/global-setup.js'),
-  globalTeardown: path.resolve(__dirname, './e2e/global-teardown.js'),
+  // globalSetup: './e2e/global-setup.js',
+  // globalTeardown: './e2e/global-teardown.js',
   
   // Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions.
   use: {
@@ -126,22 +126,22 @@ export default defineConfig({
   ],
 
   // Web server configuration for local development
-  webServer: [
-    {
-      command: 'npm run dev',
-      url: 'http://localhost:5174',
-      reuseExistingServer: !process.env.CI,
-      timeout: 120000,
-      stdout: 'pipe',
-      stderr: 'pipe',
-    },
-    {
-      command: 'cd doof-backend && npm run dev',
-      url: 'http://localhost:5001/api/health',
-      reuseExistingServer: !process.env.CI,
-      timeout: 120000,
-      stdout: 'pipe',
-      stderr: 'pipe',
-    }
-  ],
+  // webServer: [
+  //   {
+  //     command: 'npm run dev',
+  //     url: 'http://localhost:5174',
+  //     reuseExistingServer: !process.env.CI,
+  //     timeout: 120000,
+  //     stdout: 'pipe',
+  //     stderr: 'pipe',
+  //   },
+  //   {
+  //     command: 'cd doof-backend && npm run dev',
+  //     url: 'http://localhost:5001/api/health',
+  //     reuseExistingServer: !process.env.CI,
+  //     timeout: 120000,
+  //     stdout: 'pipe',
+  //     stderr: 'pipe',
+  //   }
+  // ],
 }); 

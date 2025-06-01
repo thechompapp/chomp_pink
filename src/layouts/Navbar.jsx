@@ -236,10 +236,11 @@ const Navbar = () => {
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
               <Link to="/" className="flex items-center">
-                <div className="h-8 w-8 bg-primary rounded-full flex items-center justify-center text-white font-bold">
-                  D
-                </div>
-                <span className="ml-2 text-lg font-bold text-primary">Doof</span>
+                <img 
+                  src="/images/dooflogo.png" 
+                  alt="DOOF Logo" 
+                  className="h-10 w-auto"
+                />
               </Link>
             </div>
             
@@ -274,16 +275,6 @@ const Navbar = () => {
                 }`}
               >
                 Trending
-              </Link>
-              <Link
-                to="/lists"
-                className={`px-3 py-2 text-sm font-medium rounded-md ${
-                  location.pathname === '/lists'
-                    ? 'text-primary bg-primary/10'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                Lists
               </Link>
               {isAuthenticated && (
                 <Link
@@ -478,16 +469,6 @@ const Navbar = () => {
               }`}
             >
               Trending
-            </Link>
-            <Link
-              to="/lists"
-              className={`block px-3 py-2 rounded-md text-base font-medium ${
-                location.pathname === '/lists'
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-              }`}
-            >
-              Lists
             </Link>
             {isAuthenticated && (
               <>

@@ -39,7 +39,7 @@ export const COLUMN_CONFIG = {
   ],
   restaurants: [
     { accessor: 'id', header: 'ID', isEditable: false, isSortable: true },
-    { accessor: 'name', header: 'Name', isEditable: true, isSortable: true, isFilterable: true },
+    { accessor: 'name', header: 'Name', isEditable: true, isSortable: true, isFilterable: true, required: true },
     { accessor: 'website', header: 'Website', isEditable: true, isSortable: false },
     { accessor: 'phone', header: 'Phone', isEditable: true, isSortable: false },
     { accessor: 'address', header: 'Address', isEditable: true, isSortable: false },
@@ -64,7 +64,7 @@ export const COLUMN_CONFIG = {
   ],
   dishes: [
     { accessor: 'id', header: 'ID', isEditable: false, isSortable: true },
-    { accessor: 'name', header: 'Dish Name', isEditable: true, isSortable: true, isFilterable: true },
+    { accessor: 'name', header: 'Dish Name', isEditable: true, isSortable: true, isFilterable: true, required: true },
     { accessor: 'restaurant_id', header: 'Restaurant', isEditable: true, isSortable: true, isFilterable: true,
       render(value, row) {
         if (row.restaurant_name) {
@@ -79,13 +79,13 @@ export const COLUMN_CONFIG = {
         return '-';
       }
     },
-    { accessor: 'price', header: 'Price', isEditable: true, isSortable: true },
-    { accessor: 'description', header: 'Description', isEditable: true, isSortable: false },
+    { accessor: 'price', header: 'Price', isEditable: true, isSortable: true, valueType: 'number' },
+    { accessor: 'description', header: 'Description', isEditable: true, isSortable: false, type: 'textarea' },
   ],
   users: [
     { accessor: 'id', header: 'ID', isEditable: false, isSortable: true },
-    { accessor: 'email', header: 'Email', isEditable: true, isSortable: true, isFilterable: true },
-    { accessor: 'username', header: 'Username', isEditable: true, isSortable: true, isFilterable: true },
+    { accessor: 'email', header: 'Email', isEditable: true, isSortable: true, isFilterable: true, required: true },
+    { accessor: 'username', header: 'Username', isEditable: true, isSortable: true, isFilterable: true, required: true },
     { accessor: 'full_name', header: 'Name', isEditable: true, isSortable: true },
     { accessor: 'is_admin', header: 'Admin', isEditable: true, isSortable: true, isFilterable: true,
       valueType: 'boolean',
@@ -96,13 +96,13 @@ export const COLUMN_CONFIG = {
   ],
   cities: [
     { accessor: 'id', header: 'ID', isEditable: false, isSortable: true },
-    { accessor: 'name', header: 'Name', isEditable: true, isSortable: true, isFilterable: true },
+    { accessor: 'name', header: 'Name', isEditable: true, isSortable: true, isFilterable: true, required: true },
     { accessor: 'state', header: 'State', isEditable: true, isSortable: true, isFilterable: true },
     { accessor: 'country', header: 'Country', isEditable: true, isSortable: true, isFilterable: true },
   ],
   neighborhoods: [
     { accessor: 'id', header: 'ID', isEditable: false, isSortable: true },
-    { accessor: 'name', header: 'Name', isEditable: true, isSortable: true, isFilterable: true },
+    { accessor: 'name', header: 'Name', isEditable: true, isSortable: true, isFilterable: true, required: true },
     { accessor: 'city_id', header: 'City', isEditable: true, isSortable: true, isFilterable: true,
       valueType: 'select',
       selectOptions: (cities) => cities.map(city => ({ value: city.id, label: city.name })),
@@ -110,7 +110,7 @@ export const COLUMN_CONFIG = {
   ],
   hashtags: [
     { accessor: 'id', header: 'ID', isEditable: false, isSortable: true },
-    { accessor: 'name', header: 'Name', isEditable: true, isSortable: true, isFilterable: true },
+    { accessor: 'name', header: 'Name', isEditable: true, isSortable: true, isFilterable: true, required: true },
     { accessor: 'count', header: 'Usage Count', isEditable: false, isSortable: true },
   ],
   restaurant_chains: [

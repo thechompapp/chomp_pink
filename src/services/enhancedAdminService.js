@@ -224,30 +224,86 @@ export const enhancedAdminService = {
   /**
    * Validate complete resource data
    */
-  validateResourceData(resourceType, data) {
-    const errors = [];
-    const rules = VALIDATION_RULES[resourceType];
+  validateResourceData(resourceType, records) {
+    const rules = VALIDATION_RULES[resourceType] || {};
+    const valid = [];
+    const invalid = [];
+    const warnings = [];
     
-    if (!rules) {
-      return { valid: true, errors: [] };
-    }
-    
-    // Check all required fields
-    Object.entries(rules).forEach(([fieldName, fieldRules]) => {
-      if (fieldRules.required && (!data[fieldName] || data[fieldName].toString().trim() === '')) {
-        errors.push(`${fieldName} is required`);
+    records.forEach((record, index) => {
+      const errors = [];
+      const recordWarnings = [];
+      
+      // Validate each field
+      Object.entries(rules).forEach(([field, fieldRules]) => {
+        const value = record[field];
+        const validation = this.validateField(resourceType, field, value);
+        
+        if (!validation.valid) {
+          errors.push(...(validation.errors || [`${field} is invalid`]));
+        }
+      });
+      
+      // Check for missing required fields
+      const requiredFields = Object.entries(rules)
+        .filter(([_, fieldRules]) => fieldRules.required)
+        .map(([field]) => field);
+      
+      requiredFields.forEach(field => {
+        if (!record[field] || record[field].toString().trim() === '') {
+          errors.push(`${field} is required`);
+        }
+      });
+      
+      // Resource-specific validations
+      if (resourceType === 'dishes' && record.restaurant_id) {
+        const restaurantId = parseInt(record.restaurant_id);
+        if (isNaN(restaurantId)) {
+          errors.push('restaurant_id must be a valid number');
+        }
+      }
+      
+      if (resourceType === 'neighborhoods' && record.city_id) {
+        const cityId = parseInt(record.city_id);
+        if (isNaN(cityId)) {
+          errors.push('city_id must be a valid number');
+        }
+      }
+      
+      if (errors.length === 0) {
+        valid.push({
+          row: record.row || index + 1,
+          data: record
+        });
+      } else {
+        invalid.push({
+          row: record.row || index + 1,
+          errors,
+          data: record
+        });
+      }
+      
+      if (recordWarnings.length > 0) {
+        warnings.push({
+          row: record.row || index + 1,
+          warnings: recordWarnings
+        });
       }
     });
     
-    // Validate provided fields
-    Object.entries(data).forEach(([fieldName, value]) => {
-      const validation = this.validateField(resourceType, fieldName, value);
-      if (!validation.valid) {
-        errors.push(...validation.errors);
-      }
-    });
+    const summary = [
+      `Total records: ${records.length}`,
+      `Valid records: ${valid.length}`,
+      `Invalid records: ${invalid.length}`,
+      `Records with warnings: ${warnings.length}`
+    ];
     
-    return { valid: errors.length === 0, errors };
+    return {
+      valid,
+      invalid,
+      warnings,
+      summary
+    };
   },
 
   /**
@@ -401,31 +457,53 @@ export const enhancedAdminService = {
   },
 
   /**
-   * Validate import data from file
+   * Enhanced validate import data from file (real implementation)
    */
   async validateImportData(resourceType, formData) {
     logDebug(`[EnhancedAdminService] Validating import data for ${resourceType}`);
     
     try {
-      // For now, return a mock validation result
-      // In a real implementation, this would send the file to the backend for validation
-      const mockValidation = {
-        valid: [
-          { row: 1, data: { name: 'Sample Restaurant 1', city: 'NYC' } },
-          { row: 2, data: { name: 'Sample Restaurant 2', city: 'LA' } }
-        ],
-        invalid: [
-          { row: 3, errors: ['Name is required'], data: { city: 'Chicago' } }
-        ],
-        summary: {
-          totalRows: 3,
-          validRows: 2,
-          invalidRows: 1
-        }
-      };
+      // Extract file from formData
+      const file = formData.get('file');
+      if (!file) {
+        throw new Error('No file provided');
+      }
       
-      logInfo(`[EnhancedAdminService] Validation completed: ${mockValidation.valid.length} valid, ${mockValidation.invalid.length} invalid`);
-      return mockValidation;
+      const text = await file.text();
+      let records = [];
+      
+      // Parse based on file type
+      if (file.type === 'application/json' || file.name.endsWith('.json')) {
+        records = JSON.parse(text);
+      } else if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
+        // Basic CSV parsing
+        const lines = text.split('\n').filter(line => line.trim());
+        if (lines.length < 2) {
+          throw new Error('CSV file must have at least a header and one data row');
+        }
+        
+        const headers = lines[0].split(',').map(h => h.trim());
+        records = lines.slice(1).map((line, index) => {
+          const values = line.split(',').map(v => v.trim());
+          const record = { row: index + 2 }; // Row number in spreadsheet
+          headers.forEach((header, i) => {
+            record[header] = values[i] || '';
+          });
+          return record;
+        });
+      } else {
+        throw new Error('Unsupported file type. Please use CSV or JSON files.');
+      }
+      
+      if (!Array.isArray(records)) {
+        throw new Error('File content must be an array of records');
+      }
+      
+      // Validate records
+      const validation = this.validateResourceData(resourceType, records);
+      
+      logInfo(`[EnhancedAdminService] Validation completed: ${validation.valid.length} valid, ${validation.invalid.length} invalid`);
+      return validation;
     } catch (error) {
       logError(`[EnhancedAdminService] Error validating import data:`, error);
       throw error;
@@ -496,52 +574,137 @@ export const enhancedAdminService = {
       throw new Error(`Unknown resource type: ${resourceType}`);
     }
     
-    const results = {
-      success: 0,
-      failed: 0,
-      errors: []
-    };
-    
     try {
-      // Process in smaller batches to maintain good performance
-      const batchSize = 5;
-      const totalBatches = Math.ceil(updates.length / batchSize);
+      // Use the new bulk update endpoint
+      const response = await httpClient.put(`${endpoint}/bulk`, { updates });
       
-      for (let i = 0; i < totalBatches; i++) {
-        const start = i * batchSize;
-        const batch = updates.slice(start, start + batchSize);
-        
-        // Process batch in parallel
-        const batchPromises = batch.map(async (update) => {
-          try {
-            const { id, ...updateData } = update;
-            
-            await httpClient.put(`${endpoint}/${id}`, updateData);
-            results.success++;
-            
-            logDebug(`[EnhancedAdminService] Successfully updated ${resourceType} ${id}`);
-          } catch (error) {
-            results.failed++;
-            results.errors.push(`${resourceType} ${update.id}: ${error.message}`);
-            logError(`[EnhancedAdminService] Error updating ${resourceType} ${update.id}:`, error);
-          }
-        });
-        
-        await Promise.all(batchPromises);
-        
-        // Report progress
-        if (progressCallback) {
-          progressCallback({
-            completed: Math.min((i + 1) * batchSize, updates.length),
-            total: updates.length
-          });
-        }
+      logInfo(`[EnhancedAdminService] Bulk update completed: ${response.data.data.success} success, ${response.data.data.failed} failed`);
+      
+      if (progressCallback) {
+        progressCallback(100);
       }
       
-      logInfo(`[EnhancedAdminService] Batch update completed: ${results.success} success, ${results.failed} failed`);
-      return results;
+      return response.data.data;
     } catch (error) {
-      logError(`[EnhancedAdminService] Error during batch update:`, error);
+      logError(`[EnhancedAdminService] Error during bulk update:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Bulk delete multiple resources
+   */
+  async bulkDelete(resourceType, ids, progressCallback) {
+    logDebug(`[EnhancedAdminService] Starting bulk delete of ${ids.length} ${resourceType} records`);
+    
+    const endpoint = ADMIN_ENDPOINTS[resourceType];
+    if (!endpoint) {
+      throw new Error(`Unknown resource type: ${resourceType}`);
+    }
+    
+    try {
+      const response = await httpClient.delete(`${endpoint}/bulk`, { 
+        data: { ids } 
+      });
+      
+      logInfo(`[EnhancedAdminService] Bulk delete completed: ${response.data.data.success} deleted, ${response.data.data.failed} failed`);
+      
+      if (progressCallback) {
+        progressCallback(100);
+      }
+      
+      return response.data.data;
+    } catch (error) {
+      logError(`[EnhancedAdminService] Error during bulk delete:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Bulk add resources (for all resource types)
+   */
+  async bulkAddResources(resourceType, records, progressCallback) {
+    logDebug(`[EnhancedAdminService] Starting bulk add of ${records.length} ${resourceType} records`);
+    
+    const endpoint = ADMIN_ENDPOINTS[resourceType];
+    if (!endpoint) {
+      throw new Error(`Unknown resource type: ${resourceType}`);
+    }
+    
+    try {
+      const response = await httpClient.post(`${endpoint}/bulk`, { records });
+      
+      logInfo(`[EnhancedAdminService] Bulk add completed: ${response.data.data.success} created, ${response.data.data.failed} failed`);
+      
+      if (progressCallback) {
+        progressCallback(100);
+      }
+      
+      return response.data.data;
+    } catch (error) {
+      logError(`[EnhancedAdminService] Error during bulk add:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Legacy method name for backward compatibility
+   */
+  async bulkAdd(resourceType, records, progressCallback) {
+    return this.bulkAddResources(resourceType, records, progressCallback);
+  },
+
+  /**
+   * Bulk add restaurants (legacy method for backward compatibility)
+   */
+  async bulkAddRestaurants(resourceType, restaurants, progressCallback) {
+    return this.bulkAddResources(resourceType, restaurants, progressCallback);
+  },
+
+  /**
+   * Bulk add from file (legacy method for backward compatibility)
+   */
+  async bulkAddFromFile(resourceType, file, progressCallback) {
+    return this.importFromFile(resourceType, file, progressCallback);
+  },
+
+  /**
+   * Bulk add restaurants from file (legacy method for backward compatibility)
+   */
+  async bulkAddRestaurantsFromFile(resourceType, file, progressCallback) {
+    return this.importFromFile(resourceType, file, progressCallback);
+  },
+
+  /**
+   * Real file import functionality
+   */
+  async importFromFile(resourceType, file, progressCallback) {
+    logDebug(`[EnhancedAdminService] Starting file import for ${resourceType}`);
+    
+    const endpoint = ADMIN_ENDPOINTS[resourceType];
+    if (!endpoint) {
+      throw new Error(`Unknown resource type: ${resourceType}`);
+    }
+    
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await httpClient.post(`${endpoint}/import`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      logInfo(`[EnhancedAdminService] Import completed: ${response.data.data.success} imported, ${response.data.data.failed} failed`);
+      
+      if (progressCallback) {
+        progressCallback(100);
+      }
+      
+      return response.data.data;
+    } catch (error) {
+      logError(`[EnhancedAdminService] Error during import:`, error);
       throw error;
     }
   },
@@ -634,10 +797,10 @@ export const enhancedAdminService = {
       
       return response.data;
     } catch (error) {
-      logError(`[EnhancedAdminService] Error during bulk add from file:`, error);
+      logError(`[EnhancedAdminService] Error during import:`, error);
       throw error;
     }
-  }
-};
+  },
+}
 
 export default enhancedAdminService;
