@@ -35,11 +35,23 @@ export function getAuthToken(forceRefresh = false) {
   let token = null;
   
   try {
-    // First try localStorage auth-token
+    // First try the primary storage location (matches AuthenticationCoordinator and tokenManager)
+    token = localStorage.getItem('token');
+    
+    // Validate token is not a null string or empty
+    if (token && token !== 'null' && token !== 'undefined' && token.trim() !== '') {
+      // Update cache
+      tokenCache.value = token;
+      tokenCache.timestamp = now;
+      logDebug('[AuthHeaders] Token retrieved from primary storage and cached');
+      return token;
+    }
+    
+    // Fallback: Try legacy localStorage auth-token
     token = localStorage.getItem(HTTP_CONFIG.STORAGE_KEYS.AUTH_TOKEN);
     
     // If not found, try auth-storage (Zustand store)
-    if (!token) {
+    if (!token || token === 'null' || token === 'undefined' || token.trim() === '') {
       const authStorage = localStorage.getItem(HTTP_CONFIG.STORAGE_KEYS.AUTH_STORAGE);
       if (authStorage) {
         const authData = JSON.parse(authStorage);
@@ -51,10 +63,11 @@ export function getAuthToken(forceRefresh = false) {
     tokenCache.value = token;
     tokenCache.timestamp = now;
     
-    if (token) {
-      logDebug('[AuthHeaders] Token retrieved and cached');
+    if (token && token !== 'null' && token !== 'undefined' && token.trim() !== '') {
+      logDebug('[AuthHeaders] Token retrieved from legacy storage and cached');
     } else {
-      logDebug('[AuthHeaders] No token found in storage');
+      logDebug('[AuthHeaders] No token found in any storage location');
+      token = null;
     }
     
   } catch (error) {

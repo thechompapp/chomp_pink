@@ -516,33 +516,40 @@ function addAuthHeaders(config) {
     return;
   }
   
-  // Get the auth token - try multiple sources:
-  // 1. From localStorage directly for "auth-token"
-  // 2. From Zustand persisted store in localStorage
-  // 3. From imported getAuthToken function
+  // Get the auth token using the same key as AuthenticationCoordinator and tokenManager
   let token = null;
   
-  // Try localStorage first for faster access
-  token = localStorage.getItem('auth-token');
+  // Try the primary storage location (matches AuthenticationCoordinator and tokenManager)
+  token = localStorage.getItem('token');
   
-  if (!token) {
-    // Try to parse from auth-storage (Zustand persisted store)
-    try {
-      const authStorage = localStorage.getItem('auth-storage');
-      if (authStorage) {
-        const parsedStorage = JSON.parse(authStorage);
-        if (parsedStorage?.state?.token) {
-          token = parsedStorage.state.token;
-        }
-      }
-    } catch (e) {
-      // Ignore parse errors
-    }
-  }
-  
-  // If we found a token, add it to the headers
-  if (token) {
+  // Validate token is not a null string or empty
+  if (token && token !== 'null' && token !== 'undefined' && token.trim() !== '') {
     config.headers['Authorization'] = `Bearer ${token}`;
+    logDebug('[HttpInterceptor] Added token to request headers');
+  } else {
+    // Fallback: Try legacy storage locations for backward compatibility
+    token = localStorage.getItem('auth-token');
+    
+    if (!token) {
+      // Try to parse from auth-storage (Zustand persisted store)
+      try {
+        const authStorage = localStorage.getItem('auth-storage');
+        if (authStorage) {
+          const parsedStorage = JSON.parse(authStorage);
+          if (parsedStorage?.state?.token) {
+            token = parsedStorage.state.token;
+          }
+        }
+      } catch (e) {
+        // Ignore parse errors
+      }
+    }
+    
+    // If we found a token from legacy locations, add it to the headers
+    if (token && token !== 'null' && token !== 'undefined' && token.trim() !== '') {
+      config.headers['Authorization'] = `Bearer ${token}`;
+      logDebug('[HttpInterceptor] Added legacy token to request headers');
+    }
   }
   
   // Always add admin API key for admin routes if available

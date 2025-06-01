@@ -19,7 +19,11 @@ import {
   identityFormatter // Ensure identityFormatter is available
 } from '../utils/formatters.js';
 
-
+/**
+ * Maps resource type strings to their corresponding model modules
+ * @param {string} resourceType - The type of resource (e.g., 'restaurants', 'dishes')
+ * @returns {Object|null} The corresponding model module or null if not found
+ */
 const getModelForResourceType = (resourceType) => {
   if (!resourceType) return null;
   switch (resourceType.toLowerCase()) {
@@ -39,6 +43,11 @@ const getModelForResourceType = (resourceType) => {
   }
 };
 
+/**
+ * Maps resource type strings to their corresponding formatter functions
+ * @param {string} resourceType - The type of resource to format
+ * @returns {Function} The formatter function for the resource type
+ */
 const getFormatterForResourceType = (resourceType) => {
   if (!resourceType) return identityFormatter;
   switch (resourceType.toLowerCase()) {
@@ -56,6 +65,21 @@ const getFormatterForResourceType = (resourceType) => {
   }
 };
 
+/**
+ * Retrieves all resources of a given type with pagination and filtering
+ * @async
+ * @param {Object} req - Express request object
+ * @param {Object} req.params - Route parameters
+ * @param {string} req.params.resourceType - Type of resource to fetch
+ * @param {Object} req.query - Query parameters for pagination and filtering
+ * @param {number} [req.query.page=1] - Page number for pagination
+ * @param {number} [req.query.limit=20] - Number of items per page
+ * @param {string} [req.query.sort='id'] - Field to sort by
+ * @param {string} [req.query.order='asc'] - Sort order (asc/desc)
+ * @param {Object} req.user - Authenticated user object (must be superuser)
+ * @param {Object} res - Express response object
+ * @returns {Promise<void>} JSON response with resources and pagination info
+ */
 export const getAllResources = async (req, res) => {
   let { resourceType } = req.params;
   // Handle direct /submissions route if resourceType isn't in params
@@ -126,6 +150,16 @@ export const getAllResources = async (req, res) => {
   }
 };
 
+/**
+ * Retrieves a single resource by ID and type
+ * @async
+ * @param {Object} req - Express request object
+ * @param {Object} req.params - Route parameters
+ * @param {string} req.params.resourceType - Type of resource to fetch
+ * @param {string} req.params.id - ID of the resource to fetch
+ * @param {Object} res - Express response object
+ * @returns {Promise<void>} JSON response with the requested resource
+ */
 export const getResourceById = async (req, res) => {
   const { resourceType, id } = req.params;
   if (!resourceType) {
@@ -151,6 +185,16 @@ export const getResourceById = async (req, res) => {
   }
 };
 
+/**
+ * Creates a new resource of the specified type
+ * @async
+ * @param {Object} req - Express request object
+ * @param {Object} req.params - Route parameters
+ * @param {string} req.params.resourceType - Type of resource to create
+ * @param {Object} req.body - Resource data to create
+ * @param {Object} res - Express response object
+ * @returns {Promise<void>} JSON response with the created resource
+ */
 export const createResource = async (req, res) => {
   const { resourceType } = req.params;
   if (!resourceType) {
@@ -179,6 +223,17 @@ export const createResource = async (req, res) => {
   }
 };
 
+/**
+ * Updates an existing resource by ID and type
+ * @async
+ * @param {Object} req - Express request object
+ * @param {Object} req.params - Route parameters
+ * @param {string} req.params.resourceType - Type of resource to update
+ * @param {string} req.params.id - ID of the resource to update
+ * @param {Object} req.body - Updated resource data
+ * @param {Object} res - Express response object
+ * @returns {Promise<void>} JSON response with the updated resource
+ */
 export const updateResource = async (req, res) => {
   const { resourceType, id } = req.params;
    if (!resourceType) {
@@ -218,6 +273,16 @@ export const updateResource = async (req, res) => {
   }
 };
 
+/**
+ * Deletes a resource by ID and type
+ * @async
+ * @param {Object} req - Express request object
+ * @param {Object} req.params - Route parameters
+ * @param {string} req.params.resourceType - Type of resource to delete
+ * @param {string} req.params.id - ID of the resource to delete
+ * @param {Object} res - Express response object
+ * @returns {Promise<void>} JSON response confirming deletion
+ */
 export const deleteResource = async (req, res) => {
   const { resourceType, id } = req.params;
    if (!resourceType) {
