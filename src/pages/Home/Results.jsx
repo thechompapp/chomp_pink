@@ -202,7 +202,7 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
         success: returnValue.success,
         dataType: Array.isArray(returnValue.data) ? 'array' : typeof returnValue.data,
         dataLength: Array.isArray(returnValue.data) ? returnValue.data.length : 'not array',
-        firstItemKeys: Array.isArray(returnValue.data) && returnValue.data.length > 0 ? 
+        firstItemKeys: Array.isArray(returnValue.data) && returnValue.data.length > 0 && returnValue.data[0] ? 
           Object.keys(returnValue.data[0]).slice(0, 5) : 'no items'
       });
         
@@ -347,7 +347,8 @@ const Results = ({ cityId, boroughId, neighborhoodId, hashtags, contentType, sea
     }
 
     const firstPage = data.pages[0];
-    const currentTotalItems = firstPage.pagination.total ?? accumulatedItems.length;
+    // Add safety check for pagination object
+    const currentTotalItems = firstPage?.pagination?.total ?? accumulatedItems.length;
 
     logDebug(`[Results:useMemo] Extracted ${accumulatedItems.length} items. Total according to pagination: ${currentTotalItems}. Page-level error: ${pageLevelErrorMessage}`);
 

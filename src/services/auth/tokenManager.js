@@ -10,10 +10,11 @@
  */
 import { logDebug, logError, logWarn } from '@/utils/logger';
 
-// Constants
-const ACCESS_TOKEN_KEY = 'auth_access_token';
+// Constants - Updated to match AuthenticationCoordinator storage keys
+const ACCESS_TOKEN_KEY = 'token'; // Changed from 'auth_access_token' to match AuthenticationCoordinator
 const REFRESH_TOKEN_KEY = 'auth_refresh_token';
 const TOKEN_EXPIRY_KEY = 'auth_token_expiry';
+const USER_KEY = 'current_user'; // Added to match AuthenticationCoordinator
 
 // Track refresh promise to prevent multiple simultaneous refresh calls
 let refreshPromise = null;
@@ -49,7 +50,7 @@ const tokenManager = {
         ? Date.now() + (expiresIn * 1000)
         : Date.now() + (24 * 60 * 60 * 1000); // Default 24 hours
       
-      // Store tokens
+      // Store tokens using AuthenticationCoordinator's storage keys
       localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
       localStorage.setItem(TOKEN_EXPIRY_KEY, expiryTime.toString());
       
@@ -58,7 +59,7 @@ const tokenManager = {
         localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
       }
       
-      logDebug('[TokenManager] Tokens stored successfully');
+      logDebug('[TokenManager] Tokens stored successfully using coordinator keys');
     } catch (error) {
       logError('[TokenManager] Error storing tokens:', error);
       // Fallback to memory storage if localStorage fails
@@ -72,8 +73,19 @@ const tokenManager = {
    */
   getAccessToken: () => {
     try {
-      return localStorage.getItem(ACCESS_TOKEN_KEY) || 
-        (tokenManager._memoryTokens?.accessToken || null);
+      // First try the primary storage location (AuthenticationCoordinator key)
+      const token = localStorage.getItem(ACCESS_TOKEN_KEY);
+      if (token && token !== 'null' && token !== 'undefined' && token.trim() !== '') {
+        return token;
+      }
+      
+      // Fallback to memory storage
+      const memoryToken = tokenManager._memoryTokens?.accessToken;
+      if (memoryToken && memoryToken !== 'null' && memoryToken !== 'undefined') {
+        return memoryToken;
+      }
+      
+      return null;
     } catch (error) {
       logError('[TokenManager] Error retrieving access token:', error);
       return tokenManager._memoryTokens?.accessToken || null;
@@ -86,8 +98,12 @@ const tokenManager = {
    */
   getRefreshToken: () => {
     try {
-      return localStorage.getItem(REFRESH_TOKEN_KEY) || 
-        (tokenManager._memoryTokens?.refreshToken || null);
+      const token = localStorage.getItem(REFRESH_TOKEN_KEY);
+      if (token && token !== 'null' && token !== 'undefined' && token.trim() !== '') {
+        return token;
+      }
+      
+      return tokenManager._memoryTokens?.refreshToken || null;
     } catch (error) {
       logError('[TokenManager] Error retrieving refresh token:', error);
       return tokenManager._memoryTokens?.refreshToken || null;
@@ -119,6 +135,7 @@ const tokenManager = {
       localStorage.removeItem(ACCESS_TOKEN_KEY);
       localStorage.removeItem(REFRESH_TOKEN_KEY);
       localStorage.removeItem(TOKEN_EXPIRY_KEY);
+      localStorage.removeItem(USER_KEY);
       tokenManager._memoryTokens = null;
       logDebug('[TokenManager] Tokens cleared successfully');
     } catch (error) {
