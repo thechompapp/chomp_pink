@@ -129,7 +129,7 @@ const CompactListCard = ({
     }
   }, [list.name, list.id]);
 
-  const itemCount = listData?.items?.length || list.items?.length || list.items_count || 0;
+  const itemCount = list.item_count || listData?.items?.length || list.items?.length || 0;
   const updatedText = formatRelativeDate(list.updated_at ? new Date(list.updated_at) : new Date());
 
   return (
@@ -240,7 +240,7 @@ CompactListCard.propTypes = {
     description: PropTypes.string,
     list_type: PropTypes.string,
     items: PropTypes.array,
-    items_count: PropTypes.number,
+    item_count: PropTypes.number,
     updated_at: PropTypes.string,
     is_following: PropTypes.bool,
     is_trending: PropTypes.bool,

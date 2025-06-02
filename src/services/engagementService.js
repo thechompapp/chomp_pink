@@ -11,7 +11,8 @@ import useAuthenticationStore from '@/stores/auth/useAuthenticationStore.js';
  */
 const logEngagement = async ({ item_type, item_id, engagement_type }) => {
     // Check if user is authenticated first
-    const isAuthenticated = useAuthenticationStore.getState().getIsAuthenticated();
+    const authState = useAuthenticationStore.getState();
+    const isAuthenticated = authState.isAuthenticated;
     if (!isAuthenticated) {
         logDebug(`[engagementService] Skipping engagement logging for unauthenticated user: ${engagement_type} for ${item_type} ${item_id}`);
         return; // Silently skip for unauthenticated users
@@ -82,7 +83,8 @@ const logEngagement = async ({ item_type, item_id, engagement_type }) => {
  * Helper function to log search-specific engagements
  */
 const logSearchEngagement = async ({ item_type, item_id, engagement_type, searchQuery, searchContext }) => {
-    const isAuthenticated = useAuthenticationStore.getState().getIsAuthenticated();
+    const authState = useAuthenticationStore.getState();
+    const isAuthenticated = authState.isAuthenticated;
     if (!isAuthenticated) {
         logDebug(`[engagementService] Skipping search engagement logging for unauthenticated user: ${engagement_type} for ${item_type} ${item_id}`);
         return;

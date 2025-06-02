@@ -41,68 +41,117 @@ function ListDetail({ listId: propListId, embedded = false }) {
     logInfo('[ListDetail] Forcing database data');
   }, []);
 
-  // Fetch list data using React Query with enhanced error handling
+  // Fetch list details using React Query
   const { 
-    data, 
-    isLoading, 
-    isError,
-    error,
-    refetch 
+    data: listData, 
+    isLoading: isLoadingList, 
+    isError: isListError,
+    error: listError
   } = useQuery({
     queryKey: ['listDetail', listId],
     queryFn: async () => {
-      logDebug(`[ListDetail] Fetching details for list ID: ${listId}`);
-      try {
-        // First get the list details
-        const listResult = await listService.getList(listId);
-        if (!listResult || !listResult.data) {
-          throw new Error('Invalid or empty list data received');
-        }
-        
-        // Then get the list items
-        const itemsResult = await listService.getListItems(listId);
-        
-        // Combine the results into the expected format
-        return {
-          list: listResult.data,
-          items: itemsResult?.data || []
-        };
-      } catch (err) {
-        logError(`[ListDetail] Error in query function:`, err);
-        // Rethrow to let React Query handle it
-        throw err;
-      }
+      console.log(`🌐 [ListDetail] Fetching list details for ID: ${listId}`);
+      
+      // DEBUG: Check authentication state
+      console.log(`🔑 [ListDetail] Auth check:`, {
+        isAuthenticated,
+        hasUser: !!user,
+        userId: user?.id,
+        userRole: user?.role
+      });
+      
+      const result = await listService.getList(listId);
+      console.log(`✅ [ListDetail] List details result:`, result);
+      return result;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchOnWindowFocus: true,
-    retry: 2, // Retry failed requests up to 2 times
-    retryDelay: attempt => Math.min(attempt > 1 ? 2000 : 1000, 30 * 1000),
+    retry: (failureCount, error) => {
+      if (error?.response?.status === 401 || error?.response?.status === 403) {
+        return false;
+      }
+      return failureCount < 2;
+    },
+    enabled: !!listId,
     onError: (err) => {
-      logError(`[ListDetail] Error fetching list details:`, err);
+      console.error(`🚨 [ListDetail] List details error:`, err);
       handleApiError(err, "fetch list details");
+    },
+    onSuccess: (data) => {
+      console.log(`✅ [ListDetail] List details success:`, data);
     }
   });
 
-  // Destructure list data from query results
-  const { list = {}, items: rawItems = [] } = data || {};
+  // Fetch list items using separate React Query
+  const { 
+    data: itemsData, 
+    isLoading: isLoadingItems, 
+    isError: isItemsError,
+    error: itemsError,
+    refetch: refetchItems
+  } = useQuery({
+    queryKey: ['listItems', listId],
+    queryFn: async () => {
+      console.log(`🌐 [ListDetail] Fetching items for list ID: ${listId}`);
+      
+      const result = await listService.getListItems(listId);
+      console.log(`✅ [ListDetail] List items result:`, result);
+      console.log(`📝 [ListDetail] Items data:`, result?.data);
+      console.log(`📊 [ListDetail] Items count:`, result?.data?.length);
+      return result;
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: true,
+    retry: (failureCount, error) => {
+      if (error?.response?.status === 401 || error?.response?.status === 403) {
+        return false;
+      }
+      return failureCount < 2;
+    },
+    enabled: !!listId,
+    onError: (err) => {
+      console.error(`🚨 [ListDetail] List items error:`, err);
+      handleApiError(err, "fetch list items");
+    },
+    onSuccess: (data) => {
+      console.log(`✅ [ListDetail] List items success:`, data);
+      console.log(`📝 [ListDetail] Items loaded: ${data?.data?.length || 0}`);
+    }
+  });
+
+  // Extract data from queries
+  const list = listData?.data || {};
+  const rawItems = itemsData?.data || [];
+  
+  console.log(`🔍 [ListDetail] Final data check:`, {
+    listId,
+    hasListData: !!listData,
+    hasItemsData: !!itemsData,
+    listName: list?.name,
+    itemsCount: rawItems?.length,
+    rawItems
+  });
   
   // Apply sorting to items
   const items = useMemo(() => {
-    if (!rawItems || !Array.isArray(rawItems)) return [];
+    if (!rawItems || !Array.isArray(rawItems)) {
+      console.log(`⚠️ [ListDetail] Items not an array:`, { rawItems, type: typeof rawItems });
+      return [];
+    }
     
     let sortedItems = [...rawItems];
     
     switch (sortOrder) {
       case 'az':
         return sortedItems.sort((a, b) => {
-          const nameA = (a.restaurant_name || a.dish_name || '').toLowerCase();
-          const nameB = (b.restaurant_name || b.dish_name || '').toLowerCase();
+          const nameA = (a.restaurant_name || a.dish_name || a.name || '').toLowerCase();
+          const nameB = (b.restaurant_name || b.dish_name || b.name || '').toLowerCase();
           return nameA.localeCompare(nameB);
         });
       case 'za':
         return sortedItems.sort((a, b) => {
-          const nameA = (a.restaurant_name || a.dish_name || '').toLowerCase();
-          const nameB = (b.restaurant_name || b.dish_name || '').toLowerCase();
+          const nameA = (a.restaurant_name || a.dish_name || a.name || '').toLowerCase();
+          const nameB = (b.restaurant_name || b.dish_name || b.name || '').toLowerCase();
           return nameB.localeCompare(nameA);
         });
       // Could implement distance sorting with geolocation
@@ -114,6 +163,11 @@ function ListDetail({ listId: propListId, embedded = false }) {
     }
   }, [rawItems, sortOrder]);
   
+  // Determine loading and error states
+  const isLoading = isLoadingList || isLoadingItems;
+  const isError = isListError || isItemsError;
+  const error = listError || itemsError;
+  
   // Determine if user can edit
   const canEdit = isAuthenticated && user && list.user_id === user.id;
   
@@ -121,15 +175,15 @@ function ListDetail({ listId: propListId, embedded = false }) {
   const handleQuickAdd = (item) => {
     if (!isAuthenticated) return;
     
-    logDebug(`[ListDetail] Quick adding item: ${item?.restaurant_name || item?.dish_name}`);
+    logDebug(`[ListDetail] Quick adding item: ${item?.restaurant_name || item?.dish_name || item?.name}`);
     
     openQuickAdd({
       defaultListId: null, // Don't pre-select any list
       defaultItemData: {
-        restaurant_id: item.restaurant_id,
-        restaurant_name: item.restaurant_name,
-        dish_id: item.dish_id,
-        dish_name: item.dish_name,
+        restaurant_id: item.restaurant_id || (item.item_type === 'restaurant' ? item.item_id : null),
+        restaurant_name: item.restaurant_name || (item.item_type === 'restaurant' ? item.name : null),
+        dish_id: item.dish_id || (item.item_type === 'dish' ? item.item_id : null),
+        dish_name: item.dish_name || (item.item_type === 'dish' ? item.name : null),
         note: item.note,
       }
     });
@@ -158,7 +212,7 @@ function ListDetail({ listId: propListId, embedded = false }) {
       // Close dialog and refresh data
       setShowDeleteConfirm(false);
       setItemToDelete(null);
-      refetch();
+      refetchItems();
     } catch (error) {
       logError('[ListDetail] Error deleting item:', error);
       handleApiError(error, 'delete item');
@@ -207,7 +261,9 @@ function ListDetail({ listId: propListId, embedded = false }) {
           
           <div className="flex flex-col sm:flex-row gap-4">
             <Button 
-              onClick={() => refetch()}
+              onClick={() => {
+                window.location.reload(); // Force reload to retry both queries
+              }}
               className="flex items-center justify-center gap-2"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -334,7 +390,7 @@ function ListDetail({ listId: propListId, embedded = false }) {
                   </div>
                 </button>
                 <button 
-                  className={`w-full text-left px-4 py-2 text-sm ${sortOrder === 'distance' ? 'bg-gray-100 dark:bg-gray-700 font-medium' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                  className={`w-full text-left px-4 py-2 text-sm ${sortOrder === 'distance' ? 'bg-gray-100 dark:bg-gray-700 font-medium' : 'hover:bg-gray-700'}`}
                   onClick={() => changeSortOrder('distance')}
                 >
                   <div className="flex items-center gap-2">
@@ -354,16 +410,19 @@ function ListDetail({ listId: propListId, embedded = false }) {
           <ul className="space-y-2">
             {items.map((item) => (
               <li
-                key={item.list_item_id || `item-${Date.now()}-${Math.random()}`}
+                key={item.list_item_id || item.id || `item-${Date.now()}-${Math.random()}`}
                 className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-md hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
               >
                 <div className="flex-1 min-w-0 mr-4">
                   <Link
-                    to={item.restaurant_id ? `/restaurants/${item.restaurant_id}` : (item.dish_id ? `/dishes/${item.dish_id}` : '#')}
+                    to={item.item_type === 'restaurant' ? `/restaurants/${item.item_id}` : 
+                        item.item_type === 'dish' ? `/dishes/${item.item_id}` : 
+                        item.restaurant_id ? `/restaurants/${item.restaurant_id}` : 
+                        item.dish_id ? `/dishes/${item.dish_id}` : '#'}
                     className="text-base font-medium text-blue-700 hover:underline dark:text-blue-400 truncate block"
-                    title={item.restaurant_name || item.dish_name || 'Unknown Item'}
+                    title={item.name || item.restaurant_name || item.dish_name || 'Unknown Item'}
                   >
-                    {item.restaurant_name || item.dish_name || 'Unknown Item'}
+                    {item.name || item.restaurant_name || item.dish_name || 'Unknown Item'}
                   </Link>
                   {item.restaurant_address && (
                     <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{item.restaurant_address}</p>
@@ -371,6 +430,10 @@ function ListDetail({ listId: propListId, embedded = false }) {
                   {item.note && (
                     <p className="text-sm text-gray-600 dark:text-gray-300 mt-1 italic">Note: {item.note}</p>
                   )}
+                  {/* Debug info */}
+                  <p className="text-xs text-gray-400 mt-1">
+                    Type: {item.item_type} | ID: {item.item_id} | List Item ID: {item.list_item_id || item.id}
+                  </p>
                 </div>
 
                 {/* Action buttons */}
@@ -420,6 +483,16 @@ function ListDetail({ listId: propListId, embedded = false }) {
                 ? "Add restaurants and dishes to create your collection."
                 : "The owner hasn't added any restaurants or dishes yet."}
             </p>
+            {/* Debug info */}
+            <div className="mt-4 p-4 bg-gray-100 dark:bg-gray-800 rounded text-xs text-left">
+              <p><strong>Debug Info:</strong></p>
+              <p>List ID: {listId}</p>
+              <p>Items data: {JSON.stringify(rawItems)}</p>
+              <p>Items loading: {isLoadingItems.toString()}</p>
+              <p>Items error: {isItemsError.toString()}</p>
+              <p>List loading: {isLoadingList.toString()}</p>
+              <p>List error: {isListError.toString()}</p>
+            </div>
           </div>
         )}
       </div>
@@ -430,11 +503,9 @@ function ListDetail({ listId: propListId, embedded = false }) {
         onClose={() => setShowDeleteConfirm(false)}
         onConfirm={handleDeleteItem}
         title="Remove Item"
-        message={`Are you sure you want to remove "${itemToDelete?.restaurant_name || itemToDelete?.dish_name || 'this item'}" from your list?`}
-        confirmText="Remove"
-        cancelText="Cancel"
-        isDanger
-      />
+      >
+        Are you sure you want to remove "{itemToDelete?.restaurant_name || itemToDelete?.dish_name || itemToDelete?.name || 'this item'}" from your list?
+      </ConfirmationDialog>
     </PageContainer>
   );
 }

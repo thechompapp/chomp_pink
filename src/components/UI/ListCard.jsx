@@ -190,8 +190,8 @@ const ListCard = ({
   description,
   list_type,
   tags = [],
-  items,
-  items_count = 0,
+  items = [],
+  item_count = 0,
   view_count = 0,
   follow_count = 0,
   comment_count = 0,
@@ -217,7 +217,7 @@ const ListCard = ({
   
   const cleanName = name?.trim() || 'Unnamed List';
   const safeTags = Array.isArray(tags) ? tags : [];
-  const displayItemCount = items_count || (Array.isArray(items) ? items.length : 0);
+  const displayItemCount = item_count || (Array.isArray(items) ? items.length : 0);
   
   // Format update time
   const updatedText = useMemo(() => {
@@ -513,7 +513,7 @@ ListCard.propTypes = {
   list_type: PropTypes.string,
   tags: PropTypes.array,
   items: PropTypes.array,
-  items_count: PropTypes.number,
+  item_count: PropTypes.number,
   view_count: PropTypes.number,
   follow_count: PropTypes.number,
   comment_count: PropTypes.number,

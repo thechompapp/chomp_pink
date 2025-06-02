@@ -46,11 +46,21 @@ const useListData = (listId) => {
         // Then get the list items
         const itemsResult = await listService.getListItems(listId);
         
+        console.log(`[useListData] List result:`, listResult);
+        console.log(`[useListData] Items result:`, itemsResult);
+        console.log(`[useListData] Items result data:`, itemsResult?.data);
+        console.log(`[useListData] Items result data is array:`, Array.isArray(itemsResult?.data));
+        
         // Combine the results into the expected format
-        return {
+        const combinedResult = {
           list: listResult.data,
           items: itemsResult?.data || []
         };
+        
+        console.log(`[useListData] Combined result:`, combinedResult);
+        console.log(`[useListData] Combined result items length:`, combinedResult.items.length);
+        
+        return combinedResult;
       } catch (err) {
         logError(`[useListData] Error in query function:`, err);
         // Rethrow to let React Query handle it

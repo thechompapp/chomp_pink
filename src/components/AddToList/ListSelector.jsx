@@ -102,7 +102,7 @@ const ListSelector = ({
       {/* List selection */}
       {!isLoadingUserLists && (
         <div 
-          className="max-h-60 overflow-y-auto mb-4 border rounded-md shadow-sm" 
+          className="max-h-64 overflow-y-auto mb-6 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm" 
           role="listbox"
           aria-label="Your lists"
         >
@@ -115,20 +115,27 @@ const ListSelector = ({
                 role="option"
                 aria-selected={selectedListId === list.id}
                 tabIndex={0}
-                className={`p-3 cursor-pointer hover:bg-primary-50 dark:hover:bg-gray-700 ${
-                  selectedListId === list.id ? 'bg-primary-100 dark:bg-primary-700 border-l-4 border-primary-500 dark:border-primary-400' : 'border-b border-gray-200 dark:border-gray-600'
-                } transition-all duration-150`}
+                className={`p-4 cursor-pointer transition-all duration-200 ${
+                  selectedListId === list.id 
+                    ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 dark:border-blue-400' 
+                    : 'hover:bg-gray-50 dark:hover:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700 last:border-b-0'
+                }`}
               >
-                <h4 className="font-medium text-sm text-gray-800 dark:text-gray-100">{list.name}</h4>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">{list.name}</h4>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
                   {list.item_count ?? 0} items · {list.is_public ? 'Public' : 'Private'}
                 </p>
               </div>
             ))
           ) : (
-            <p className="p-4 text-sm text-gray-500 dark:text-gray-400 text-center">
-              {searchTerm ? 'No matching lists found.' : 'No lists found. Try creating one!'}
-            </p>
+            <div className="p-6 text-center">
+              <p className="text-gray-500 dark:text-gray-400 mb-2">
+                {searchTerm ? 'No matching lists found.' : 'No lists found.'}
+              </p>
+              <p className="text-sm text-gray-400 dark:text-gray-500">
+                {searchTerm ? 'Try a different search term or create a new list.' : 'Create your first list to get started!'}
+              </p>
+            </div>
           )}
         </div>
       )}
@@ -136,10 +143,10 @@ const ListSelector = ({
       {/* Create list button */}
       <Button 
         onClick={onCreateNewClick} 
-        variant="outline" 
-        className="w-full mb-4"
+        variant="primary" 
+        className="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
         </svg>
         Create New List

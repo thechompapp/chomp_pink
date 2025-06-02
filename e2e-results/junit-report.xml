@@ -1,16 +1,906 @@
-<testsuites id="" name="" tests="1" failures="0" skipped="0" errors="0" time="20.480993">
-<testsuite name="form-debug-simple.spec.js" timestamp="2025-06-01T16:02:28.560Z" hostname="chromium-desktop" tests="1" failures="0" skipped="0" time="19.483" errors="0">
-<testcase name="Simple Form Debug › Debug form submission for Cities" classname="form-debug-simple.spec.js" time="19.483">
+<testsuites id="" name="" tests="6" failures="6" skipped="0" errors="0" time="16.24116">
+<testsuite name="simple-list-debug.spec.js" timestamp="2025-06-02T00:49:13.672Z" hostname="chromium-desktop" tests="1" failures="1" skipped="0" time="6.732" errors="0">
+<testcase name="Simple List Debug › should directly check list items for Test QuickAdd List" classname="simple-list-debug.spec.js" time="6.732">
+<failure message="simple-list-debug.spec.js:4:3 should directly check list items for Test QuickAdd List" type="FAILURE">
+<![CDATA[  [chromium-desktop] › simple-list-debug.spec.js:4:3 › Simple List Debug › should directly check list items for Test QuickAdd List 
+
+    Error: locator.count: Unexpected token "=" while parsing css selector "[data-testid="loading"], .animate-spin, text=Loading". Did you mean to CSS.escape it?
+
+      69 |     
+      70 |     // Check for loading spinners
+    > 71 |     const loadingSpinners = await page.locator('[data-testid="loading"], .animate-spin, text=Loading').count();
+         |                                                                                                        ^
+      72 |     console.log('⏳ Loading indicators:', loadingSpinners);
+      73 |     
+      74 |     // Take a final screenshot
+        at /Users/naf/Downloads/doof/e2e/simple-list-debug.spec.js:71:104
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-chromium-desktop/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-chromium-desktop/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
 <system-out>
-<![CDATA[🔐 Logging in as admin...
-✅ Admin login successful
-✅ Navigated to Cities
-✅ Opened create form
-✅ Filled name field
-📋 Submit button enabled: true
-📋 Submit button enabled after wait: true
-🚀 Form is valid, attempting submission...
-✅ Form submitted
+<![CDATA[🚀 Starting simple list debug test
+📋 Navigating directly to list 59...
+🌐 API Call: GET http://localhost:5175/src/services/api/index.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiClientCore.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiRequestMethods.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiRetryLogic.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiCacheManager.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiOfflineMode.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiValidation.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiInterceptors.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiErrorUtils.js
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
+🖥️  Frontend Log: [INFO][2025-06-02T00:49:19.213Z] [ListDetail] Forcing database data
+🖥️  Frontend Log: 🌐 [ListDetail] Fetching list details for ID: 59
+🖥️  Frontend Log: 🔑 [ListDetail] Auth check: {isAuthenticated: false, hasUser: false, userId: undefined, userRole: undefined}
+🖥️  Frontend Log: 🌐 [ListDetail] Fetching items for list ID: 59
+🖥️  Frontend Log: [INFO][2025-06-02T00:49:19.219Z] [ListDetail] Forcing database data
+🌐 API Call: GET http://localhost:5001/api/lists/59
+🌐 API Call: GET http://localhost:5001/api/lists/59/items
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
+📋 List 59 API Response: 200 http://localhost:5001/api/lists/59
+🖥️  Frontend Log: ✅ [ListDetail] List details result: {success: true, message: List details retrieved successfully, data: Object}
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: false, listName: Test QuickAdd List, itemsCount: 0}
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: false, listName: Test QuickAdd List, itemsCount: 0}
+📋 List 59 Response Body: {
+  "success": true,
+  "message": "List details retrieved successfully",
+  "data": {
+    "id": 59,
+    "name": "Test QuickAdd List",
+    "description": "Testing quickadd functionality",
+    "list_type": "mixed",
+    "saved_count": 0,
+    "city_name": null,
+    "tags": [],
+    "is_public": true,
+    "creator_handle": "admin",
+    "user_id": 104,
+    "created_at": "2025-06-02T00:26:53.129Z",
+    "updated_at": "2025-06-02T00:26:53.129Z",
+    "creator_username": "admin",
+    "items_count": 4
+  }
+}
+📋 List 59 API Response: 200 http://localhost:5001/api/lists/59/items
+🖥️  Frontend Log: ✅ [ListDetail] List items result: {success: true, data: Array(4), pagination: null, message: List items retrieved successfully, error: undefined}
+🖥️  Frontend Log: 📝 [ListDetail] Items data: [Object, Object, Object, Object]
+🖥️  Frontend Log: 📊 [ListDetail] Items count: 4
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 4}
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 4}
+📋 List 59 Response Body: {
+  "success": true,
+  "message": "List items retrieved successfully",
+  "data": [
+    {
+      "list_item_id": 224,
+      "id": 224,
+      "item_id": 288,
+      "item_type": "restaurant",
+      "added_at": "2025-06-02T00:45:41.356Z",
+      "name": "John's of Bleecker Street",
+      "restaurant_name": "John's of Bleecker Street",
+      "cuisine": null,
+      "location": "278 Bleecker St",
+      "city_name": null
+    },
+    {
+      "list_item_id": 223,
+      "id": 223,
+      "item_id": 287,
+      "item_type": "restaurant",
+      "added_at": "2025-06-02T00:45:41.337Z",
+      "name": "Joe's Pizza",
+      "restaurant_name": "Joe's Pizza",
+      "cuisine": null,
+      "location": "7 Carmine St",
+      "city_name": null
+    },
+    {
+      "list_item_id": 222,
+      "id": 222,
+      "item_id": 1,
+      "item_type": "dish",
+      "added_at": "2025-06-02T00:27:06.736Z",
+      "name": "dish 1",
+      "restaurant_name": null,
+      "cuisine": null,
+      "location": null,
+      "city_name": null
+    },
+    {
+      "list_item_id": 221,
+      "id": 221,
+      "item_id": 1,
+      "item_type": "restaurant",
+      "added_at": "2025-06-02T00:27:02.544Z",
+      "name": "restaurant 1",
+      "restaurant_name": null,
+      "cuisine": null,
+      "location": null,
+      "city_name": null
+    }
+  ],
+  "total": 4
+}
+📸 Initial screenshot saved
+📄 Page title: Chomp Clean
+🔍 Page contains "Test QuickAdd List": [33mtrue[39m
+🔍 Page contains "dish": [33mtrue[39m
+🔍 Page contains "restaurant": [33mtrue[39m
+🔍 Page contains "empty": [33mfalse[39m
+📋 H1 elements: [ [32m'Test QuickAdd List'[39m ]
+📊 Total <li> elements found: 4
+🈳 "This list is empty" messages: [33m0[39m
+
+[[ATTACHMENT|test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-chromium-desktop/test-failed-1.png]]
+
+[[ATTACHMENT|test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-chromium-desktop/video.webm]]
+]]>
+</system-out>
+</testcase>
+</testsuite>
+<testsuite name="simple-list-debug.spec.js" timestamp="2025-06-02T00:49:13.672Z" hostname="firefox-desktop" tests="1" failures="1" skipped="0" time="7.543" errors="0">
+<testcase name="Simple List Debug › should directly check list items for Test QuickAdd List" classname="simple-list-debug.spec.js" time="7.543">
+<failure message="simple-list-debug.spec.js:4:3 should directly check list items for Test QuickAdd List" type="FAILURE">
+<![CDATA[  [firefox-desktop] › simple-list-debug.spec.js:4:3 › Simple List Debug › should directly check list items for Test QuickAdd List 
+
+    Error: locator.count: Unexpected token "=" while parsing css selector "[data-testid="loading"], .animate-spin, text=Loading". Did you mean to CSS.escape it?
+
+      69 |     
+      70 |     // Check for loading spinners
+    > 71 |     const loadingSpinners = await page.locator('[data-testid="loading"], .animate-spin, text=Loading').count();
+         |                                                                                                        ^
+      72 |     console.log('⏳ Loading indicators:', loadingSpinners);
+      73 |     
+      74 |     // Take a final screenshot
+        at /Users/naf/Downloads/doof/e2e/simple-list-debug.spec.js:71:104
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-firefox-desktop/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-firefox-desktop/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+<system-out>
+<![CDATA[🚀 Starting simple list debug test
+📋 Navigating directly to list 59...
+🌐 API Call: GET http://localhost:5175/src/services/api/index.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiClientCore.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiRequestMethods.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiRetryLogic.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiCacheManager.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiOfflineMode.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiValidation.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiInterceptors.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiErrorUtils.js
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: JSHandle@object
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: JSHandle@object
+🖥️  Frontend Log: [INFO][2025-06-02T00:49:19.590Z] [ListDetail] Forcing database data
+🖥️  Frontend Log: 🌐 [ListDetail] Fetching list details for ID: 59
+🖥️  Frontend Log: 🔑 [ListDetail] Auth check: JSHandle@object
+🖥️  Frontend Log: 🌐 [ListDetail] Fetching items for list ID: 59
+🖥️  Frontend Log: [INFO][2025-06-02T00:49:19.598Z] [ListDetail] Forcing database data
+🌐 API Call: GET http://localhost:5001/api/lists/59
+🌐 API Call: GET http://localhost:5001/api/lists/59/items
+📋 List 59 API Response: 200 http://localhost:5001/api/lists/59
+📋 List 59 Response Body: {
+  "success": true,
+  "message": "List details retrieved successfully",
+  "data": {
+    "id": 59,
+    "name": "Test QuickAdd List",
+    "description": "Testing quickadd functionality",
+    "list_type": "mixed",
+    "saved_count": 0,
+    "city_name": null,
+    "tags": [],
+    "is_public": true,
+    "creator_handle": "admin",
+    "user_id": 104,
+    "created_at": "2025-06-02T00:26:53.129Z",
+    "updated_at": "2025-06-02T00:26:53.129Z",
+    "creator_username": "admin",
+    "items_count": 4
+  }
+}
+📋 List 59 API Response: 200 http://localhost:5001/api/lists/59/items
+📋 List 59 Response Body: {
+  "success": true,
+  "message": "List items retrieved successfully",
+  "data": [
+    {
+      "list_item_id": 224,
+      "id": 224,
+      "item_id": 288,
+      "item_type": "restaurant",
+      "added_at": "2025-06-02T00:45:41.356Z",
+      "name": "John's of Bleecker Street",
+      "restaurant_name": "John's of Bleecker Street",
+      "cuisine": null,
+      "location": "278 Bleecker St",
+      "city_name": null
+    },
+    {
+      "list_item_id": 223,
+      "id": 223,
+      "item_id": 287,
+      "item_type": "restaurant",
+      "added_at": "2025-06-02T00:45:41.337Z",
+      "name": "Joe's Pizza",
+      "restaurant_name": "Joe's Pizza",
+      "cuisine": null,
+      "location": "7 Carmine St",
+      "city_name": null
+    },
+    {
+      "list_item_id": 222,
+      "id": 222,
+      "item_id": 1,
+      "item_type": "dish",
+      "added_at": "2025-06-02T00:27:06.736Z",
+      "name": "dish 1",
+      "restaurant_name": null,
+      "cuisine": null,
+      "location": null,
+      "city_name": null
+    },
+    {
+      "list_item_id": 221,
+      "id": 221,
+      "item_id": 1,
+      "item_type": "restaurant",
+      "added_at": "2025-06-02T00:27:02.544Z",
+      "name": "restaurant 1",
+      "restaurant_name": null,
+      "cuisine": null,
+      "location": null,
+      "city_name": null
+    }
+  ],
+  "total": 4
+}
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: JSHandle@object
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: JSHandle@object
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: JSHandle@object
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: JSHandle@object
+🖥️  Frontend Log: ✅ [ListDetail] List items result: JSHandle@object
+🖥️  Frontend Log: 📝 [ListDetail] Items data: Array
+🖥️  Frontend Log: 📊 [ListDetail] Items count: 4
+🖥️  Frontend Log: ✅ [ListDetail] List details result: JSHandle@object
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: JSHandle@object
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: JSHandle@object
+📸 Initial screenshot saved
+📄 Page title: Chomp Clean
+🔍 Page contains "Test QuickAdd List": [33mtrue[39m
+🔍 Page contains "dish": [33mtrue[39m
+🔍 Page contains "restaurant": [33mtrue[39m
+🔍 Page contains "empty": [33mfalse[39m
+📋 H1 elements: [ [32m'Test QuickAdd List'[39m ]
+📊 Total <li> elements found: 4
+🈳 "This list is empty" messages: [33m0[39m
+
+[[ATTACHMENT|test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-firefox-desktop/test-failed-1.png]]
+
+[[ATTACHMENT|test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-firefox-desktop/video.webm]]
+]]>
+</system-out>
+</testcase>
+</testsuite>
+<testsuite name="simple-list-debug.spec.js" timestamp="2025-06-02T00:49:13.672Z" hostname="webkit-desktop" tests="1" failures="1" skipped="0" time="7.019" errors="0">
+<testcase name="Simple List Debug › should directly check list items for Test QuickAdd List" classname="simple-list-debug.spec.js" time="7.019">
+<failure message="simple-list-debug.spec.js:4:3 should directly check list items for Test QuickAdd List" type="FAILURE">
+<![CDATA[  [webkit-desktop] › simple-list-debug.spec.js:4:3 › Simple List Debug › should directly check list items for Test QuickAdd List 
+
+    Error: locator.count: Unexpected token "=" while parsing css selector "[data-testid="loading"], .animate-spin, text=Loading". Did you mean to CSS.escape it?
+
+      69 |     
+      70 |     // Check for loading spinners
+    > 71 |     const loadingSpinners = await page.locator('[data-testid="loading"], .animate-spin, text=Loading').count();
+         |                                                                                                        ^
+      72 |     console.log('⏳ Loading indicators:', loadingSpinners);
+      73 |     
+      74 |     // Take a final screenshot
+        at /Users/naf/Downloads/doof/e2e/simple-list-debug.spec.js:71:104
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-webkit-desktop/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-webkit-desktop/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+<system-out>
+<![CDATA[🚀 Starting simple list debug test
+📋 Navigating directly to list 59...
+🌐 API Call: GET http://localhost:5175/src/services/api/index.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiClientCore.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiRequestMethods.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiRetryLogic.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiCacheManager.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiOfflineMode.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiValidation.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiInterceptors.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiErrorUtils.js
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
+🖥️  Frontend Log: [INFO][2025-06-02T00:49:19.286Z] [ListDetail] Forcing database data
+🖥️  Frontend Log: 🌐 [ListDetail] Fetching list details for ID: 59
+🖥️  Frontend Log: 🔑 [ListDetail] Auth check: {isAuthenticated: false, hasUser: false, userId: undefined, userRole: undefined}
+🖥️  Frontend Log: 🌐 [ListDetail] Fetching items for list ID: 59
+🖥️  Frontend Log: [INFO][2025-06-02T00:49:19.299Z] [ListDetail] Forcing database data
+🌐 API Call: GET http://localhost:5001/api/lists/59
+🌐 API Call: GET http://localhost:5001/api/lists/59/items
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
+📋 List 59 API Response: 200 http://localhost:5001/api/lists/59
+🖥️  Frontend Log: ✅ [ListDetail] List details result: {success: true, message: List details retrieved successfully, data: Object}
+📋 List 59 API Response: 200 http://localhost:5001/api/lists/59/items
+🖥️  Frontend Log: ✅ [ListDetail] List items result: {success: true, data: Array, pagination: null, message: List items retrieved successfully, error: undefined}
+🖥️  Frontend Log: 📝 [ListDetail] Items data: [Object, Object, Object, Object]
+🖥️  Frontend Log: 📊 [ListDetail] Items count: 4
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 4}
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 4}
+📋 List 59 Response Body: {
+  "success": true,
+  "message": "List details retrieved successfully",
+  "data": {
+    "id": 59,
+    "name": "Test QuickAdd List",
+    "description": "Testing quickadd functionality",
+    "list_type": "mixed",
+    "saved_count": 0,
+    "city_name": null,
+    "tags": [],
+    "is_public": true,
+    "creator_handle": "admin",
+    "user_id": 104,
+    "created_at": "2025-06-02T00:26:53.129Z",
+    "updated_at": "2025-06-02T00:26:53.129Z",
+    "creator_username": "admin",
+    "items_count": 4
+  }
+}
+📋 List 59 Response Body: {
+  "success": true,
+  "message": "List items retrieved successfully",
+  "data": [
+    {
+      "list_item_id": 224,
+      "id": 224,
+      "item_id": 288,
+      "item_type": "restaurant",
+      "added_at": "2025-06-02T00:45:41.356Z",
+      "name": "John's of Bleecker Street",
+      "restaurant_name": "John's of Bleecker Street",
+      "cuisine": null,
+      "location": "278 Bleecker St",
+      "city_name": null
+    },
+    {
+      "list_item_id": 223,
+      "id": 223,
+      "item_id": 287,
+      "item_type": "restaurant",
+      "added_at": "2025-06-02T00:45:41.337Z",
+      "name": "Joe's Pizza",
+      "restaurant_name": "Joe's Pizza",
+      "cuisine": null,
+      "location": "7 Carmine St",
+      "city_name": null
+    },
+    {
+      "list_item_id": 222,
+      "id": 222,
+      "item_id": 1,
+      "item_type": "dish",
+      "added_at": "2025-06-02T00:27:06.736Z",
+      "name": "dish 1",
+      "restaurant_name": null,
+      "cuisine": null,
+      "location": null,
+      "city_name": null
+    },
+    {
+      "list_item_id": 221,
+      "id": 221,
+      "item_id": 1,
+      "item_type": "restaurant",
+      "added_at": "2025-06-02T00:27:02.544Z",
+      "name": "restaurant 1",
+      "restaurant_name": null,
+      "cuisine": null,
+      "location": null,
+      "city_name": null
+    }
+  ],
+  "total": 4
+}
+📸 Initial screenshot saved
+📄 Page title: Chomp Clean
+🔍 Page contains "Test QuickAdd List": [33mtrue[39m
+🔍 Page contains "dish": [33mtrue[39m
+🔍 Page contains "restaurant": [33mtrue[39m
+🔍 Page contains "empty": [33mfalse[39m
+📋 H1 elements: [ [32m'Test QuickAdd List'[39m ]
+📊 Total <li> elements found: 4
+🈳 "This list is empty" messages: [33m0[39m
+
+[[ATTACHMENT|test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-webkit-desktop/test-failed-1.png]]
+
+[[ATTACHMENT|test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-webkit-desktop/video.webm]]
+]]>
+</system-out>
+</testcase>
+</testsuite>
+<testsuite name="simple-list-debug.spec.js" timestamp="2025-06-02T00:49:13.672Z" hostname="mobile-chrome" tests="1" failures="1" skipped="0" time="6.798" errors="0">
+<testcase name="Simple List Debug › should directly check list items for Test QuickAdd List" classname="simple-list-debug.spec.js" time="6.798">
+<failure message="simple-list-debug.spec.js:4:3 should directly check list items for Test QuickAdd List" type="FAILURE">
+<![CDATA[  [mobile-chrome] › simple-list-debug.spec.js:4:3 › Simple List Debug › should directly check list items for Test QuickAdd List 
+
+    Error: locator.count: Unexpected token "=" while parsing css selector "[data-testid="loading"], .animate-spin, text=Loading". Did you mean to CSS.escape it?
+
+      69 |     
+      70 |     // Check for loading spinners
+    > 71 |     const loadingSpinners = await page.locator('[data-testid="loading"], .animate-spin, text=Loading').count();
+         |                                                                                                        ^
+      72 |     console.log('⏳ Loading indicators:', loadingSpinners);
+      73 |     
+      74 |     // Take a final screenshot
+        at /Users/naf/Downloads/doof/e2e/simple-list-debug.spec.js:71:104
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-mobile-chrome/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-mobile-chrome/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+<system-out>
+<![CDATA[🚀 Starting simple list debug test
+📋 Navigating directly to list 59...
+🌐 API Call: GET http://localhost:5175/src/services/api/index.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiClientCore.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiRequestMethods.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiRetryLogic.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiCacheManager.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiOfflineMode.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiValidation.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiInterceptors.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiErrorUtils.js
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
+🖥️  Frontend Log: [INFO][2025-06-02T00:49:19.212Z] [ListDetail] Forcing database data
+🖥️  Frontend Log: 🌐 [ListDetail] Fetching list details for ID: 59
+🖥️  Frontend Log: 🔑 [ListDetail] Auth check: {isAuthenticated: false, hasUser: false, userId: undefined, userRole: undefined}
+🖥️  Frontend Log: 🌐 [ListDetail] Fetching items for list ID: 59
+🖥️  Frontend Log: [INFO][2025-06-02T00:49:19.217Z] [ListDetail] Forcing database data
+🌐 API Call: GET http://localhost:5001/api/lists/59
+🌐 API Call: GET http://localhost:5001/api/lists/59/items
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
+📋 List 59 API Response: 200 http://localhost:5001/api/lists/59
+🖥️  Frontend Log: ✅ [ListDetail] List details result: {success: true, message: List details retrieved successfully, data: Object}
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: false, listName: Test QuickAdd List, itemsCount: 0}
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: false, listName: Test QuickAdd List, itemsCount: 0}
+📋 List 59 Response Body: {
+  "success": true,
+  "message": "List details retrieved successfully",
+  "data": {
+    "id": 59,
+    "name": "Test QuickAdd List",
+    "description": "Testing quickadd functionality",
+    "list_type": "mixed",
+    "saved_count": 0,
+    "city_name": null,
+    "tags": [],
+    "is_public": true,
+    "creator_handle": "admin",
+    "user_id": 104,
+    "created_at": "2025-06-02T00:26:53.129Z",
+    "updated_at": "2025-06-02T00:26:53.129Z",
+    "creator_username": "admin",
+    "items_count": 4
+  }
+}
+📋 List 59 API Response: 200 http://localhost:5001/api/lists/59/items
+🖥️  Frontend Log: ✅ [ListDetail] List items result: {success: true, data: Array(4), pagination: null, message: List items retrieved successfully, error: undefined}
+🖥️  Frontend Log: 📝 [ListDetail] Items data: [Object, Object, Object, Object]
+🖥️  Frontend Log: 📊 [ListDetail] Items count: 4
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 4}
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 4}
+📋 List 59 Response Body: {
+  "success": true,
+  "message": "List items retrieved successfully",
+  "data": [
+    {
+      "list_item_id": 224,
+      "id": 224,
+      "item_id": 288,
+      "item_type": "restaurant",
+      "added_at": "2025-06-02T00:45:41.356Z",
+      "name": "John's of Bleecker Street",
+      "restaurant_name": "John's of Bleecker Street",
+      "cuisine": null,
+      "location": "278 Bleecker St",
+      "city_name": null
+    },
+    {
+      "list_item_id": 223,
+      "id": 223,
+      "item_id": 287,
+      "item_type": "restaurant",
+      "added_at": "2025-06-02T00:45:41.337Z",
+      "name": "Joe's Pizza",
+      "restaurant_name": "Joe's Pizza",
+      "cuisine": null,
+      "location": "7 Carmine St",
+      "city_name": null
+    },
+    {
+      "list_item_id": 222,
+      "id": 222,
+      "item_id": 1,
+      "item_type": "dish",
+      "added_at": "2025-06-02T00:27:06.736Z",
+      "name": "dish 1",
+      "restaurant_name": null,
+      "cuisine": null,
+      "location": null,
+      "city_name": null
+    },
+    {
+      "list_item_id": 221,
+      "id": 221,
+      "item_id": 1,
+      "item_type": "restaurant",
+      "added_at": "2025-06-02T00:27:02.544Z",
+      "name": "restaurant 1",
+      "restaurant_name": null,
+      "cuisine": null,
+      "location": null,
+      "city_name": null
+    }
+  ],
+  "total": 4
+}
+📸 Initial screenshot saved
+📄 Page title: Chomp Clean
+🔍 Page contains "Test QuickAdd List": [33mtrue[39m
+🔍 Page contains "dish": [33mtrue[39m
+🔍 Page contains "restaurant": [33mtrue[39m
+🔍 Page contains "empty": [33mfalse[39m
+📋 H1 elements: [ [32m'Test QuickAdd List'[39m ]
+📊 Total <li> elements found: 4
+🈳 "This list is empty" messages: [33m0[39m
+
+[[ATTACHMENT|test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-mobile-chrome/test-failed-1.png]]
+
+[[ATTACHMENT|test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-mobile-chrome/video.webm]]
+]]>
+</system-out>
+</testcase>
+</testsuite>
+<testsuite name="simple-list-debug.spec.js" timestamp="2025-06-02T00:49:13.672Z" hostname="mobile-safari" tests="1" failures="1" skipped="0" time="5.137" errors="0">
+<testcase name="Simple List Debug › should directly check list items for Test QuickAdd List" classname="simple-list-debug.spec.js" time="5.137">
+<failure message="simple-list-debug.spec.js:4:3 should directly check list items for Test QuickAdd List" type="FAILURE">
+<![CDATA[  [mobile-safari] › simple-list-debug.spec.js:4:3 › Simple List Debug › should directly check list items for Test QuickAdd List 
+
+    Error: locator.count: Unexpected token "=" while parsing css selector "[data-testid="loading"], .animate-spin, text=Loading". Did you mean to CSS.escape it?
+
+      69 |     
+      70 |     // Check for loading spinners
+    > 71 |     const loadingSpinners = await page.locator('[data-testid="loading"], .animate-spin, text=Loading').count();
+         |                                                                                                        ^
+      72 |     console.log('⏳ Loading indicators:', loadingSpinners);
+      73 |     
+      74 |     // Take a final screenshot
+        at /Users/naf/Downloads/doof/e2e/simple-list-debug.spec.js:71:104
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-mobile-safari/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-mobile-safari/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+<system-out>
+<![CDATA[🚀 Starting simple list debug test
+📋 Navigating directly to list 59...
+🌐 API Call: GET http://localhost:5175/src/services/api/index.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiClientCore.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiRequestMethods.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiRetryLogic.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiCacheManager.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiOfflineMode.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiValidation.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiInterceptors.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiErrorUtils.js
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
+🖥️  Frontend Log: [INFO][2025-06-02T00:49:25.600Z] [ListDetail] Forcing database data
+🖥️  Frontend Log: 🌐 [ListDetail] Fetching list details for ID: 59
+🖥️  Frontend Log: 🔑 [ListDetail] Auth check: {isAuthenticated: false, hasUser: false, userId: undefined, userRole: undefined}
+🖥️  Frontend Log: 🌐 [ListDetail] Fetching items for list ID: 59
+🖥️  Frontend Log: [INFO][2025-06-02T00:49:25.607Z] [ListDetail] Forcing database data
+🌐 API Call: GET http://localhost:5001/api/lists/59
+🌐 API Call: GET http://localhost:5001/api/lists/59/items
+📋 List 59 API Response: 200 http://localhost:5001/api/lists/59
+🖥️  Frontend Log: ✅ [ListDetail] List details result: {success: true, message: List details retrieved successfully, data: Object}
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: false, listName: Test QuickAdd List, itemsCount: 0}
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: false, listName: Test QuickAdd List, itemsCount: 0}
+📋 List 59 API Response: 200 http://localhost:5001/api/lists/59/items
+🖥️  Frontend Log: ✅ [ListDetail] List items result: {success: true, data: Array, pagination: null, message: List items retrieved successfully, error: undefined}
+🖥️  Frontend Log: 📝 [ListDetail] Items data: [Object, Object, Object, Object]
+🖥️  Frontend Log: 📊 [ListDetail] Items count: 4
+📋 List 59 Response Body: {
+  "success": true,
+  "message": "List details retrieved successfully",
+  "data": {
+    "id": 59,
+    "name": "Test QuickAdd List",
+    "description": "Testing quickadd functionality",
+    "list_type": "mixed",
+    "saved_count": 0,
+    "city_name": null,
+    "tags": [],
+    "is_public": true,
+    "creator_handle": "admin",
+    "user_id": 104,
+    "created_at": "2025-06-02T00:26:53.129Z",
+    "updated_at": "2025-06-02T00:26:53.129Z",
+    "creator_username": "admin",
+    "items_count": 4
+  }
+}
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 4}
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 4}
+📋 List 59 Response Body: {
+  "success": true,
+  "message": "List items retrieved successfully",
+  "data": [
+    {
+      "list_item_id": 224,
+      "id": 224,
+      "item_id": 288,
+      "item_type": "restaurant",
+      "added_at": "2025-06-02T00:45:41.356Z",
+      "name": "John's of Bleecker Street",
+      "restaurant_name": "John's of Bleecker Street",
+      "cuisine": null,
+      "location": "278 Bleecker St",
+      "city_name": null
+    },
+    {
+      "list_item_id": 223,
+      "id": 223,
+      "item_id": 287,
+      "item_type": "restaurant",
+      "added_at": "2025-06-02T00:45:41.337Z",
+      "name": "Joe's Pizza",
+      "restaurant_name": "Joe's Pizza",
+      "cuisine": null,
+      "location": "7 Carmine St",
+      "city_name": null
+    },
+    {
+      "list_item_id": 222,
+      "id": 222,
+      "item_id": 1,
+      "item_type": "dish",
+      "added_at": "2025-06-02T00:27:06.736Z",
+      "name": "dish 1",
+      "restaurant_name": null,
+      "cuisine": null,
+      "location": null,
+      "city_name": null
+    },
+    {
+      "list_item_id": 221,
+      "id": 221,
+      "item_id": 1,
+      "item_type": "restaurant",
+      "added_at": "2025-06-02T00:27:02.544Z",
+      "name": "restaurant 1",
+      "restaurant_name": null,
+      "cuisine": null,
+      "location": null,
+      "city_name": null
+    }
+  ],
+  "total": 4
+}
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 4}
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 4}
+📸 Initial screenshot saved
+📄 Page title: Chomp Clean
+🔍 Page contains "Test QuickAdd List": [33mtrue[39m
+🔍 Page contains "dish": [33mtrue[39m
+🔍 Page contains "restaurant": [33mtrue[39m
+🔍 Page contains "empty": [33mfalse[39m
+📋 H1 elements: [ [32m'Test QuickAdd List'[39m ]
+📊 Total <li> elements found: 4
+🈳 "This list is empty" messages: [33m0[39m
+
+[[ATTACHMENT|test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-mobile-safari/test-failed-1.png]]
+
+[[ATTACHMENT|test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-mobile-safari/video.webm]]
+]]>
+</system-out>
+</testcase>
+</testsuite>
+<testsuite name="simple-list-debug.spec.js" timestamp="2025-06-02T00:49:13.672Z" hostname="tablet-ipad" tests="1" failures="1" skipped="0" time="5.165" errors="0">
+<testcase name="Simple List Debug › should directly check list items for Test QuickAdd List" classname="simple-list-debug.spec.js" time="5.165">
+<failure message="simple-list-debug.spec.js:4:3 should directly check list items for Test QuickAdd List" type="FAILURE">
+<![CDATA[  [tablet-ipad] › simple-list-debug.spec.js:4:3 › Simple List Debug › should directly check list items for Test QuickAdd List 
+
+    Error: locator.count: Unexpected token "=" while parsing css selector "[data-testid="loading"], .animate-spin, text=Loading". Did you mean to CSS.escape it?
+
+      69 |     
+      70 |     // Check for loading spinners
+    > 71 |     const loadingSpinners = await page.locator('[data-testid="loading"], .animate-spin, text=Loading').count();
+         |                                                                                                        ^
+      72 |     console.log('⏳ Loading indicators:', loadingSpinners);
+      73 |     
+      74 |     // Take a final screenshot
+        at /Users/naf/Downloads/doof/e2e/simple-list-debug.spec.js:71:104
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-tablet-ipad/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    e2e-results/test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-tablet-ipad/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+<system-out>
+<![CDATA[🚀 Starting simple list debug test
+📋 Navigating directly to list 59...
+🌐 API Call: GET http://localhost:5175/src/services/api/index.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiClientCore.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiRequestMethods.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiRetryLogic.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiCacheManager.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiOfflineMode.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiValidation.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiInterceptors.js
+🌐 API Call: GET http://localhost:5175/src/services/api/apiErrorUtils.js
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
+🖥️  Frontend Log: [INFO][2025-06-02T00:49:25.830Z] [ListDetail] Forcing database data
+🖥️  Frontend Log: 🌐 [ListDetail] Fetching list details for ID: 59
+🖥️  Frontend Log: 🔑 [ListDetail] Auth check: {isAuthenticated: false, hasUser: false, userId: undefined, userRole: undefined}
+🖥️  Frontend Log: 🌐 [ListDetail] Fetching items for list ID: 59
+🖥️  Frontend Log: [INFO][2025-06-02T00:49:25.835Z] [ListDetail] Forcing database data
+🌐 API Call: GET http://localhost:5001/api/lists/59
+🌐 API Call: GET http://localhost:5001/api/lists/59/items
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
+📋 List 59 API Response: 200 http://localhost:5001/api/lists/59
+🖥️  Frontend Log: ✅ [ListDetail] List details result: {success: true, message: List details retrieved successfully, data: Object}
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: false, listName: Test QuickAdd List, itemsCount: 0}
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: false, listName: Test QuickAdd List, itemsCount: 0}
+📋 List 59 API Response: 200 http://localhost:5001/api/lists/59/items
+🖥️  Frontend Log: ✅ [ListDetail] List items result: {success: true, data: Array(4), pagination: null, message: List items retrieved successfully, error: undefined}
+🖥️  Frontend Log: 📝 [ListDetail] Items data: [Object, Object, Object, Object]
+🖥️  Frontend Log: 📊 [ListDetail] Items count: 4
+📋 List 59 Response Body: {
+  "success": true,
+  "message": "List details retrieved successfully",
+  "data": {
+    "id": 59,
+    "name": "Test QuickAdd List",
+    "description": "Testing quickadd functionality",
+    "list_type": "mixed",
+    "saved_count": 0,
+    "city_name": null,
+    "tags": [],
+    "is_public": true,
+    "creator_handle": "admin",
+    "user_id": 104,
+    "created_at": "2025-06-02T00:26:53.129Z",
+    "updated_at": "2025-06-02T00:26:53.129Z",
+    "creator_username": "admin",
+    "items_count": 4
+  }
+}
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 4}
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 4}
+📋 List 59 Response Body: {
+  "success": true,
+  "message": "List items retrieved successfully",
+  "data": [
+    {
+      "list_item_id": 224,
+      "id": 224,
+      "item_id": 288,
+      "item_type": "restaurant",
+      "added_at": "2025-06-02T00:45:41.356Z",
+      "name": "John's of Bleecker Street",
+      "restaurant_name": "John's of Bleecker Street",
+      "cuisine": null,
+      "location": "278 Bleecker St",
+      "city_name": null
+    },
+    {
+      "list_item_id": 223,
+      "id": 223,
+      "item_id": 287,
+      "item_type": "restaurant",
+      "added_at": "2025-06-02T00:45:41.337Z",
+      "name": "Joe's Pizza",
+      "restaurant_name": "Joe's Pizza",
+      "cuisine": null,
+      "location": "7 Carmine St",
+      "city_name": null
+    },
+    {
+      "list_item_id": 222,
+      "id": 222,
+      "item_id": 1,
+      "item_type": "dish",
+      "added_at": "2025-06-02T00:27:06.736Z",
+      "name": "dish 1",
+      "restaurant_name": null,
+      "cuisine": null,
+      "location": null,
+      "city_name": null
+    },
+    {
+      "list_item_id": 221,
+      "id": 221,
+      "item_id": 1,
+      "item_type": "restaurant",
+      "added_at": "2025-06-02T00:27:02.544Z",
+      "name": "restaurant 1",
+      "restaurant_name": null,
+      "cuisine": null,
+      "location": null,
+      "city_name": null
+    }
+  ],
+  "total": 4
+}
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 4}
+🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 4}
+📸 Initial screenshot saved
+📄 Page title: Chomp Clean
+🔍 Page contains "Test QuickAdd List": [33mtrue[39m
+🔍 Page contains "dish": [33mtrue[39m
+🔍 Page contains "restaurant": [33mtrue[39m
+🔍 Page contains "empty": [33mfalse[39m
+📋 H1 elements: [ [32m'Test QuickAdd List'[39m ]
+📊 Total <li> elements found: 4
+🈳 "This list is empty" messages: [33m0[39m
+
+[[ATTACHMENT|test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-tablet-ipad/test-failed-1.png]]
+
+[[ATTACHMENT|test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-tablet-ipad/video.webm]]
 ]]>
 </system-out>
 </testcase>

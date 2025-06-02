@@ -26,6 +26,11 @@ const ListItemsContainer = ({
   const [sortOrder, setSortOrder] = useState('default');
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   
+  console.log(`[ListItemsContainer] Received items:`, items);
+  console.log(`[ListItemsContainer] Items type:`, typeof items);
+  console.log(`[ListItemsContainer] Items is array:`, Array.isArray(items));
+  console.log(`[ListItemsContainer] Items length:`, items?.length);
+  
   // Toggle sort menu
   const toggleSortMenu = () => {
     setSortMenuOpen(!sortMenuOpen);

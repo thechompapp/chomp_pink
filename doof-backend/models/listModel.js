@@ -171,65 +171,81 @@ export const findListItemsByListId = async (listId) => {
   console.log(`[ListModel findListItemsByListId] Fetching all items for list ${listId}`);
   
   try {
-    const listItemQuery = `
-      SELECT li.id, li.item_id, li.item_type, li.added_at, li.notes, li.order_index
+    // Complete query that properly handles both restaurants and dishes
+    const result = await db.query(`
+      SELECT 
+        li.id as list_item_id,
+        li.item_id,
+        li.item_type,
+        li.added_at,
+        li.notes,
+        
+        -- Restaurant fields (only populated when item_type = 'restaurant')
+        CASE WHEN li.item_type = 'restaurant' THEN li.item_id ELSE NULL END as restaurant_id,
+        r.name as restaurant_name,
+        r.cuisine,
+        r.address,
+        r.city_name as restaurant_city,
+        
+        -- Dish fields (only populated when item_type = 'dish')
+        CASE WHEN li.item_type = 'dish' THEN li.item_id ELSE NULL END as dish_id,
+        d.name as dish_name,
+        d.description as dish_description,
+        d.restaurant_id as dish_restaurant_id,
+        dr.name as dish_restaurant_name
+        
       FROM listitems li
+      LEFT JOIN restaurants r ON li.item_type = 'restaurant' AND li.item_id = r.id
+      LEFT JOIN dishes d ON li.item_type = 'dish' AND li.item_id = d.id
+      LEFT JOIN restaurants dr ON li.item_type = 'dish' AND d.restaurant_id = dr.id
       WHERE li.list_id = $1
-      ORDER BY li.order_index ASC, li.added_at DESC
-    `;
+      ORDER BY li.added_at DESC
+    `, [listId]);
     
-    const result = await db.query(listItemQuery, [listId]);
+    console.log(`[ListModel findListItemsByListId] Query result:`, result.rows);
     
-    if (result.rows.length === 0) {
-      console.log(`[ListModel findListItemsByListId] No items found for list ${listId}`);
-      return [];
-    }
-    
-    const items = [];
-    
-    for (const row of result.rows) {
-      let itemData = null;
+    // Format the results for the frontend with proper semantic fields
+    const items = result.rows.map(row => {
+      const baseItem = {
+        list_item_id: row.list_item_id,
+        id: row.list_item_id, // For frontend compatibility
+        item_id: row.item_id,
+        item_type: row.item_type,
+        added_at: row.added_at,
+        notes: row.notes || null,
+      };
       
       if (row.item_type === 'restaurant') {
-        const restaurantQuery = 'SELECT id, name, cuisine, location, description, city_name, neighborhood_name FROM restaurants WHERE id = $1';
-        const restaurantResult = await db.query(restaurantQuery, [row.item_id]);
-        if (restaurantResult.rows.length > 0) {
-          itemData = {
-            ...restaurantResult.rows[0],
-            type: 'restaurant'
-          };
-        }
+        return {
+          ...baseItem,
+          restaurant_id: row.restaurant_id,
+          name: row.restaurant_name || `Restaurant ${row.item_id}`,
+          restaurant_name: row.restaurant_name,
+          cuisine: row.cuisine,
+          address: row.address,
+          city_name: row.restaurant_city,
+          location: row.address, // Alias for compatibility
+        };
       } else if (row.item_type === 'dish') {
-        const dishQuery = `
-          SELECT d.id, d.name, d.description, d.restaurant_id, d.cuisine,
-                 r.name as restaurant_name, r.location as restaurant_location
-          FROM dishes d
-          LEFT JOIN restaurants r ON d.restaurant_id = r.id
-          WHERE d.id = $1
-        `;
-        const dishResult = await db.query(dishQuery, [row.item_id]);
-        if (dishResult.rows.length > 0) {
-          itemData = {
-            ...dishResult.rows[0],
-            type: 'dish'
-          };
-        }
+        return {
+          ...baseItem,
+          dish_id: row.dish_id,
+          name: row.dish_name || `Dish ${row.item_id}`,
+          dish_name: row.dish_name,
+          description: row.dish_description,
+          restaurant_id: row.dish_restaurant_id, // Parent restaurant
+          restaurant_name: row.dish_restaurant_name,
+        };
+      } else {
+        // Custom items or other types
+        return {
+          ...baseItem,
+          name: `${row.item_type} ${row.item_id}`,
+        };
       }
-      
-      if (itemData) {
-        items.push(formatListItem({
-          listitem_id: row.id,
-          item_id: row.item_id,
-          item_type: row.item_type,
-          added_at: row.added_at,
-          notes: row.notes,
-          order_index: row.order_index,
-          item_data: itemData
-        }));
-      }
-    }
+    });
     
-    console.log(`[ListModel findListItemsByListId] Found ${items.length} items for list ${listId}`);
+    console.log(`[ListModel findListItemsByListId] Returning ${items.length} formatted items`);
     return items;
   } catch (error) {
     console.error(`[ListModel findListItemsByListId] Error fetching items for list ${listId}:`, error);
@@ -260,7 +276,7 @@ export const findListByIdRaw = async (listId) => {
     
     const list = {
       ...result.rows[0],
-      items_count: parseInt(result.rows[0].items_count) || 0
+      item_count: parseInt(result.rows[0].items_count) || 0
     };
     
     console.log(`[ListModel findListByIdRaw] Found list ${listId}:`, list.name);
@@ -511,7 +527,7 @@ export const getAllLists = async ({ page = 1, limit = 50, search = null, userId 
         user_id: row.user_id,
         creator_username: row.creator_username,
         creator_email: row.creator_email,
-        items_count: parseInt(row.items_count) || 0,
+        item_count: parseInt(row.items_count) || 0,
         created_at: row.created_at,
         updated_at: row.updated_at
       })),
@@ -577,7 +593,7 @@ export const getListById = async (id) => {
       user_id: row.user_id,
       creator_username: row.creator_username,
       creator_email: row.creator_email,
-      items_count: parseInt(row.items_count) || 0,
+      item_count: parseInt(row.items_count) || 0,
       created_at: row.created_at,
       updated_at: row.updated_at
     };

@@ -182,9 +182,80 @@ const listService = {
     const safeId = validateId(id, 'listId');
     const params = userId ? { userId } : {};
     
+    console.log(`[listService.getList] Calling API for list ${safeId} with params:`, params);
+    
+    // DEBUG: Check authentication state
+    const token = localStorage.getItem('token') || localStorage.getItem('auth-token') || localStorage.getItem('authToken');
+    console.log(`[listService.getList] Auth debug:`, {
+      hasToken: !!token,
+      tokenLength: token?.length,
+      tokenPreview: token ? `${token.substring(0, 20)}...` : 'none'
+    });
+    
+    try {
+      const result = await handleApiResponse(
+        () => apiClient.get(`/lists/${safeId}`, { params }),
+        'ListService.getList'
+      );
+      
+      console.log(`[listService.getList] Success result:`, result);
+      return result;
+      
+    } catch (error) {
+      console.error(`[listService.getList] Error caught:`, error);
+      console.error(`[listService.getList] Error details:`, {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      });
+      
+      // If it's an authentication error, try making the request without auth headers
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        console.log(`[listService.getList] Auth error, trying without auth headers...`);
+        
+        try {
+          // Create a direct fetch call without authentication
+          const fallbackResult = await fetch(`/api/lists/${safeId}`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (fallbackResult.ok) {
+            const data = await fallbackResult.json();
+            console.log(`[listService.getList] Fallback success:`, data);
+            
+            return {
+              success: true,
+              data: data.data || data,
+              message: 'Retrieved via fallback method',
+              error: null
+            };
+          } else {
+            console.error(`[listService.getList] Fallback also failed:`, fallbackResult.status);
+          }
+        } catch (fallbackError) {
+          console.error(`[listService.getList] Fallback request failed:`, fallbackError);
+        }
+      }
+      
+      // Re-throw the original error
+      throw error;
+    }
+  },
+
+  // Fetch detailed information about a specific list including items
+  getListDetails: async function(id, userId = null) {
+    const safeId = validateId(id, 'listId');
+    const params = userId ? { userId } : {};
+    
+    logger.debug(`[listService] Getting list details for ID: ${safeId}`);
+    
     return handleApiResponse(
       () => apiClient.get(`/lists/${safeId}`, { params }),
-      'ListService.getList'
+      'ListService.getListDetails'
     );
   },
 
@@ -220,19 +291,83 @@ const listService = {
   getListItems: async function(listId, params = {}) {
     const safeId = validateId(listId, 'listId');
     
-    const result = await handleApiResponse(
-      () => apiClient.get(`/lists/${safeId}/items`, { params }),
-      'ListService.getListItems'
-    );
+    console.log(`[listService.getListItems] Calling API for list ${safeId} with params:`, params);
     
-    // Format the response to maintain backward compatibility
-    return {
-      success: result.success,
-      data: result.data,
-      pagination: result.pagination || null,
-      message: result.message,
-      error: result.error
-    };
+    // DEBUG: Check authentication state
+    const token = localStorage.getItem('token') || localStorage.getItem('auth-token') || localStorage.getItem('authToken');
+    console.log(`[listService.getListItems] Auth debug:`, {
+      hasToken: !!token,
+      tokenLength: token?.length,
+      tokenPreview: token ? `${token.substring(0, 20)}...` : 'none'
+    });
+    
+    try {
+      const result = await handleApiResponse(
+        () => apiClient.get(`/lists/${safeId}/items`, { params }),
+        'ListService.getListItems'
+      );
+      
+      console.log(`[listService.getListItems] Raw result from handleApiResponse:`, result);
+      console.log(`[listService.getListItems] result.data type:`, typeof result.data);
+      console.log(`[listService.getListItems] result.data is array:`, Array.isArray(result.data));
+      
+      // Format the response to maintain backward compatibility
+      const formattedResponse = {
+        success: result.success,
+        data: result.data,
+        pagination: result.pagination || null,
+        message: result.message,
+        error: result.error
+      };
+      
+      console.log(`[listService.getListItems] Formatted response:`, formattedResponse);
+      
+      return formattedResponse;
+      
+    } catch (error) {
+      console.error(`[listService.getListItems] Error caught:`, error);
+      console.error(`[listService.getListItems] Error details:`, {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      });
+      
+      // If it's an authentication error, try making the request without auth headers
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        console.log(`[listService.getListItems] Auth error, trying without auth headers...`);
+        
+        try {
+          // Create a direct axios call without authentication
+          const fallbackResult = await fetch(`/api/lists/${safeId}/items`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (fallbackResult.ok) {
+            const data = await fallbackResult.json();
+            console.log(`[listService.getListItems] Fallback success:`, data);
+            
+            return {
+              success: true,
+              data: data.data || data,
+              pagination: data.pagination || null,
+              message: 'Retrieved via fallback method',
+              error: null
+            };
+          } else {
+            console.error(`[listService.getListItems] Fallback also failed:`, fallbackResult.status);
+          }
+        } catch (fallbackError) {
+          console.error(`[listService.getListItems] Fallback request failed:`, fallbackError);
+        }
+      }
+      
+      // Re-throw the original error
+      throw error;
+    }
   },
 
   // Add an item to a specific list

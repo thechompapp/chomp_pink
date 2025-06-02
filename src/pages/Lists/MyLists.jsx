@@ -105,7 +105,7 @@ const MyLists = () => {
         is_following: list.is_following || false,
         can_follow: list.user_id !== userId && !list.created_by_user,
         // Ensure display fields are present
-        items_count: list.items_count || list.items?.length || 0,
+        items_count: list.item_count || list.items?.length || 0,
         view_count: list.view_count || 0,
         follow_count: list.follow_count || 0,
         comment_count: list.comment_count || 0,
@@ -146,7 +146,7 @@ const MyLists = () => {
         case 'created':
           return new Date(b.created_at || 0) - new Date(a.created_at || 0);
         case 'items':
-          return (b.items_count || 0) - (a.items_count || 0);
+          return (b.item_count || 0) - (a.item_count || 0);
         case 'popular':
           return (b.follow_count || 0) - (a.follow_count || 0);
         case 'recent':

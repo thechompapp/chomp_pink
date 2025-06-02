@@ -54,34 +54,59 @@ export const getUserLists = async (req, res) => {
     // If isPublic is explicitly true and no user is authenticated, get public lists
     const shouldGetPublicLists = isPublic === 'true' && !userId;
     
-    // Prepare options for the model
-    const options = {
-      view,
-      page: parseInt(page),
-      limit: parseInt(limit),
-      sortBy,
-      sortOrder,
-      cityId: cityId ? parseInt(cityId) : undefined,
-      query: searchQuery,
-      hashtags: hashtags ? (Array.isArray(hashtags) ? hashtags : [hashtags]) : [],
-      // For public lists, use allLists view
-      ...(shouldGetPublicLists ? { allLists: true } : {})
-    };
+    let result;
     
-    const result = await listService.getUserLists(userId, options);
+    if (shouldGetPublicLists) {
+      // Import getAllLists and call it directly for public lists
+      const { getAllLists } = await import('../models/listModel.js');
+      
+      const options = {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        search: searchQuery,
+        isPublic: true,
+        sort: sortBy === 'newest' ? 'created_at' : sortBy,
+        order: sortOrder
+      };
+      
+      result = await getAllLists(options);
+      
+      // Format the response to match expected structure
+      result = {
+        success: true,
+        data: result.lists,
+        total: result.pagination.totalCount,
+        pagination: result.pagination
+      };
+    } else {
+      // Use the service for user-specific lists
+      const options = {
+        view,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        sortBy,
+        sortOrder,
+        cityId: cityId ? parseInt(cityId) : undefined,
+        query: searchQuery,
+        hashtags: hashtags ? (Array.isArray(hashtags) ? hashtags : [hashtags]) : []
+      };
+      
+      result = await listService.getUserLists(userId, options);
+    }
     
-    logDebug(`[listController] Service returned:`, {
+    logDebug(`[listController] Service/Model returned:`, {
       success: result?.success,
       dataLength: result?.data?.length,
       hasTotal: 'total' in result,
       hasPagination: 'pagination' in result
     });
     
-    // The service already returns the correct structure with data and total
+    // Return the correct structure without double-wrapping
     res.status(200).json({
       success: true,
       message: 'Lists retrieved successfully',
-      data: result, // Don't wrap again - service already returns {data: [...], total: N}
+      data: result.data,
+      total: result.total,
       pagination: result.pagination
     });
   } catch (error) {
@@ -124,15 +149,23 @@ export const getListItems = async (req, res) => {
     const userId = req.user?.id;
     const { page = 1, limit = 10 } = req.query;
     
+    console.log(`\n\n=== [listController.getListItems] CALLED FOR LIST ${listId} ===`);
     logDebug(`[listController] Getting items for list ${listId}`);
     
-    const result = await listService.getListItems(listId, userId, { page, limit });
+    // Call model directly to get items
+    const { findListItemsByListId } = await import('../models/listModel.js');
+    const items = await findListItemsByListId(listId);
+    
+    console.log(`[listController] Model returned type:`, typeof items);
+    console.log(`[listController] Model returned keys:`, items ? Object.keys(items) : 'null');
+    console.log(`[listController] Is array:`, Array.isArray(items));
+    console.log(`[listController] First few items:`, JSON.stringify(items).substring(0, 200));
     
     res.status(200).json({
       success: true,
       message: 'List items retrieved successfully',
-      data: result.data,
-      pagination: result.pagination
+      data: items,
+      total: Array.isArray(items) ? items.length : (items?.total || 0)
     });
   } catch (error) {
     logError('Error in getListItems:', error);
@@ -215,17 +248,24 @@ export const deleteList = async (req, res) => {
 export const addItemToList = async (req, res) => {
   try {
     const listId = parseInt(req.params.id, 10);
-    const { itemId, itemType } = req.body;
+    const { itemId, itemType, notes } = req.body;
     const userId = req.user?.id;
     
     logDebug(`[listController] Adding item ${itemId} of type ${itemType} to list ${listId}`);
     
-    const result = await listService.addItemToList(listId, itemId, itemType, userId);
+    // Create the itemData object that the service expects
+    const itemData = {
+      itemId: parseInt(itemId),
+      itemType,
+      notes: notes || null
+    };
+    
+    const result = await listService.addItemToList(listId, itemData);
     
     res.status(200).json({
       success: true,
       message: 'Item added to list successfully',
-      data: result.data
+      data: result.data || result
     });
   } catch (error) {
     logError('Error in addItemToList:', error);

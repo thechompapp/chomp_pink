@@ -28,7 +28,7 @@ const debounce = (func, wait) => {
 
 const QuickAddPopup = () => {
     const { isOpen, closeQuickAdd, item, userLists, addToList, fetchError } = useQuickAdd();
-    const { user } = useAuth(); // Migrated from useAuthStore
+    const { user, isLoading: authLoading } = useAuth(); // Add isLoading from useAuth
     const isAuthenticated = user?.id != null; // Check for user ID specifically
     const currentUserId = user?.id;
 
@@ -301,8 +301,13 @@ const QuickAddPopup = () => {
             <Modal isOpen={isOpen} onClose={closeQuickAdd} title={modalTitle}>
                 <form onSubmit={handleFormSubmit}>
                     <div className="p-4 max-h-[70vh] overflow-y-auto">
-                        {/* Authentication Check - Show login prompt for unauthenticated users */}
-                        {!isAuthenticated ? (
+                        {/* Authentication Check - Show loading, login prompt, or main content */}
+                        {authLoading ? (
+                            <div className="text-center py-8">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-3"></div>
+                                <p className="text-gray-600">Checking authentication...</p>
+                            </div>
+                        ) : !isAuthenticated ? (
                             <div className="text-center py-8">
                                 <div className="mb-4">
                                     <Info className="h-12 w-12 text-blue-500 mx-auto mb-3" />

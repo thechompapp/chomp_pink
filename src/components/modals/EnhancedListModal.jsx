@@ -142,6 +142,7 @@ const EnhancedListModal = ({
   const [isPrivacyToggling, setIsPrivacyToggling] = useState(false);
   const [localList, setLocalList] = useState(list);
   const [previewItems, setPreviewItems] = useState([]);
+  const [isLoadingItems, setIsLoadingItems] = useState(false);
 
   // Update local state when list prop changes
   useEffect(() => {
@@ -154,6 +155,32 @@ const EnhancedListModal = ({
       setPreviewItems([]);
     }
   }, [list, isOpen]);
+
+  // Fetch list items when modal opens if not already provided
+  useEffect(() => {
+    const fetchListItems = async () => {
+      if (isOpen && list?.id && (!list.items || list.items.length === 0) && list.item_count > 0) {
+        setIsLoadingItems(true);
+        try {
+          const result = await listService.getListItems(list.id, { page: 1, limit: 4 });
+          if (result.success && result.data) {
+            setPreviewItems(result.data.slice(0, 4));
+            // Update local list with items
+            setLocalList(prev => ({
+              ...prev,
+              items: result.data
+            }));
+          }
+        } catch (error) {
+          logError('Error fetching list items for modal:', error);
+        } finally {
+          setIsLoadingItems(false);
+        }
+      }
+    };
+
+    fetchListItems();
+  }, [isOpen, list?.id, list?.items, list?.item_count]);
 
   // Determine if user is the owner
   const isOwner = useMemo(() => {
@@ -375,33 +402,52 @@ const EnhancedListModal = ({
                   )}
 
                   {/* Preview Items */}
-                  {previewItems.length > 0 && (
+                  {(localList.item_count > 0) && (
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <h3 className="font-semibold text-gray-900">
                           {localList.list_type === 'restaurant' ? 'Restaurants' : 'Dishes'}
                         </h3>
-                        {localList.item_count > previewItems.length && (
+                        {!isLoadingItems && localList.item_count > previewItems.length && (
                           <span className="text-xs text-gray-500">
                             Showing {previewItems.length} of {localList.item_count}
                           </span>
                         )}
                       </div>
                       
-                      <div className="space-y-1">
-                        {previewItems.map((item, index) => (
-                          <ListItemPreview 
-                            key={item.id || index}
-                            item={item}
-                            listType={localList.list_type}
-                          />
-                        ))}
-                      </div>
+                      {isLoadingItems ? (
+                        <div className="space-y-2">
+                          {/* Loading skeleton */}
+                          {[1, 2, 3, 4].map((i) => (
+                            <div key={i} className="flex items-center space-x-3 p-2 rounded-lg">
+                              <div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse flex-shrink-0"></div>
+                              <div className="flex-1">
+                                <div className="h-4 bg-gray-200 rounded animate-pulse mb-1"></div>
+                                <div className="h-3 bg-gray-100 rounded animate-pulse w-2/3"></div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : previewItems.length > 0 ? (
+                        <div className="space-y-1">
+                          {previewItems.map((item, index) => (
+                            <ListItemPreview 
+                              key={item.id || index}
+                              item={item}
+                              listType={localList.list_type}
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-sm text-gray-500 text-center py-4">
+                          No items to preview
+                        </div>
+                      )}
                       
-                      {localList.item_count > previewItems.length && (
+                      {!isLoadingItems && localList.item_count > previewItems.length && (
                         <div className="text-center pt-2">
                           <Link
-                            to={`/list/${localList.id}`}
+                            to={`/lists/${localList.id}`}
                             onClick={onClose}
                             className="text-sm text-blue-600 hover:text-blue-800 font-medium"
                           >
@@ -479,7 +525,7 @@ const EnhancedListModal = ({
                   <div className="flex items-center space-x-2">
                     {/* View Full List Link */}
                     <Link
-                      to={`/list/${localList.id}`}
+                      to={`/lists/${localList.id}`}
                       onClick={onClose}
                       className="flex items-center space-x-1 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
                     >

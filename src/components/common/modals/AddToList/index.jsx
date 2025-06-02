@@ -10,6 +10,7 @@ import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import { listService } from '@/services/list';
 import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthStore
 import { logDebug, logError } from '@/utils/logger';
@@ -108,38 +109,103 @@ const AddToListModal = ({
       // Determine which service method to call based on item type
       const itemType = getItemType();
       
+      let apiPayload;
+      
       if (itemType === 'restaurant') {
-        return listService.addItemToList(listId, {
+        apiPayload = {
           ...itemData,
           type: 'restaurant',
           restaurant_id: itemToAdd.id || itemToAdd.restaurant_id
-        });
-      }
-      
-      if (itemType === 'dish') {
-        return listService.addItemToList(listId, {
+        };
+      } else if (itemType === 'dish') {
+        apiPayload = {
           ...itemData,
           type: 'dish',
           dish_id: itemToAdd.id || itemToAdd.dish_id
-        });
+        };
+      } else {
+        // Custom item
+        apiPayload = {
+          ...itemData,
+          type: 'custom',
+          name: itemToAdd.name,
+          description: itemToAdd.description
+        };
       }
       
-      // Custom item
-      return listService.addItemToList(listId, {
-        ...itemData,
-        type: 'custom',
-        name: itemToAdd.name,
-        description: itemToAdd.description
+      logDebug('[AddToListModal] Adding item to list:', {
+        listId,
+        itemType,
+        itemToAdd,
+        itemData,
+        apiPayload
       });
+      
+      return listService.addItemToList(listId, apiPayload);
     },
     {
       onSuccess: (data) => {
         logDebug('[AddToListModal] Item added successfully:', data);
         
-        // Invalidate relevant queries
-        queryClient.invalidateQueries([QUERY_KEYS.LIST_ITEMS, selectedList.id]);
-        queryClient.invalidateQueries([QUERY_KEYS.LIST_DETAILS, selectedList.id]);
-        queryClient.invalidateQueries([QUERY_KEYS.USER_LISTS]);
+        // Show success notification
+        const itemName = itemToAdd.name || 'Item';
+        const listName = selectedList.name || 'list';
+        toast.success(`🎉 "${itemName}" added to "${listName}" successfully!`, {
+          duration: 6000,
+          id: `added-to-list-${selectedList.id}-${itemToAdd.id}`,
+          style: {
+            background: '#10b981',
+            color: '#fff',
+            fontWeight: '500',
+            fontSize: '15px',
+          },
+        });
+        
+        // Comprehensive cache invalidation using the EXACT query keys from components
+        const listId = selectedList.id;
+        
+        // Core list queries - match exact keys from components
+        queryClient.invalidateQueries(['listDetail', listId]);           // ListDetail.jsx
+        queryClient.invalidateQueries(['listDetails', listId]);          // ModalListCard.jsx  
+        queryClient.invalidateQueries(['listDetailsPreview', listId]);   // ModalListPreviewCard.jsx
+        queryClient.invalidateQueries(['list-details', listId]);         // ListDetailModal.jsx
+        queryClient.invalidateQueries(['list-items', listId]);           // ListDetailModal.jsx
+        queryClient.invalidateQueries(['list-items-preview', listId]);   // ListCard.jsx
+        queryClient.invalidateQueries(['listPreviewItems', listId]);     // useListItems.js
+        queryClient.invalidateQueries(['listFullItems', listId]);        // useListItems.js
+        
+        // User lists queries
+        queryClient.invalidateQueries(['userLists']);                    // Multiple components
+        queryClient.invalidateQueries(['myLists']);
+        
+        // Trending and search queries
+        queryClient.invalidateQueries(['trendingListsPage']);
+        queryClient.invalidateQueries(['searchResults']);
+        queryClient.invalidateQueries(['results']);
+        queryClient.invalidateQueries(['homeFeed']);
+        
+        // Use predicate-based invalidation to catch any missed patterns
+        queryClient.invalidateQueries({ 
+          predicate: (query) => {
+            const [key, id] = query.queryKey;
+            const queryId = String(id);
+            const targetId = String(listId);
+            
+            // Invalidate any list-related queries for this specific list
+            return (
+              (key && key.includes('list') && key.includes('Detail') && queryId === targetId) || 
+              (key && key.includes('list') && key.includes('Items') && queryId === targetId) ||
+              (key === 'userLists') || 
+              (key === 'myLists') || 
+              (key === 'trendingLists') || 
+              (key === 'publicLists') ||
+              (key === 'results' && Array.isArray(query.queryKey) && query.queryKey.includes('lists'))
+            );
+          }
+        });
+        
+        // FORCE refetch the specific list that was updated
+        queryClient.refetchQueries(['listDetail', listId]);
         
         // Log engagement
         logEngagement('add_to_list', {
@@ -153,11 +219,21 @@ const AddToListModal = ({
         
         // Call the onItemAdded callback if provided
         if (onItemAdded) {
-          onItemAdded(itemToAdd, selectedList);
+          // Extract the list item ID from the response if available
+          const listItemId = data?.id || data?.list_item_id || data?.listItemId;
+          onItemAdded(listItemId, selectedList.id);
         }
       },
       onError: (error) => {
         logError('[AddToListModal] Error adding item to list:', error);
+        
+        // Show error notification
+        const itemName = itemToAdd.name || 'item';
+        toast.error(`❌ Failed to add ${itemName} to list. Please try again.`, {
+          duration: 5000,
+          id: `add-to-list-error-${Date.now()}`,
+        });
+        
         setError('Failed to add item to list. Please try again.');
       }
     }
@@ -179,6 +255,12 @@ const AddToListModal = ({
     setSelectedList(newList);
     setShowNewListForm(false);
     setStep(STEPS.ADD_DETAILS);
+    
+    // Show success notification for list creation
+    toast.success(`📋 List "${newList.name}" created!`, {
+      duration: 3000,
+      id: `list-created-${newList.id}`,
+    });
   };
   
   // Handle cancel new list

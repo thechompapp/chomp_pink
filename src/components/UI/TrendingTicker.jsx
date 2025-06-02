@@ -141,7 +141,7 @@ const TrendingCard = ({ item, type, onClick }) => {
         return {
           title: item.name,
           subtitle: `by ${item.creator_handle || 'Anonymous'}`,
-          metric: `${item.item_count || item.items_count || 0} items`
+          metric: `${item.item_count || 0} items`
         };
       default:
         return {

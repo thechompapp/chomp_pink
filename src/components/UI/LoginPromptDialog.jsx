@@ -18,21 +18,28 @@ const LoginPromptDialog = ({
   actionContext = "continue",
   currentPath 
 }) => {
+  // Don't render anything if not open
   if (!isOpen) return null;
 
   // Get current path for redirect after login
   const redirectPath = currentPath || window.location.pathname;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+    <div 
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50 p-4 transition-opacity duration-200"
+      style={{ backdropFilter: 'blur(2px)' }}
+    >
       <div 
-        className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 transform transition-all"
+        className="bg-white rounded-lg shadow-xl max-w-sm w-full mx-4 transform transition-all duration-200 scale-100 opacity-100"
         role="dialog"
         aria-labelledby="login-dialog-title"
         aria-describedby="login-dialog-description"
+        style={{
+          animation: 'modalSlideIn 0.2s ease-out',
+        }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <h2 
             id="login-dialog-title"
             className="text-lg font-semibold text-gray-900"
@@ -41,7 +48,7 @@ const LoginPromptDialog = ({
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-gray-400 hover:text-gray-600 transition-colors rounded-full p-1 hover:bg-gray-100"
             aria-label="Close dialog"
           >
             <X size={20} />
@@ -49,16 +56,16 @@ const LoginPromptDialog = ({
         </div>
 
         {/* Content */}
-        <div className="p-6">
+        <div className="p-4">
           <p 
             id="login-dialog-description"
-            className="text-gray-600 mb-6"
+            className="text-gray-600 mb-4 leading-relaxed text-sm"
           >
             {message}
           </p>
 
           {/* Action Buttons */}
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
             <Link
               to={`/login?redirect=${encodeURIComponent(redirectPath)}`}
               className="w-full"
@@ -66,10 +73,10 @@ const LoginPromptDialog = ({
             >
               <Button
                 variant="primary"
-                size="md"
-                className="w-full flex items-center justify-center"
+                size="sm"
+                className="w-full flex items-center justify-center transition-all duration-200 hover:scale-[1.02]"
               >
-                <LogIn size={16} className="mr-2" />
+                <LogIn size={14} className="mr-2" />
                 Log In
               </Button>
             </Link>
@@ -81,21 +88,35 @@ const LoginPromptDialog = ({
             >
               <Button
                 variant="outline"
-                size="md"
-                className="w-full flex items-center justify-center"
+                size="sm"
+                className="w-full flex items-center justify-center transition-all duration-200 hover:scale-[1.02]"
               >
-                <UserPlus size={16} className="mr-2" />
+                <UserPlus size={14} className="mr-2" />
                 Create Account
               </Button>
             </Link>
           </div>
 
           {/* Footer text */}
-          <p className="text-sm text-gray-500 text-center mt-4">
+          <p className="text-xs text-gray-500 text-center mt-3">
             You'll be redirected back here after signing in.
           </p>
         </div>
       </div>
+      
+      {/* Add CSS animation keyframes */}
+      <style jsx>{`
+        @keyframes modalSlideIn {
+          from {
+            opacity: 0;
+            transform: scale(0.95) translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+          }
+        }
+      `}</style>
     </div>
   );
 };

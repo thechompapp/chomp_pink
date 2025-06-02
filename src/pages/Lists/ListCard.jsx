@@ -176,7 +176,7 @@ const ListItemDisplay = ({ item, listType, onQuickAdd, showQuickAdd = true, inde
 const SimpleListCard = ({ list, onClick }) => {
   // Safely access list properties with defaults
   const listName = list?.name || 'Unnamed List';
-  const itemCount = list?.items?.length || list?.items_count || 0;
+  const itemCount = list?.items?.length || list?.item_count || 0;
   const updatedAt = list?.updated_at ? new Date(list.updated_at) : new Date();
   const updatedText = formatRelativeDate(updatedAt) || 'Updated recently';
 
@@ -417,8 +417,8 @@ const ListCard = (props) => {
       return listDetailsData.items.length;
     }
     // Fallback to original calculation
-    return list.items?.length || list.items_count || 0;
-  }, [list.items, list.items_count, listDetailsData?.items]);
+    return list.items?.length || list.item_count || 0;
+  }, [list.items, list.item_count, listDetailsData?.items]);
 
   const hasMoreItems = itemCount > PREVIEW_ITEM_LIMIT;
 
@@ -669,7 +669,7 @@ ListCard.propTypes = {
     description: PropTypes.string,
     list_type: PropTypes.string,
     items: PropTypes.array,
-    items_count: PropTypes.number,
+    item_count: PropTypes.number,
     updated_at: PropTypes.string,
     is_following: PropTypes.bool,
     is_trending: PropTypes.bool,

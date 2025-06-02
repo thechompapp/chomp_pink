@@ -1,8 +1,10 @@
 // src/layouts/Navbar.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Plus } from 'lucide-react';
 import { useAuth } from '../contexts/auth';
 import { useAdminAuth } from '../hooks/useAdminAuth';
+import { useCreateList } from '../contexts/CreateListContext';
 import Button from '../components/UI/Button';
 import { logDebug, logInfo, logError } from '../utils/logger';
 import { debounce } from '../utils/helpers';
@@ -30,6 +32,9 @@ const Navbar = () => {
   
   // Use the admin hook for permission checks
   const adminAuth = useAdminAuth();
+  
+  // Use the create list context
+  const { openCreateListModal } = useCreateList();
   
   // Check if user has admin access
   const isAdmin = user && adminAuth.hasAdminAccess;
@@ -59,6 +64,15 @@ const Navbar = () => {
     setIsMenuOpen(false);
     setIsProfileMenuOpen(false);
   }, []);
+  
+  /**
+   * Handle Create List button click
+   */
+  const handleCreateListClick = () => {
+    logDebug('[Navbar] Create List button clicked');
+    closeMenus(); // Close any open menus
+    openCreateListModal();
+  };
   
   /**
    * Handle scroll events to update navbar styling
@@ -288,6 +302,17 @@ const Navbar = () => {
                   My Lists
                 </Link>
               )}
+              
+              {/* Create List Button - Desktop */}
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleCreateListClick}
+                className="ml-2 flex items-center"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Create List
+              </Button>
             </div>
           </div>
           
@@ -482,6 +507,16 @@ const Navbar = () => {
                 >
                   My Lists
                 </Link>
+                
+                {/* Create List Button - Mobile */}
+                <button
+                  onClick={handleCreateListClick}
+                  className="flex items-center w-full px-3 py-2 rounded-md text-base font-medium text-primary hover:bg-primary/10"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create List
+                </button>
+                
                 <Link
                   to="/my-submissions"
                   className={`block px-3 py-2 rounded-md text-base font-medium ${
@@ -492,6 +527,7 @@ const Navbar = () => {
                 >
                   My Submissions
                 </Link>
+                
                 <button
                   onClick={handleLogout}
                   className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-destructive hover:bg-destructive/10"

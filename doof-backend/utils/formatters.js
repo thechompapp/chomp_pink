@@ -108,42 +108,53 @@ export const formatCity = (city) => {
 };
 
 export const formatListItem = (item) => {
-    // list_item_id implies a specific ID for the list-item association, not the item itself
-    if (!item || !item.id || !item.item_id || !item.item_type) { // Assuming 'id' is the primary key for listitems
-        // Fallback if list_item_id is indeed the PK from db
-        if (!item || !item.list_item_id || !item.item_id || !item.item_type) return null;
-         return {
-            list_item_id: Number(item.list_item_id),
-            id: Number(item.list_item_id), // map list_item_id to id if that's the case
-            list_id: item.list_id ? Number(item.list_id) : null,
-            item_id: Number(item.item_id),
-            item_type: item.item_type,
-            name: item.name || `Item ${item.item_id}`, // Name of the linked item (dish/restaurant)
-            notes: item.notes || null,
-            restaurant_name: item.restaurant_name || null, // Denormalized data
-            city: item.city || null, // Denormalized data
-            neighborhood: item.neighborhood || null, // Denormalized data
-            tags: Array.isArray(item.tags) ? item.tags : [], // Tags of the linked item
-            restaurant_id: item.item_type === 'restaurant' ? Number(item.item_id) : (item.restaurant_id ? Number(item.restaurant_id) : null),
-            dish_id: item.item_type === 'dish' ? Number(item.item_id) : null,
-            added_at: item.added_at || null,
-        };
+    // Check for required list item fields
+    if (!item || !item.list_item_id || !item.item_id || !item.item_type) {
+        return null;
     }
+    
+    // Determine the item name based on type
+    let itemName = item.name || `Item ${item.item_id}`;
+    let restaurantName = null;
+    let dishName = null;
+    
+    if (item.item_type === 'restaurant') {
+        restaurantName = itemName;
+    } else if (item.item_type === 'dish') {
+        dishName = itemName;
+        restaurantName = item.restaurant_name || null;
+    }
+    
     return {
-        id: Number(item.id),
-        list_item_id: Number(item.id), // Assuming id is the primary key for listitems table
+        // List item specific fields
+        list_item_id: Number(item.list_item_id),
+        id: Number(item.list_item_id), // For compatibility with frontend components
         list_id: item.list_id ? Number(item.list_id) : null,
         item_id: Number(item.item_id),
         item_type: item.item_type,
-        name: item.name || `Item ${item.item_id}`,
+        added_at: item.added_at || null,
         notes: item.notes || null,
-        restaurant_name: item.restaurant_name || null,
-        city: item.city || null,
-        neighborhood: item.neighborhood || null,
+        order_index: item.order_index || null,
+        
+        // Item data (restaurant/dish info) - generic fields
+        name: itemName,
+        description: item.description || null,
+        cuisine: item.cuisine || null,
+        location: item.location || null,
+        price: item.price ? Number(item.price) : null,
+        price_range: item.price_range || null,
         tags: Array.isArray(item.tags) ? item.tags : [],
+        
+        // Frontend-specific field names
+        restaurant_name: restaurantName,
+        dish_name: dishName,
+        city: item.city_name || item.city || null,
+        neighborhood: item.neighborhood_name || item.neighborhood || null,
+        restaurant_address: item.location || item.address || null,
+        
+        // Derived convenience fields
         restaurant_id: item.item_type === 'restaurant' ? Number(item.item_id) : (item.restaurant_id ? Number(item.restaurant_id) : null),
         dish_id: item.item_type === 'dish' ? Number(item.item_id) : null,
-        added_at: item.added_at || null,
     };
 };
 

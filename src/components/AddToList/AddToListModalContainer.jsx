@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/auth/AuthContext';
 import { logDebug } from '@/utils/logger';
 import Modal from '@/components/UI/Modal';
 import Button from '@/components/UI/Button';
+import LoginPromptDialog from '@/components/UI/LoginPromptDialog';
 import ListSelector from './ListSelector';
 import NewListForm from './NewListForm';
 import ItemDetailsForm from './ItemDetailsForm';
@@ -23,13 +24,12 @@ const STEPS = {
  * Orchestrates the components for adding items to lists
  */
 const AddToListModalContainer = ({ isOpen, onClose, itemToAdd, onItemAdded }) => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
 
   // State management
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedListId, setSelectedListId] = useState(null);
   const [showNewListForm, setShowNewListForm] = useState(false);
-  const [itemNotes, setItemNotes] = useState('');
   const [step, setStep] = useState(STEPS.SELECT_LIST);
   const [error, setError] = useState(null);
   const [selectedList, setSelectedList] = useState(null);
@@ -42,7 +42,6 @@ const AddToListModalContainer = ({ isOpen, onClose, itemToAdd, onItemAdded }) =>
       setSelectedListId(null);
       setSelectedList(null);
       setShowNewListForm(false);
-      setItemNotes('');
       setStep(STEPS.SELECT_LIST);
       setError(null);
       logDebug("[AddToListModalContainer] Modal opened and state reset.");
@@ -124,16 +123,26 @@ const AddToListModalContainer = ({ isOpen, onClose, itemToAdd, onItemAdded }) =>
   // Early return if modal is not open
   if (!isOpen) return null; 
 
-  // Authentication check
-  if (!isAuthenticated) {
+  // Show login prompt immediately if not authenticated and not loading
+  if (!authLoading && !isAuthenticated) {
     return (
-      <Modal isOpen={isOpen} onClose={onClose} title="Authentication Required">
+      <LoginPromptDialog
+        isOpen={isOpen}
+        onClose={onClose}
+        title="Login Required"
+        message="You need to be logged in to add items to your lists or create new lists."
+        actionContext="add items to lists"
+      />
+    );
+  }
+
+  // Show loading state only briefly while checking authentication
+  if (authLoading) {
+    return (
+      <Modal isOpen={isOpen} onClose={onClose} title="Loading...">
         <div className="p-4 text-center">
-          <AlertCircle className="h-12 w-12 text-yellow-500 mx-auto mb-4" aria-hidden="true" />
-          <p className="text-gray-600 dark:text-gray-300">Please log in to add items to your lists or create new lists.</p>
-          <Button onClick={onClose} variant="primary" className="mt-6">
-            Close
-          </Button>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-3"></div>
+          <p className="text-gray-600">Checking authentication...</p>
         </div>
       </Modal>
     );
@@ -184,8 +193,6 @@ const AddToListModalContainer = ({ isOpen, onClose, itemToAdd, onItemAdded }) =>
                 listId={selectedListId}
                 listName={selectedList?.name}
                 item={itemToAdd}
-                notes={itemNotes}
-                onNotesChange={setItemNotes}
                 onItemAdded={handleItemAdded}
                 userId={user?.id}
                 error={error}

@@ -34,6 +34,8 @@ export const AuthProvider = ({ children }) => {
 
   // Local state to force re-renders when coordinator updates
   const [coordinatorSync, setCoordinatorSync] = useState(0);
+  // Add initialization loading state to prevent flashing
+  const [isInitializing, setIsInitializing] = useState(true);
 
   // Initialize and sync with coordinator on mount
   useEffect(() => {
@@ -117,10 +119,23 @@ export const AuthProvider = ({ children }) => {
         
       } catch (error) {
         logWarn('[AuthContext] Error during auth initialization:', error);
+      } finally {
+        // Set initialization complete immediately after first check
+        setIsInitializing(false);
       }
     };
 
-    initializeAuth();
+    const cleanup = initializeAuth();
+    
+    // Much shorter fallback timeout to ensure responsiveness  
+    const timeout = setTimeout(() => {
+      setIsInitializing(false);
+    }, 500); // Reduced from 2000ms to 500ms
+    
+    return () => {
+      cleanup?.then?.(cleanupFn => cleanupFn?.());
+      clearTimeout(timeout);
+    };
   }, []);
 
   /**
@@ -224,7 +239,7 @@ export const AuthProvider = ({ children }) => {
     // State
     user,
     isAuthenticated,
-    isLoading,
+    isLoading: isLoading || isInitializing, // Combine store loading with initialization loading
     error,
     isSuperuser,
     isAdmin: isSuperuser, // Alias for backward compatibility
@@ -237,17 +252,13 @@ export const AuthProvider = ({ children }) => {
     register,
     checkAuthStatus: forceAuthCheck,
     clearError,
-    
-    // Role checking functions
-    hasRole: useCallback((role) => {
+    hasRole: (roles) => {
       if (!user) return false;
-      
-      if (Array.isArray(role)) {
-        return role.some(r => user.role === r || user.account_type === r);
-      }
-      
-      return user.role === role || user.account_type === role;
-    }, [user])
+      const userRoles = [user.role, user.account_type].filter(Boolean);
+      return Array.isArray(roles) 
+        ? roles.some(role => userRoles.includes(role))
+        : userRoles.includes(roles);
+    }
   };
 
   return (

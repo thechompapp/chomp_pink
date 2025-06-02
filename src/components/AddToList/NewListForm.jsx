@@ -96,57 +96,66 @@ const NewListForm = ({
   };
 
   return (
-    <div className="mb-4 p-4 border rounded-md bg-gray-50 dark:bg-gray-700 shadow">
-      <h3 className="text-lg font-semibold mb-3 text-gray-700 dark:text-gray-200">Create New List</h3>
+    <div className="mb-6 p-6 border border-gray-200 dark:border-gray-600 rounded-lg bg-blue-50 dark:bg-blue-900/20 shadow-sm">
+      <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-200">Create New List</h3>
       
       {/* Error message display */}
       {error && (
-        <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-md text-sm">
-          <AlertCircle size={16} className="inline-block mr-2" aria-hidden="true" />
-          {error}
+        <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg text-sm border border-red-200 dark:border-red-800">
+          <div className="flex items-center">
+            <AlertCircle size={16} className="mr-2 flex-shrink-0" aria-hidden="true" />
+            <span>{error}</span>
+          </div>
         </div>
       )}
       
-      <div className="mb-3">
-        <Label htmlFor="new-list-name" className="dark:text-gray-300">List Name<span aria-hidden="true">*</span></Label>
+      <div className="mb-4">
+        <Label htmlFor="new-list-name" className="text-gray-700 dark:text-gray-300 font-medium">List Name<span className="text-red-500 ml-1">*</span></Label>
         <Input
           id="new-list-name"
           type="text"
           value={listName}
           onChange={(e) => setListName(e.target.value)}
           placeholder="e.g., My Favorite Spots"
-          className="w-full dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600"
+          className="w-full mt-1 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600 border-gray-300 rounded-lg"
           required
           aria-required="true"
           maxLength={50}
         />
       </div>
-      <div className="mb-4">
-        <Label htmlFor="new-list-description" className="dark:text-gray-300">Description (Optional)</Label>
+      <div className="mb-6">
+        <Label htmlFor="new-list-description" className="text-gray-700 dark:text-gray-300 font-medium">Description (Optional)</Label>
         <Input
           id="new-list-description"
           type="text"
           value={listDescription}
           onChange={(e) => setListDescription(e.target.value)}
           placeholder="A short description of your list"
-          className="w-full dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600"
+          className="w-full mt-1 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600 border-gray-300 rounded-lg"
           maxLength={200}
         />
       </div>
-      <div className="flex gap-2">
+      <div className="flex gap-3">
         <Button 
           onClick={handleCreateList} 
           isLoading={createListMutation.isPending} 
-          className="flex-grow" 
+          className="flex-1 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-200" 
           variant="primary"
           disabled={!listName.trim()}
         >
-          Create & Select List
+          {createListMutation.isPending ? (
+            <div className="flex items-center justify-center">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+              Creating...
+            </div>
+          ) : (
+            'Create & Select List'
+          )}
         </Button>
         <Button 
           onClick={onCancel} 
-          variant="ghost" 
-          className="flex-shrink-0"
+          variant="outline" 
+          className="flex-shrink-0 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 px-6 py-3 rounded-lg transition-colors duration-200"
         >
           Cancel
         </Button>

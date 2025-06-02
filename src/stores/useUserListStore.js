@@ -113,7 +113,10 @@ const useUserListStore = create()(
           if (validItem && targetListId) {
             // Correct: listService is the imported named object
             // Assuming addItemToList returns { success, message, data: { added item details } }
-            const addItemResult = await listService.addItemToList(targetListId, { item_id: validItem.id, item_type: validItem.type });
+            const addItemResult = await listService.addItemToList(targetListId, { 
+              itemId: validItem.id,     // ✅ Correct field name
+              itemType: validItem.type  // ✅ Correct field name
+            });
 
             if (!addItemResult?.success || !addItemResult.data?.list_item_id) { // Check for list_item_id in response data
               throw new Error(addItemResult?.message || 'Failed to add item or received invalid response.');

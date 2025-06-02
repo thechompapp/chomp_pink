@@ -50,12 +50,21 @@ const rawMethods = {
   
   // Get items in a list
   getListItems: async (listId, options = {}) => {
+    console.log(`[ListService.getListItems] Called with listId: ${listId}, options:`, options);
     logDebug(`[ListService.getListItems] Fetching items for list ${listId} with options:`, options);
-    const result = await listModel.findListItems(listId, options);
-    if (!result || !result.data) {
-      return { data: [], total: 0 };
+    
+    try {
+      const items = await listModel.findListItemsByListId(listId, options);
+      console.log(`[ListService.getListItems] Model returned:`, items);
+      
+      // Return items directly - the service wrapper will handle the wrapping
+      console.log(`[ListService.getListItems] Returning items directly:`, items);
+      return items || [];
+    } catch (error) {
+      console.error(`[ListService.getListItems] Error:`, error);
+      console.error(`[ListService.getListItems] Error stack:`, error.stack);
+      throw error;
     }
-    return result;
   },
   
   // Create a new list
@@ -88,8 +97,22 @@ const rawMethods = {
   // Add an item to a list
   addItemToList: async (listId, itemData) => {
     logDebug(`[ListService.addItemToList] Adding item to list ${listId}:`, itemData);
-    const newItem = await listModel.addListItem(listId, itemData);
-    return newItem;
+    
+    // Extract the required fields from itemData
+    const { itemId, itemType, notes } = itemData;
+    
+    if (!itemId || !itemType) {
+      throw new Error('itemId and itemType are required');
+    }
+    
+    // Call the model with the correct parameters
+    const newItem = await listModel.addItemToList(listId, itemId, itemType);
+    
+    // Return the new item with any additional data
+    return {
+      data: newItem,
+      success: true
+    };
   },
   
   // Remove an item from a list

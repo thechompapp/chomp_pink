@@ -29,8 +29,6 @@ const ItemDetailsForm = ({
   listId,
   listName,
   item,
-  notes,
-  onNotesChange,
   onItemAdded,
   userId,
   error,
@@ -40,7 +38,7 @@ const ItemDetailsForm = ({
 
   // Add item to list mutation
   const addItemToListMutation = useMutation({
-    mutationFn: ({ listId, itemType, itemId, notes }) => {
+    mutationFn: ({ listId, itemType, itemId }) => {
       // Validate required data
       if (!item) {
         const error = new Error("Item to add is not defined");
@@ -55,10 +53,11 @@ const ItemDetailsForm = ({
       }
       
       logDebug(`[ItemDetailsForm] Adding item to list. ListID: ${listId}, ItemType: ${itemType}, ItemID: ${itemId}`);
+      
+      // Send data in the format expected by backend validation
       return listService.addItemToList(listId, {
-        [itemType === 'dish' ? 'dish_id' : itemType === 'restaurant' ? 'restaurant_id' : 'custom_item_name']: itemId,
-        notes: notes,
-        type: itemType
+        itemId: parseInt(itemId), // Backend expects integer
+        itemType: itemType // 'dish' or 'restaurant'
       });
     },
     onSuccess: (data, variables) => {
@@ -128,8 +127,7 @@ const ItemDetailsForm = ({
     addItemToListMutation.mutate({
       listId,
       itemType: item.type,
-      itemId: item.id,
-      notes: notes.trim(),
+      itemId: item.id
     });
   };
 
@@ -137,34 +135,33 @@ const ItemDetailsForm = ({
   const isItemInList = false; // This would be determined by the parent component
 
   return (
-    <div className="mt-4 pt-4 border-t dark:border-gray-600">
+    <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-600">
       {/* Error message display */}
       {error && (
-        <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-md text-sm">
-          <AlertCircle size={16} className="inline-block mr-2" aria-hidden="true" />
-          {error}
+        <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg text-sm border border-red-200 dark:border-red-800">
+          <div className="flex items-center">
+            <AlertCircle size={16} className="mr-2 flex-shrink-0" aria-hidden="true" />
+            <span>{error}</span>
+          </div>
         </div>
       )}
       
-      <Label htmlFor="item-notes" className="dark:text-gray-300">Notes for {item.name} (Optional)</Label>
-      <Input
-        id="item-notes"
-        type="text"
-        value={notes}
-        onChange={(e) => onNotesChange(e.target.value)}
-        placeholder="e.g., Order the spicy ramen!"
-        className="w-full mb-3 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600"
-        maxLength={500}
-      />
       <Button 
         onClick={handleAddItemToList} 
         isLoading={addItemToListMutation.isPending} 
-        className="w-full"
+        className="w-full bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-200"
         variant="primary"
         disabled={!listId || addItemToListMutation.isPending || isItemInList}
         aria-label={`Add ${item.name} to ${listName}`}
       >
-        Add "{item.name?.substring(0,20)}{item.name?.length > 20 ? '...' : ''}" to "{listName?.substring(0,15)}{listName?.length > 15 ? '...' : ''}"
+        {addItemToListMutation.isPending ? (
+          <div className="flex items-center justify-center">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+            Adding...
+          </div>
+        ) : (
+          `Add "${item.name?.substring(0,25)}{item.name?.length > 25 ? '...' : ''}" to "${listName?.substring(0,20)}{listName?.length > 20 ? '...' : ''}"`
+        )}
       </Button>
     </div>
   );
@@ -178,8 +175,6 @@ ItemDetailsForm.propTypes = {
     name: PropTypes.string.isRequired,
     type: PropTypes.string.isRequired,
   }).isRequired,
-  notes: PropTypes.string.isRequired,
-  onNotesChange: PropTypes.func.isRequired,
   onItemAdded: PropTypes.func.isRequired,
   userId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   error: PropTypes.string,
