@@ -16,6 +16,7 @@ router.get(
 
 // Neighborhood lookup routes
 router.get('/zip/:zipcode', getNeighborhoodsByZipcode);
+router.get('/by-zipcode/:zipcode', getNeighborhoodsByZipcode);
 router.get('/boroughs/city/:city_id', getBoroughsByCity);
 router.get('/neighborhoods/:parent_id', getNeighborhoodsByParent);
 

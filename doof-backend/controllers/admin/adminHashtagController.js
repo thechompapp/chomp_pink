@@ -18,13 +18,12 @@ export const getHashtags = async (req, res) => {
   
   try {
     const { page, limit, sort, order, filters } = parsePaginationParams(req.query);
-    const { data, total } = await AdminModel.findAllResources('hashtags', page, limit, sort, order, filters);
+    const result = await AdminModel.findAllResources('hashtags', page, limit, sort, order, filters);
     
     const formatter = getFormatterForResourceType('hashtags');
-    const formattedData = Array.isArray(data) ? data.map(formatter) : [];
-    const pagination = createPagination(page, limit, total);
+    const formattedData = Array.isArray(result.items) ? result.items.map(formatter) : [];
     
-    sendSuccessResponse(res, formattedData, 'Hashtags fetched successfully', pagination);
+    sendSuccessResponse(res, formattedData, 'Hashtags fetched successfully', result.pagination);
   } catch (error) {
     sendErrorResponse(res, error, 500, 'fetch hashtags');
   }
@@ -240,13 +239,12 @@ export const getRestaurantChains = async (req, res) => {
   
   try {
     const { page, limit, sort, order, filters } = parsePaginationParams(req.query);
-    const { data, total } = await AdminModel.findAllResources('restaurant_chains', page, limit, sort, order, filters);
+    const result = await AdminModel.findAllResources('restaurant_chains', page, limit, sort, order, filters);
     
     const formatter = getFormatterForResourceType('restaurant_chains');
-    const formattedData = Array.isArray(data) ? data.map(formatter) : [];
-    const pagination = createPagination(page, limit, total);
+    const formattedData = Array.isArray(result.items) ? result.items.map(formatter) : [];
     
-    sendSuccessResponse(res, formattedData, 'Restaurant chains fetched successfully', pagination);
+    sendSuccessResponse(res, formattedData, 'Restaurant chains fetched successfully', result.pagination);
   } catch (error) {
     sendErrorResponse(res, error, 500, 'fetch restaurant chains');
   }

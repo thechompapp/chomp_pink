@@ -5,7 +5,9 @@ import { Plus } from 'lucide-react';
 import { useAuth } from '../contexts/auth';
 import { useAdminAuth } from '../hooks/useAdminAuth';
 import { useCreateList } from '../contexts/CreateListContext';
+import { useNotifications } from '../App';
 import Button from '../components/UI/Button';
+import NotificationBell from '../components/NotificationBell';
 import { logDebug, logInfo, logError } from '../utils/logger';
 import { debounce } from '../utils/helpers';
 import offlineModeGuard from '../utils/offlineModeGuard';
@@ -29,6 +31,9 @@ const Navbar = () => {
   
   // Use the new authentication context
   const { isAuthenticated, user, logout, isLoading: authLoading } = useAuth();
+  
+  // Use the notification context
+  const { toggleNotifications } = useNotifications();
   
   // Use the admin hook for permission checks
   const adminAuth = useAdminAuth();
@@ -72,6 +77,15 @@ const Navbar = () => {
     logDebug('[Navbar] Create List button clicked');
     closeMenus(); // Close any open menus
     openCreateListModal();
+  };
+  
+  /**
+   * Handle notification bell click
+   */
+  const handleNotificationClick = () => {
+    logDebug('[Navbar] Notification bell clicked');
+    closeMenus(); // Close any open menus
+    toggleNotifications();
   };
   
   /**
@@ -319,85 +333,99 @@ const Navbar = () => {
           {/* Right side - auth buttons or profile */}
           <div className="flex items-center">
             {isAuthenticated ? (
-              <div className="ml-3 relative">
-                <div>
-                  <button
-                    onClick={toggleProfileMenu}
-                    className="flex text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
-                    id="user-menu-button"
-                    aria-expanded={isProfileMenuOpen}
-                    aria-haspopup="true"
-                  >
-                    <span className="sr-only">Open user menu</span>
-                    <div className="h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center">
-                      {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                    </div>
-                  </button>
-                </div>
+              <div className="flex items-center space-x-2">
+                {/* Notification Bell */}
+                <NotificationBell onClick={handleNotificationClick} />
                 
-                {/* Profile dropdown */}
-                {isProfileMenuOpen && (
-                  <div
-                    className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-card ring-1 ring-black ring-opacity-5 focus:outline-none"
-                    role="menu"
-                    aria-orientation="vertical"
-                    aria-labelledby="user-menu-button"
-                  >
-                    <div className="py-1" role="none">
-                      <div className="block px-4 py-2 text-sm text-muted-foreground border-b border-border">
-                        Signed in as <span className="font-medium text-foreground">{user?.name || 'User'}</span>
+                {/* Profile Menu */}
+                <div className="ml-3 relative">
+                  <div>
+                    <button
+                      onClick={toggleProfileMenu}
+                      className="flex text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                      id="user-menu-button"
+                      aria-expanded={isProfileMenuOpen}
+                      aria-haspopup="true"
+                    >
+                      <span className="sr-only">Open user menu</span>
+                      <div className="h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center">
+                        {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
                       </div>
-                      
-                      <Link
-                        to="/my-lists"
-                        className="block px-4 py-2 text-sm text-foreground hover:bg-muted"
-                        role="menuitem"
-                      >
-                        My Lists
-                      </Link>
-                      
-                      <Link
-                        to="/my-submissions"
-                        className="block px-4 py-2 text-sm text-foreground hover:bg-muted"
-                        role="menuitem"
-                      >
-                        My Submissions
-                      </Link>
-                      
-                      {isAdmin && (
-                        <>
-                          <Link
-                            to="/admin"
-                            className="block px-4 py-2 text-sm text-foreground hover:bg-muted"
-                            role="menuitem"
-                          >
-                            Admin Panel
-                          </Link>
-                        </>
-                      )}
-                      
-                      {process.env.NODE_ENV === 'development' && (
+                    </button>
+                  </div>
+                  
+                  {/* Profile dropdown */}
+                  {isProfileMenuOpen && (
+                    <div
+                      className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-card ring-1 ring-black ring-opacity-5 focus:outline-none"
+                      role="menu"
+                      aria-orientation="vertical"
+                      aria-labelledby="user-menu-button"
+                    >
+                      <div className="py-1" role="none">
+                        <div className="block px-4 py-2 text-sm text-muted-foreground border-b border-border">
+                          Signed in as <span className="font-medium text-foreground">{user?.name || 'User'}</span>
+                        </div>
+                        
                         <Link
-                          to="/auth-test"
+                          to="/profile"
                           className="block px-4 py-2 text-sm text-foreground hover:bg-muted"
                           role="menuitem"
                         >
-                          Auth Test
+                          Profile & Settings
                         </Link>
-                      )}
-                      
-                      <button
-                        onClick={handleLogout}
-                        className="block w-full text-left px-4 py-2 text-sm text-destructive hover:bg-destructive/10"
-                        role="menuitem"
-                        data-testid="logout-button"
-                        id="logout-button"
-                      >
-                        Sign out
-                      </button>
+                        
+                        <Link
+                          to="/my-lists"
+                          className="block px-4 py-2 text-sm text-foreground hover:bg-muted"
+                          role="menuitem"
+                        >
+                          My Lists
+                        </Link>
+                        
+                        <Link
+                          to="/my-submissions"
+                          className="block px-4 py-2 text-sm text-foreground hover:bg-muted"
+                          role="menuitem"
+                        >
+                          My Submissions
+                        </Link>
+                        
+                        {isAdmin && (
+                          <>
+                            <Link
+                              to="/admin"
+                              className="block px-4 py-2 text-sm text-foreground hover:bg-muted"
+                              role="menuitem"
+                            >
+                              Admin Panel
+                            </Link>
+                          </>
+                        )}
+                        
+                        {process.env.NODE_ENV === 'development' && (
+                          <Link
+                            to="/auth-test"
+                            className="block px-4 py-2 text-sm text-foreground hover:bg-muted"
+                            role="menuitem"
+                          >
+                            Auth Test
+                          </Link>
+                        )}
+                        
+                        <button
+                          onClick={handleLogout}
+                          className="block w-full text-left px-4 py-2 text-sm text-destructive hover:bg-destructive/10"
+                          role="menuitem"
+                          data-testid="logout-button"
+                          id="logout-button"
+                        >
+                          Sign out
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             ) : (
               <div className="flex space-x-2">

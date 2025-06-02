@@ -63,19 +63,12 @@ const TAB_CONFIG = {
     icon: Users,
     description: 'User management and permissions'
   },
-  cities: { 
-    label: 'Cities', 
-    key: 'cities', 
+  locations: { 
+    label: 'Locations', 
+    key: 'locations', 
     enhanced: true, 
     icon: Globe,
-    description: 'City management with location hierarchy'
-  },
-  neighborhoods: { 
-    label: 'Neighborhoods', 
-    key: 'neighborhoods', 
-    enhanced: true, 
-    icon: MapPin,
-    description: 'Neighborhood and location management'
+    description: 'Unified city, borough, and neighborhood management'
   },
   hashtags: { 
     label: 'Hashtags', 
@@ -174,8 +167,7 @@ const AdminPanel = () => {
     restaurants: { page: 1, pageSize: 25 },
     dishes: { page: 1, pageSize: 25 },
     users: { page: 1, pageSize: 25 },
-    cities: { page: 1, pageSize: 25 },
-    neighborhoods: { page: 1, pageSize: 25 },
+    locations: { page: 1, pageSize: 25 },
     hashtags: { page: 1, pageSize: 25 },
     restaurant_chains: { page: 1, pageSize: 25 },
     submissions: { page: 1, pageSize: 25 },
@@ -319,8 +311,20 @@ const AdminPanel = () => {
     const allTabData = adminData[activeTab] || [];
     const tabPageSettings = pageSettings[activeTab] || { page: 1, pageSize: 25 };
     
+    // Special case for locations tab
+    if (activeTab === 'locations') {
+      return (
+        <div className="space-y-6">
+          <LocationsTab 
+            onOperationComplete={handleOperationComplete}
+            adminData={adminData}
+          />
+        </div>
+      );
+    }
+    
     // Enhanced tabs with pagination
-    if (['restaurants', 'dishes', 'users', 'cities', 'neighborhoods', 'hashtags', 'restaurant_chains', 'submissions', 'lists'].includes(activeTab)) {
+    if (['restaurants', 'dishes', 'users', 'hashtags', 'restaurant_chains', 'submissions', 'lists'].includes(activeTab)) {
       return (
         <div className="space-y-6">
           {/* Enhanced Admin Table */}
@@ -351,18 +355,6 @@ const AdminPanel = () => {
               showNavigation={true}
             />
           </div>
-        </div>
-      );
-    }
-    
-    // Special case for locations tab
-    if (activeTab === 'locations') {
-      return (
-        <div className="space-y-6">
-          <LocationsTab 
-            onOperationComplete={handleOperationComplete}
-            adminData={adminData}
-          />
         </div>
       );
     }
@@ -546,14 +538,6 @@ const AdminPanel = () => {
           {/* Additional stats row */}
           {!statsLoading && !statsError && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-6 pt-6 border-t border-gray-200">
-              <div className="text-center p-3 bg-gray-50 rounded-lg">
-                <p className="text-2xl font-bold text-gray-600">{adminStats?.cities || 0}</p>
-                <p className="text-xs text-gray-500 mt-1">Cities</p>
-              </div>
-              <div className="text-center p-3 bg-gray-50 rounded-lg">
-                <p className="text-2xl font-bold text-gray-600">{adminStats?.neighborhoods || 0}</p>
-                <p className="text-xs text-gray-500 mt-1">Neighborhoods</p>
-              </div>
               <div className="text-center p-3 bg-gray-50 rounded-lg">
                 <p className="text-2xl font-bold text-gray-600">{adminStats?.hashtags || 0}</p>
                 <p className="text-xs text-gray-500 mt-1">Hashtags</p>

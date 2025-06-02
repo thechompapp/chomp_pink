@@ -21,13 +21,12 @@ export const getRestaurants = async (req, res) => {
   
   try {
     const { page, limit, sort, order, filters } = parsePaginationParams(req.query);
-    const { data, total } = await AdminModel.findAllResources('restaurants', page, limit, sort, order, filters);
+    const result = await AdminModel.findAllResources('restaurants', page, limit, sort, order, filters);
     
     const formatter = getFormatterForResourceType('restaurants');
-    const formattedData = Array.isArray(data) ? data.map(formatter) : [];
-    const pagination = createPagination(page, limit, total);
+    const formattedData = Array.isArray(result.items) ? result.items.map(formatter) : [];
     
-    sendSuccessResponse(res, formattedData, 'Restaurants fetched successfully', pagination);
+    sendSuccessResponse(res, formattedData, 'Restaurants fetched successfully', result.pagination);
   } catch (error) {
     sendErrorResponse(res, error, 500, 'fetch restaurants');
   }

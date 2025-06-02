@@ -16,20 +16,5 @@ export * from './adminSystemController.js';
 // Generic operations controllers
 export * from './adminBulkController.js';
 
-// Legacy support - for backwards compatibility during transition
-// Re-export selected functions from the main adminController until migration is complete
-import {
-  getAllResources,
-  getResourceById,
-  createResource,
-  updateResource,
-  deleteResource
-} from '../adminController.js';
-
-export {
-  getAllResources,
-  getResourceById,
-  createResource,
-  updateResource,
-  deleteResource
-}; 
+// All legacy functions have been migrated to modular controllers
+// This index provides a convenient single import point for all admin functionality 

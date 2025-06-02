@@ -19,13 +19,12 @@ export const getDishes = async (req, res) => {
   
   try {
     const { page, limit, sort, order, filters } = parsePaginationParams(req.query);
-    const { data, total } = await AdminModel.findAllResources('dishes', page, limit, sort, order, filters);
+    const result = await AdminModel.findAllResources('dishes', page, limit, sort, order, filters);
     
     const formatter = getFormatterForResourceType('dishes');
-    const formattedData = Array.isArray(data) ? data.map(formatter) : [];
-    const pagination = createPagination(page, limit, total);
+    const formattedData = Array.isArray(result.items) ? result.items.map(formatter) : [];
     
-    sendSuccessResponse(res, formattedData, 'Dishes fetched successfully', pagination);
+    sendSuccessResponse(res, formattedData, 'Dishes fetched successfully', result.pagination);
   } catch (error) {
     sendErrorResponse(res, error, 500, 'fetch dishes');
   }

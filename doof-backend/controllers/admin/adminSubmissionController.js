@@ -19,13 +19,12 @@ export const getSubmissions = async (req, res) => {
   
   try {
     const { page, limit, sort, order, filters } = parsePaginationParams(req.query);
-    const { data, total } = await AdminModel.findAllResources('submissions', page, limit, sort, order, filters);
+    const result = await AdminModel.findAllResources('submissions', page, limit, sort, order, filters);
     
     const formatter = getFormatterForResourceType('submissions');
-    const formattedData = Array.isArray(data) ? data.map(formatter) : [];
-    const pagination = createPagination(page, limit, total);
+    const formattedData = Array.isArray(result.items) ? result.items.map(formatter) : [];
     
-    sendSuccessResponse(res, formattedData, 'Submissions fetched successfully', pagination);
+    sendSuccessResponse(res, formattedData, 'Submissions fetched successfully', result.pagination);
   } catch (error) {
     sendErrorResponse(res, error, 500, 'fetch submissions');
   }

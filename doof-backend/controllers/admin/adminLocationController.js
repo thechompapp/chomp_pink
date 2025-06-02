@@ -24,15 +24,38 @@ export const getCities = async (req, res) => {
   
   try {
     const { page, limit, sort, order, filters } = parsePaginationParams(req.query);
-    const { data, total } = await AdminModel.findAllResources('cities', page, limit, sort, order, filters);
+    const result = await AdminModel.findAllResources('cities', page, limit, sort, order, filters);
     
     const formatter = getFormatterForResourceType('cities');
-    const formattedData = Array.isArray(data) ? data.map(formatter) : [];
-    const pagination = createPagination(page, limit, total);
+    const formattedData = Array.isArray(result.items) ? result.items.map(formatter) : [];
     
-    sendSuccessResponse(res, formattedData, 'Cities fetched successfully', pagination);
+    sendSuccessResponse(res, formattedData, 'Cities fetched successfully', result.pagination);
   } catch (error) {
     sendErrorResponse(res, error, 500, 'fetch cities');
+  }
+};
+
+/**
+ * Get city by ID with admin privileges
+ */
+export const getCityById = async (req, res) => {
+  if (!validateSuperuserAccess(req, res)) return;
+  
+  try {
+    const resourceId = parseInt(req.params.id, 10);
+    if (isNaN(resourceId)) {
+      return sendErrorResponse(res, 'Invalid ID format. ID must be an integer.', 400, 'fetch city by ID');
+    }
+    
+    const item = await AdminModel.findResourceById('cities', resourceId);
+    if (!item) {
+      return sendErrorResponse(res, `City with ID ${resourceId} not found.`, 404, 'fetch city by ID');
+    }
+    
+    const formatter = getFormatterForResourceType('cities');
+    sendSuccessResponse(res, formatter(item), 'City fetched successfully');
+  } catch (error) {
+    sendErrorResponse(res, error, 500, 'fetch city by ID');
   }
 };
 
@@ -110,15 +133,38 @@ export const getNeighborhoods = async (req, res) => {
   
   try {
     const { page, limit, sort, order, filters } = parsePaginationParams(req.query);
-    const { data, total } = await AdminModel.findAllResources('neighborhoods', page, limit, sort, order, filters);
+    const result = await AdminModel.findAllResources('neighborhoods', page, limit, sort, order, filters);
     
     const formatter = getFormatterForResourceType('neighborhoods');
-    const formattedData = Array.isArray(data) ? data.map(formatter) : [];
-    const pagination = createPagination(page, limit, total);
+    const formattedData = Array.isArray(result.items) ? result.items.map(formatter) : [];
     
-    sendSuccessResponse(res, formattedData, 'Neighborhoods fetched successfully', pagination);
+    sendSuccessResponse(res, formattedData, 'Neighborhoods fetched successfully', result.pagination);
   } catch (error) {
     sendErrorResponse(res, error, 500, 'fetch neighborhoods');
+  }
+};
+
+/**
+ * Get neighborhood by ID with admin privileges
+ */
+export const getNeighborhoodById = async (req, res) => {
+  if (!validateSuperuserAccess(req, res)) return;
+  
+  try {
+    const resourceId = parseInt(req.params.id, 10);
+    if (isNaN(resourceId)) {
+      return sendErrorResponse(res, 'Invalid ID format. ID must be an integer.', 400, 'fetch neighborhood by ID');
+    }
+    
+    const item = await AdminModel.findResourceById('neighborhoods', resourceId);
+    if (!item) {
+      return sendErrorResponse(res, `Neighborhood with ID ${resourceId} not found.`, 404, 'fetch neighborhood by ID');
+    }
+    
+    const formatter = getFormatterForResourceType('neighborhoods');
+    sendSuccessResponse(res, formatter(item), 'Neighborhood fetched successfully');
+  } catch (error) {
+    sendErrorResponse(res, error, 500, 'fetch neighborhood by ID');
   }
 };
 

@@ -20,4 +20,9 @@ router.get('/engagement', analyticsController.getEngagementAnalytics); // Access
 // GET /api/analytics/search
 router.get('/search', analyticsController.getSearchAnalytics);
 
+// Additional endpoints needed by frontend
+router.get('/submissions', analyticsController.getAnalyticsSummary); // Reuse summary for now
+router.get('/content-distribution', analyticsController.getAnalyticsSummary); // Reuse summary for now  
+router.get('/users', analyticsController.getAnalyticsSummary); // Reuse summary for now
+
 export default router;

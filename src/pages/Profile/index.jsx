@@ -8,55 +8,87 @@ import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthS
 import { getDefaultApiClient } from '@/services/http';
 import QueryResultDisplay from '@/components/QueryResultDisplay';
 import LoadingSpinner from '@/components/UI/LoadingSpinner';
+import NotificationPreferences from '@/components/NotificationPreferences';
 
-// Fetcher function
-const fetchUserProfile = async (userId) => {
-  if (!userId) throw new Error('User ID is required for profile fetch');
-  // Assume apiClient returns { success: boolean, data: { user: User, stats: Stats } } or similar
-  const response = await apiClient(`/api/users/${userId}/profile`, 'UserProfile Fetch');
-  if (!response?.success || !response.data || !response.data.user || !response.data.stats) {
-      const status = response?.status ?? 500;
-      const message = response?.error || "Invalid profile data received from server.";
+// Fetcher function for current user profile
+const fetchUserProfile = async () => {
+  // Get the API client instance
+  const apiClient = getDefaultApiClient();
+  
+  try {
+    // Get current user profile from auth endpoint (no /api prefix needed)
+    const response = await apiClient.get('/auth/me');
+    
+    // Check if response has the expected structure
+    if (!response?.data || !response.data.success) {
+      const message = response?.data?.error || response?.data?.message || "Invalid profile data received from server.";
       const error = new Error(message);
-      error.status = status; // Attach status if available
+      error.status = response?.status ?? 500;
       throw error;
+    }
+    
+    // Create a profile structure with user data and mock stats for now
+    const userData = response.data.data;
+    const profileData = {
+      user: userData,
+      stats: {
+        listsCreated: 0,      // Mock data until we have real stats
+        listsFollowing: 0,    // Mock data until we have real stats  
+        dishesFollowing: 0,   // Mock data until we have real stats
+        restaurantsFollowing: 0 // Mock data until we have real stats
+      }
+    };
+    
+    // Return the combined profile data
+    return profileData;
+  } catch (error) {
+    // Handle API errors
+    if (error.response) {
+      // Server responded with error status
+      const status = error.response.status;
+      const message = error.response.data?.error || error.response.data?.message || `Server error: ${status}`;
+      const newError = new Error(message);
+      newError.status = status;
+      throw newError;
+    } else if (error.request) {
+      // Network error
+      throw new Error('Network error: Unable to connect to server');
+    } else {
+      // Other error
+      throw error;
+    }
   }
-  // Return the nested data containing user and stats
-  return response.data;
 };
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { user: user } = useAuth();
-  const { isLoading: isLoadingAuth } = useAuth();
+  const { user, isLoading: isLoadingAuth } = useAuth();
   const queryClient = useQueryClient();
 
-  // Ensure userId is valid number before enabling query
-  const currentUserId = user?.id ? Number(user.id) : null;
-
+  // Use React Query to fetch profile data
   const queryResult = useQuery({
-    queryKey: ['userProfile', currentUserId], // Use validated ID
-    queryFn: () => fetchUserProfile(currentUserId),
-    // Simplified: ProtectedRoute guarantees authentication, just check for valid userId
-    enabled: typeof currentUserId === 'number' && currentUserId > 0,
-    staleTime: 5 * 60 * 1000,
+    queryKey: ['userProfile', user?.id], // Use user ID from auth context
+    queryFn: fetchUserProfile,
+    // Only enable if user is authenticated
+    enabled: !!user?.id,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  // Refetch listener (remains the same)
+  // Refetch listener (for list follow toggles)
   useEffect(() => {
     const handleListFollowToggle = () => {
-        if(currentUserId) { // Only invalidate if we have a user ID
-            console.log('[Profile] List follow toggled, invalidating userProfile query');
-            queryClient.invalidateQueries({ queryKey: ['userProfile', currentUserId] });
-        }
+      if (user?.id) {
+        console.log('[Profile] List follow toggled, invalidating userProfile query');
+        queryClient.invalidateQueries({ queryKey: ['userProfile', user.id] });
+      }
     };
     window.addEventListener('listFollowToggled', handleListFollowToggle);
     return () => window.removeEventListener('listFollowToggled', handleListFollowToggle);
-  }, [queryClient, currentUserId]); // Dependency on potentially changing userId
+  }, [queryClient, user?.id]);
 
-  // Handle auth loading state - simplified since ProtectedRoute handles authentication
-  if (isLoadingAuth || !currentUserId) {
-     return <div className="flex items-center justify-center h-screen"><LoadingSpinner message="Loading user data..." /></div>;
+  // Handle auth loading state - ProtectedRoute handles authentication
+  if (isLoadingAuth || !user?.id) {
+    return <div className="flex items-center justify-center h-screen"><LoadingSpinner message="Loading user data..." /></div>;
   }
 
   // Render profile using QueryResultDisplay
@@ -66,57 +98,82 @@ const Profile = () => {
         <ArrowLeft size={16} className="mr-1" /> Back
       </Button>
 
-        <QueryResultDisplay
-            queryResult={queryResult}
-            loadingMessage="Loading profile stats..."
-            errorMessagePrefix="Could not load profile data"
-            // Check profileData.user as well
-            isDataEmpty={(profileData) => !profileData || !profileData.user}
-            ErrorChildren={ <Button onClick={() => navigate('/')} variant="secondary" size="sm" className="mt-2"> Back to Home </Button> }
-        >
-            {(profileData) => { // profileData contains { user, stats }
-                const displayUser = profileData.user || {}; // Fallback to empty object
-                const displayStats = profileData.stats || {}; // Fallback to empty object
-                return (
-                    <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
-                        {/* User Info */}
-                        <div className="flex items-center mb-6">
-                            <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center text-2xl font-bold text-gray-600 mr-4">
-                                 {displayUser.username?.charAt(0).toUpperCase() || '?'}
-                             </div>
-                            <div>
-                                 <h1 className="text-2xl font-bold text-gray-800 flex items-center">
-                                     @{displayUser.username || 'Unknown'}
-                                     {displayUser.account_type === 'contributor' && ( <CheckCircle size={16} className="ml-2 text-green-500" title="Verified Contributor" /> )}
-                                     {displayUser.account_type === 'superuser' && ( <CheckCircle size={16} className="ml-2 text-blue-500" title="Admin" /> )}
-                                 </h1>
-                                 <p className="text-sm text-gray-600"> Email: {displayUser.email || 'N/A'} </p>
-                                 <p className="text-sm text-gray-600 capitalize"> Account Type: {displayUser.account_type || 'User'} </p>
-                            </div>
-                        </div>
-                        {/* Stats */}
-                        <div className="grid grid-cols-2 gap-4">
-                             <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
-                                <div className="flex items-center gap-2"> <List size={16} className="text-[#A78B71]" /> <span className="text-sm font-medium text-gray-800">Lists Created</span> </div>
-                                <p className="text-lg font-bold text-gray-900 mt-1">{displayStats.listsCreated ?? 0}</p>
-                            </div>
-                            <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
-                                 <div className="flex items-center gap-2"> <List size={16} className="text-[#A78B71]" /> <span className="text-sm font-medium text-gray-800">Lists Following</span> </div>
-                                 <p className="text-lg font-bold text-gray-900 mt-1">{displayStats.listsFollowing ?? 0}</p>
-                            </div>
-                            <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
-                                 <div className="flex items-center gap-2"> <Heart size={16} className="text-[#A78B71]" /> <span className="text-sm font-medium text-gray-800">Dishes Liked</span> </div>
-                                 <p className="text-lg font-bold text-gray-900 mt-1">{displayStats.dishesFollowing ?? 0}</p>
-                            </div>
-                            <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
-                                 <div className="flex items-center gap-2"> <Heart size={16} className="text-[#A78B71]" /> <span className="text-sm font-medium text-gray-800">Restaurants Liked</span> </div>
-                                 <p className="text-lg font-bold text-gray-900 mt-1">{displayStats.restaurantsFollowing ?? 0}</p>
-                            </div>
-                        </div>
+      <QueryResultDisplay
+        queryResult={queryResult}
+        loadingMessage="Loading profile stats..."
+        errorMessagePrefix="Could not load profile data"
+        isDataEmpty={(profileData) => !profileData || !profileData.user}
+        ErrorChildren={<Button onClick={() => navigate('/')} variant="secondary" size="sm" className="mt-2">Back to Home</Button>}
+      >
+        {(profileData) => {
+          const displayUser = profileData.user || {};
+          const displayStats = profileData.stats || {};
+          return (
+            <div className="space-y-8">
+              {/* User Profile Section */}
+              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+                {/* User Info */}
+                <div className="flex items-center mb-6">
+                  <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center text-2xl font-bold text-gray-600 mr-4">
+                    {displayUser.username?.charAt(0).toUpperCase() || displayUser.email?.charAt(0).toUpperCase() || '?'}
+                  </div>
+                  <div>
+                    <h1 className="text-2xl font-bold text-gray-800 flex items-center">
+                      @{displayUser.username || displayUser.email?.split('@')[0] || 'Unknown'}
+                      {(displayUser.account_type === 'contributor' || displayUser.role === 'contributor') && (
+                        <CheckCircle size={16} className="ml-2 text-green-500" title="Verified Contributor" />
+                      )}
+                      {(displayUser.account_type === 'superuser' || displayUser.role === 'admin' || displayUser.role === 'superuser') && (
+                        <CheckCircle size={16} className="ml-2 text-blue-500" title="Admin" />
+                      )}
+                    </h1>
+                    <p className="text-sm text-gray-600">Email: {displayUser.email || 'N/A'}</p>
+                    <p className="text-sm text-gray-600 capitalize">Account Type: {displayUser.account_type || displayUser.role || 'User'}</p>
+                    {displayUser.created_at && (
+                      <p className="text-sm text-gray-600">Member since: {new Date(displayUser.created_at).toLocaleDateString()}</p>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Stats */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
+                    <div className="flex items-center gap-2">
+                      <List size={16} className="text-[#A78B71]" />
+                      <span className="text-sm font-medium text-gray-800">Lists Created</span>
                     </div>
-                 );
-             }}
-        </QueryResultDisplay>
+                    <p className="text-lg font-bold text-gray-900 mt-1">{displayStats.listsCreated ?? 0}</p>
+                  </div>
+                  <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
+                    <div className="flex items-center gap-2">
+                      <List size={16} className="text-[#A78B71]" />
+                      <span className="text-sm font-medium text-gray-800">Lists Following</span>
+                    </div>
+                    <p className="text-lg font-bold text-gray-900 mt-1">{displayStats.listsFollowing ?? 0}</p>
+                  </div>
+                  <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
+                    <div className="flex items-center gap-2">
+                      <Heart size={16} className="text-[#A78B71]" />
+                      <span className="text-sm font-medium text-gray-800">Dishes Liked</span>
+                    </div>
+                    <p className="text-lg font-bold text-gray-900 mt-1">{displayStats.dishesFollowing ?? 0}</p>
+                  </div>
+                  <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
+                    <div className="flex items-center gap-2">
+                      <Heart size={16} className="text-[#A78B71]" />
+                      <span className="text-sm font-medium text-gray-800">Restaurants Liked</span>
+                    </div>
+                    <p className="text-lg font-bold text-gray-900 mt-1">{displayStats.restaurantsFollowing ?? 0}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Notification Preferences Section */}
+              <NotificationPreferences userId={user.id} />
+            </div>
+          );
+        }}
+      </QueryResultDisplay>
     </div>
   );
 };

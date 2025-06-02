@@ -27,6 +27,7 @@ import engageRoutes from './routes/engage.js';
 import trendingRoutes from './routes/trending.js';
 import neighborhoodRoutes from './routes/neighborhoods.js';
 import analyticsRoutes from './routes/analytics.js';
+import notificationRoutes from './routes/notifications.js';
 
 // Import simplified routes for E2E testing
 import simplifiedRoutes from './routes/simplified-routes.js';
@@ -228,6 +229,7 @@ class AppServer {
       { path: '/api/trending', router: trendingRoutes },
       { path: '/api/neighborhoods', router: neighborhoodRoutes },
       { path: '/api/analytics', router: analyticsRoutes },
+      { path: '/api/notifications', router: notificationRoutes },
       { path: '/api/test', router: simplifiedRoutes } // Test routes for E2E testing
     ];
     

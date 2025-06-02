@@ -4,6 +4,7 @@
 import express from 'express';
 import * as userController from '../controllers/userController.js'; // Use namespace import
 import optionalAuthMiddleware from '../middleware/optionalAuth.js';
+import { requireAuth } from '../middleware/auth.js';
 // Import validator if used
 // import { validateIdentifierParam, handleValidationErrors } from '../middleware/validators.js';
 
@@ -15,8 +16,6 @@ router.get(
     requireAuth, // Require authentication for this endpoint
     userController.getUserProfile
 );
-
-import { requireAuth } from '../middleware/auth.js';
 
 // PUT /api/users/:id/password - Update user's password
 router.put(

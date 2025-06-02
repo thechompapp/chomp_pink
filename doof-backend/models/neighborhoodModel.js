@@ -65,14 +65,19 @@ export const getNeighborhoodsByZipcode = async (zipcode) => {
     try {
         console.log(`[NeighborhoodModel] Looking up neighborhood for zipcode: ${zipcode}`);
         
-        // Query the database for the neighborhood by zipcode
+        // Query the database for neighborhoods by zipcode, prioritizing specific neighborhoods over boroughs
         const queryText = `
             SELECT n.*, c.name as city_name
             FROM neighborhoods n
             JOIN cities c ON n.city_id = c.id
             WHERE $1 = ANY(n.zipcode_ranges)
-            ORDER BY n.name ASC
-            LIMIT 1
+            ORDER BY 
+                CASE 
+                    WHEN n.is_borough = true THEN 2
+                    WHEN n.location_level = 1 THEN 1
+                    ELSE 0
+                END ASC,
+                n.name ASC
         `;
         
         const result = await db.query(queryText, [zipcode]);
