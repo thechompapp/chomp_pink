@@ -169,6 +169,7 @@ const fetchAdminStats = async () => {
  */
 const AdminPanel = () => {
   const [activeTab, setActiveTab] = useState('restaurants');
+  const [selectedBulkResource, setSelectedBulkResource] = useState(null);
   const [pageSettings, setPageSettings] = useState({
     restaurants: { page: 1, pageSize: 25 },
     dishes: { page: 1, pageSize: 25 },
@@ -391,10 +392,66 @@ const AdminPanel = () => {
     if (activeTab === 'bulk_operations') {
       return (
         <div className="space-y-6">
-          <BulkOperationsPanel 
-            adminData={adminData}
-            onOperationComplete={handleOperationComplete}
-          />
+          <div className="bg-blue-50 p-4 rounded-lg mb-6">
+            <h3 className="text-lg font-semibold text-blue-900 mb-2">Universal Bulk Operations</h3>
+            <p className="text-blue-700 text-sm">
+              Perform bulk operations across all data types. Select a resource type below to get started.
+            </p>
+          </div>
+          
+          {/* Resource Type Selector */}
+          <div className="bg-white rounded-lg border p-4">
+            <h4 className="font-medium text-gray-900 mb-3">Select Resource Type</h4>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              {Object.entries({
+                restaurants: { label: 'Restaurants', icon: '🍽️', count: adminStats?.restaurants || 0 },
+                dishes: { label: 'Dishes', icon: '🍝', count: adminStats?.dishes || 0 },
+                users: { label: 'Users', icon: '👥', count: adminStats?.users || 0 },
+                locations: { label: 'Locations', icon: '📍', count: adminStats?.locations || 0 },
+                lists: { label: 'Lists', icon: '📋', count: adminStats?.lists || 0 },
+                hashtags: { label: 'Hashtags', icon: '#️⃣', count: adminStats?.hashtags || 0 },
+                restaurant_chains: { label: 'Chains', icon: '🏢', count: adminStats?.restaurant_chains || 0 },
+                submissions: { label: 'Submissions', icon: '📝', count: adminStats?.submissions || 0 }
+              }).map(([key, { label, icon, count }]) => (
+                <button
+                  key={key}
+                  onClick={() => setSelectedBulkResource(key)}
+                  className={cn(
+                    "p-3 rounded-lg border text-left transition-all",
+                    selectedBulkResource === key
+                      ? "border-blue-500 bg-blue-50 text-blue-900"
+                      : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                  )}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-lg">{icon}</span>
+                      <span className="font-medium text-sm">{label}</span>
+                    </div>
+                    <span className="text-xs text-gray-500">{count}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+          
+          {/* Bulk Operations Panel */}
+          {selectedBulkResource && (
+            <BulkOperationsPanel 
+              resourceType={selectedBulkResource}
+              selectedRows={new Set()} // For now, no pre-selected rows
+              adminData={adminData}
+              onOperationComplete={handleOperationComplete}
+            />
+          )}
+          
+          {!selectedBulkResource && (
+            <div className="text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+              <div className="text-gray-400 text-6xl mb-4">⚡</div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Ready for Bulk Operations</h3>
+              <p className="text-gray-600">Select a resource type above to start performing bulk operations</p>
+            </div>
+          )}
         </div>
       );
     }

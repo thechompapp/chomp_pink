@@ -8,7 +8,7 @@ export { default as CardFactory } from './CardFactory';
 
 // List Cards
 // export { default as ListCardSkeleton } from './ListCardSkeleton';
-export { default as CompactListCard } from './CompactListCard';
+export { default as CompactListCard } from '../../pages/Lists/CompactListCard';
 
 // Restaurant Cards
 export { default as RestaurantCardSkeleton } from './RestaurantCardSkeleton';
@@ -22,6 +22,16 @@ export { default as CompactDishCard } from './CompactDishCard';
 export { default as BaseCard } from './BaseCard';
 export { default as Button } from './Button';
 export { default as SkeletonElement } from './SkeletonElement';
+
+// Import components for the utility function
+import ListCard from './ListCard';
+import RestaurantCard from './RestaurantCard';
+import DishCard from './DishCard';
+import CompactListCard from '../../pages/Lists/CompactListCard';
+import RestaurantCardSkeleton from './RestaurantCardSkeleton';
+import CompactRestaurantCard from './CompactRestaurantCard';
+import DishCardSkeleton from './DishCardSkeleton';
+import CompactDishCard from './CompactDishCard';
 
 // Card variants for different use cases
 export const CardVariants = {
