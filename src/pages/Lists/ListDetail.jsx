@@ -28,11 +28,24 @@ function ListDetail({ listId: propListId, embedded = false }) {
   const handleApiError = useApiErrorHandler();
   
   // Get list ID from props or URL params
-  const { listId: urlListId } = useParams();
+  const { id: urlListId } = useParams();
   const listId = propListId || urlListId;
   
   // Auth state
   const { user, isAuthenticated  } = useAuth();
+  
+  // DEBUG: Log all the imports and variables at component load
+  console.log(`🚀 [ListDetail] Component initialized with:`, {
+    listId,
+    propListId,
+    urlListId,
+    isAuthenticated,
+    userId: user?.id,
+    listServiceType: typeof listService,
+    listServiceKeys: Object.keys(listService || {}),
+    getListItemsExists: !!(listService?.getListItems),
+    getListItemsType: typeof listService?.getListItems
+  });
   
   // Ensure we're using real data
   useEffect(() => {
@@ -82,6 +95,15 @@ function ListDetail({ listId: propListId, embedded = false }) {
     }
   });
 
+  // DEBUG: Check enabled condition for list items query
+  const listItemsEnabled = !!listId;
+  console.log(`🔍 [ListDetail] List items query enabled condition:`, {
+    listId,
+    listIdType: typeof listId,
+    listIdTruthy: !!listId,
+    enabled: listItemsEnabled
+  });
+
   // Fetch list items using separate React Query
   const { 
     data: itemsData, 
@@ -92,23 +114,46 @@ function ListDetail({ listId: propListId, embedded = false }) {
   } = useQuery({
     queryKey: ['listItems', listId],
     queryFn: async () => {
+      console.log(`🌐 [ListDetail] ===== LIST ITEMS QUERY STARTING =====`);
       console.log(`🌐 [ListDetail] Fetching items for list ID: ${listId}`);
+      console.log(`🔍 [ListDetail] listService object:`, listService);
+      console.log(`🔍 [ListDetail] getListItems function:`, listService.getListItems);
       
-      const result = await listService.getListItems(listId);
-      console.log(`✅ [ListDetail] List items result:`, result);
-      console.log(`📝 [ListDetail] Items data:`, result?.data);
-      console.log(`📊 [ListDetail] Items count:`, result?.data?.length);
-      return result;
+      // Test if function exists
+      if (typeof listService.getListItems !== 'function') {
+        console.error(`🚨 [ListDetail] getListItems is not a function!`, typeof listService.getListItems);
+        throw new Error('getListItems is not a function');
+      }
+      
+      try {
+        console.log(`📡 [ListDetail] Calling listService.getListItems(${listId})`);
+        const result = await listService.getListItems(listId);
+        console.log(`✅ [ListDetail] List items result:`, result);
+        console.log(`📝 [ListDetail] Items data:`, result?.data);
+        console.log(`📊 [ListDetail] Items count:`, result?.data?.length);
+        console.log(`🔍 [ListDetail] Full result structure:`, JSON.stringify(result, null, 2));
+        console.log(`🌐 [ListDetail] ===== LIST ITEMS QUERY COMPLETED =====`);
+        return result;
+      } catch (apiError) {
+        console.error(`🚨 [ListDetail] API Error in getListItems:`, apiError);
+        console.error(`🚨 [ListDetail] Error details:`, {
+          message: apiError.message,
+          stack: apiError.stack,
+          name: apiError.name
+        });
+        throw apiError;
+      }
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchOnWindowFocus: true,
     retry: (failureCount, error) => {
+      console.log(`🔄 [ListDetail] Query retry attempt ${failureCount}:`, error);
       if (error?.response?.status === 401 || error?.response?.status === 403) {
         return false;
       }
       return failureCount < 2;
     },
-    enabled: !!listId,
+    enabled: listItemsEnabled, // Use the debug variable
     onError: (err) => {
       console.error(`🚨 [ListDetail] List items error:`, err);
       handleApiError(err, "fetch list items");
@@ -117,6 +162,16 @@ function ListDetail({ listId: propListId, embedded = false }) {
       console.log(`✅ [ListDetail] List items success:`, data);
       console.log(`📝 [ListDetail] Items loaded: ${data?.data?.length || 0}`);
     }
+  });
+
+  // DEBUG: Log query states
+  console.log(`🔍 [ListDetail] Query states:`, {
+    isLoadingList,
+    isLoadingItems,
+    isListError,
+    isItemsError,
+    listData: !!listData,
+    itemsData: !!itemsData
   });
 
   // Extract data from queries
@@ -134,12 +189,24 @@ function ListDetail({ listId: propListId, embedded = false }) {
   
   // Apply sorting to items
   const items = useMemo(() => {
+    console.log(`🔄 [ListDetail] useMemo items recalculating:`, {
+      rawItems,
+      rawItemsType: typeof rawItems,
+      rawItemsIsArray: Array.isArray(rawItems),
+      rawItemsLength: rawItems?.length,
+      sortOrder
+    });
+    
     if (!rawItems || !Array.isArray(rawItems)) {
       console.log(`⚠️ [ListDetail] Items not an array:`, { rawItems, type: typeof rawItems });
       return [];
     }
     
     let sortedItems = [...rawItems];
+    console.log(`✅ [ListDetail] Creating sorted items array:`, {
+      sortedItemsLength: sortedItems.length,
+      sortOrder
+    });
     
     switch (sortOrder) {
       case 'az':
@@ -159,9 +226,20 @@ function ListDetail({ listId: propListId, embedded = false }) {
         logInfo('[ListDetail] Distance sorting requested - would require geolocation');
         return sortedItems;
       default:
+        console.log(`🔄 [ListDetail] Returning default sorted items:`, {
+          itemsLength: sortedItems.length,
+          firstItem: sortedItems[0],
+          lastItem: sortedItems[sortedItems.length - 1]
+        });
         return sortedItems;
     }
   }, [rawItems, sortOrder]);
+  
+  console.log(`🎯 [ListDetail] Final items after useMemo:`, {
+    itemsLength: items?.length,
+    items,
+    itemsIsArray: Array.isArray(items)
+  });
   
   // Determine loading and error states
   const isLoading = isLoadingList || isLoadingItems;
@@ -232,6 +310,7 @@ function ListDetail({ listId: propListId, embedded = false }) {
 
   // Render loading state
   if (isLoading) {
+    console.log(`🔄 [ListDetail] Rendering loading state:`, { isLoading, isLoadingList, isLoadingItems });
     return (
       <PageContainer>
         <div className="py-8 flex flex-col items-center justify-center">
@@ -244,6 +323,7 @@ function ListDetail({ listId: propListId, embedded = false }) {
 
   // Enhanced error state with retry button and offline recovery
   if (isError) {
+    console.log(`🚨 [ListDetail] Rendering error state:`, { isError, isListError, isItemsError, error });
     return (
       <PageContainer>
         <div className="py-8 flex flex-col items-center">
@@ -285,6 +365,14 @@ function ListDetail({ listId: propListId, embedded = false }) {
   }
 
   // Render main content
+  console.log(`✅ [ListDetail] Rendering main content:`, {
+    isLoading,
+    isError,
+    listName: list?.name,
+    itemsLength: items?.length,
+    hasItems: !!(items && items.length > 0),
+    firstItem: items?.[0]
+  });
   return (
     <PageContainer>
       {/* List header */}
@@ -406,94 +494,110 @@ function ListDetail({ listId: propListId, embedded = false }) {
       
       {/* List items */}
       <div className="mt-6">
+        {console.log(`🎬 [ListDetail] About to render items section:`, {
+          items,
+          itemsLength: items?.length,
+          itemsIsArray: Array.isArray(items),
+          hasItemsAndLength: !!(items && items.length > 0),
+          itemsCondition: items && items.length > 0
+        })}
         {items && items.length > 0 ? (
-          <ul className="space-y-2">
-            {items.map((item) => (
-              <li
-                key={item.list_item_id || item.id || `item-${Date.now()}-${Math.random()}`}
-                className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-md hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
-              >
-                <div className="flex-1 min-w-0 mr-4">
-                  <Link
-                    to={item.item_type === 'restaurant' ? `/restaurants/${item.item_id}` : 
-                        item.item_type === 'dish' ? `/dishes/${item.item_id}` : 
-                        item.restaurant_id ? `/restaurants/${item.restaurant_id}` : 
-                        item.dish_id ? `/dishes/${item.dish_id}` : '#'}
-                    className="text-base font-medium text-blue-700 hover:underline dark:text-blue-400 truncate block"
-                    title={item.name || item.restaurant_name || item.dish_name || 'Unknown Item'}
+          <>
+            {console.log(`🎭 [ListDetail] Rendering ${items.length} items`)}
+            <ul className="space-y-2">
+              {items.map((item, index) => {
+                console.log(`🎬 [ListDetail] Rendering item ${index}:`, item);
+                return (
+                  <li
+                    key={item.list_item_id || item.id || `item-${Date.now()}-${Math.random()}`}
+                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-md hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                   >
-                    {item.name || item.restaurant_name || item.dish_name || 'Unknown Item'}
-                  </Link>
-                  {item.restaurant_address && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{item.restaurant_address}</p>
-                  )}
-                  {item.note && (
-                    <p className="text-sm text-gray-600 dark:text-gray-300 mt-1 italic">Note: {item.note}</p>
-                  )}
-                  {/* Debug info */}
-                  <p className="text-xs text-gray-400 mt-1">
-                    Type: {item.item_type} | ID: {item.item_id} | List Item ID: {item.list_item_id || item.id}
-                  </p>
-                </div>
-
-                {/* Action buttons */}
-                <div className="flex items-center space-x-1 flex-shrink-0">
-                  {/* Quick Add button - shown to everyone except the owner */}
-                  {isAuthenticated && (!canEdit) && (
-                    <button
-                      onClick={() => handleQuickAdd(item)}
-                      className="p-1 rounded-full text-gray-400 hover:text-blue-600 hover:bg-gray-200 dark:hover:text-blue-400 dark:hover:bg-gray-600 transition-colors"
-                      title="Add to your list"
-                      aria-label="Add to your list"
-                    >
-                      <PlusIcon className="h-5 w-5" />
-                    </button>
-                  )}
-
-                  {/* Edit buttons - only shown to owner */}
-                  {canEdit && (
-                    <>
-                      <button
-                        onClick={() => handleEditItemNote(item)}
-                        className="p-1 rounded-full text-gray-400 hover:text-yellow-600 hover:bg-gray-200 dark:hover:text-yellow-400 dark:hover:bg-gray-600 transition-colors"
-                        title="Edit note"
-                        aria-label="Edit note"
+                    <div className="flex-1 min-w-0 mr-4">
+                      <Link
+                        to={item.item_type === 'restaurant' ? `/restaurants/${item.item_id}` : 
+                            item.item_type === 'dish' ? `/dishes/${item.item_id}` : 
+                            item.restaurant_id ? `/restaurants/${item.restaurant_id}` : 
+                            item.dish_id ? `/dishes/${item.dish_id}` : '#'}
+                        className="text-base font-medium text-blue-700 hover:underline dark:text-blue-400 truncate block"
+                        title={item.name || item.restaurant_name || item.dish_name || 'Unknown Item'}
                       >
-                        <PencilIcon className="h-5 w-5" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteItemClick(item)}
-                        className="p-1 rounded-full text-gray-400 hover:text-red-600 hover:bg-gray-200 dark:hover:text-red-400 dark:hover:bg-gray-600 transition-colors"
-                        title="Remove from list"
-                        aria-label="Remove from list"
-                      >
-                        <TrashIcon className="h-5 w-5" />
-                      </button>
-                    </>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
+                        {item.name || item.restaurant_name || item.dish_name || 'Unknown Item'}
+                      </Link>
+                      {item.restaurant_address && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{item.restaurant_address}</p>
+                      )}
+                      {item.note && (
+                        <p className="text-sm text-gray-600 dark:text-gray-300 mt-1 italic">Note: {item.note}</p>
+                      )}
+                      {/* Debug info */}
+                      <p className="text-xs text-gray-400 mt-1">
+                        Type: {item.item_type} | ID: {item.item_id} | List Item ID: {item.list_item_id || item.id}
+                      </p>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex items-center space-x-1 flex-shrink-0">
+                      {/* Quick Add button - shown to everyone except the owner */}
+                      {isAuthenticated && (!canEdit) && (
+                        <button
+                          onClick={() => handleQuickAdd(item)}
+                          className="p-1 rounded-full text-gray-400 hover:text-blue-600 hover:bg-gray-200 dark:hover:text-blue-400 dark:hover:bg-gray-600 transition-colors"
+                          title="Add to your list"
+                          aria-label="Add to your list"
+                        >
+                          <PlusIcon className="h-5 w-5" />
+                        </button>
+                      )}
+
+                      {/* Edit buttons - only shown to owner */}
+                      {canEdit && (
+                        <>
+                          <button
+                            onClick={() => handleEditItemNote(item)}
+                            className="p-1 rounded-full text-gray-400 hover:text-yellow-600 hover:bg-gray-200 dark:hover:text-yellow-400 dark:hover:bg-gray-600 transition-colors"
+                            title="Edit note"
+                            aria-label="Edit note"
+                          >
+                            <PencilIcon className="h-5 w-5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteItemClick(item)}
+                            className="p-1 rounded-full text-gray-400 hover:text-red-600 hover:bg-gray-200 dark:hover:text-red-400 dark:hover:bg-gray-600 transition-colors"
+                            title="Remove from list"
+                            aria-label="Remove from list"
+                          >
+                            <TrashIcon className="h-5 w-5" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
         ) : (
-          <div className="text-center py-8">
-            <p className="text-gray-500 dark:text-gray-400">This list is empty.</p>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
-              {canEdit 
-                ? "Add restaurants and dishes to create your collection."
-                : "The owner hasn't added any restaurants or dishes yet."}
-            </p>
-            {/* Debug info */}
-            <div className="mt-4 p-4 bg-gray-100 dark:bg-gray-800 rounded text-xs text-left">
-              <p><strong>Debug Info:</strong></p>
-              <p>List ID: {listId}</p>
-              <p>Items data: {JSON.stringify(rawItems)}</p>
-              <p>Items loading: {isLoadingItems.toString()}</p>
-              <p>Items error: {isItemsError.toString()}</p>
-              <p>List loading: {isLoadingList.toString()}</p>
-              <p>List error: {isListError.toString()}</p>
+          <>
+            {console.log(`🎭 [ListDetail] Rendering empty state`)}
+            <div className="text-center py-8">
+              <p className="text-gray-500 dark:text-gray-400">This list is empty.</p>
+              <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
+                {canEdit 
+                  ? "Add restaurants and dishes to create your collection."
+                  : "The owner hasn't added any restaurants or dishes yet."}
+              </p>
+              {/* Debug info */}
+              <div className="mt-4 p-4 bg-gray-100 dark:bg-gray-800 rounded text-xs text-left">
+                <p><strong>Debug Info:</strong></p>
+                <p>List ID: {listId}</p>
+                <p>Items data: {JSON.stringify(rawItems)}</p>
+                <p>Items loading: {isLoadingItems.toString()}</p>
+                <p>Items error: {isItemsError.toString()}</p>
+                <p>List loading: {isLoadingList.toString()}</p>
+                <p>List error: {isListError.toString()}</p>
+              </div>
             </div>
-          </div>
+          </>
         )}
       </div>
 

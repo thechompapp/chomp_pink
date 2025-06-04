@@ -1,153 +1,76 @@
 /* src/context/PlacesApiContext.jsx */
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { getDefaultApiClient } from '@/services/http';
-import useAuthenticationStore from '@/stores/auth/useAuthenticationStore';
-import { IS_DEVELOPMENT } from '@/config';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { useAuth } from '@/contexts/auth';
+import { logDebug, logInfo, logWarn } from '@/utils/logger';
 
-// Get the API client instance
-const apiClient = getDefaultApiClient();
+// Create the Places API context
+const PlacesApiContext = createContext(null);
 
-// Create context with a meaningful default value to help with type checking
-const PlacesApiContext = createContext({
-  isAvailable: false,
-  isLoading: false,
-  error: null,
-  forceManualMode: () => {},
-  resetApiCheck: () => {}
-});
-
-/**
- * Custom hook to access the Places API context
- * @returns {Object} Places API context value
- */
-export const usePlacesApi = () => {
-  const context = useContext(PlacesApiContext);
-  if (!context) {
-    throw new Error('usePlacesApi must be used within a PlacesApiProvider');
-  }
-  return context;
-};
-
-/**
- * Provider component for Places API functionality
- * @param {Object} props - Component props
- * @param {React.ReactNode} props.children - Child components
- */
+// Places API provider component
 export const PlacesApiProvider = ({ children }) => {
-  // State management
-  const [isAvailable, setIsAvailable] = useState(IS_DEVELOPMENT); // Default to true in dev mode
-  const [isLoading, setIsLoading] = useState(false); // Start as false in dev mode
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [placesApi, setPlacesApi] = useState(null);
   const [error, setError] = useState(null);
-  const [checkCount, setCheckCount] = useState(0);
+  
+  const { isAuthenticated } = useAuth();
 
-  /**
-   * Check if the Places API is available
-   */
-  const checkApiAvailability = useCallback(async () => {
-    // In development mode, assume the API is available
-    if (IS_DEVELOPMENT) {
-      console.log('[PlacesApiContext] Development mode - Places API assumed available');
-      setIsAvailable(true);
-      setError(null);
-      setIsLoading(false);
-      return;
-    }
-
-    const authState = useAuthenticationStore.getState();
-    const isAuthenticated = authState.isAuthenticated;
-    const token = authState.token;
-    
-    // Early return if not authenticated
-    if (!isAuthenticated || !token) {
-      console.warn('[PlacesApiContext] Authentication required for Places API');
-      setIsAvailable(false);
-      setError('Authentication required for Places API');
-      setIsLoading(false);
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      // Make API request with auth token
-      const response = await apiClient.get('/places/autocomplete', {
-        params: { input: 'New York' },
-        headers: {
-          'X-Bypass-Auth': 'true',
-          'X-Places-Api-Request': 'true',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      // Validate response
-      if (response.success && Array.isArray(response.data)) {
-        console.log('[PlacesApiContext] Places API is available');
-        setIsAvailable(true);
-        setError(null);
-      } else {
-        const errorMessage = response.error || 'Invalid response from Places API';
-        console.warn('[PlacesApiContext] Places API returned invalid response:', response);
-        setIsAvailable(false);
-        setError(errorMessage);
-      }
-    } catch (err) {
-      // Handle errors with detailed information
-      handleApiError(err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  /**
-   * Handle API errors with detailed information
-   * @param {Error} err - Error object
-   */
-  const handleApiError = useCallback((err) => {
-    let errorMessage = err.message || 'Failed to connect to Places API';
-    
-    if (err.statusCode === 401 || errorMessage.includes('401')) {
-      errorMessage = 'Authentication failed for Places API. Please log in again.';
-    } else if (err.statusCode === 503 || (err.responseData && err.responseData.message)) {
-      errorMessage = 'Service unavailable. Please try again later.';
-    }
-    
-    console.warn('[PlacesApiContext] Places API unavailable:', { message: errorMessage, hasError: true });
-    setIsAvailable(false);
-    setError(errorMessage);
-  }, []);
-
-  // Effect to check API availability when checkCount changes (only in production)
   useEffect(() => {
-    if (!IS_DEVELOPMENT) {
-      checkApiAvailability();
-    }
-  }, [checkCount, checkApiAvailability]);
+    const loadPlacesApi = async () => {
+      try {
+        // Only load if authenticated
+        if (!isAuthenticated) {
+          logDebug('[PlacesAPI] User not authenticated, skipping Places API load');
+          return;
+        }
 
-  /**
-   * Force manual mode (disable Places API)
-   */
-  const forceManualMode = useCallback(() => {
-    setIsAvailable(false);
-    setError('Manual mode enabled');
-  }, []);
+        logInfo('[PlacesAPI] Loading Google Places API...');
+        
+        // Check if already loaded
+        if (window.google?.maps?.places) {
+          logInfo('[PlacesAPI] Google Places API already loaded');
+          setPlacesApi(window.google.maps.places);
+          setIsLoaded(true);
+          return;
+        }
 
-  /**
-   * Reset API check to trigger a new availability check
-   */
-  const resetApiCheck = useCallback(() => {
-    setCheckCount(prev => prev + 1);
-    setError(null);
-  }, []);
+        // Load the Google Maps JavaScript API
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_PLACES_API_KEY}&libraries=places`;
+        script.async = true;
+        script.defer = true;
 
-  // Memoize context value to prevent unnecessary re-renders
-  const contextValue = useMemo(() => ({
-    isAvailable,
-    isLoading,
+        script.onload = () => {
+          if (window.google?.maps?.places) {
+            logInfo('[PlacesAPI] Google Places API loaded successfully');
+            setPlacesApi(window.google.maps.places);
+            setIsLoaded(true);
+          } else {
+            throw new Error('Google Places API not available after script load');
+          }
+        };
+
+        script.onerror = () => {
+          throw new Error('Failed to load Google Places API script');
+        };
+
+        document.head.appendChild(script);
+
+      } catch (err) {
+        logWarn('[PlacesAPI] Error loading Google Places API:', err);
+        setError(err.message);
+      }
+    };
+
+    loadPlacesApi();
+  }, [isAuthenticated]);
+
+  const contextValue = {
+    isLoaded,
+    placesApi,
     error,
-    forceManualMode,
-    resetApiCheck
-  }), [isAvailable, isLoading, error, forceManualMode, resetApiCheck]);
+    // Helper to check if Places API is ready
+    isReady: isLoaded && placesApi && !error
+  };
 
   return (
     <PlacesApiContext.Provider value={contextValue}>
@@ -156,4 +79,13 @@ export const PlacesApiProvider = ({ children }) => {
   );
 };
 
-export default PlacesApiProvider;
+// Hook to use the Places API context
+export const usePlacesApi = () => {
+  const context = useContext(PlacesApiContext);
+  if (!context) {
+    throw new Error('usePlacesApi must be used within a PlacesApiProvider');
+  }
+  return context;
+};
+
+export default PlacesApiContext;

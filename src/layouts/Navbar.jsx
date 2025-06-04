@@ -5,7 +5,6 @@ import { Plus } from 'lucide-react';
 import { useAuth } from '../contexts/auth';
 import { useAdminAuth } from '../hooks/useAdminAuth';
 import { useCreateList } from '../contexts/CreateListContext';
-import { useNotifications } from '../App';
 import Button from '../components/UI/Button';
 import NotificationBell from '../components/NotificationBell';
 import { logDebug, logInfo, logError } from '../utils/logger';
@@ -31,9 +30,6 @@ const Navbar = () => {
   
   // Use the new authentication context
   const { isAuthenticated, user, logout, isLoading: authLoading } = useAuth();
-  
-  // Use the notification context
-  const { toggleNotifications } = useNotifications();
   
   // Use the admin hook for permission checks
   const adminAuth = useAdminAuth();
@@ -85,7 +81,8 @@ const Navbar = () => {
   const handleNotificationClick = () => {
     logDebug('[Navbar] Notification bell clicked');
     closeMenus(); // Close any open menus
-    toggleNotifications();
+    // TODO: Implement notification panel toggle
+    console.log('Notifications clicked - feature not yet implemented');
   };
   
   /**
@@ -255,7 +252,7 @@ const Navbar = () => {
   return (
     <nav
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isScrolled ? 'bg-card/95 backdrop-blur-sm shadow-md' : 'bg-card'
+        isScrolled ? 'bg-white/95 dark:bg-black/95 backdrop-blur-sm shadow-sm' : 'bg-white dark:bg-black'
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -276,30 +273,30 @@ const Navbar = () => {
             <div className="hidden sm:ml-6 sm:flex sm:space-x-4 items-center">
               <Link
                 to="/"
-                className={`px-3 py-2 text-sm font-medium rounded-md ${
+                className={`px-3 py-2 text-sm font-medium transition-colors ${
                   location.pathname === '/'
-                    ? 'text-primary bg-primary/10'
-                    : 'text-muted-foreground hover:text-foreground'
+                    ? 'text-black dark:text-white bg-gray-100 dark:bg-gray-800'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white'
                 }`}
               >
                 Home
               </Link>
               <Link
                 to="/search"
-                className={`px-3 py-2 text-sm font-medium rounded-md ${
+                className={`px-3 py-2 text-sm font-medium transition-colors ${
                   location.pathname === '/search'
-                    ? 'text-primary bg-primary/10'
-                    : 'text-muted-foreground hover:text-foreground'
+                    ? 'text-black dark:text-white bg-gray-100 dark:bg-gray-800'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white'
                 }`}
               >
                 Search
               </Link>
               <Link
                 to="/trending"
-                className={`px-3 py-2 text-sm font-medium rounded-md ${
+                className={`px-3 py-2 text-sm font-medium transition-colors ${
                   location.pathname === '/trending'
-                    ? 'text-primary bg-primary/10'
-                    : 'text-muted-foreground hover:text-foreground'
+                    ? 'text-black dark:text-white bg-gray-100 dark:bg-gray-800'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white'
                 }`}
               >
                 Trending
@@ -307,10 +304,10 @@ const Navbar = () => {
               {isAuthenticated && (
                 <Link
                   to="/my-lists"
-                  className={`px-3 py-2 text-sm font-medium rounded-md ${
+                  className={`px-3 py-2 text-sm font-medium transition-colors ${
                     location.pathname === '/my-lists'
-                      ? 'text-primary bg-primary/10'
-                      : 'text-muted-foreground hover:text-foreground'
+                      ? 'text-black dark:text-white bg-gray-100 dark:bg-gray-800'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white'
                   }`}
                 >
                   My Lists
@@ -342,13 +339,13 @@ const Navbar = () => {
                   <div>
                     <button
                       onClick={toggleProfileMenu}
-                      className="flex text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                      className="flex text-sm focus:outline-none focus:ring-0"
                       id="user-menu-button"
                       aria-expanded={isProfileMenuOpen}
                       aria-haspopup="true"
                     >
                       <span className="sr-only">Open user menu</span>
-                      <div className="h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center">
+                      <div className="h-8 w-8 bg-black dark:bg-white text-white dark:text-black flex items-center justify-center transition-colors">
                         {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
                       </div>
                     </button>
@@ -357,19 +354,19 @@ const Navbar = () => {
                   {/* Profile dropdown */}
                   {isProfileMenuOpen && (
                     <div
-                      className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-card ring-1 ring-black ring-opacity-5 focus:outline-none"
+                      className="origin-top-right absolute right-0 mt-2 w-48 bg-white dark:bg-black shadow-lg focus:outline-none"
                       role="menu"
                       aria-orientation="vertical"
                       aria-labelledby="user-menu-button"
                     >
                       <div className="py-1" role="none">
-                        <div className="block px-4 py-2 text-sm text-muted-foreground border-b border-border">
-                          Signed in as <span className="font-medium text-foreground">{user?.name || 'User'}</span>
+                        <div className="block px-4 py-2 text-sm text-gray-600 dark:text-gray-400">
+                          Signed in as <span className="font-medium text-black dark:text-white">{user?.name || 'User'}</span>
                         </div>
                         
                         <Link
                           to="/profile"
-                          className="block px-4 py-2 text-sm text-foreground hover:bg-muted"
+                          className="block px-4 py-2 text-sm text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                           role="menuitem"
                         >
                           Profile & Settings
@@ -377,7 +374,7 @@ const Navbar = () => {
                         
                         <Link
                           to="/my-lists"
-                          className="block px-4 py-2 text-sm text-foreground hover:bg-muted"
+                          className="block px-4 py-2 text-sm text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                           role="menuitem"
                         >
                           My Lists
@@ -385,7 +382,7 @@ const Navbar = () => {
                         
                         <Link
                           to="/my-submissions"
-                          className="block px-4 py-2 text-sm text-foreground hover:bg-muted"
+                          className="block px-4 py-2 text-sm text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                           role="menuitem"
                         >
                           My Submissions
@@ -395,7 +392,7 @@ const Navbar = () => {
                           <>
                             <Link
                               to="/admin"
-                              className="block px-4 py-2 text-sm text-foreground hover:bg-muted"
+                              className="block px-4 py-2 text-sm text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                               role="menuitem"
                             >
                               Admin Panel
@@ -406,7 +403,7 @@ const Navbar = () => {
                         {process.env.NODE_ENV === 'development' && (
                           <Link
                             to="/auth-test"
-                            className="block px-4 py-2 text-sm text-foreground hover:bg-muted"
+                            className="block px-4 py-2 text-sm text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                             role="menuitem"
                           >
                             Auth Test
@@ -415,7 +412,7 @@ const Navbar = () => {
                         
                         <button
                           onClick={handleLogout}
-                          className="block w-full text-left px-4 py-2 text-sm text-destructive hover:bg-destructive/10"
+                          className="block w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                           role="menuitem"
                           data-testid="logout-button"
                           id="logout-button"
@@ -446,7 +443,7 @@ const Navbar = () => {
             <div className="flex items-center sm:hidden ml-2">
               <button
                 onClick={toggleMenu}
-                className="inline-flex items-center justify-center p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary"
+                className="inline-flex items-center justify-center p-2 text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:ring-0 transition-colors"
                 aria-expanded={isMenuOpen}
               >
                 <span className="sr-only">Open main menu</span>

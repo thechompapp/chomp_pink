@@ -2,7 +2,17 @@
 import apiClient from '@/services/apiClient.js';
 import { logWarn, logError, logDebug } from '@/utils/logger.js';
 import { handleApiResponse } from '@/utils/serviceHelpers.js';
-import useAuthenticationStore from '@/stores/auth/useAuthenticationStore.js';
+
+/**
+ * Check if user is authenticated by checking localStorage
+ */
+const isUserAuthenticated = () => {
+    const token = localStorage.getItem('token');
+    const user = localStorage.getItem('current_user');
+    const logoutFlag = localStorage.getItem('user_explicitly_logged_out');
+    
+    return token && token !== 'null' && user && user !== 'null' && logoutFlag !== 'true';
+};
 
 /**
  * Logs an engagement event to the backend.
@@ -11,9 +21,7 @@ import useAuthenticationStore from '@/stores/auth/useAuthenticationStore.js';
  */
 const logEngagement = async ({ item_type, item_id, engagement_type }) => {
     // Check if user is authenticated first
-    const authState = useAuthenticationStore.getState();
-    const isAuthenticated = authState.isAuthenticated;
-    if (!isAuthenticated) {
+    if (!isUserAuthenticated()) {
         logDebug(`[engagementService] Skipping engagement logging for unauthenticated user: ${engagement_type} for ${item_type} ${item_id}`);
         return; // Silently skip for unauthenticated users
     }
@@ -83,9 +91,7 @@ const logEngagement = async ({ item_type, item_id, engagement_type }) => {
  * Helper function to log search-specific engagements
  */
 const logSearchEngagement = async ({ item_type, item_id, engagement_type, searchQuery, searchContext }) => {
-    const authState = useAuthenticationStore.getState();
-    const isAuthenticated = authState.isAuthenticated;
-    if (!isAuthenticated) {
+    if (!isUserAuthenticated()) {
         logDebug(`[engagementService] Skipping search engagement logging for unauthenticated user: ${engagement_type} for ${item_type} ${item_id}`);
         return;
     }

@@ -35,8 +35,8 @@ const config = {
   port: process.env.PORT || 5001,
   // Use test JWT secret in test environments, otherwise use environment variable
   jwtSecret: isTestEnvironment ? testJwtSecret : process.env.JWT_SECRET,
-  jwtExpiration: process.env.JWT_EXPIRATION || '1h', // e.g., 1 hour
-  jwtCookieExpiration: parseInt(process.env.JWT_COOKIE_EXPIRATION_MS || (1 * 60 * 60 * 1000), 10), // 1 hour in ms
+  jwtExpiration: process.env.JWT_EXPIRATION || '24h', // Extended from 1h to 24h for better UX
+  jwtCookieExpiration: parseInt(process.env.JWT_COOKIE_EXPIRATION_MS || (24 * 60 * 60 * 1000), 10), // 24 hours in ms
   refreshTokenExpirationDays: parseInt(process.env.REFRESH_TOKEN_EXPIRATION_DAYS || '7', 10),
   refreshTokenCookieExpiration: parseInt(process.env.REFRESH_TOKEN_COOKIE_EXPIRATION_MS || (7 * 24 * 60 * 60 * 1000), 10), // 7 days in ms
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',

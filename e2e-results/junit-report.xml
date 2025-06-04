@@ -1,99 +1,466 @@
-<testsuites id="" name="" tests="6" failures="6" skipped="0" errors="0" time="16.24116">
-<testsuite name="simple-list-debug.spec.js" timestamp="2025-06-02T00:49:13.672Z" hostname="chromium-desktop" tests="1" failures="1" skipped="0" time="6.732" errors="0">
-<testcase name="Simple List Debug › should directly check list items for Test QuickAdd List" classname="simple-list-debug.spec.js" time="6.732">
-<failure message="simple-list-debug.spec.js:4:3 should directly check list items for Test QuickAdd List" type="FAILURE">
-<![CDATA[  [chromium-desktop] › simple-list-debug.spec.js:4:3 › Simple List Debug › should directly check list items for Test QuickAdd List 
-
-    Error: locator.count: Unexpected token "=" while parsing css selector "[data-testid="loading"], .animate-spin, text=Loading". Did you mean to CSS.escape it?
-
-      69 |     
-      70 |     // Check for loading spinners
-    > 71 |     const loadingSpinners = await page.locator('[data-testid="loading"], .animate-spin, text=Loading').count();
-         |                                                                                                        ^
-      72 |     console.log('⏳ Loading indicators:', loadingSpinners);
-      73 |     
-      74 |     // Take a final screenshot
-        at /Users/naf/Downloads/doof/e2e/simple-list-debug.spec.js:71:104
-
-    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    e2e-results/test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-chromium-desktop/test-failed-1.png
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
-    e2e-results/test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-chromium-desktop/video.webm
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-]]>
-</failure>
+<testsuites id="" name="" tests="1" failures="0" skipped="0" errors="0" time="21.70489">
+<testsuite name="debug-list-items-frontend.spec.js" timestamp="2025-06-03T23:44:32.177Z" hostname="desktop-chrome-comprehensive" tests="1" failures="0" skipped="0" time="19.34" errors="0">
+<testcase name="Debug List Items Frontend › Debug Frontend List Items Display Issue" classname="debug-list-items-frontend.spec.js" time="19.34">
 <system-out>
-<![CDATA[🚀 Starting simple list debug test
-📋 Navigating directly to list 59...
-🌐 API Call: GET http://localhost:5175/src/services/api/index.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiClientCore.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiRequestMethods.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiRetryLogic.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiCacheManager.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiOfflineMode.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiValidation.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiInterceptors.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiErrorUtils.js
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
-🖥️  Frontend Log: [INFO][2025-06-02T00:49:19.213Z] [ListDetail] Forcing database data
-🖥️  Frontend Log: 🌐 [ListDetail] Fetching list details for ID: 59
-🖥️  Frontend Log: 🔑 [ListDetail] Auth check: {isAuthenticated: false, hasUser: false, userId: undefined, userRole: undefined}
-🖥️  Frontend Log: 🌐 [ListDetail] Fetching items for list ID: 59
-🖥️  Frontend Log: [INFO][2025-06-02T00:49:19.219Z] [ListDetail] Forcing database data
-🌐 API Call: GET http://localhost:5001/api/lists/59
-🌐 API Call: GET http://localhost:5001/api/lists/59/items
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
-📋 List 59 API Response: 200 http://localhost:5001/api/lists/59
-🖥️  Frontend Log: ✅ [ListDetail] List details result: {success: true, message: List details retrieved successfully, data: Object}
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: false, listName: Test QuickAdd List, itemsCount: 0}
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: false, listName: Test QuickAdd List, itemsCount: 0}
-📋 List 59 Response Body: {
-  "success": true,
-  "message": "List details retrieved successfully",
-  "data": {
-    "id": 59,
-    "name": "Test QuickAdd List",
-    "description": "Testing quickadd functionality",
-    "list_type": "mixed",
-    "saved_count": 0,
-    "city_name": null,
-    "tags": [],
-    "is_public": true,
-    "creator_handle": "admin",
-    "user_id": 104,
-    "created_at": "2025-06-02T00:26:53.129Z",
-    "updated_at": "2025-06-02T00:26:53.129Z",
-    "creator_username": "admin",
-    "items_count": 4
+<![CDATA[
+🔵 [2025-06-03T23:44:33.007Z] 🚀 STARTING FRONTEND DEBUG TEST
+
+✅ [2025-06-03T23:44:33.836Z] ✅ Test setup completed
+
+🔵 [2025-06-03T23:44:34.061Z] 🔍 STARTING FRONTEND DEBUGGING
+
+🔵 [2025-06-03T23:44:34.061Z] 🔐 Authenticating...
+
+✅ [2025-06-03T23:44:39.711Z] 🎉 Authentication successful!
+
+🔵 [2025-06-03T23:44:39.712Z] 🔍 Setting up frontend API call debugging for list 59...
+
+🔵 [2025-06-03T23:44:39.713Z] 📡 Checking API data directly...
+
+🔵 [2025-06-03T23:44:39.741Z] 📊 API directly returns 5 items
+
+🔵 [2025-06-03T23:44:39.741Z] 🧭 Navigating to list 59 detail page...
+
+🔵 [2025-06-03T23:44:39.800Z] 📤 REQUEST: GET http://localhost:5173/lists/59
+
+🔵 [2025-06-03T23:44:39.805Z] 📥 RESPONSE: 200 http://localhost:5173/lists/59
+
+🔵 [2025-06-03T23:44:39.949Z] 📤 REQUEST: GET https://maps.googleapis.com/maps/api/js?key=AIzaSyD_xhCWUXjhSXD4xpL-BxM5t7HfzJDf-dI&libraries=places
+
+🔵 [2025-06-03T23:44:39.950Z] 📥 RESPONSE: 200 https://maps.googleapis.com/maps/api/js?key=AIzaSyD_xhCWUXjhSXD4xpL-BxM5t7HfzJDf-dI&libraries=places
+
+🔵 [2025-06-03T23:44:39.951Z] 📤 REQUEST: GET https://maps.googleapis.com/maps/api/mapsjs/gen_204?csp_test=true
+
+🔵 [2025-06-03T23:44:39.984Z] 📥 RESPONSE: 200 https://maps.googleapis.com/maps/api/mapsjs/gen_204?csp_test=true
+
+🔵 [2025-06-03T23:44:39.990Z] CONSOLE LOG: 🚀 [ListDetail] Component initialized with: {listId: 59, propListId: undefined, urlListId: 59, isAuthenticated: true, userId: 104}
+
+🔵 [2025-06-03T23:44:39.990Z] CONSOLE [LOG]: 🚀 [ListDetail] Component initialized with: {listId: 59, propListId: undefined, urlListId: 59, isAuthenticated: true, userId: 104}
+
+🔵 [2025-06-03T23:44:39.991Z] CONSOLE LOG: 🔍 [ListDetail] List items query enabled condition: {listId: 59, listIdType: string, listIdTruthy: true, enabled: true}
+
+🔵 [2025-06-03T23:44:39.991Z] CONSOLE [LOG]: 🔍 [ListDetail] List items query enabled condition: {listId: 59, listIdType: string, listIdTruthy: true, enabled: true}
+
+🔵 [2025-06-03T23:44:39.991Z] CONSOLE LOG: 🔍 [ListDetail] Query states: {isLoadingList: true, isLoadingItems: true, isListError: false, isItemsError: false, listData: false}
+
+🔵 [2025-06-03T23:44:39.991Z] CONSOLE [LOG]: 🔍 [ListDetail] Query states: {isLoadingList: true, isLoadingItems: true, isListError: false, isItemsError: false, listData: false}
+
+🔵 [2025-06-03T23:44:39.991Z] CONSOLE LOG: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
+
+🔵 [2025-06-03T23:44:39.991Z] CONSOLE [LOG]: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
+
+🔵 [2025-06-03T23:44:39.991Z] CONSOLE LOG: 🔄 [ListDetail] useMemo items recalculating: {rawItems: Array(0), rawItemsType: object, rawItemsIsArray: true, rawItemsLength: 0, sortOrder: default}
+
+🔵 [2025-06-03T23:44:39.991Z] CONSOLE [LOG]: 🔄 [ListDetail] useMemo items recalculating: {rawItems: Array(0), rawItemsType: object, rawItemsIsArray: true, rawItemsLength: 0, sortOrder: default}
+
+🔵 [2025-06-03T23:44:39.992Z] CONSOLE LOG: ✅ [ListDetail] Creating sorted items array: {sortedItemsLength: 0, sortOrder: default}
+
+🔵 [2025-06-03T23:44:39.992Z] CONSOLE [LOG]: ✅ [ListDetail] Creating sorted items array: {sortedItemsLength: 0, sortOrder: default}
+
+🔵 [2025-06-03T23:44:39.992Z] CONSOLE LOG: 🔄 [ListDetail] Returning default sorted items: {itemsLength: 0, firstItem: undefined, lastItem: undefined}
+
+🔵 [2025-06-03T23:44:39.992Z] CONSOLE [LOG]: 🔄 [ListDetail] Returning default sorted items: {itemsLength: 0, firstItem: undefined, lastItem: undefined}
+
+🔵 [2025-06-03T23:44:39.992Z] CONSOLE LOG: 🎯 [ListDetail] Final items after useMemo: {itemsLength: 0, items: Array(0), itemsIsArray: true}
+
+🔵 [2025-06-03T23:44:39.992Z] CONSOLE [LOG]: 🎯 [ListDetail] Final items after useMemo: {itemsLength: 0, items: Array(0), itemsIsArray: true}
+
+🔵 [2025-06-03T23:44:39.992Z] CONSOLE LOG: 🔄 [ListDetail] Rendering loading state: {isLoading: true, isLoadingList: true, isLoadingItems: true}
+
+🔵 [2025-06-03T23:44:39.992Z] CONSOLE [LOG]: 🔄 [ListDetail] Rendering loading state: {isLoading: true, isLoadingList: true, isLoadingItems: true}
+
+🔵 [2025-06-03T23:44:39.992Z] CONSOLE LOG: 🚀 [ListDetail] Component initialized with: {listId: 59, propListId: undefined, urlListId: 59, isAuthenticated: true, userId: 104}
+
+🔵 [2025-06-03T23:44:39.992Z] CONSOLE [LOG]: 🚀 [ListDetail] Component initialized with: {listId: 59, propListId: undefined, urlListId: 59, isAuthenticated: true, userId: 104}
+
+🔵 [2025-06-03T23:44:39.992Z] CONSOLE LOG: 🔍 [ListDetail] List items query enabled condition: {listId: 59, listIdType: string, listIdTruthy: true, enabled: true}
+
+🔵 [2025-06-03T23:44:39.992Z] CONSOLE [LOG]: 🔍 [ListDetail] List items query enabled condition: {listId: 59, listIdType: string, listIdTruthy: true, enabled: true}
+
+🔵 [2025-06-03T23:44:39.992Z] CONSOLE LOG: 🔍 [ListDetail] Query states: {isLoadingList: true, isLoadingItems: true, isListError: false, isItemsError: false, listData: false}
+
+🔵 [2025-06-03T23:44:39.992Z] CONSOLE [LOG]: 🔍 [ListDetail] Query states: {isLoadingList: true, isLoadingItems: true, isListError: false, isItemsError: false, listData: false}
+
+🔵 [2025-06-03T23:44:39.993Z] CONSOLE LOG: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
+
+🔵 [2025-06-03T23:44:39.993Z] CONSOLE [LOG]: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
+
+🔵 [2025-06-03T23:44:39.993Z] CONSOLE LOG: 🔄 [ListDetail] useMemo items recalculating: {rawItems: Array(0), rawItemsType: object, rawItemsIsArray: true, rawItemsLength: 0, sortOrder: default}
+
+🔵 [2025-06-03T23:44:39.993Z] CONSOLE [LOG]: 🔄 [ListDetail] useMemo items recalculating: {rawItems: Array(0), rawItemsType: object, rawItemsIsArray: true, rawItemsLength: 0, sortOrder: default}
+
+🔵 [2025-06-03T23:44:39.993Z] CONSOLE LOG: ✅ [ListDetail] Creating sorted items array: {sortedItemsLength: 0, sortOrder: default}
+
+🔵 [2025-06-03T23:44:39.993Z] CONSOLE [LOG]: ✅ [ListDetail] Creating sorted items array: {sortedItemsLength: 0, sortOrder: default}
+
+🔵 [2025-06-03T23:44:39.993Z] CONSOLE LOG: 🔄 [ListDetail] Returning default sorted items: {itemsLength: 0, firstItem: undefined, lastItem: undefined}
+
+🔵 [2025-06-03T23:44:39.993Z] CONSOLE [LOG]: 🔄 [ListDetail] Returning default sorted items: {itemsLength: 0, firstItem: undefined, lastItem: undefined}
+
+🔵 [2025-06-03T23:44:39.993Z] CONSOLE LOG: 🎯 [ListDetail] Final items after useMemo: {itemsLength: 0, items: Array(0), itemsIsArray: true}
+
+🔵 [2025-06-03T23:44:39.993Z] CONSOLE [LOG]: 🎯 [ListDetail] Final items after useMemo: {itemsLength: 0, items: Array(0), itemsIsArray: true}
+
+🔵 [2025-06-03T23:44:39.993Z] CONSOLE LOG: 🔄 [ListDetail] Rendering loading state: {isLoading: true, isLoadingList: true, isLoadingItems: true}
+
+🔵 [2025-06-03T23:44:39.993Z] CONSOLE [LOG]: 🔄 [ListDetail] Rendering loading state: {isLoading: true, isLoadingList: true, isLoadingItems: true}
+
+🔵 [2025-06-03T23:44:39.994Z] 📤 REQUEST: GET http://localhost:5173/api/notifications/unread-count
+
+🔵 [2025-06-03T23:44:39.994Z] CONSOLE INFO: [INFO][2025-06-03T23:44:39.992Z] [ListDetail] Forcing database data
+
+🔵 [2025-06-03T23:44:39.994Z] CONSOLE [INFO]: [INFO][2025-06-03T23:44:39.992Z] [ListDetail] Forcing database data
+
+🔵 [2025-06-03T23:44:39.994Z] CONSOLE LOG: 🌐 [ListDetail] Fetching list details for ID: 59
+
+🔵 [2025-06-03T23:44:39.994Z] CONSOLE [LOG]: 🌐 [ListDetail] Fetching list details for ID: 59
+
+🔵 [2025-06-03T23:44:39.995Z] CONSOLE LOG: 🔑 [ListDetail] Auth check: {isAuthenticated: true, hasUser: true, userId: 104, userRole: superuser}
+
+🔵 [2025-06-03T23:44:39.995Z] CONSOLE [LOG]: 🔑 [ListDetail] Auth check: {isAuthenticated: true, hasUser: true, userId: 104, userRole: superuser}
+
+🔵 [2025-06-03T23:44:39.996Z] CONSOLE LOG: 🌐 [ListDetail] ===== LIST ITEMS QUERY STARTING =====
+
+🔵 [2025-06-03T23:44:39.996Z] CONSOLE [LOG]: 🌐 [ListDetail] ===== LIST ITEMS QUERY STARTING =====
+
+🔵 [2025-06-03T23:44:39.997Z] CONSOLE LOG: 🌐 [ListDetail] Fetching items for list ID: 59
+
+🔵 [2025-06-03T23:44:39.997Z] CONSOLE [LOG]: 🌐 [ListDetail] Fetching items for list ID: 59
+
+🔵 [2025-06-03T23:44:39.998Z] CONSOLE LOG: 🔍 [ListDetail] listService object: {getLists: , getList: , getListDetails: , createList: , updateList: }
+
+🔵 [2025-06-03T23:44:39.998Z] CONSOLE [LOG]: 🔍 [ListDetail] listService object: {getLists: , getList: , getListDetails: , createList: , updateList: }
+
+🔵 [2025-06-03T23:44:39.998Z] CONSOLE LOG: 🔍 [ListDetail] getListItems function: async function(listId, params = {}) {
+    const safeId = validateId(listId, 'listId');
+    
+    console.log(`[listService.getListItems] Calling API for list ${safeId} with params:`, params);
+    
+    // DEBUG: Check authentication state
+    const token = localStorage.getItem('token') || localStorage.getItem('auth-token') || localStorage.getItem('authToken');
+    console.log(`[listService.getListItems] Auth debug:`, {
+      hasToken: !!token,
+      tokenLength: token?.length,
+      tokenPreview: token ? `${token.substring(0, 20)}...` : 'none'
+    });
+    
+    try {
+      const result = await handleApiResponse(
+        () => apiClient.get(`/lists/${safeId}/items`, { params }),
+        'ListService.getListItems'
+      );
+      
+      console.log(`[listService.getListItems] Raw result from handleApiResponse:`, result);
+      console.log(`[listService.getListItems] result.data type:`, typeof result.data);
+      console.log(`[listService.getListItems] result.data is array:`, Array.isArray(result.data));
+      
+      // Format the response to maintain backward compatibility
+      const formattedResponse = {
+        success: result.success,
+        data: result.data,
+        pagination: result.pagination || null,
+        message: result.message,
+        error: result.error
+      };
+      
+      console.log(`[listService.getListItems] Formatted response:`, formattedResponse);
+      
+      return formattedResponse;
+      
+    } catch (error) {
+      console.error(`[listService.getListItems] Error caught:`, error);
+      console.error(`[listService.getListItems] Error details:`, {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      });
+      
+      // If it's an authentication error, try making the request without auth headers
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        console.log(`[listService.getListItems] Auth error, trying without auth headers...`);
+        
+        try {
+          // Create a direct axios call without authentication
+          const fallbackResult = await fetch(`/api/lists/${safeId}/items`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (fallbackResult.ok) {
+            const data = await fallbackResult.json();
+            console.log(`[listService.getListItems] Fallback success:`, data);
+            
+            return {
+              success: true,
+              data: data.data || data,
+              pagination: data.pagination || null,
+              message: 'Retrieved via fallback method',
+              error: null
+            };
+          } else {
+            console.error(`[listService.getListItems] Fallback also failed:`, fallbackResult.status);
+          }
+        } catch (fallbackError) {
+          console.error(`[listService.getListItems] Fallback request failed:`, fallbackError);
+        }
+      }
+      
+      // Re-throw the original error
+      throw error;
+    }
   }
-}
-📋 List 59 API Response: 200 http://localhost:5001/api/lists/59/items
-🖥️  Frontend Log: ✅ [ListDetail] List items result: {success: true, data: Array(4), pagination: null, message: List items retrieved successfully, error: undefined}
-🖥️  Frontend Log: 📝 [ListDetail] Items data: [Object, Object, Object, Object]
-🖥️  Frontend Log: 📊 [ListDetail] Items count: 4
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 4}
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 4}
-📋 List 59 Response Body: {
+
+🔵 [2025-06-03T23:44:39.998Z] CONSOLE [LOG]: 🔍 [ListDetail] getListItems function: async function(listId, params = {}) {
+    const safeId = validateId(listId, 'listId');
+    
+    console.log(`[listService.getListItems] Calling API for list ${safeId} with params:`, params);
+    
+    // DEBUG: Check authentication state
+    const token = localStorage.getItem('token') || localStorage.getItem('auth-token') || localStorage.getItem('authToken');
+    console.log(`[listService.getListItems] Auth debug:`, {
+      hasToken: !!token,
+      tokenLength: token?.length,
+      tokenPreview: token ? `${token.substring(0, 20)}...` : 'none'
+    });
+    
+    try {
+      const result = await handleApiResponse(
+        () => apiClient.get(`/lists/${safeId}/items`, { params }),
+        'ListService.getListItems'
+      );
+      
+      console.log(`[listService.getListItems] Raw result from handleApiResponse:`, result);
+      console.log(`[listService.getListItems] result.data type:`, typeof result.data);
+      console.log(`[listService.getListItems] result.data is array:`, Array.isArray(result.data));
+      
+      // Format the response to maintain backward compatibility
+      const formattedResponse = {
+        success: result.success,
+        data: result.data,
+        pagination: result.pagination || null,
+        message: result.message,
+        error: result.error
+      };
+      
+      console.log(`[listService.getListItems] Formatted response:`, formattedResponse);
+      
+      return formattedResponse;
+      
+    } catch (error) {
+      console.error(`[listService.getListItems] Error caught:`, error);
+      console.error(`[listService.getListItems] Error details:`, {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      });
+      
+      // If it's an authentication error, try making the request without auth headers
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        console.log(`[listService.getListItems] Auth error, trying without auth headers...`);
+        
+        try {
+          // Create a direct axios call without authentication
+          const fallbackResult = await fetch(`/api/lists/${safeId}/items`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (fallbackResult.ok) {
+            const data = await fallbackResult.json();
+            console.log(`[listService.getListItems] Fallback success:`, data);
+            
+            return {
+              success: true,
+              data: data.data || data,
+              pagination: data.pagination || null,
+              message: 'Retrieved via fallback method',
+              error: null
+            };
+          } else {
+            console.error(`[listService.getListItems] Fallback also failed:`, fallbackResult.status);
+          }
+        } catch (fallbackError) {
+          console.error(`[listService.getListItems] Fallback request failed:`, fallbackError);
+        }
+      }
+      
+      // Re-throw the original error
+      throw error;
+    }
+  }
+
+🔵 [2025-06-03T23:44:40.000Z] CONSOLE LOG: 📡 [ListDetail] Calling listService.getListItems(59)
+
+🔵 [2025-06-03T23:44:40.000Z] CONSOLE [LOG]: 📡 [ListDetail] Calling listService.getListItems(59)
+
+🔵 [2025-06-03T23:44:40.000Z] CONSOLE LOG: [listService.getListItems] Calling API for list 59 with params: {}
+
+🔵 [2025-06-03T23:44:40.000Z] CONSOLE LOG: [listService.getListItems] Auth debug: {hasToken: true, tokenLength: 276, tokenPreview: eyJhbGciOiJIUzI1NiIs...}
+
+🔵 [2025-06-03T23:44:40.000Z] 📤 REQUEST: GET http://localhost:5173/api/notifications/unread-count
+
+🔵 [2025-06-03T23:44:40.001Z] CONSOLE INFO: [INFO][2025-06-03T23:44:39.994Z] [ListDetail] Forcing database data
+
+🔵 [2025-06-03T23:44:40.001Z] CONSOLE [INFO]: [INFO][2025-06-03T23:44:39.994Z] [ListDetail] Forcing database data
+
+🔵 [2025-06-03T23:44:40.001Z] 📤 REQUEST: GET http://localhost:5001/api/lists/59
+
+🔵 [2025-06-03T23:44:40.001Z] 📤 REQUEST: GET http://localhost:5001/api/lists/59/items
+
+🔵 [2025-06-03T23:44:40.007Z] 📥 RESPONSE: 200 http://localhost:5001/api/lists/59
+
+🔵 [2025-06-03T23:44:40.007Z] CONSOLE LOG: ✅ [ListDetail] List details result: {success: true, message: List details retrieved successfully, data: Object}
+
+🔵 [2025-06-03T23:44:40.007Z] CONSOLE [LOG]: ✅ [ListDetail] List details result: {success: true, message: List details retrieved successfully, data: Object}
+
+🔵 [2025-06-03T23:44:40.007Z] CONSOLE LOG: 🚀 [ListDetail] Component initialized with: {listId: 59, propListId: undefined, urlListId: 59, isAuthenticated: true, userId: 104}
+
+🔵 [2025-06-03T23:44:40.007Z] CONSOLE [LOG]: 🚀 [ListDetail] Component initialized with: {listId: 59, propListId: undefined, urlListId: 59, isAuthenticated: true, userId: 104}
+
+🔵 [2025-06-03T23:44:40.007Z] CONSOLE LOG: 🔍 [ListDetail] List items query enabled condition: {listId: 59, listIdType: string, listIdTruthy: true, enabled: true}
+
+🔵 [2025-06-03T23:44:40.007Z] CONSOLE [LOG]: 🔍 [ListDetail] List items query enabled condition: {listId: 59, listIdType: string, listIdTruthy: true, enabled: true}
+
+🔵 [2025-06-03T23:44:40.007Z] CONSOLE LOG: 🔍 [ListDetail] Query states: {isLoadingList: false, isLoadingItems: true, isListError: false, isItemsError: false, listData: true}
+
+🔵 [2025-06-03T23:44:40.007Z] CONSOLE [LOG]: 🔍 [ListDetail] Query states: {isLoadingList: false, isLoadingItems: true, isListError: false, isItemsError: false, listData: true}
+
+🔵 [2025-06-03T23:44:40.007Z] CONSOLE LOG: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: false, listName: Test QuickAdd List, itemsCount: 0}
+
+🔵 [2025-06-03T23:44:40.007Z] CONSOLE [LOG]: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: false, listName: Test QuickAdd List, itemsCount: 0}
+
+🔵 [2025-06-03T23:44:40.007Z] CONSOLE LOG: 🔄 [ListDetail] useMemo items recalculating: {rawItems: Array(0), rawItemsType: object, rawItemsIsArray: true, rawItemsLength: 0, sortOrder: default}
+
+🔵 [2025-06-03T23:44:40.007Z] CONSOLE [LOG]: 🔄 [ListDetail] useMemo items recalculating: {rawItems: Array(0), rawItemsType: object, rawItemsIsArray: true, rawItemsLength: 0, sortOrder: default}
+
+🔵 [2025-06-03T23:44:40.008Z] CONSOLE LOG: ✅ [ListDetail] Creating sorted items array: {sortedItemsLength: 0, sortOrder: default}
+
+🔵 [2025-06-03T23:44:40.008Z] CONSOLE [LOG]: ✅ [ListDetail] Creating sorted items array: {sortedItemsLength: 0, sortOrder: default}
+
+🔵 [2025-06-03T23:44:40.008Z] CONSOLE LOG: 🔄 [ListDetail] Returning default sorted items: {itemsLength: 0, firstItem: undefined, lastItem: undefined}
+
+🔵 [2025-06-03T23:44:40.008Z] CONSOLE [LOG]: 🔄 [ListDetail] Returning default sorted items: {itemsLength: 0, firstItem: undefined, lastItem: undefined}
+
+🔵 [2025-06-03T23:44:40.008Z] CONSOLE LOG: 🎯 [ListDetail] Final items after useMemo: {itemsLength: 0, items: Array(0), itemsIsArray: true}
+
+🔵 [2025-06-03T23:44:40.008Z] CONSOLE [LOG]: 🎯 [ListDetail] Final items after useMemo: {itemsLength: 0, items: Array(0), itemsIsArray: true}
+
+🔵 [2025-06-03T23:44:40.008Z] CONSOLE LOG: 🔄 [ListDetail] Rendering loading state: {isLoading: true, isLoadingList: false, isLoadingItems: true}
+
+🔵 [2025-06-03T23:44:40.008Z] CONSOLE [LOG]: 🔄 [ListDetail] Rendering loading state: {isLoading: true, isLoadingList: false, isLoadingItems: true}
+
+🔵 [2025-06-03T23:44:40.008Z] CONSOLE LOG: 🚀 [ListDetail] Component initialized with: {listId: 59, propListId: undefined, urlListId: 59, isAuthenticated: true, userId: 104}
+
+🔵 [2025-06-03T23:44:40.008Z] CONSOLE [LOG]: 🚀 [ListDetail] Component initialized with: {listId: 59, propListId: undefined, urlListId: 59, isAuthenticated: true, userId: 104}
+
+🔵 [2025-06-03T23:44:40.008Z] CONSOLE LOG: 🔍 [ListDetail] List items query enabled condition: {listId: 59, listIdType: string, listIdTruthy: true, enabled: true}
+
+🔵 [2025-06-03T23:44:40.008Z] CONSOLE [LOG]: 🔍 [ListDetail] List items query enabled condition: {listId: 59, listIdType: string, listIdTruthy: true, enabled: true}
+
+🔵 [2025-06-03T23:44:40.008Z] CONSOLE LOG: 🔍 [ListDetail] Query states: {isLoadingList: false, isLoadingItems: true, isListError: false, isItemsError: false, listData: true}
+
+🔵 [2025-06-03T23:44:40.008Z] CONSOLE [LOG]: 🔍 [ListDetail] Query states: {isLoadingList: false, isLoadingItems: true, isListError: false, isItemsError: false, listData: true}
+
+🔵 [2025-06-03T23:44:40.008Z] CONSOLE LOG: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: false, listName: Test QuickAdd List, itemsCount: 0}
+
+🔵 [2025-06-03T23:44:40.008Z] CONSOLE [LOG]: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: false, listName: Test QuickAdd List, itemsCount: 0}
+
+🔵 [2025-06-03T23:44:40.008Z] CONSOLE LOG: 🔄 [ListDetail] useMemo items recalculating: {rawItems: Array(0), rawItemsType: object, rawItemsIsArray: true, rawItemsLength: 0, sortOrder: default}
+
+🔵 [2025-06-03T23:44:40.008Z] CONSOLE [LOG]: 🔄 [ListDetail] useMemo items recalculating: {rawItems: Array(0), rawItemsType: object, rawItemsIsArray: true, rawItemsLength: 0, sortOrder: default}
+
+🔵 [2025-06-03T23:44:40.008Z] CONSOLE LOG: ✅ [ListDetail] Creating sorted items array: {sortedItemsLength: 0, sortOrder: default}
+
+🔵 [2025-06-03T23:44:40.008Z] CONSOLE [LOG]: ✅ [ListDetail] Creating sorted items array: {sortedItemsLength: 0, sortOrder: default}
+
+🔵 [2025-06-03T23:44:40.008Z] CONSOLE LOG: 🔄 [ListDetail] Returning default sorted items: {itemsLength: 0, firstItem: undefined, lastItem: undefined}
+
+🔵 [2025-06-03T23:44:40.008Z] CONSOLE [LOG]: 🔄 [ListDetail] Returning default sorted items: {itemsLength: 0, firstItem: undefined, lastItem: undefined}
+
+🔵 [2025-06-03T23:44:40.009Z] CONSOLE LOG: 🎯 [ListDetail] Final items after useMemo: {itemsLength: 0, items: Array(0), itemsIsArray: true}
+
+🔵 [2025-06-03T23:44:40.009Z] CONSOLE [LOG]: 🎯 [ListDetail] Final items after useMemo: {itemsLength: 0, items: Array(0), itemsIsArray: true}
+
+🔵 [2025-06-03T23:44:40.009Z] CONSOLE LOG: 🔄 [ListDetail] Rendering loading state: {isLoading: true, isLoadingList: false, isLoadingItems: true}
+
+🔵 [2025-06-03T23:44:40.009Z] CONSOLE [LOG]: 🔄 [ListDetail] Rendering loading state: {isLoading: true, isLoadingList: false, isLoadingItems: true}
+
+🔵 [2025-06-03T23:44:40.016Z] 📥 RESPONSE: 200 http://localhost:5001/api/lists/59/items
+
+🔵 [2025-06-03T23:44:40.017Z] CONSOLE DEBUG: [DEBUG][2025-06-03T23:44:40.013Z] [ListService.getListItems] Response received: {status: 200, statusText: OK, hasData: true, dataType: object, dataKeys: Array(4)}
+
+🔵 [2025-06-03T23:44:40.017Z] CONSOLE LOG: [listService.getListItems] Raw result from handleApiResponse: {success: true, message: List items retrieved successfully, data: Array(5)}
+
+🔵 [2025-06-03T23:44:40.018Z] CONSOLE LOG: [listService.getListItems] result.data type: object
+
+🔵 [2025-06-03T23:44:40.018Z] CONSOLE LOG: [listService.getListItems] result.data is array: true
+
+🔵 [2025-06-03T23:44:40.018Z] CONSOLE LOG: [listService.getListItems] Formatted response: {success: true, data: Array(5), pagination: null, message: List items retrieved successfully, error: undefined}
+
+🔵 [2025-06-03T23:44:40.020Z] CONSOLE LOG: ✅ [ListDetail] List items result: {success: true, data: Array(5), pagination: null, message: List items retrieved successfully, error: undefined}
+
+🔵 [2025-06-03T23:44:40.020Z] CONSOLE [LOG]: ✅ [ListDetail] List items result: {success: true, data: Array(5), pagination: null, message: List items retrieved successfully, error: undefined}
+
+🔵 [2025-06-03T23:44:40.020Z] CONSOLE LOG: 📝 [ListDetail] Items data: [Object, Object, Object, Object, Object]
+
+🔵 [2025-06-03T23:44:40.020Z] CONSOLE [LOG]: 📝 [ListDetail] Items data: [Object, Object, Object, Object, Object]
+
+🔵 [2025-06-03T23:44:40.021Z] CONSOLE LOG: 📊 [ListDetail] Items count: 5
+
+🔵 [2025-06-03T23:44:40.021Z] CONSOLE [LOG]: 📊 [ListDetail] Items count: 5
+
+🔵 [2025-06-03T23:44:40.021Z] CONSOLE LOG: 🔍 [ListDetail] Full result structure: {
   "success": true,
-  "message": "List items retrieved successfully",
   "data": [
+    {
+      "list_item_id": 222,
+      "id": 222,
+      "item_id": 1,
+      "item_type": "dish",
+      "added_at": "2025-06-03T23:21:29.758Z",
+      "notes": null,
+      "dish_id": 1,
+      "name": "Dish 1",
+      "dish_name": null,
+      "description": null,
+      "restaurant_id": null,
+      "restaurant_name": null
+    },
+    {
+      "list_item_id": 226,
+      "id": 226,
+      "item_id": 304,
+      "item_type": "restaurant",
+      "added_at": "2025-06-02T00:58:58.932Z",
+      "notes": null,
+      "restaurant_id": 304,
+      "name": "Aquavit",
+      "restaurant_name": "Aquavit",
+      "cuisine": null,
+      "address": "65 E 55th St",
+      "city_name": null,
+      "location": "65 E 55th St"
+    },
     {
       "list_item_id": 224,
       "id": 224,
       "item_id": 288,
       "item_type": "restaurant",
       "added_at": "2025-06-02T00:45:41.356Z",
+      "notes": null,
+      "restaurant_id": 288,
       "name": "John's of Bleecker Street",
       "restaurant_name": "John's of Bleecker Street",
       "cuisine": null,
-      "location": "278 Bleecker St",
-      "city_name": null
+      "address": "278 Bleecker St",
+      "city_name": null,
+      "location": "278 Bleecker St"
     },
     {
       "list_item_id": 223,
@@ -101,23 +468,14 @@
       "item_id": 287,
       "item_type": "restaurant",
       "added_at": "2025-06-02T00:45:41.337Z",
+      "notes": null,
+      "restaurant_id": 287,
       "name": "Joe's Pizza",
       "restaurant_name": "Joe's Pizza",
       "cuisine": null,
-      "location": "7 Carmine St",
-      "city_name": null
-    },
-    {
-      "list_item_id": 222,
-      "id": 222,
-      "item_id": 1,
-      "item_type": "dish",
-      "added_at": "2025-06-02T00:27:06.736Z",
-      "name": "dish 1",
-      "restaurant_name": null,
-      "cuisine": null,
-      "location": null,
-      "city_name": null
+      "address": "7 Carmine St",
+      "city_name": null,
+      "location": "7 Carmine St"
     },
     {
       "list_item_id": 221,
@@ -125,115 +483,66 @@
       "item_id": 1,
       "item_type": "restaurant",
       "added_at": "2025-06-02T00:27:02.544Z",
-      "name": "restaurant 1",
+      "notes": null,
+      "restaurant_id": 1,
+      "name": "Restaurant 1",
       "restaurant_name": null,
       "cuisine": null,
-      "location": null,
-      "city_name": null
+      "address": null,
+      "city_name": null,
+      "location": null
     }
   ],
-  "total": 4
+  "pagination": null,
+  "message": "List items retrieved successfully"
 }
-📸 Initial screenshot saved
-📄 Page title: Chomp Clean
-🔍 Page contains "Test QuickAdd List": [33mtrue[39m
-🔍 Page contains "dish": [33mtrue[39m
-🔍 Page contains "restaurant": [33mtrue[39m
-🔍 Page contains "empty": [33mfalse[39m
-📋 H1 elements: [ [32m'Test QuickAdd List'[39m ]
-📊 Total <li> elements found: 4
-🈳 "This list is empty" messages: [33m0[39m
 
-[[ATTACHMENT|test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-chromium-desktop/test-failed-1.png]]
-
-[[ATTACHMENT|test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-chromium-desktop/video.webm]]
-]]>
-</system-out>
-</testcase>
-</testsuite>
-<testsuite name="simple-list-debug.spec.js" timestamp="2025-06-02T00:49:13.672Z" hostname="firefox-desktop" tests="1" failures="1" skipped="0" time="7.543" errors="0">
-<testcase name="Simple List Debug › should directly check list items for Test QuickAdd List" classname="simple-list-debug.spec.js" time="7.543">
-<failure message="simple-list-debug.spec.js:4:3 should directly check list items for Test QuickAdd List" type="FAILURE">
-<![CDATA[  [firefox-desktop] › simple-list-debug.spec.js:4:3 › Simple List Debug › should directly check list items for Test QuickAdd List 
-
-    Error: locator.count: Unexpected token "=" while parsing css selector "[data-testid="loading"], .animate-spin, text=Loading". Did you mean to CSS.escape it?
-
-      69 |     
-      70 |     // Check for loading spinners
-    > 71 |     const loadingSpinners = await page.locator('[data-testid="loading"], .animate-spin, text=Loading').count();
-         |                                                                                                        ^
-      72 |     console.log('⏳ Loading indicators:', loadingSpinners);
-      73 |     
-      74 |     // Take a final screenshot
-        at /Users/naf/Downloads/doof/e2e/simple-list-debug.spec.js:71:104
-
-    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    e2e-results/test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-firefox-desktop/test-failed-1.png
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
-    e2e-results/test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-firefox-desktop/video.webm
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-]]>
-</failure>
-<system-out>
-<![CDATA[🚀 Starting simple list debug test
-📋 Navigating directly to list 59...
-🌐 API Call: GET http://localhost:5175/src/services/api/index.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiClientCore.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiRequestMethods.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiRetryLogic.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiCacheManager.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiOfflineMode.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiValidation.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiInterceptors.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiErrorUtils.js
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: JSHandle@object
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: JSHandle@object
-🖥️  Frontend Log: [INFO][2025-06-02T00:49:19.590Z] [ListDetail] Forcing database data
-🖥️  Frontend Log: 🌐 [ListDetail] Fetching list details for ID: 59
-🖥️  Frontend Log: 🔑 [ListDetail] Auth check: JSHandle@object
-🖥️  Frontend Log: 🌐 [ListDetail] Fetching items for list ID: 59
-🖥️  Frontend Log: [INFO][2025-06-02T00:49:19.598Z] [ListDetail] Forcing database data
-🌐 API Call: GET http://localhost:5001/api/lists/59
-🌐 API Call: GET http://localhost:5001/api/lists/59/items
-📋 List 59 API Response: 200 http://localhost:5001/api/lists/59
-📋 List 59 Response Body: {
+🔵 [2025-06-03T23:44:40.021Z] CONSOLE [LOG]: 🔍 [ListDetail] Full result structure: {
   "success": true,
-  "message": "List details retrieved successfully",
-  "data": {
-    "id": 59,
-    "name": "Test QuickAdd List",
-    "description": "Testing quickadd functionality",
-    "list_type": "mixed",
-    "saved_count": 0,
-    "city_name": null,
-    "tags": [],
-    "is_public": true,
-    "creator_handle": "admin",
-    "user_id": 104,
-    "created_at": "2025-06-02T00:26:53.129Z",
-    "updated_at": "2025-06-02T00:26:53.129Z",
-    "creator_username": "admin",
-    "items_count": 4
-  }
-}
-📋 List 59 API Response: 200 http://localhost:5001/api/lists/59/items
-📋 List 59 Response Body: {
-  "success": true,
-  "message": "List items retrieved successfully",
   "data": [
+    {
+      "list_item_id": 222,
+      "id": 222,
+      "item_id": 1,
+      "item_type": "dish",
+      "added_at": "2025-06-03T23:21:29.758Z",
+      "notes": null,
+      "dish_id": 1,
+      "name": "Dish 1",
+      "dish_name": null,
+      "description": null,
+      "restaurant_id": null,
+      "restaurant_name": null
+    },
+    {
+      "list_item_id": 226,
+      "id": 226,
+      "item_id": 304,
+      "item_type": "restaurant",
+      "added_at": "2025-06-02T00:58:58.932Z",
+      "notes": null,
+      "restaurant_id": 304,
+      "name": "Aquavit",
+      "restaurant_name": "Aquavit",
+      "cuisine": null,
+      "address": "65 E 55th St",
+      "city_name": null,
+      "location": "65 E 55th St"
+    },
     {
       "list_item_id": 224,
       "id": 224,
       "item_id": 288,
       "item_type": "restaurant",
       "added_at": "2025-06-02T00:45:41.356Z",
+      "notes": null,
+      "restaurant_id": 288,
       "name": "John's of Bleecker Street",
       "restaurant_name": "John's of Bleecker Street",
       "cuisine": null,
-      "location": "278 Bleecker St",
-      "city_name": null
+      "address": "278 Bleecker St",
+      "city_name": null,
+      "location": "278 Bleecker St"
     },
     {
       "list_item_id": 223,
@@ -241,23 +550,14 @@
       "item_id": 287,
       "item_type": "restaurant",
       "added_at": "2025-06-02T00:45:41.337Z",
+      "notes": null,
+      "restaurant_id": 287,
       "name": "Joe's Pizza",
       "restaurant_name": "Joe's Pizza",
       "cuisine": null,
-      "location": "7 Carmine St",
-      "city_name": null
-    },
-    {
-      "list_item_id": 222,
-      "id": 222,
-      "item_id": 1,
-      "item_type": "dish",
-      "added_at": "2025-06-02T00:27:06.736Z",
-      "name": "dish 1",
-      "restaurant_name": null,
-      "cuisine": null,
-      "location": null,
-      "city_name": null
+      "address": "7 Carmine St",
+      "city_name": null,
+      "location": "7 Carmine St"
     },
     {
       "list_item_id": 221,
@@ -265,135 +565,404 @@
       "item_id": 1,
       "item_type": "restaurant",
       "added_at": "2025-06-02T00:27:02.544Z",
-      "name": "restaurant 1",
+      "notes": null,
+      "restaurant_id": 1,
+      "name": "Restaurant 1",
       "restaurant_name": null,
       "cuisine": null,
-      "location": null,
-      "city_name": null
+      "address": null,
+      "city_name": null,
+      "location": null
     }
   ],
-  "total": 4
+  "pagination": null,
+  "message": "List items retrieved successfully"
 }
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: JSHandle@object
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: JSHandle@object
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: JSHandle@object
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: JSHandle@object
-🖥️  Frontend Log: ✅ [ListDetail] List items result: JSHandle@object
-🖥️  Frontend Log: 📝 [ListDetail] Items data: Array
-🖥️  Frontend Log: 📊 [ListDetail] Items count: 4
-🖥️  Frontend Log: ✅ [ListDetail] List details result: JSHandle@object
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: JSHandle@object
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: JSHandle@object
-📸 Initial screenshot saved
-📄 Page title: Chomp Clean
-🔍 Page contains "Test QuickAdd List": [33mtrue[39m
-🔍 Page contains "dish": [33mtrue[39m
-🔍 Page contains "restaurant": [33mtrue[39m
-🔍 Page contains "empty": [33mfalse[39m
-📋 H1 elements: [ [32m'Test QuickAdd List'[39m ]
-📊 Total <li> elements found: 4
-🈳 "This list is empty" messages: [33m0[39m
 
-[[ATTACHMENT|test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-firefox-desktop/test-failed-1.png]]
+🔵 [2025-06-03T23:44:40.021Z] CONSOLE LOG: 🌐 [ListDetail] ===== LIST ITEMS QUERY COMPLETED =====
 
-[[ATTACHMENT|test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-firefox-desktop/video.webm]]
-]]>
-</system-out>
-</testcase>
-</testsuite>
-<testsuite name="simple-list-debug.spec.js" timestamp="2025-06-02T00:49:13.672Z" hostname="webkit-desktop" tests="1" failures="1" skipped="0" time="7.019" errors="0">
-<testcase name="Simple List Debug › should directly check list items for Test QuickAdd List" classname="simple-list-debug.spec.js" time="7.019">
-<failure message="simple-list-debug.spec.js:4:3 should directly check list items for Test QuickAdd List" type="FAILURE">
-<![CDATA[  [webkit-desktop] › simple-list-debug.spec.js:4:3 › Simple List Debug › should directly check list items for Test QuickAdd List 
+🔵 [2025-06-03T23:44:40.021Z] CONSOLE [LOG]: 🌐 [ListDetail] ===== LIST ITEMS QUERY COMPLETED =====
 
-    Error: locator.count: Unexpected token "=" while parsing css selector "[data-testid="loading"], .animate-spin, text=Loading". Did you mean to CSS.escape it?
+🔵 [2025-06-03T23:44:40.022Z] CONSOLE LOG: 🚀 [ListDetail] Component initialized with: {listId: 59, propListId: undefined, urlListId: 59, isAuthenticated: true, userId: 104}
 
-      69 |     
-      70 |     // Check for loading spinners
-    > 71 |     const loadingSpinners = await page.locator('[data-testid="loading"], .animate-spin, text=Loading').count();
-         |                                                                                                        ^
-      72 |     console.log('⏳ Loading indicators:', loadingSpinners);
-      73 |     
-      74 |     // Take a final screenshot
-        at /Users/naf/Downloads/doof/e2e/simple-list-debug.spec.js:71:104
+🔵 [2025-06-03T23:44:40.022Z] CONSOLE [LOG]: 🚀 [ListDetail] Component initialized with: {listId: 59, propListId: undefined, urlListId: 59, isAuthenticated: true, userId: 104}
 
-    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    e2e-results/test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-webkit-desktop/test-failed-1.png
-    ────────────────────────────────────────────────────────────────────────────────────────────────
+🔵 [2025-06-03T23:44:40.022Z] CONSOLE LOG: 🔍 [ListDetail] List items query enabled condition: {listId: 59, listIdType: string, listIdTruthy: true, enabled: true}
 
-    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
-    e2e-results/test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-webkit-desktop/video.webm
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-]]>
-</failure>
-<system-out>
-<![CDATA[🚀 Starting simple list debug test
-📋 Navigating directly to list 59...
-🌐 API Call: GET http://localhost:5175/src/services/api/index.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiClientCore.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiRequestMethods.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiRetryLogic.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiCacheManager.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiOfflineMode.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiValidation.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiInterceptors.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiErrorUtils.js
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
-🖥️  Frontend Log: [INFO][2025-06-02T00:49:19.286Z] [ListDetail] Forcing database data
-🖥️  Frontend Log: 🌐 [ListDetail] Fetching list details for ID: 59
-🖥️  Frontend Log: 🔑 [ListDetail] Auth check: {isAuthenticated: false, hasUser: false, userId: undefined, userRole: undefined}
-🖥️  Frontend Log: 🌐 [ListDetail] Fetching items for list ID: 59
-🖥️  Frontend Log: [INFO][2025-06-02T00:49:19.299Z] [ListDetail] Forcing database data
-🌐 API Call: GET http://localhost:5001/api/lists/59
-🌐 API Call: GET http://localhost:5001/api/lists/59/items
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
-📋 List 59 API Response: 200 http://localhost:5001/api/lists/59
-🖥️  Frontend Log: ✅ [ListDetail] List details result: {success: true, message: List details retrieved successfully, data: Object}
-📋 List 59 API Response: 200 http://localhost:5001/api/lists/59/items
-🖥️  Frontend Log: ✅ [ListDetail] List items result: {success: true, data: Array, pagination: null, message: List items retrieved successfully, error: undefined}
-🖥️  Frontend Log: 📝 [ListDetail] Items data: [Object, Object, Object, Object]
-🖥️  Frontend Log: 📊 [ListDetail] Items count: 4
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 4}
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 4}
-📋 List 59 Response Body: {
-  "success": true,
-  "message": "List details retrieved successfully",
-  "data": {
-    "id": 59,
-    "name": "Test QuickAdd List",
-    "description": "Testing quickadd functionality",
-    "list_type": "mixed",
-    "saved_count": 0,
-    "city_name": null,
-    "tags": [],
-    "is_public": true,
-    "creator_handle": "admin",
-    "user_id": 104,
-    "created_at": "2025-06-02T00:26:53.129Z",
-    "updated_at": "2025-06-02T00:26:53.129Z",
-    "creator_username": "admin",
-    "items_count": 4
+🔵 [2025-06-03T23:44:40.022Z] CONSOLE [LOG]: 🔍 [ListDetail] List items query enabled condition: {listId: 59, listIdType: string, listIdTruthy: true, enabled: true}
+
+🔵 [2025-06-03T23:44:40.022Z] CONSOLE LOG: 🔍 [ListDetail] Query states: {isLoadingList: false, isLoadingItems: false, isListError: false, isItemsError: false, listData: true}
+
+🔵 [2025-06-03T23:44:40.022Z] CONSOLE [LOG]: 🔍 [ListDetail] Query states: {isLoadingList: false, isLoadingItems: false, isListError: false, isItemsError: false, listData: true}
+
+🔵 [2025-06-03T23:44:40.022Z] CONSOLE LOG: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 5}
+
+🔵 [2025-06-03T23:44:40.022Z] CONSOLE [LOG]: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 5}
+
+🔵 [2025-06-03T23:44:40.023Z] CONSOLE LOG: 🔄 [ListDetail] useMemo items recalculating: {rawItems: Array(5), rawItemsType: object, rawItemsIsArray: true, rawItemsLength: 5, sortOrder: default}
+
+🔵 [2025-06-03T23:44:40.023Z] CONSOLE [LOG]: 🔄 [ListDetail] useMemo items recalculating: {rawItems: Array(5), rawItemsType: object, rawItemsIsArray: true, rawItemsLength: 5, sortOrder: default}
+
+🔵 [2025-06-03T23:44:40.023Z] CONSOLE LOG: ✅ [ListDetail] Creating sorted items array: {sortedItemsLength: 5, sortOrder: default}
+
+🔵 [2025-06-03T23:44:40.023Z] CONSOLE [LOG]: ✅ [ListDetail] Creating sorted items array: {sortedItemsLength: 5, sortOrder: default}
+
+🔵 [2025-06-03T23:44:40.023Z] CONSOLE LOG: 🔄 [ListDetail] Returning default sorted items: {itemsLength: 5, firstItem: Object, lastItem: Object}
+
+🔵 [2025-06-03T23:44:40.023Z] CONSOLE [LOG]: 🔄 [ListDetail] Returning default sorted items: {itemsLength: 5, firstItem: Object, lastItem: Object}
+
+🔵 [2025-06-03T23:44:40.023Z] CONSOLE LOG: 🎯 [ListDetail] Final items after useMemo: {itemsLength: 5, items: Array(5), itemsIsArray: true}
+
+🔵 [2025-06-03T23:44:40.023Z] CONSOLE [LOG]: 🎯 [ListDetail] Final items after useMemo: {itemsLength: 5, items: Array(5), itemsIsArray: true}
+
+🔵 [2025-06-03T23:44:40.023Z] CONSOLE LOG: ✅ [ListDetail] Rendering main content: {isLoading: false, isError: false, listName: Test QuickAdd List, itemsLength: 5, hasItems: true}
+
+🔵 [2025-06-03T23:44:40.023Z] CONSOLE [LOG]: ✅ [ListDetail] Rendering main content: {isLoading: false, isError: false, listName: Test QuickAdd List, itemsLength: 5, hasItems: true}
+
+🔵 [2025-06-03T23:44:40.023Z] CONSOLE LOG: 🎬 [ListDetail] About to render items section: {items: Array(5), itemsLength: 5, itemsIsArray: true, hasItemsAndLength: true, itemsCondition: true}
+
+🔵 [2025-06-03T23:44:40.023Z] CONSOLE [LOG]: 🎬 [ListDetail] About to render items section: {items: Array(5), itemsLength: 5, itemsIsArray: true, hasItemsAndLength: true, itemsCondition: true}
+
+🔵 [2025-06-03T23:44:40.023Z] CONSOLE LOG: 🎭 [ListDetail] Rendering 5 items
+
+🔵 [2025-06-03T23:44:40.023Z] CONSOLE [LOG]: 🎭 [ListDetail] Rendering 5 items
+
+🔵 [2025-06-03T23:44:40.023Z] CONSOLE LOG: 🎬 [ListDetail] Rendering item 0: {list_item_id: 222, id: 222, item_id: 1, item_type: dish, added_at: 2025-06-03T23:21:29.758Z}
+
+🔵 [2025-06-03T23:44:40.023Z] CONSOLE [LOG]: 🎬 [ListDetail] Rendering item 0: {list_item_id: 222, id: 222, item_id: 1, item_type: dish, added_at: 2025-06-03T23:21:29.758Z}
+
+🔵 [2025-06-03T23:44:40.024Z] CONSOLE LOG: 🎬 [ListDetail] Rendering item 1: {list_item_id: 226, id: 226, item_id: 304, item_type: restaurant, added_at: 2025-06-02T00:58:58.932Z}
+
+🔵 [2025-06-03T23:44:40.024Z] CONSOLE [LOG]: 🎬 [ListDetail] Rendering item 1: {list_item_id: 226, id: 226, item_id: 304, item_type: restaurant, added_at: 2025-06-02T00:58:58.932Z}
+
+🔵 [2025-06-03T23:44:40.024Z] CONSOLE LOG: 🎬 [ListDetail] Rendering item 2: {list_item_id: 224, id: 224, item_id: 288, item_type: restaurant, added_at: 2025-06-02T00:45:41.356Z}
+
+🔵 [2025-06-03T23:44:40.024Z] CONSOLE [LOG]: 🎬 [ListDetail] Rendering item 2: {list_item_id: 224, id: 224, item_id: 288, item_type: restaurant, added_at: 2025-06-02T00:45:41.356Z}
+
+🔵 [2025-06-03T23:44:40.027Z] CONSOLE LOG: 🎬 [ListDetail] Rendering item 3: {list_item_id: 223, id: 223, item_id: 287, item_type: restaurant, added_at: 2025-06-02T00:45:41.337Z}
+
+🔵 [2025-06-03T23:44:40.027Z] CONSOLE [LOG]: 🎬 [ListDetail] Rendering item 3: {list_item_id: 223, id: 223, item_id: 287, item_type: restaurant, added_at: 2025-06-02T00:45:41.337Z}
+
+🔵 [2025-06-03T23:44:40.027Z] CONSOLE LOG: 🎬 [ListDetail] Rendering item 4: {list_item_id: 221, id: 221, item_id: 1, item_type: restaurant, added_at: 2025-06-02T00:27:02.544Z}
+
+🔵 [2025-06-03T23:44:40.027Z] CONSOLE [LOG]: 🎬 [ListDetail] Rendering item 4: {list_item_id: 221, id: 221, item_id: 1, item_type: restaurant, added_at: 2025-06-02T00:27:02.544Z}
+
+🔵 [2025-06-03T23:44:40.027Z] CONSOLE LOG: 🚀 [ListDetail] Component initialized with: {listId: 59, propListId: undefined, urlListId: 59, isAuthenticated: true, userId: 104}
+
+🔵 [2025-06-03T23:44:40.027Z] CONSOLE [LOG]: 🚀 [ListDetail] Component initialized with: {listId: 59, propListId: undefined, urlListId: 59, isAuthenticated: true, userId: 104}
+
+🔵 [2025-06-03T23:44:40.027Z] CONSOLE LOG: 🔍 [ListDetail] List items query enabled condition: {listId: 59, listIdType: string, listIdTruthy: true, enabled: true}
+
+🔵 [2025-06-03T23:44:40.027Z] CONSOLE [LOG]: 🔍 [ListDetail] List items query enabled condition: {listId: 59, listIdType: string, listIdTruthy: true, enabled: true}
+
+🔵 [2025-06-03T23:44:40.027Z] CONSOLE LOG: 🔍 [ListDetail] Query states: {isLoadingList: false, isLoadingItems: false, isListError: false, isItemsError: false, listData: true}
+
+🔵 [2025-06-03T23:44:40.027Z] CONSOLE [LOG]: 🔍 [ListDetail] Query states: {isLoadingList: false, isLoadingItems: false, isListError: false, isItemsError: false, listData: true}
+
+🔵 [2025-06-03T23:44:40.027Z] CONSOLE LOG: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 5}
+
+🔵 [2025-06-03T23:44:40.027Z] CONSOLE [LOG]: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 5}
+
+🔵 [2025-06-03T23:44:40.028Z] CONSOLE LOG: 🔄 [ListDetail] useMemo items recalculating: {rawItems: Array(5), rawItemsType: object, rawItemsIsArray: true, rawItemsLength: 5, sortOrder: default}
+
+🔵 [2025-06-03T23:44:40.028Z] CONSOLE [LOG]: 🔄 [ListDetail] useMemo items recalculating: {rawItems: Array(5), rawItemsType: object, rawItemsIsArray: true, rawItemsLength: 5, sortOrder: default}
+
+🔵 [2025-06-03T23:44:40.028Z] CONSOLE LOG: ✅ [ListDetail] Creating sorted items array: {sortedItemsLength: 5, sortOrder: default}
+
+🔵 [2025-06-03T23:44:40.028Z] CONSOLE [LOG]: ✅ [ListDetail] Creating sorted items array: {sortedItemsLength: 5, sortOrder: default}
+
+🔵 [2025-06-03T23:44:40.028Z] CONSOLE LOG: 🔄 [ListDetail] Returning default sorted items: {itemsLength: 5, firstItem: Object, lastItem: Object}
+
+🔵 [2025-06-03T23:44:40.028Z] CONSOLE [LOG]: 🔄 [ListDetail] Returning default sorted items: {itemsLength: 5, firstItem: Object, lastItem: Object}
+
+🔵 [2025-06-03T23:44:40.028Z] CONSOLE LOG: 🎯 [ListDetail] Final items after useMemo: {itemsLength: 5, items: Array(5), itemsIsArray: true}
+
+🔵 [2025-06-03T23:44:40.028Z] CONSOLE [LOG]: 🎯 [ListDetail] Final items after useMemo: {itemsLength: 5, items: Array(5), itemsIsArray: true}
+
+🔵 [2025-06-03T23:44:40.028Z] CONSOLE LOG: ✅ [ListDetail] Rendering main content: {isLoading: false, isError: false, listName: Test QuickAdd List, itemsLength: 5, hasItems: true}
+
+🔵 [2025-06-03T23:44:40.028Z] CONSOLE [LOG]: ✅ [ListDetail] Rendering main content: {isLoading: false, isError: false, listName: Test QuickAdd List, itemsLength: 5, hasItems: true}
+
+🔵 [2025-06-03T23:44:40.028Z] CONSOLE LOG: 🎬 [ListDetail] About to render items section: {items: Array(5), itemsLength: 5, itemsIsArray: true, hasItemsAndLength: true, itemsCondition: true}
+
+🔵 [2025-06-03T23:44:40.028Z] CONSOLE [LOG]: 🎬 [ListDetail] About to render items section: {items: Array(5), itemsLength: 5, itemsIsArray: true, hasItemsAndLength: true, itemsCondition: true}
+
+🔵 [2025-06-03T23:44:40.029Z] CONSOLE LOG: 🎭 [ListDetail] Rendering 5 items
+
+🔵 [2025-06-03T23:44:40.029Z] CONSOLE [LOG]: 🎭 [ListDetail] Rendering 5 items
+
+🔵 [2025-06-03T23:44:40.029Z] CONSOLE LOG: 🎬 [ListDetail] Rendering item 0: {list_item_id: 222, id: 222, item_id: 1, item_type: dish, added_at: 2025-06-03T23:21:29.758Z}
+
+🔵 [2025-06-03T23:44:40.029Z] CONSOLE [LOG]: 🎬 [ListDetail] Rendering item 0: {list_item_id: 222, id: 222, item_id: 1, item_type: dish, added_at: 2025-06-03T23:21:29.758Z}
+
+🔵 [2025-06-03T23:44:40.030Z] CONSOLE LOG: 🎬 [ListDetail] Rendering item 1: {list_item_id: 226, id: 226, item_id: 304, item_type: restaurant, added_at: 2025-06-02T00:58:58.932Z}
+
+🔵 [2025-06-03T23:44:40.030Z] CONSOLE [LOG]: 🎬 [ListDetail] Rendering item 1: {list_item_id: 226, id: 226, item_id: 304, item_type: restaurant, added_at: 2025-06-02T00:58:58.932Z}
+
+🔵 [2025-06-03T23:44:40.030Z] CONSOLE LOG: 🎬 [ListDetail] Rendering item 2: {list_item_id: 224, id: 224, item_id: 288, item_type: restaurant, added_at: 2025-06-02T00:45:41.356Z}
+
+🔵 [2025-06-03T23:44:40.030Z] CONSOLE [LOG]: 🎬 [ListDetail] Rendering item 2: {list_item_id: 224, id: 224, item_id: 288, item_type: restaurant, added_at: 2025-06-02T00:45:41.356Z}
+
+🔵 [2025-06-03T23:44:40.030Z] CONSOLE LOG: 🎬 [ListDetail] Rendering item 3: {list_item_id: 223, id: 223, item_id: 287, item_type: restaurant, added_at: 2025-06-02T00:45:41.337Z}
+
+🔵 [2025-06-03T23:44:40.030Z] CONSOLE [LOG]: 🎬 [ListDetail] Rendering item 3: {list_item_id: 223, id: 223, item_id: 287, item_type: restaurant, added_at: 2025-06-02T00:45:41.337Z}
+
+🔵 [2025-06-03T23:44:40.031Z] CONSOLE LOG: 🎬 [ListDetail] Rendering item 4: {list_item_id: 221, id: 221, item_id: 1, item_type: restaurant, added_at: 2025-06-02T00:27:02.544Z}
+
+🔵 [2025-06-03T23:44:40.031Z] CONSOLE [LOG]: 🎬 [ListDetail] Rendering item 4: {list_item_id: 221, id: 221, item_id: 1, item_type: restaurant, added_at: 2025-06-02T00:27:02.544Z}
+
+🔵 [2025-06-03T23:44:40.031Z] 📥 RESPONSE: 200 http://localhost:5173/api/notifications/unread-count
+
+🔵 [2025-06-03T23:44:40.035Z] 📥 RESPONSE: 200 http://localhost:5173/api/notifications/unread-count
+
+🔵 [2025-06-03T23:44:44.925Z] 📤 REQUEST: GET https://maps.googleapis.com/maps-api-v3/api/js/61/2/common.js
+
+🔵 [2025-06-03T23:44:44.926Z] 📤 REQUEST: GET https://maps.googleapis.com/maps-api-v3/api/js/61/2/util.js
+
+🔵 [2025-06-03T23:44:44.967Z] 📥 RESPONSE: 200 https://maps.googleapis.com/maps-api-v3/api/js/61/2/common.js
+
+🔵 [2025-06-03T23:44:44.976Z] 📥 RESPONSE: 200 https://maps.googleapis.com/maps-api-v3/api/js/61/2/util.js
+
+🔵 [2025-06-03T23:44:45.361Z] 🔍 Frontend Debug Info:
+
+🔵 [2025-06-03T23:44:45.361Z]    URL: http://localhost:5173/lists/59
+
+🔵 [2025-06-03T23:44:45.361Z]    Auth: {"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6Ik...","hasToken":true}
+
+🔵 [2025-06-03T23:44:45.361Z]    React: null
+
+🔵 [2025-06-03T23:44:45.361Z]    Errors: []
+
+🔵 [2025-06-03T23:44:45.361Z]    Loading States: []
+
+🔵 [2025-06-03T23:44:45.361Z]    DOM Items: {".list-item":{"count":0,"texts":[]},".dish-item":{"count":0,"texts":[]},".restaurant-item":{"count":0,"texts":[]},"[data-testid*=\"item\"]":{"count":0,"texts":[]},".item-card":{"count":0,"texts":[]},".menu-item":{"count":0,"texts":[]}}
+
+🔵 [2025-06-03T23:44:50.368Z] 📝 CAPTURED 154 CONSOLE MESSAGES:
+
+🔵 [2025-06-03T23:44:50.368Z]    48. [log] 🚀 [ListDetail] Component initialized with: {listId: 59, propListId: undefined, urlListId: 59, isAuthenticated: true, userId: 104}
+
+🔵 [2025-06-03T23:44:50.368Z]    49. [log] 🔍 [ListDetail] List items query enabled condition: {listId: 59, listIdType: string, listIdTruthy: true, enabled: true}
+
+🔵 [2025-06-03T23:44:50.368Z]    50. [log] 🔍 [ListDetail] Query states: {isLoadingList: true, isLoadingItems: true, isListError: false, isItemsError: false, listData: false}
+
+🔵 [2025-06-03T23:44:50.368Z]    51. [log] 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
+
+🔵 [2025-06-03T23:44:50.368Z]    52. [log] 🔄 [ListDetail] useMemo items recalculating: {rawItems: Array(0), rawItemsType: object, rawItemsIsArray: true, rawItemsLength: 0, sortOrder: default}
+
+🔵 [2025-06-03T23:44:50.368Z]    53. [log] ✅ [ListDetail] Creating sorted items array: {sortedItemsLength: 0, sortOrder: default}
+
+🔵 [2025-06-03T23:44:50.369Z]    54. [log] 🔄 [ListDetail] Returning default sorted items: {itemsLength: 0, firstItem: undefined, lastItem: undefined}
+
+🔵 [2025-06-03T23:44:50.369Z]    55. [log] 🎯 [ListDetail] Final items after useMemo: {itemsLength: 0, items: Array(0), itemsIsArray: true}
+
+🔵 [2025-06-03T23:44:50.369Z]    56. [log] 🔄 [ListDetail] Rendering loading state: {isLoading: true, isLoadingList: true, isLoadingItems: true}
+
+🔵 [2025-06-03T23:44:50.369Z]    57. [log] 🚀 [ListDetail] Component initialized with: {listId: 59, propListId: undefined, urlListId: 59, isAuthenticated: true, userId: 104}
+
+🔵 [2025-06-03T23:44:50.369Z]    58. [log] 🔍 [ListDetail] List items query enabled condition: {listId: 59, listIdType: string, listIdTruthy: true, enabled: true}
+
+🔵 [2025-06-03T23:44:50.369Z]    59. [log] 🔍 [ListDetail] Query states: {isLoadingList: true, isLoadingItems: true, isListError: false, isItemsError: false, listData: false}
+
+🔵 [2025-06-03T23:44:50.369Z]    60. [log] 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
+
+🔵 [2025-06-03T23:44:50.369Z]    61. [log] 🔄 [ListDetail] useMemo items recalculating: {rawItems: Array(0), rawItemsType: object, rawItemsIsArray: true, rawItemsLength: 0, sortOrder: default}
+
+🔵 [2025-06-03T23:44:50.369Z]    62. [log] ✅ [ListDetail] Creating sorted items array: {sortedItemsLength: 0, sortOrder: default}
+
+🔵 [2025-06-03T23:44:50.369Z]    63. [log] 🔄 [ListDetail] Returning default sorted items: {itemsLength: 0, firstItem: undefined, lastItem: undefined}
+
+🔵 [2025-06-03T23:44:50.369Z]    64. [log] 🎯 [ListDetail] Final items after useMemo: {itemsLength: 0, items: Array(0), itemsIsArray: true}
+
+🔵 [2025-06-03T23:44:50.369Z]    65. [log] 🔄 [ListDetail] Rendering loading state: {isLoading: true, isLoadingList: true, isLoadingItems: true}
+
+🔵 [2025-06-03T23:44:50.369Z]    66. [info] [INFO][2025-06-03T23:44:39.992Z] [ListDetail] Forcing database data
+
+🔵 [2025-06-03T23:44:50.369Z]    67. [log] 🌐 [ListDetail] Fetching list details for ID: 59
+
+🔵 [2025-06-03T23:44:50.369Z]    68. [log] 🔑 [ListDetail] Auth check: {isAuthenticated: true, hasUser: true, userId: 104, userRole: superuser}
+
+🔵 [2025-06-03T23:44:50.369Z]    71. [log] 🌐 [ListDetail] ===== LIST ITEMS QUERY STARTING =====
+
+🔵 [2025-06-03T23:44:50.369Z]    72. [log] 🌐 [ListDetail] Fetching items for list ID: 59
+
+🔵 [2025-06-03T23:44:50.369Z]    73. [log] 🔍 [ListDetail] listService object: {getLists: , getList: , getListDetails: , createList: , updateList: }
+
+🔵 [2025-06-03T23:44:50.369Z]    74. [log] 🔍 [ListDetail] getListItems function: async function(listId, params = {}) {
+    const safeId = validateId(listId, 'listId');
+    
+    console.log(`[listService.getListItems] Calling API for list ${safeId} with params:`, params);
+    
+    // DEBUG: Check authentication state
+    const token = localStorage.getItem('token') || localStorage.getItem('auth-token') || localStorage.getItem('authToken');
+    console.log(`[listService.getListItems] Auth debug:`, {
+      hasToken: !!token,
+      tokenLength: token?.length,
+      tokenPreview: token ? `${token.substring(0, 20)}...` : 'none'
+    });
+    
+    try {
+      const result = await handleApiResponse(
+        () => apiClient.get(`/lists/${safeId}/items`, { params }),
+        'ListService.getListItems'
+      );
+      
+      console.log(`[listService.getListItems] Raw result from handleApiResponse:`, result);
+      console.log(`[listService.getListItems] result.data type:`, typeof result.data);
+      console.log(`[listService.getListItems] result.data is array:`, Array.isArray(result.data));
+      
+      // Format the response to maintain backward compatibility
+      const formattedResponse = {
+        success: result.success,
+        data: result.data,
+        pagination: result.pagination || null,
+        message: result.message,
+        error: result.error
+      };
+      
+      console.log(`[listService.getListItems] Formatted response:`, formattedResponse);
+      
+      return formattedResponse;
+      
+    } catch (error) {
+      console.error(`[listService.getListItems] Error caught:`, error);
+      console.error(`[listService.getListItems] Error details:`, {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      });
+      
+      // If it's an authentication error, try making the request without auth headers
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        console.log(`[listService.getListItems] Auth error, trying without auth headers...`);
+        
+        try {
+          // Create a direct axios call without authentication
+          const fallbackResult = await fetch(`/api/lists/${safeId}/items`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (fallbackResult.ok) {
+            const data = await fallbackResult.json();
+            console.log(`[listService.getListItems] Fallback success:`, data);
+            
+            return {
+              success: true,
+              data: data.data || data,
+              pagination: data.pagination || null,
+              message: 'Retrieved via fallback method',
+              error: null
+            };
+          } else {
+            console.error(`[listService.getListItems] Fallback also failed:`, fallbackResult.status);
+          }
+        } catch (fallbackError) {
+          console.error(`[listService.getListItems] Fallback request failed:`, fallbackError);
+        }
+      }
+      
+      // Re-throw the original error
+      throw error;
+    }
   }
-}
-📋 List 59 Response Body: {
+
+🔵 [2025-06-03T23:44:50.369Z]    75. [log] 📡 [ListDetail] Calling listService.getListItems(59)
+
+🔵 [2025-06-03T23:44:50.369Z]    78. [info] [INFO][2025-06-03T23:44:39.994Z] [ListDetail] Forcing database data
+
+🔵 [2025-06-03T23:44:50.369Z]    92. [log] ✅ [ListDetail] List details result: {success: true, message: List details retrieved successfully, data: Object}
+
+🔵 [2025-06-03T23:44:50.369Z]    93. [log] 🚀 [ListDetail] Component initialized with: {listId: 59, propListId: undefined, urlListId: 59, isAuthenticated: true, userId: 104}
+
+🔵 [2025-06-03T23:44:50.369Z]    94. [log] 🔍 [ListDetail] List items query enabled condition: {listId: 59, listIdType: string, listIdTruthy: true, enabled: true}
+
+🔵 [2025-06-03T23:44:50.369Z]    95. [log] 🔍 [ListDetail] Query states: {isLoadingList: false, isLoadingItems: true, isListError: false, isItemsError: false, listData: true}
+
+🔵 [2025-06-03T23:44:50.369Z]    96. [log] 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: false, listName: Test QuickAdd List, itemsCount: 0}
+
+🔵 [2025-06-03T23:44:50.369Z]    97. [log] 🔄 [ListDetail] useMemo items recalculating: {rawItems: Array(0), rawItemsType: object, rawItemsIsArray: true, rawItemsLength: 0, sortOrder: default}
+
+🔵 [2025-06-03T23:44:50.369Z]    98. [log] ✅ [ListDetail] Creating sorted items array: {sortedItemsLength: 0, sortOrder: default}
+
+🔵 [2025-06-03T23:44:50.369Z]    99. [log] 🔄 [ListDetail] Returning default sorted items: {itemsLength: 0, firstItem: undefined, lastItem: undefined}
+
+🔵 [2025-06-03T23:44:50.369Z]    100. [log] 🎯 [ListDetail] Final items after useMemo: {itemsLength: 0, items: Array(0), itemsIsArray: true}
+
+🔵 [2025-06-03T23:44:50.369Z]    101. [log] 🔄 [ListDetail] Rendering loading state: {isLoading: true, isLoadingList: false, isLoadingItems: true}
+
+🔵 [2025-06-03T23:44:50.369Z]    102. [log] 🚀 [ListDetail] Component initialized with: {listId: 59, propListId: undefined, urlListId: 59, isAuthenticated: true, userId: 104}
+
+🔵 [2025-06-03T23:44:50.369Z]    103. [log] 🔍 [ListDetail] List items query enabled condition: {listId: 59, listIdType: string, listIdTruthy: true, enabled: true}
+
+🔵 [2025-06-03T23:44:50.369Z]    104. [log] 🔍 [ListDetail] Query states: {isLoadingList: false, isLoadingItems: true, isListError: false, isItemsError: false, listData: true}
+
+🔵 [2025-06-03T23:44:50.369Z]    105. [log] 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: false, listName: Test QuickAdd List, itemsCount: 0}
+
+🔵 [2025-06-03T23:44:50.369Z]    106. [log] 🔄 [ListDetail] useMemo items recalculating: {rawItems: Array(0), rawItemsType: object, rawItemsIsArray: true, rawItemsLength: 0, sortOrder: default}
+
+🔵 [2025-06-03T23:44:50.369Z]    107. [log] ✅ [ListDetail] Creating sorted items array: {sortedItemsLength: 0, sortOrder: default}
+
+🔵 [2025-06-03T23:44:50.369Z]    108. [log] 🔄 [ListDetail] Returning default sorted items: {itemsLength: 0, firstItem: undefined, lastItem: undefined}
+
+🔵 [2025-06-03T23:44:50.369Z]    109. [log] 🎯 [ListDetail] Final items after useMemo: {itemsLength: 0, items: Array(0), itemsIsArray: true}
+
+🔵 [2025-06-03T23:44:50.369Z]    110. [log] 🔄 [ListDetail] Rendering loading state: {isLoading: true, isLoadingList: false, isLoadingItems: true}
+
+🔵 [2025-06-03T23:44:50.369Z]    118. [log] ✅ [ListDetail] List items result: {success: true, data: Array(5), pagination: null, message: List items retrieved successfully, error: undefined}
+
+🔵 [2025-06-03T23:44:50.369Z]    119. [log] 📝 [ListDetail] Items data: [Object, Object, Object, Object, Object]
+
+🔵 [2025-06-03T23:44:50.369Z]    120. [log] 📊 [ListDetail] Items count: 5
+
+🔵 [2025-06-03T23:44:50.369Z]    121. [log] 🔍 [ListDetail] Full result structure: {
   "success": true,
-  "message": "List items retrieved successfully",
   "data": [
+    {
+      "list_item_id": 222,
+      "id": 222,
+      "item_id": 1,
+      "item_type": "dish",
+      "added_at": "2025-06-03T23:21:29.758Z",
+      "notes": null,
+      "dish_id": 1,
+      "name": "Dish 1",
+      "dish_name": null,
+      "description": null,
+      "restaurant_id": null,
+      "restaurant_name": null
+    },
+    {
+      "list_item_id": 226,
+      "id": 226,
+      "item_id": 304,
+      "item_type": "restaurant",
+      "added_at": "2025-06-02T00:58:58.932Z",
+      "notes": null,
+      "restaurant_id": 304,
+      "name": "Aquavit",
+      "restaurant_name": "Aquavit",
+      "cuisine": null,
+      "address": "65 E 55th St",
+      "city_name": null,
+      "location": "65 E 55th St"
+    },
     {
       "list_item_id": 224,
       "id": 224,
       "item_id": 288,
       "item_type": "restaurant",
       "added_at": "2025-06-02T00:45:41.356Z",
+      "notes": null,
+      "restaurant_id": 288,
       "name": "John's of Bleecker Street",
       "restaurant_name": "John's of Bleecker Street",
       "cuisine": null,
-      "location": "278 Bleecker St",
-      "city_name": null
+      "address": "278 Bleecker St",
+      "city_name": null,
+      "location": "278 Bleecker St"
     },
     {
       "list_item_id": 223,
@@ -401,23 +970,14 @@
       "item_id": 287,
       "item_type": "restaurant",
       "added_at": "2025-06-02T00:45:41.337Z",
+      "notes": null,
+      "restaurant_id": 287,
       "name": "Joe's Pizza",
       "restaurant_name": "Joe's Pizza",
       "cuisine": null,
-      "location": "7 Carmine St",
-      "city_name": null
-    },
-    {
-      "list_item_id": 222,
-      "id": 222,
-      "item_id": 1,
-      "item_type": "dish",
-      "added_at": "2025-06-02T00:27:06.736Z",
-      "name": "dish 1",
-      "restaurant_name": null,
-      "cuisine": null,
-      "location": null,
-      "city_name": null
+      "address": "7 Carmine St",
+      "city_name": null,
+      "location": "7 Carmine St"
     },
     {
       "list_item_id": 221,
@@ -425,127 +985,312 @@
       "item_id": 1,
       "item_type": "restaurant",
       "added_at": "2025-06-02T00:27:02.544Z",
-      "name": "restaurant 1",
+      "notes": null,
+      "restaurant_id": 1,
+      "name": "Restaurant 1",
       "restaurant_name": null,
       "cuisine": null,
-      "location": null,
-      "city_name": null
+      "address": null,
+      "city_name": null,
+      "location": null
     }
   ],
-  "total": 4
+  "pagination": null,
+  "message": "List items retrieved successfully"
 }
-📸 Initial screenshot saved
-📄 Page title: Chomp Clean
-🔍 Page contains "Test QuickAdd List": [33mtrue[39m
-🔍 Page contains "dish": [33mtrue[39m
-🔍 Page contains "restaurant": [33mtrue[39m
-🔍 Page contains "empty": [33mfalse[39m
-📋 H1 elements: [ [32m'Test QuickAdd List'[39m ]
-📊 Total <li> elements found: 4
-🈳 "This list is empty" messages: [33m0[39m
 
-[[ATTACHMENT|test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-webkit-desktop/test-failed-1.png]]
+🔵 [2025-06-03T23:44:50.369Z]    122. [log] 🌐 [ListDetail] ===== LIST ITEMS QUERY COMPLETED =====
 
-[[ATTACHMENT|test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-webkit-desktop/video.webm]]
-]]>
-</system-out>
-</testcase>
-</testsuite>
-<testsuite name="simple-list-debug.spec.js" timestamp="2025-06-02T00:49:13.672Z" hostname="mobile-chrome" tests="1" failures="1" skipped="0" time="6.798" errors="0">
-<testcase name="Simple List Debug › should directly check list items for Test QuickAdd List" classname="simple-list-debug.spec.js" time="6.798">
-<failure message="simple-list-debug.spec.js:4:3 should directly check list items for Test QuickAdd List" type="FAILURE">
-<![CDATA[  [mobile-chrome] › simple-list-debug.spec.js:4:3 › Simple List Debug › should directly check list items for Test QuickAdd List 
+🔵 [2025-06-03T23:44:50.369Z]    123. [log] 🚀 [ListDetail] Component initialized with: {listId: 59, propListId: undefined, urlListId: 59, isAuthenticated: true, userId: 104}
 
-    Error: locator.count: Unexpected token "=" while parsing css selector "[data-testid="loading"], .animate-spin, text=Loading". Did you mean to CSS.escape it?
+🔵 [2025-06-03T23:44:50.369Z]    124. [log] 🔍 [ListDetail] List items query enabled condition: {listId: 59, listIdType: string, listIdTruthy: true, enabled: true}
 
-      69 |     
-      70 |     // Check for loading spinners
-    > 71 |     const loadingSpinners = await page.locator('[data-testid="loading"], .animate-spin, text=Loading').count();
-         |                                                                                                        ^
-      72 |     console.log('⏳ Loading indicators:', loadingSpinners);
-      73 |     
-      74 |     // Take a final screenshot
-        at /Users/naf/Downloads/doof/e2e/simple-list-debug.spec.js:71:104
+🔵 [2025-06-03T23:44:50.369Z]    125. [log] 🔍 [ListDetail] Query states: {isLoadingList: false, isLoadingItems: false, isListError: false, isItemsError: false, listData: true}
 
-    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    e2e-results/test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-mobile-chrome/test-failed-1.png
-    ────────────────────────────────────────────────────────────────────────────────────────────────
+🔵 [2025-06-03T23:44:50.369Z]    126. [log] 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 5}
 
-    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
-    e2e-results/test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-mobile-chrome/video.webm
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-]]>
-</failure>
-<system-out>
-<![CDATA[🚀 Starting simple list debug test
-📋 Navigating directly to list 59...
-🌐 API Call: GET http://localhost:5175/src/services/api/index.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiClientCore.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiRequestMethods.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiRetryLogic.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiCacheManager.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiOfflineMode.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiValidation.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiInterceptors.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiErrorUtils.js
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
-🖥️  Frontend Log: [INFO][2025-06-02T00:49:19.212Z] [ListDetail] Forcing database data
-🖥️  Frontend Log: 🌐 [ListDetail] Fetching list details for ID: 59
-🖥️  Frontend Log: 🔑 [ListDetail] Auth check: {isAuthenticated: false, hasUser: false, userId: undefined, userRole: undefined}
-🖥️  Frontend Log: 🌐 [ListDetail] Fetching items for list ID: 59
-🖥️  Frontend Log: [INFO][2025-06-02T00:49:19.217Z] [ListDetail] Forcing database data
-🌐 API Call: GET http://localhost:5001/api/lists/59
-🌐 API Call: GET http://localhost:5001/api/lists/59/items
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
-📋 List 59 API Response: 200 http://localhost:5001/api/lists/59
-🖥️  Frontend Log: ✅ [ListDetail] List details result: {success: true, message: List details retrieved successfully, data: Object}
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: false, listName: Test QuickAdd List, itemsCount: 0}
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: false, listName: Test QuickAdd List, itemsCount: 0}
-📋 List 59 Response Body: {
-  "success": true,
-  "message": "List details retrieved successfully",
-  "data": {
-    "id": 59,
-    "name": "Test QuickAdd List",
-    "description": "Testing quickadd functionality",
-    "list_type": "mixed",
-    "saved_count": 0,
-    "city_name": null,
-    "tags": [],
-    "is_public": true,
-    "creator_handle": "admin",
-    "user_id": 104,
-    "created_at": "2025-06-02T00:26:53.129Z",
-    "updated_at": "2025-06-02T00:26:53.129Z",
-    "creator_username": "admin",
-    "items_count": 4
+🔵 [2025-06-03T23:44:50.369Z]    127. [log] 🔄 [ListDetail] useMemo items recalculating: {rawItems: Array(5), rawItemsType: object, rawItemsIsArray: true, rawItemsLength: 5, sortOrder: default}
+
+🔵 [2025-06-03T23:44:50.369Z]    128. [log] ✅ [ListDetail] Creating sorted items array: {sortedItemsLength: 5, sortOrder: default}
+
+🔵 [2025-06-03T23:44:50.369Z]    129. [log] 🔄 [ListDetail] Returning default sorted items: {itemsLength: 5, firstItem: Object, lastItem: Object}
+
+🔵 [2025-06-03T23:44:50.369Z]    130. [log] 🎯 [ListDetail] Final items after useMemo: {itemsLength: 5, items: Array(5), itemsIsArray: true}
+
+🔵 [2025-06-03T23:44:50.369Z]    131. [log] ✅ [ListDetail] Rendering main content: {isLoading: false, isError: false, listName: Test QuickAdd List, itemsLength: 5, hasItems: true}
+
+🔵 [2025-06-03T23:44:50.369Z]    132. [log] 🎬 [ListDetail] About to render items section: {items: Array(5), itemsLength: 5, itemsIsArray: true, hasItemsAndLength: true, itemsCondition: true}
+
+🔵 [2025-06-03T23:44:50.369Z]    133. [log] 🎭 [ListDetail] Rendering 5 items
+
+🔵 [2025-06-03T23:44:50.369Z]    134. [log] 🎬 [ListDetail] Rendering item 0: {list_item_id: 222, id: 222, item_id: 1, item_type: dish, added_at: 2025-06-03T23:21:29.758Z}
+
+🔵 [2025-06-03T23:44:50.369Z]    135. [log] 🎬 [ListDetail] Rendering item 1: {list_item_id: 226, id: 226, item_id: 304, item_type: restaurant, added_at: 2025-06-02T00:58:58.932Z}
+
+🔵 [2025-06-03T23:44:50.369Z]    136. [log] 🎬 [ListDetail] Rendering item 2: {list_item_id: 224, id: 224, item_id: 288, item_type: restaurant, added_at: 2025-06-02T00:45:41.356Z}
+
+🔵 [2025-06-03T23:44:50.369Z]    137. [log] 🎬 [ListDetail] Rendering item 3: {list_item_id: 223, id: 223, item_id: 287, item_type: restaurant, added_at: 2025-06-02T00:45:41.337Z}
+
+🔵 [2025-06-03T23:44:50.369Z]    138. [log] 🎬 [ListDetail] Rendering item 4: {list_item_id: 221, id: 221, item_id: 1, item_type: restaurant, added_at: 2025-06-02T00:27:02.544Z}
+
+🔵 [2025-06-03T23:44:50.369Z]    139. [log] 🚀 [ListDetail] Component initialized with: {listId: 59, propListId: undefined, urlListId: 59, isAuthenticated: true, userId: 104}
+
+🔵 [2025-06-03T23:44:50.369Z]    140. [log] 🔍 [ListDetail] List items query enabled condition: {listId: 59, listIdType: string, listIdTruthy: true, enabled: true}
+
+🔵 [2025-06-03T23:44:50.369Z]    141. [log] 🔍 [ListDetail] Query states: {isLoadingList: false, isLoadingItems: false, isListError: false, isItemsError: false, listData: true}
+
+🔵 [2025-06-03T23:44:50.370Z]    142. [log] 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 5}
+
+🔵 [2025-06-03T23:44:50.370Z]    143. [log] 🔄 [ListDetail] useMemo items recalculating: {rawItems: Array(5), rawItemsType: object, rawItemsIsArray: true, rawItemsLength: 5, sortOrder: default}
+
+🔵 [2025-06-03T23:44:50.370Z]    144. [log] ✅ [ListDetail] Creating sorted items array: {sortedItemsLength: 5, sortOrder: default}
+
+🔵 [2025-06-03T23:44:50.370Z]    145. [log] 🔄 [ListDetail] Returning default sorted items: {itemsLength: 5, firstItem: Object, lastItem: Object}
+
+🔵 [2025-06-03T23:44:50.370Z]    146. [log] 🎯 [ListDetail] Final items after useMemo: {itemsLength: 5, items: Array(5), itemsIsArray: true}
+
+🔵 [2025-06-03T23:44:50.370Z]    147. [log] ✅ [ListDetail] Rendering main content: {isLoading: false, isError: false, listName: Test QuickAdd List, itemsLength: 5, hasItems: true}
+
+🔵 [2025-06-03T23:44:50.370Z]    148. [log] 🎬 [ListDetail] About to render items section: {items: Array(5), itemsLength: 5, itemsIsArray: true, hasItemsAndLength: true, itemsCondition: true}
+
+🔵 [2025-06-03T23:44:50.370Z]    149. [log] 🎭 [ListDetail] Rendering 5 items
+
+🔵 [2025-06-03T23:44:50.370Z]    150. [log] 🎬 [ListDetail] Rendering item 0: {list_item_id: 222, id: 222, item_id: 1, item_type: dish, added_at: 2025-06-03T23:21:29.758Z}
+
+🔵 [2025-06-03T23:44:50.370Z]    151. [log] 🎬 [ListDetail] Rendering item 1: {list_item_id: 226, id: 226, item_id: 304, item_type: restaurant, added_at: 2025-06-02T00:58:58.932Z}
+
+🔵 [2025-06-03T23:44:50.370Z]    152. [log] 🎬 [ListDetail] Rendering item 2: {list_item_id: 224, id: 224, item_id: 288, item_type: restaurant, added_at: 2025-06-02T00:45:41.356Z}
+
+🔵 [2025-06-03T23:44:50.370Z]    153. [log] 🎬 [ListDetail] Rendering item 3: {list_item_id: 223, id: 223, item_id: 287, item_type: restaurant, added_at: 2025-06-02T00:45:41.337Z}
+
+🔵 [2025-06-03T23:44:50.370Z]    154. [log] 🎬 [ListDetail] Rendering item 4: {list_item_id: 221, id: 221, item_id: 1, item_type: restaurant, added_at: 2025-06-02T00:27:02.544Z}
+
+✅ [2025-06-03T23:44:50.370Z] ✅ Found 83 ListDetail component messages
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🚀 [ListDetail] Component initialized with: {listId: 59, propListId: undefined, urlListId: 59, isAuthenticated: true, userId: 104}
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🔍 [ListDetail] List items query enabled condition: {listId: 59, listIdType: string, listIdTruthy: true, enabled: true}
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🔍 [ListDetail] Query states: {isLoadingList: true, isLoadingItems: true, isListError: false, isItemsError: false, listData: false}
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🔄 [ListDetail] useMemo items recalculating: {rawItems: Array(0), rawItemsType: object, rawItemsIsArray: true, rawItemsLength: 0, sortOrder: default}
+
+🔵 [2025-06-03T23:44:50.370Z]    - ✅ [ListDetail] Creating sorted items array: {sortedItemsLength: 0, sortOrder: default}
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🔄 [ListDetail] Returning default sorted items: {itemsLength: 0, firstItem: undefined, lastItem: undefined}
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🎯 [ListDetail] Final items after useMemo: {itemsLength: 0, items: Array(0), itemsIsArray: true}
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🔄 [ListDetail] Rendering loading state: {isLoading: true, isLoadingList: true, isLoadingItems: true}
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🚀 [ListDetail] Component initialized with: {listId: 59, propListId: undefined, urlListId: 59, isAuthenticated: true, userId: 104}
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🔍 [ListDetail] List items query enabled condition: {listId: 59, listIdType: string, listIdTruthy: true, enabled: true}
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🔍 [ListDetail] Query states: {isLoadingList: true, isLoadingItems: true, isListError: false, isItemsError: false, listData: false}
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🔄 [ListDetail] useMemo items recalculating: {rawItems: Array(0), rawItemsType: object, rawItemsIsArray: true, rawItemsLength: 0, sortOrder: default}
+
+🔵 [2025-06-03T23:44:50.370Z]    - ✅ [ListDetail] Creating sorted items array: {sortedItemsLength: 0, sortOrder: default}
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🔄 [ListDetail] Returning default sorted items: {itemsLength: 0, firstItem: undefined, lastItem: undefined}
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🎯 [ListDetail] Final items after useMemo: {itemsLength: 0, items: Array(0), itemsIsArray: true}
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🔄 [ListDetail] Rendering loading state: {isLoading: true, isLoadingList: true, isLoadingItems: true}
+
+🔵 [2025-06-03T23:44:50.370Z]    - [INFO][2025-06-03T23:44:39.992Z] [ListDetail] Forcing database data
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🌐 [ListDetail] Fetching list details for ID: 59
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🔑 [ListDetail] Auth check: {isAuthenticated: true, hasUser: true, userId: 104, userRole: superuser}
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🌐 [ListDetail] ===== LIST ITEMS QUERY STARTING =====
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🌐 [ListDetail] Fetching items for list ID: 59
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🔍 [ListDetail] listService object: {getLists: , getList: , getListDetails: , createList: , updateList: }
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🔍 [ListDetail] getListItems function: async function(listId, params = {}) {
+    const safeId = validateId(listId, 'listId');
+    
+    console.log(`[listService.getListItems] Calling API for list ${safeId} with params:`, params);
+    
+    // DEBUG: Check authentication state
+    const token = localStorage.getItem('token') || localStorage.getItem('auth-token') || localStorage.getItem('authToken');
+    console.log(`[listService.getListItems] Auth debug:`, {
+      hasToken: !!token,
+      tokenLength: token?.length,
+      tokenPreview: token ? `${token.substring(0, 20)}...` : 'none'
+    });
+    
+    try {
+      const result = await handleApiResponse(
+        () => apiClient.get(`/lists/${safeId}/items`, { params }),
+        'ListService.getListItems'
+      );
+      
+      console.log(`[listService.getListItems] Raw result from handleApiResponse:`, result);
+      console.log(`[listService.getListItems] result.data type:`, typeof result.data);
+      console.log(`[listService.getListItems] result.data is array:`, Array.isArray(result.data));
+      
+      // Format the response to maintain backward compatibility
+      const formattedResponse = {
+        success: result.success,
+        data: result.data,
+        pagination: result.pagination || null,
+        message: result.message,
+        error: result.error
+      };
+      
+      console.log(`[listService.getListItems] Formatted response:`, formattedResponse);
+      
+      return formattedResponse;
+      
+    } catch (error) {
+      console.error(`[listService.getListItems] Error caught:`, error);
+      console.error(`[listService.getListItems] Error details:`, {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      });
+      
+      // If it's an authentication error, try making the request without auth headers
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        console.log(`[listService.getListItems] Auth error, trying without auth headers...`);
+        
+        try {
+          // Create a direct axios call without authentication
+          const fallbackResult = await fetch(`/api/lists/${safeId}/items`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (fallbackResult.ok) {
+            const data = await fallbackResult.json();
+            console.log(`[listService.getListItems] Fallback success:`, data);
+            
+            return {
+              success: true,
+              data: data.data || data,
+              pagination: data.pagination || null,
+              message: 'Retrieved via fallback method',
+              error: null
+            };
+          } else {
+            console.error(`[listService.getListItems] Fallback also failed:`, fallbackResult.status);
+          }
+        } catch (fallbackError) {
+          console.error(`[listService.getListItems] Fallback request failed:`, fallbackError);
+        }
+      }
+      
+      // Re-throw the original error
+      throw error;
+    }
   }
-}
-📋 List 59 API Response: 200 http://localhost:5001/api/lists/59/items
-🖥️  Frontend Log: ✅ [ListDetail] List items result: {success: true, data: Array(4), pagination: null, message: List items retrieved successfully, error: undefined}
-🖥️  Frontend Log: 📝 [ListDetail] Items data: [Object, Object, Object, Object]
-🖥️  Frontend Log: 📊 [ListDetail] Items count: 4
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 4}
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 4}
-📋 List 59 Response Body: {
+
+🔵 [2025-06-03T23:44:50.370Z]    - 📡 [ListDetail] Calling listService.getListItems(59)
+
+🔵 [2025-06-03T23:44:50.370Z]    - [INFO][2025-06-03T23:44:39.994Z] [ListDetail] Forcing database data
+
+🔵 [2025-06-03T23:44:50.370Z]    - ✅ [ListDetail] List details result: {success: true, message: List details retrieved successfully, data: Object}
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🚀 [ListDetail] Component initialized with: {listId: 59, propListId: undefined, urlListId: 59, isAuthenticated: true, userId: 104}
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🔍 [ListDetail] List items query enabled condition: {listId: 59, listIdType: string, listIdTruthy: true, enabled: true}
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🔍 [ListDetail] Query states: {isLoadingList: false, isLoadingItems: true, isListError: false, isItemsError: false, listData: true}
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: false, listName: Test QuickAdd List, itemsCount: 0}
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🔄 [ListDetail] useMemo items recalculating: {rawItems: Array(0), rawItemsType: object, rawItemsIsArray: true, rawItemsLength: 0, sortOrder: default}
+
+🔵 [2025-06-03T23:44:50.370Z]    - ✅ [ListDetail] Creating sorted items array: {sortedItemsLength: 0, sortOrder: default}
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🔄 [ListDetail] Returning default sorted items: {itemsLength: 0, firstItem: undefined, lastItem: undefined}
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🎯 [ListDetail] Final items after useMemo: {itemsLength: 0, items: Array(0), itemsIsArray: true}
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🔄 [ListDetail] Rendering loading state: {isLoading: true, isLoadingList: false, isLoadingItems: true}
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🚀 [ListDetail] Component initialized with: {listId: 59, propListId: undefined, urlListId: 59, isAuthenticated: true, userId: 104}
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🔍 [ListDetail] List items query enabled condition: {listId: 59, listIdType: string, listIdTruthy: true, enabled: true}
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🔍 [ListDetail] Query states: {isLoadingList: false, isLoadingItems: true, isListError: false, isItemsError: false, listData: true}
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: false, listName: Test QuickAdd List, itemsCount: 0}
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🔄 [ListDetail] useMemo items recalculating: {rawItems: Array(0), rawItemsType: object, rawItemsIsArray: true, rawItemsLength: 0, sortOrder: default}
+
+🔵 [2025-06-03T23:44:50.370Z]    - ✅ [ListDetail] Creating sorted items array: {sortedItemsLength: 0, sortOrder: default}
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🔄 [ListDetail] Returning default sorted items: {itemsLength: 0, firstItem: undefined, lastItem: undefined}
+
+🔵 [2025-06-03T23:44:50.370Z]    - 🎯 [ListDetail] Final items after useMemo: {itemsLength: 0, items: Array(0), itemsIsArray: true}
+
+🔵 [2025-06-03T23:44:50.371Z]    - 🔄 [ListDetail] Rendering loading state: {isLoading: true, isLoadingList: false, isLoadingItems: true}
+
+🔵 [2025-06-03T23:44:50.371Z]    - ✅ [ListDetail] List items result: {success: true, data: Array(5), pagination: null, message: List items retrieved successfully, error: undefined}
+
+🔵 [2025-06-03T23:44:50.371Z]    - 📝 [ListDetail] Items data: [Object, Object, Object, Object, Object]
+
+🔵 [2025-06-03T23:44:50.371Z]    - 📊 [ListDetail] Items count: 5
+
+🔵 [2025-06-03T23:44:50.371Z]    - 🔍 [ListDetail] Full result structure: {
   "success": true,
-  "message": "List items retrieved successfully",
   "data": [
+    {
+      "list_item_id": 222,
+      "id": 222,
+      "item_id": 1,
+      "item_type": "dish",
+      "added_at": "2025-06-03T23:21:29.758Z",
+      "notes": null,
+      "dish_id": 1,
+      "name": "Dish 1",
+      "dish_name": null,
+      "description": null,
+      "restaurant_id": null,
+      "restaurant_name": null
+    },
+    {
+      "list_item_id": 226,
+      "id": 226,
+      "item_id": 304,
+      "item_type": "restaurant",
+      "added_at": "2025-06-02T00:58:58.932Z",
+      "notes": null,
+      "restaurant_id": 304,
+      "name": "Aquavit",
+      "restaurant_name": "Aquavit",
+      "cuisine": null,
+      "address": "65 E 55th St",
+      "city_name": null,
+      "location": "65 E 55th St"
+    },
     {
       "list_item_id": 224,
       "id": 224,
       "item_id": 288,
       "item_type": "restaurant",
       "added_at": "2025-06-02T00:45:41.356Z",
+      "notes": null,
+      "restaurant_id": 288,
       "name": "John's of Bleecker Street",
       "restaurant_name": "John's of Bleecker Street",
       "cuisine": null,
-      "location": "278 Bleecker St",
-      "city_name": null
+      "address": "278 Bleecker St",
+      "city_name": null,
+      "location": "278 Bleecker St"
     },
     {
       "list_item_id": 223,
@@ -553,23 +1298,14 @@
       "item_id": 287,
       "item_type": "restaurant",
       "added_at": "2025-06-02T00:45:41.337Z",
+      "notes": null,
+      "restaurant_id": 287,
       "name": "Joe's Pizza",
       "restaurant_name": "Joe's Pizza",
       "cuisine": null,
-      "location": "7 Carmine St",
-      "city_name": null
-    },
-    {
-      "list_item_id": 222,
-      "id": 222,
-      "item_id": 1,
-      "item_type": "dish",
-      "added_at": "2025-06-02T00:27:06.736Z",
-      "name": "dish 1",
-      "restaurant_name": null,
-      "cuisine": null,
-      "location": null,
-      "city_name": null
+      "address": "7 Carmine St",
+      "city_name": null,
+      "location": "7 Carmine St"
     },
     {
       "list_item_id": 221,
@@ -577,330 +1313,171 @@
       "item_id": 1,
       "item_type": "restaurant",
       "added_at": "2025-06-02T00:27:02.544Z",
-      "name": "restaurant 1",
+      "notes": null,
+      "restaurant_id": 1,
+      "name": "Restaurant 1",
       "restaurant_name": null,
       "cuisine": null,
-      "location": null,
-      "city_name": null
+      "address": null,
+      "city_name": null,
+      "location": null
     }
   ],
-  "total": 4
+  "pagination": null,
+  "message": "List items retrieved successfully"
 }
-📸 Initial screenshot saved
-📄 Page title: Chomp Clean
-🔍 Page contains "Test QuickAdd List": [33mtrue[39m
-🔍 Page contains "dish": [33mtrue[39m
-🔍 Page contains "restaurant": [33mtrue[39m
-🔍 Page contains "empty": [33mfalse[39m
-📋 H1 elements: [ [32m'Test QuickAdd List'[39m ]
-📊 Total <li> elements found: 4
-🈳 "This list is empty" messages: [33m0[39m
 
-[[ATTACHMENT|test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-mobile-chrome/test-failed-1.png]]
+🔵 [2025-06-03T23:44:50.371Z]    - 🌐 [ListDetail] ===== LIST ITEMS QUERY COMPLETED =====
 
-[[ATTACHMENT|test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-mobile-chrome/video.webm]]
-]]>
-</system-out>
-</testcase>
-</testsuite>
-<testsuite name="simple-list-debug.spec.js" timestamp="2025-06-02T00:49:13.672Z" hostname="mobile-safari" tests="1" failures="1" skipped="0" time="5.137" errors="0">
-<testcase name="Simple List Debug › should directly check list items for Test QuickAdd List" classname="simple-list-debug.spec.js" time="5.137">
-<failure message="simple-list-debug.spec.js:4:3 should directly check list items for Test QuickAdd List" type="FAILURE">
-<![CDATA[  [mobile-safari] › simple-list-debug.spec.js:4:3 › Simple List Debug › should directly check list items for Test QuickAdd List 
+🔵 [2025-06-03T23:44:50.371Z]    - 🚀 [ListDetail] Component initialized with: {listId: 59, propListId: undefined, urlListId: 59, isAuthenticated: true, userId: 104}
 
-    Error: locator.count: Unexpected token "=" while parsing css selector "[data-testid="loading"], .animate-spin, text=Loading". Did you mean to CSS.escape it?
+🔵 [2025-06-03T23:44:50.371Z]    - 🔍 [ListDetail] List items query enabled condition: {listId: 59, listIdType: string, listIdTruthy: true, enabled: true}
 
-      69 |     
-      70 |     // Check for loading spinners
-    > 71 |     const loadingSpinners = await page.locator('[data-testid="loading"], .animate-spin, text=Loading').count();
-         |                                                                                                        ^
-      72 |     console.log('⏳ Loading indicators:', loadingSpinners);
-      73 |     
-      74 |     // Take a final screenshot
-        at /Users/naf/Downloads/doof/e2e/simple-list-debug.spec.js:71:104
+🔵 [2025-06-03T23:44:50.371Z]    - 🔍 [ListDetail] Query states: {isLoadingList: false, isLoadingItems: false, isListError: false, isItemsError: false, listData: true}
 
-    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    e2e-results/test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-mobile-safari/test-failed-1.png
-    ────────────────────────────────────────────────────────────────────────────────────────────────
+🔵 [2025-06-03T23:44:50.371Z]    - 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 5}
 
-    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
-    e2e-results/test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-mobile-safari/video.webm
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-]]>
-</failure>
-<system-out>
-<![CDATA[🚀 Starting simple list debug test
-📋 Navigating directly to list 59...
-🌐 API Call: GET http://localhost:5175/src/services/api/index.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiClientCore.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiRequestMethods.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiRetryLogic.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiCacheManager.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiOfflineMode.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiValidation.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiInterceptors.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiErrorUtils.js
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
-🖥️  Frontend Log: [INFO][2025-06-02T00:49:25.600Z] [ListDetail] Forcing database data
-🖥️  Frontend Log: 🌐 [ListDetail] Fetching list details for ID: 59
-🖥️  Frontend Log: 🔑 [ListDetail] Auth check: {isAuthenticated: false, hasUser: false, userId: undefined, userRole: undefined}
-🖥️  Frontend Log: 🌐 [ListDetail] Fetching items for list ID: 59
-🖥️  Frontend Log: [INFO][2025-06-02T00:49:25.607Z] [ListDetail] Forcing database data
-🌐 API Call: GET http://localhost:5001/api/lists/59
-🌐 API Call: GET http://localhost:5001/api/lists/59/items
-📋 List 59 API Response: 200 http://localhost:5001/api/lists/59
-🖥️  Frontend Log: ✅ [ListDetail] List details result: {success: true, message: List details retrieved successfully, data: Object}
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: false, listName: Test QuickAdd List, itemsCount: 0}
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: false, listName: Test QuickAdd List, itemsCount: 0}
-📋 List 59 API Response: 200 http://localhost:5001/api/lists/59/items
-🖥️  Frontend Log: ✅ [ListDetail] List items result: {success: true, data: Array, pagination: null, message: List items retrieved successfully, error: undefined}
-🖥️  Frontend Log: 📝 [ListDetail] Items data: [Object, Object, Object, Object]
-🖥️  Frontend Log: 📊 [ListDetail] Items count: 4
-📋 List 59 Response Body: {
-  "success": true,
-  "message": "List details retrieved successfully",
-  "data": {
-    "id": 59,
-    "name": "Test QuickAdd List",
-    "description": "Testing quickadd functionality",
-    "list_type": "mixed",
-    "saved_count": 0,
-    "city_name": null,
-    "tags": [],
-    "is_public": true,
-    "creator_handle": "admin",
-    "user_id": 104,
-    "created_at": "2025-06-02T00:26:53.129Z",
-    "updated_at": "2025-06-02T00:26:53.129Z",
-    "creator_username": "admin",
-    "items_count": 4
-  }
-}
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 4}
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 4}
-📋 List 59 Response Body: {
-  "success": true,
-  "message": "List items retrieved successfully",
-  "data": [
-    {
-      "list_item_id": 224,
-      "id": 224,
-      "item_id": 288,
-      "item_type": "restaurant",
-      "added_at": "2025-06-02T00:45:41.356Z",
-      "name": "John's of Bleecker Street",
-      "restaurant_name": "John's of Bleecker Street",
-      "cuisine": null,
-      "location": "278 Bleecker St",
-      "city_name": null
-    },
-    {
-      "list_item_id": 223,
-      "id": 223,
-      "item_id": 287,
-      "item_type": "restaurant",
-      "added_at": "2025-06-02T00:45:41.337Z",
-      "name": "Joe's Pizza",
-      "restaurant_name": "Joe's Pizza",
-      "cuisine": null,
-      "location": "7 Carmine St",
-      "city_name": null
-    },
-    {
-      "list_item_id": 222,
-      "id": 222,
-      "item_id": 1,
-      "item_type": "dish",
-      "added_at": "2025-06-02T00:27:06.736Z",
-      "name": "dish 1",
-      "restaurant_name": null,
-      "cuisine": null,
-      "location": null,
-      "city_name": null
-    },
-    {
-      "list_item_id": 221,
-      "id": 221,
-      "item_id": 1,
-      "item_type": "restaurant",
-      "added_at": "2025-06-02T00:27:02.544Z",
-      "name": "restaurant 1",
-      "restaurant_name": null,
-      "cuisine": null,
-      "location": null,
-      "city_name": null
-    }
-  ],
-  "total": 4
-}
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 4}
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 4}
-📸 Initial screenshot saved
-📄 Page title: Chomp Clean
-🔍 Page contains "Test QuickAdd List": [33mtrue[39m
-🔍 Page contains "dish": [33mtrue[39m
-🔍 Page contains "restaurant": [33mtrue[39m
-🔍 Page contains "empty": [33mfalse[39m
-📋 H1 elements: [ [32m'Test QuickAdd List'[39m ]
-📊 Total <li> elements found: 4
-🈳 "This list is empty" messages: [33m0[39m
+🔵 [2025-06-03T23:44:50.371Z]    - 🔄 [ListDetail] useMemo items recalculating: {rawItems: Array(5), rawItemsType: object, rawItemsIsArray: true, rawItemsLength: 5, sortOrder: default}
 
-[[ATTACHMENT|test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-mobile-safari/test-failed-1.png]]
+🔵 [2025-06-03T23:44:50.371Z]    - ✅ [ListDetail] Creating sorted items array: {sortedItemsLength: 5, sortOrder: default}
 
-[[ATTACHMENT|test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-mobile-safari/video.webm]]
-]]>
-</system-out>
-</testcase>
-</testsuite>
-<testsuite name="simple-list-debug.spec.js" timestamp="2025-06-02T00:49:13.672Z" hostname="tablet-ipad" tests="1" failures="1" skipped="0" time="5.165" errors="0">
-<testcase name="Simple List Debug › should directly check list items for Test QuickAdd List" classname="simple-list-debug.spec.js" time="5.165">
-<failure message="simple-list-debug.spec.js:4:3 should directly check list items for Test QuickAdd List" type="FAILURE">
-<![CDATA[  [tablet-ipad] › simple-list-debug.spec.js:4:3 › Simple List Debug › should directly check list items for Test QuickAdd List 
+🔵 [2025-06-03T23:44:50.371Z]    - 🔄 [ListDetail] Returning default sorted items: {itemsLength: 5, firstItem: Object, lastItem: Object}
 
-    Error: locator.count: Unexpected token "=" while parsing css selector "[data-testid="loading"], .animate-spin, text=Loading". Did you mean to CSS.escape it?
+🔵 [2025-06-03T23:44:50.371Z]    - 🎯 [ListDetail] Final items after useMemo: {itemsLength: 5, items: Array(5), itemsIsArray: true}
 
-      69 |     
-      70 |     // Check for loading spinners
-    > 71 |     const loadingSpinners = await page.locator('[data-testid="loading"], .animate-spin, text=Loading').count();
-         |                                                                                                        ^
-      72 |     console.log('⏳ Loading indicators:', loadingSpinners);
-      73 |     
-      74 |     // Take a final screenshot
-        at /Users/naf/Downloads/doof/e2e/simple-list-debug.spec.js:71:104
+🔵 [2025-06-03T23:44:50.371Z]    - ✅ [ListDetail] Rendering main content: {isLoading: false, isError: false, listName: Test QuickAdd List, itemsLength: 5, hasItems: true}
 
-    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    e2e-results/test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-tablet-ipad/test-failed-1.png
-    ────────────────────────────────────────────────────────────────────────────────────────────────
+🔵 [2025-06-03T23:44:50.371Z]    - 🎬 [ListDetail] About to render items section: {items: Array(5), itemsLength: 5, itemsIsArray: true, hasItemsAndLength: true, itemsCondition: true}
 
-    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
-    e2e-results/test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-tablet-ipad/video.webm
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-]]>
-</failure>
-<system-out>
-<![CDATA[🚀 Starting simple list debug test
-📋 Navigating directly to list 59...
-🌐 API Call: GET http://localhost:5175/src/services/api/index.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiClientCore.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiRequestMethods.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiRetryLogic.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiCacheManager.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiOfflineMode.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiValidation.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiInterceptors.js
-🌐 API Call: GET http://localhost:5175/src/services/api/apiErrorUtils.js
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
-🖥️  Frontend Log: [INFO][2025-06-02T00:49:25.830Z] [ListDetail] Forcing database data
-🖥️  Frontend Log: 🌐 [ListDetail] Fetching list details for ID: 59
-🖥️  Frontend Log: 🔑 [ListDetail] Auth check: {isAuthenticated: false, hasUser: false, userId: undefined, userRole: undefined}
-🖥️  Frontend Log: 🌐 [ListDetail] Fetching items for list ID: 59
-🖥️  Frontend Log: [INFO][2025-06-02T00:49:25.835Z] [ListDetail] Forcing database data
-🌐 API Call: GET http://localhost:5001/api/lists/59
-🌐 API Call: GET http://localhost:5001/api/lists/59/items
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: false, hasItemsData: false, listName: undefined, itemsCount: 0}
-📋 List 59 API Response: 200 http://localhost:5001/api/lists/59
-🖥️  Frontend Log: ✅ [ListDetail] List details result: {success: true, message: List details retrieved successfully, data: Object}
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: false, listName: Test QuickAdd List, itemsCount: 0}
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: false, listName: Test QuickAdd List, itemsCount: 0}
-📋 List 59 API Response: 200 http://localhost:5001/api/lists/59/items
-🖥️  Frontend Log: ✅ [ListDetail] List items result: {success: true, data: Array(4), pagination: null, message: List items retrieved successfully, error: undefined}
-🖥️  Frontend Log: 📝 [ListDetail] Items data: [Object, Object, Object, Object]
-🖥️  Frontend Log: 📊 [ListDetail] Items count: 4
-📋 List 59 Response Body: {
-  "success": true,
-  "message": "List details retrieved successfully",
-  "data": {
-    "id": 59,
-    "name": "Test QuickAdd List",
-    "description": "Testing quickadd functionality",
-    "list_type": "mixed",
-    "saved_count": 0,
-    "city_name": null,
-    "tags": [],
-    "is_public": true,
-    "creator_handle": "admin",
-    "user_id": 104,
-    "created_at": "2025-06-02T00:26:53.129Z",
-    "updated_at": "2025-06-02T00:26:53.129Z",
-    "creator_username": "admin",
-    "items_count": 4
-  }
-}
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 4}
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 4}
-📋 List 59 Response Body: {
-  "success": true,
-  "message": "List items retrieved successfully",
-  "data": [
-    {
-      "list_item_id": 224,
-      "id": 224,
-      "item_id": 288,
-      "item_type": "restaurant",
-      "added_at": "2025-06-02T00:45:41.356Z",
-      "name": "John's of Bleecker Street",
-      "restaurant_name": "John's of Bleecker Street",
-      "cuisine": null,
-      "location": "278 Bleecker St",
-      "city_name": null
-    },
-    {
-      "list_item_id": 223,
-      "id": 223,
-      "item_id": 287,
-      "item_type": "restaurant",
-      "added_at": "2025-06-02T00:45:41.337Z",
-      "name": "Joe's Pizza",
-      "restaurant_name": "Joe's Pizza",
-      "cuisine": null,
-      "location": "7 Carmine St",
-      "city_name": null
-    },
-    {
-      "list_item_id": 222,
-      "id": 222,
-      "item_id": 1,
-      "item_type": "dish",
-      "added_at": "2025-06-02T00:27:06.736Z",
-      "name": "dish 1",
-      "restaurant_name": null,
-      "cuisine": null,
-      "location": null,
-      "city_name": null
-    },
-    {
-      "list_item_id": 221,
-      "id": 221,
-      "item_id": 1,
-      "item_type": "restaurant",
-      "added_at": "2025-06-02T00:27:02.544Z",
-      "name": "restaurant 1",
-      "restaurant_name": null,
-      "cuisine": null,
-      "location": null,
-      "city_name": null
-    }
-  ],
-  "total": 4
-}
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 4}
-🖥️  Frontend Log: 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 4}
-📸 Initial screenshot saved
-📄 Page title: Chomp Clean
-🔍 Page contains "Test QuickAdd List": [33mtrue[39m
-🔍 Page contains "dish": [33mtrue[39m
-🔍 Page contains "restaurant": [33mtrue[39m
-🔍 Page contains "empty": [33mfalse[39m
-📋 H1 elements: [ [32m'Test QuickAdd List'[39m ]
-📊 Total <li> elements found: 4
-🈳 "This list is empty" messages: [33m0[39m
+🔵 [2025-06-03T23:44:50.371Z]    - 🎭 [ListDetail] Rendering 5 items
 
-[[ATTACHMENT|test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-tablet-ipad/test-failed-1.png]]
+🔵 [2025-06-03T23:44:50.371Z]    - 🎬 [ListDetail] Rendering item 0: {list_item_id: 222, id: 222, item_id: 1, item_type: dish, added_at: 2025-06-03T23:21:29.758Z}
 
-[[ATTACHMENT|test-artifacts/simple-list-debug-Simple-L-423c8-tems-for-Test-QuickAdd-List-tablet-ipad/video.webm]]
+🔵 [2025-06-03T23:44:50.371Z]    - 🎬 [ListDetail] Rendering item 1: {list_item_id: 226, id: 226, item_id: 304, item_type: restaurant, added_at: 2025-06-02T00:58:58.932Z}
+
+🔵 [2025-06-03T23:44:50.371Z]    - 🎬 [ListDetail] Rendering item 2: {list_item_id: 224, id: 224, item_id: 288, item_type: restaurant, added_at: 2025-06-02T00:45:41.356Z}
+
+🔵 [2025-06-03T23:44:50.371Z]    - 🎬 [ListDetail] Rendering item 3: {list_item_id: 223, id: 223, item_id: 287, item_type: restaurant, added_at: 2025-06-02T00:45:41.337Z}
+
+🔵 [2025-06-03T23:44:50.371Z]    - 🎬 [ListDetail] Rendering item 4: {list_item_id: 221, id: 221, item_id: 1, item_type: restaurant, added_at: 2025-06-02T00:27:02.544Z}
+
+🔵 [2025-06-03T23:44:50.371Z]    - 🚀 [ListDetail] Component initialized with: {listId: 59, propListId: undefined, urlListId: 59, isAuthenticated: true, userId: 104}
+
+🔵 [2025-06-03T23:44:50.371Z]    - 🔍 [ListDetail] List items query enabled condition: {listId: 59, listIdType: string, listIdTruthy: true, enabled: true}
+
+🔵 [2025-06-03T23:44:50.371Z]    - 🔍 [ListDetail] Query states: {isLoadingList: false, isLoadingItems: false, isListError: false, isItemsError: false, listData: true}
+
+🔵 [2025-06-03T23:44:50.371Z]    - 🔍 [ListDetail] Final data check: {listId: 59, hasListData: true, hasItemsData: true, listName: Test QuickAdd List, itemsCount: 5}
+
+🔵 [2025-06-03T23:44:50.371Z]    - 🔄 [ListDetail] useMemo items recalculating: {rawItems: Array(5), rawItemsType: object, rawItemsIsArray: true, rawItemsLength: 5, sortOrder: default}
+
+🔵 [2025-06-03T23:44:50.371Z]    - ✅ [ListDetail] Creating sorted items array: {sortedItemsLength: 5, sortOrder: default}
+
+🔵 [2025-06-03T23:44:50.371Z]    - 🔄 [ListDetail] Returning default sorted items: {itemsLength: 5, firstItem: Object, lastItem: Object}
+
+🔵 [2025-06-03T23:44:50.371Z]    - 🎯 [ListDetail] Final items after useMemo: {itemsLength: 5, items: Array(5), itemsIsArray: true}
+
+🔵 [2025-06-03T23:44:50.371Z]    - ✅ [ListDetail] Rendering main content: {isLoading: false, isError: false, listName: Test QuickAdd List, itemsLength: 5, hasItems: true}
+
+🔵 [2025-06-03T23:44:50.371Z]    - 🎬 [ListDetail] About to render items section: {items: Array(5), itemsLength: 5, itemsIsArray: true, hasItemsAndLength: true, itemsCondition: true}
+
+🔵 [2025-06-03T23:44:50.371Z]    - 🎭 [ListDetail] Rendering 5 items
+
+🔵 [2025-06-03T23:44:50.371Z]    - 🎬 [ListDetail] Rendering item 0: {list_item_id: 222, id: 222, item_id: 1, item_type: dish, added_at: 2025-06-03T23:21:29.758Z}
+
+🔵 [2025-06-03T23:44:50.371Z]    - 🎬 [ListDetail] Rendering item 1: {list_item_id: 226, id: 226, item_id: 304, item_type: restaurant, added_at: 2025-06-02T00:58:58.932Z}
+
+🔵 [2025-06-03T23:44:50.371Z]    - 🎬 [ListDetail] Rendering item 2: {list_item_id: 224, id: 224, item_id: 288, item_type: restaurant, added_at: 2025-06-02T00:45:41.356Z}
+
+🔵 [2025-06-03T23:44:50.371Z]    - 🎬 [ListDetail] Rendering item 3: {list_item_id: 223, id: 223, item_id: 287, item_type: restaurant, added_at: 2025-06-02T00:45:41.337Z}
+
+🔵 [2025-06-03T23:44:50.371Z]    - 🎬 [ListDetail] Rendering item 4: {list_item_id: 221, id: 221, item_id: 1, item_type: restaurant, added_at: 2025-06-02T00:27:02.544Z}
+
+🔵 [2025-06-03T23:44:50.371Z] 🔍 Inspecting React Query states...
+
+🔵 [2025-06-03T23:44:53.389Z] 🔍 React Query Debug: {"reactQueryDevtools":null,"windowReactQuery":null,"consoleErrors":["Console memory access available"],"networkRequests":[]}
+
+🔵 [2025-06-03T23:44:53.390Z] 🔍 Comparing API data vs UI display...
+
+🔵 [2025-06-03T23:44:53.398Z] 📊 API returned 5 items
+
+🔵 [2025-06-03T23:44:53.398Z] 📊 UI shows 0 items
+
+🔵 [2025-06-03T23:44:53.398Z] 📝 API Items:
+
+🔵 [2025-06-03T23:44:53.398Z]    1. Dish 1 (dish)
+
+🔵 [2025-06-03T23:44:53.398Z]    2. Aquavit (restaurant)
+
+🔵 [2025-06-03T23:44:53.398Z]    3. John's of Bleecker Street (restaurant)
+
+🔵 [2025-06-03T23:44:53.398Z]    4. Joe's Pizza (restaurant)
+
+🔵 [2025-06-03T23:44:53.398Z]    5. Restaurant 1 (restaurant)
+
+❌ [2025-06-03T23:44:53.399Z] 🚨 NO ITEMS VISIBLE IN UI despite API returning 5 items!
+
+🔵 [2025-06-03T23:44:53.399Z] 📊 NETWORK ACTIVITY SUMMARY:
+
+🔵 [2025-06-03T23:44:53.399Z]    Total Requests: 9
+
+🔵 [2025-06-03T23:44:53.399Z]    Total Responses: 9
+
+🔵 [2025-06-03T23:44:53.399Z]    Request 1: GET http://localhost:5173/lists/59
+
+🔵 [2025-06-03T23:44:53.399Z]    Request 2: GET https://maps.googleapis.com/maps/api/js?key=AIzaSyD_xhCWUXjhSXD4xpL-BxM5t7HfzJDf-dI&libraries=places
+
+🔵 [2025-06-03T23:44:53.399Z]    Request 3: GET https://maps.googleapis.com/maps/api/mapsjs/gen_204?csp_test=true
+
+🔵 [2025-06-03T23:44:53.399Z]    Request 4: GET http://localhost:5173/api/notifications/unread-count
+
+🔵 [2025-06-03T23:44:53.399Z]    Request 5: GET http://localhost:5173/api/notifications/unread-count
+
+🔵 [2025-06-03T23:44:53.399Z]    Request 6: GET http://localhost:5001/api/lists/59
+
+🔵 [2025-06-03T23:44:53.399Z]    Request 7: GET http://localhost:5001/api/lists/59/items
+
+🔵 [2025-06-03T23:44:53.399Z]    Request 8: GET https://maps.googleapis.com/maps-api-v3/api/js/61/2/common.js
+
+🔵 [2025-06-03T23:44:53.399Z]    Request 9: GET https://maps.googleapis.com/maps-api-v3/api/js/61/2/util.js
+
+🔵 [2025-06-03T23:44:53.399Z]    Response 1: 200 http://localhost:5173/lists/59
+
+🔵 [2025-06-03T23:44:53.399Z]    Response 2: 200 https://maps.googleapis.com/maps/api/js?key=AIzaSyD_xhCWUXjhSXD4xpL-BxM5t7HfzJDf-dI&libraries=places
+
+🔵 [2025-06-03T23:44:53.399Z]    Response 3: 200 https://maps.googleapis.com/maps/api/mapsjs/gen_204?csp_test=true
+
+🔵 [2025-06-03T23:44:53.399Z]    Response 4: 200 http://localhost:5001/api/lists/59
+
+🔵 [2025-06-03T23:44:53.399Z]    Response 5: 200 http://localhost:5001/api/lists/59/items
+
+🔵 [2025-06-03T23:44:53.399Z]    Response 6: 200 http://localhost:5173/api/notifications/unread-count
+
+🔵 [2025-06-03T23:44:53.399Z]    Response 7: 200 http://localhost:5173/api/notifications/unread-count
+
+🔵 [2025-06-03T23:44:53.399Z]    Response 8: 200 https://maps.googleapis.com/maps-api-v3/api/js/61/2/common.js
+
+🔵 [2025-06-03T23:44:53.399Z]    Response 9: 200 https://maps.googleapis.com/maps-api-v3/api/js/61/2/util.js
+
+✅ [2025-06-03T23:44:53.399Z] 🎯 DEBUGGING COMPLETE
+
+✅ [2025-06-03T23:44:53.399Z] API Items: 5
+
+✅ [2025-06-03T23:44:53.399Z] UI Items: 0
+
+✅ [2025-06-03T23:44:53.399Z] Network Requests: 9
+
+✅ [2025-06-03T23:44:53.399Z] Debug Errors: 0
+
+✅ [2025-06-03T23:44:53.399Z] Console Messages: 154
+
+✅ [2025-06-03T23:44:53.399Z] ListDetail Messages: 83
+
+❌ [2025-06-03T23:44:53.399Z] 🚨 CONFIRMED: Frontend bug - API returns data but UI shows nothing
+
+[[ATTACHMENT|test-artifacts/debug-list-items-frontend--b47e5-nd-List-Items-Display-Issue-desktop-chrome-comprehensive/test-finished-1.png]]
+
+[[ATTACHMENT|test-artifacts/debug-list-items-frontend--b47e5-nd-List-Items-Display-Issue-desktop-chrome-comprehensive/trace.zip]]
 ]]>
 </system-out>
 </testcase>

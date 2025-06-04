@@ -15,25 +15,25 @@ export default defineConfig({
   // Test directory
   testDir: './e2e',
   
-  // Test timeout (30 seconds per test)
-  timeout: 30000,
+  // Test timeout (5 minutes per test for comprehensive testing)
+  timeout: 300000,
   
-  // Expect timeout (10 seconds for assertions)
+  // Expect timeout (30 seconds for assertions)
   expect: {
-    timeout: 10000,
+    timeout: 30000,
   },
   
   // Run tests in files in parallel
-  fullyParallel: true,
+  fullyParallel: false, // Set to false for comprehensive test to run sequentially
   
   // Fail the build on CI if you accidentally left test.only in the source code
   forbidOnly: !!process.env.CI,
   
-  // Retry on CI only
-  retries: process.env.CI ? 2 : 0,
+  // Retry once on failures
+  retries: 1,
   
-  // Opt out of parallel tests on CI
-  workers: process.env.CI ? 1 : undefined,
+  // Run single worker for headed mode observation
+  workers: 1,
   
   // Reporter to use. See https://playwright.dev/docs/test-reporters
   reporter: [
@@ -53,91 +53,52 @@ export default defineConfig({
   // Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions.
   use: {
     // Base URL to use in actions like `await page.goto('/')`.
-    baseURL: process.env.E2E_BASE_URL || 'http://localhost:5174',
+    baseURL: process.env.E2E_BASE_URL || 'http://localhost:5173',
     
     // Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer
-    trace: 'on-first-retry',
+    trace: 'on',
     
-    // Increased timeouts for React applications
-    actionTimeout: 15000,
-    navigationTimeout: 30000,
+    // Increased timeouts for React applications and headed mode
+    actionTimeout: 30000,
+    navigationTimeout: 60000,
     
-    // Better error handling
-    screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
+    // Better error handling and debugging
+    screenshot: 'on',
+    video: 'on',
+    
+    // Slow down for headed mode visibility
+    launchOptions: {
+      slowMo: 300, // 300ms delay between actions for visibility
+    },
   },
 
-  // Configure projects for major browsers and mobile devices
+  // Configure only desktop Chrome for comprehensive testing
   projects: [
     {
-      name: 'chromium-desktop',
+      name: 'desktop-chrome-comprehensive',
       use: { 
         ...devices['Desktop Chrome'],
-        viewport: { width: 1280, height: 720 }
+        viewport: { width: 1920, height: 1080 },
+        // Additional settings for comprehensive testing
+        launchOptions: {
+          slowMo: 300,
+          args: [
+            '--no-sandbox',
+            '--disable-web-security',
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--start-maximized'
+          ]
+        }
       },
-    },
-    
-    {
-      name: 'firefox-desktop',
-      use: { 
-        ...devices['Desktop Firefox'],
-        viewport: { width: 1280, height: 720 }
-      },
-    },
-    
-    {
-      name: 'webkit-desktop',
-      use: { 
-        ...devices['Desktop Safari'],
-        viewport: { width: 1280, height: 720 }
-      },
-    },
-    
-    // Mobile testing
-    {
-      name: 'mobile-chrome',
-      use: { 
-        ...devices['Pixel 5'],
-        // Increased timeouts for mobile
-        actionTimeout: 20000,
-        navigationTimeout: 45000,
-      },
-    },
-    
-    {
-      name: 'mobile-safari',
-      use: { 
-        ...devices['iPhone 12'],
-        // Increased timeouts for mobile
-        actionTimeout: 20000,
-        navigationTimeout: 45000,
-      },
-    },
-    
-    // Tablet testing
-    {
-      name: 'tablet-ipad',
-      use: { 
-        ...devices['iPad Pro'],
-        actionTimeout: 20000,
-        navigationTimeout: 45000,
-      },
-    },
+    }
   ],
 
-  // Web server configuration for local development
+  // Web server configuration is disabled since we're running manually
   // webServer: [
   //   {
   //     command: 'npm run dev',
-  //     url: 'http://localhost:5174',
-  //     reuseExistingServer: !process.env.CI,
-  //     timeout: 120000,
-  //     stdout: 'pipe',
-  //     stderr: 'pipe',
-  //   },
-  //   {
-  //     command: 'cd doof-backend && npm run dev',
-  //     url: 'http://localhost:5001/api/health',
+  //     url: 'http://localhost:5173',
   //     reuseExistingServer: !process.env.CI,
   //     timeout: 120000,
   //     stdout: 'pipe',

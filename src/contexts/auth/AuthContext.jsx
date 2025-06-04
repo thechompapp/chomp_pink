@@ -1,264 +1,480 @@
 /* src/contexts/auth/AuthContext.jsx */
 /**
- * Authentication Context - Fixed for proper coordinator integration
+ * Production-Ready Authentication Context
  * 
- * React wrapper that properly syncs with AuthenticationCoordinator
- * Ensures React components re-render when authentication state changes
+ * Enterprise-grade authentication system with robust error handling,
+ * token persistence, and proper state management.
  */
-import React, { createContext, useContext, useEffect, useCallback, useState } from 'react';
+import React, { createContext, useContext, useEffect, useCallback, useState, useRef } from 'react';
 import PropTypes from 'prop-types';
-import useAuthenticationStore from '@/stores/auth/useAuthenticationStore';
-import { logDebug, logInfo, logWarn } from '@/utils/logger';
+import { logDebug, logInfo, logWarn, logError } from '@/utils/logger';
 
 // Context creation
 const AuthContext = createContext(null);
+
+// Constants for token management
+const TOKEN_STORAGE_KEY = 'token';
+const USER_STORAGE_KEY = 'current_user';
+const LOGOUT_FLAG_KEY = 'user_explicitly_logged_out';
+const AUTH_STATE_KEY = 'auth_state_timestamp';
+
+// Token validation utilities
+const isValidToken = (token) => {
+  if (!token || token === 'null' || token === 'undefined' || token.length < 10) {
+    return false;
+  }
+  return true;
+};
+
+const isValidUser = (user) => {
+  if (!user || typeof user !== 'object') return false;
+  return !!(user.id || user.email || user.username);
+};
 
 /**
  * Authentication Provider Component
  */
 export const AuthProvider = ({ children }) => {
-  // Use Zustand store for state management
-  const authState = useAuthenticationStore();
+  // Core authentication state
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState(null);
+  const [error, setError] = useState(null);
   
-  const {
-    user,
-    isAuthenticated,
-    isLoading,
-    error,
-    login: storeLogin,
-    logout: storeLogout,
-    checkAuthStatus,
-    isAdmin,
-    clearError
-  } = authState;
+  // Internal state management
+  const [authReady, setAuthReady] = useState(false);
+  const initializationRef = useRef(false);
+  const tokenValidationRef = useRef(null);
 
-  // Local state to force re-renders when coordinator updates
-  const [coordinatorSync, setCoordinatorSync] = useState(0);
-  // Add initialization loading state to prevent flashing
-  const [isInitializing, setIsInitializing] = useState(true);
+  /**
+   * Secure token storage with validation
+   */
+  const storeAuthData = useCallback((token, userData) => {
+    try {
+      logDebug('[AuthContext] storeAuthData called', { 
+        hasToken: !!token, 
+        tokenLength: token ? token.length : 0,
+        hasUser: !!userData,
+        user: userData
+      });
 
-  // Initialize and sync with coordinator on mount
-  useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        // Import coordinator
-        const { default: authCoordinator } = await import('@/utils/AuthenticationCoordinator');
-        
-        // Check if coordinator reports different state than store
-        const coordinatorState = authCoordinator.getCurrentState();
-        const storeState = useAuthenticationStore.getState();
-        
-        logInfo('[AuthContext] Checking coordinator vs store state:', {
-          coordinatorAuth: coordinatorState.isAuthenticated,
-          storeAuth: storeState.isAuthenticated,
-          coordinatorToken: !!coordinatorState.token,
-          storeToken: !!storeState.token
-        });
-        
-        // If coordinator has authentication but store doesn't, sync store from coordinator
-        if (coordinatorState.isAuthenticated && !storeState.isAuthenticated && coordinatorState.token && coordinatorState.user) {
-          logInfo('[AuthContext] Syncing store from coordinator during initialization');
-          storeState.syncFromCoordinator(coordinatorState);
-          setCoordinatorSync(prev => prev + 1); // Force re-render
-        }
-        // If neither has authentication, check localStorage for valid tokens
-        else if (!coordinatorState.isAuthenticated && !storeState.isAuthenticated) {
-          const isExplicitLogout = localStorage.getItem('user_explicitly_logged_out') === 'true';
-          
-          if (!isExplicitLogout) {
-            // Check if we have valid tokens that coordinator can verify
-            const token = localStorage.getItem('token');
-            const user = localStorage.getItem('current_user');
-            
-            if (token && token !== 'null' && user && user !== 'null') {
-              logInfo('[AuthContext] Found stored auth data, checking with coordinator');
-              try {
-                const parsedUser = JSON.parse(user);
-                if (parsedUser && parsedUser.id) {
-                  // Let coordinator verify the token
-                  await authCoordinator.performInitialSync();
-                  
-                  // Check coordinator state again after verification
-                  const updatedCoordinatorState = authCoordinator.getCurrentState();
-                  if (updatedCoordinatorState.isAuthenticated) {
-                    logInfo('[AuthContext] Coordinator verified authentication, syncing to store');
-                    storeState.syncFromCoordinator(updatedCoordinatorState);
-                    setCoordinatorSync(prev => prev + 1); // Force re-render
-                  }
-                }
-              } catch (error) {
-                logWarn('[AuthContext] Error parsing stored user data:', error);
-              }
-            }
-          }
-        }
-        
-        // Set up coordinator event listeners
-        const handleCoordinatorSync = (event) => {
-          logInfo('[AuthContext] Received coordinator state sync event');
-          const coordinatorState = event.detail;
-          const currentStoreState = useAuthenticationStore.getState();
-          
-          // Only sync if states differ
-          if (coordinatorState.isAuthenticated !== currentStoreState.isAuthenticated ||
-              coordinatorState.token !== currentStoreState.token) {
-            logInfo('[AuthContext] Syncing store from coordinator event');
-            currentStoreState.syncFromCoordinator(coordinatorState);
-            setCoordinatorSync(prev => prev + 1); // Force re-render
-          }
-        };
-        
-        window.addEventListener('auth:state_sync', handleCoordinatorSync);
-        window.addEventListener('auth:login_success', handleCoordinatorSync);
-        
-        // Cleanup function
-        return () => {
-          window.removeEventListener('auth:state_sync', handleCoordinatorSync);
-          window.removeEventListener('auth:login_success', handleCoordinatorSync);
-        };
-        
-      } catch (error) {
-        logWarn('[AuthContext] Error during auth initialization:', error);
-      } finally {
-        // Set initialization complete immediately after first check
-        setIsInitializing(false);
+      if (!isValidToken(token) || !isValidUser(userData)) {
+        const error = `Invalid authentication data provided - token valid: ${isValidToken(token)}, user valid: ${isValidUser(userData)}`;
+        logError('[AuthContext] Validation failed in storeAuthData:', error);
+        throw new Error(error);
       }
-    };
 
-    const cleanup = initializeAuth();
-    
-    // Much shorter fallback timeout to ensure responsiveness  
-    const timeout = setTimeout(() => {
-      setIsInitializing(false);
-    }, 500); // Reduced from 2000ms to 500ms
-    
-    return () => {
-      cleanup?.then?.(cleanupFn => cleanupFn?.());
-      clearTimeout(timeout);
-    };
+      // Store with timestamp for tracking
+      const timestamp = Date.now();
+      logDebug('[AuthContext] Storing to localStorage...', {
+        tokenKey: TOKEN_STORAGE_KEY,
+        userKey: USER_STORAGE_KEY,
+        authStateKey: AUTH_STATE_KEY,
+        timestamp
+      });
+
+      localStorage.setItem(TOKEN_STORAGE_KEY, token);
+      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
+      localStorage.setItem(AUTH_STATE_KEY, timestamp.toString());
+      localStorage.removeItem(LOGOUT_FLAG_KEY);
+      
+      // Verify storage worked
+      const storedToken = localStorage.getItem(TOKEN_STORAGE_KEY);
+      const storedUser = localStorage.getItem(USER_STORAGE_KEY);
+      logDebug('[AuthContext] Storage verification', {
+        tokenStored: !!storedToken,
+        userStored: !!storedUser,
+        tokenMatches: storedToken === token,
+        userMatches: storedUser === JSON.stringify(userData)
+      });
+      
+      logInfo('[AuthContext] Authentication data stored securely');
+      return true;
+    } catch (error) {
+      logError('[AuthContext] Failed to store auth data:', error);
+      return false;
+    }
   }, []);
 
   /**
-   * Enhanced login function
+   * Secure token retrieval with validation
+   */
+  const getAuthData = useCallback(() => {
+    try {
+      const token = localStorage.getItem(TOKEN_STORAGE_KEY);
+      const userStr = localStorage.getItem(USER_STORAGE_KEY);
+      const logoutFlag = localStorage.getItem(LOGOUT_FLAG_KEY);
+
+      // Check if user explicitly logged out
+      if (logoutFlag === 'true') {
+        return { valid: false, reason: 'user_logged_out' };
+      }
+
+      // Validate token
+      if (!isValidToken(token)) {
+        return { valid: false, reason: 'invalid_token' };
+      }
+
+      // Parse and validate user data
+      let userData = null;
+      if (userStr && userStr !== 'null') {
+        try {
+          userData = JSON.parse(userStr);
+          if (!isValidUser(userData)) {
+            return { valid: false, reason: 'invalid_user_data' };
+          }
+        } catch (parseError) {
+          logWarn('[AuthContext] Failed to parse user data:', parseError);
+          return { valid: false, reason: 'user_parse_error' };
+        }
+      } else {
+        return { valid: false, reason: 'no_user_data' };
+      }
+
+      return {
+        valid: true,
+        token,
+        user: userData
+      };
+    } catch (error) {
+      logError('[AuthContext] Error retrieving auth data:', error);
+      return { valid: false, reason: 'retrieval_error' };
+    }
+  }, []);
+
+  /**
+   * Clear authentication data securely
+   */
+  const clearAuthData = useCallback((reason = 'logout') => {
+    try {
+      // Clear state first
+      setUser(null);
+      setIsAuthenticated(false);
+      setError(null);
+      
+      // Clear storage
+      if (reason === 'logout') {
+        localStorage.setItem(LOGOUT_FLAG_KEY, 'true');
+      }
+      localStorage.removeItem(TOKEN_STORAGE_KEY);
+      localStorage.removeItem(USER_STORAGE_KEY);
+      localStorage.removeItem(AUTH_STATE_KEY);
+      
+      logInfo(`[AuthContext] Auth data cleared (reason: ${reason})`);
+    } catch (error) {
+      logError('[AuthContext] Error clearing auth data:', error);
+    }
+  }, []);
+
+  /**
+   * Validate current authentication state
+   */
+  const validateAuthState = useCallback(async () => {
+    try {
+      const authData = getAuthData();
+      
+      if (!authData.valid) {
+        logDebug(`[AuthContext] Auth validation failed: ${authData.reason}`);
+        
+        // Only clear if it's not a user logout
+        if (authData.reason !== 'user_logged_out') {
+          clearAuthData('invalid_state');
+        }
+        return false;
+      }
+
+      // For production, we would validate the token with the server here
+      // For development, we trust localStorage data if it passes basic validation
+      if (import.meta.env.DEV) {
+        setUser(authData.user);
+        setIsAuthenticated(true);
+        logInfo('[AuthContext] Auth state validated (dev mode)');
+        return true;
+      }
+
+      // In production, validate with server
+      try {
+        const response = await fetch('/api/auth/validate', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${authData.token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (response.ok) {
+          const validationData = await response.json();
+          setUser(validationData.user || authData.user);
+          setIsAuthenticated(true);
+          logInfo('[AuthContext] Auth state validated with server');
+          return true;
+        } else {
+          logWarn('[AuthContext] Server validation failed');
+          clearAuthData('server_validation_failed');
+          return false;
+        }
+      } catch (networkError) {
+        // In case of network error, trust local data temporarily
+        logWarn('[AuthContext] Network error during validation, using local data');
+        setUser(authData.user);
+        setIsAuthenticated(true);
+        return true;
+      }
+    } catch (error) {
+      logError('[AuthContext] Auth validation error:', error);
+      return false;
+    }
+  }, [getAuthData, clearAuthData]);
+
+  /**
+   * Initialize authentication state on mount
+   */
+  useEffect(() => {
+    const initializeAuth = async () => {
+      if (initializationRef.current) return;
+      initializationRef.current = true;
+
+      try {
+        setIsLoading(true);
+        logDebug('[AuthContext] Initializing authentication state...');
+        
+        await validateAuthState();
+        
+        setAuthReady(true);
+        logInfo('[AuthContext] Authentication initialized successfully');
+      } catch (error) {
+        logError('[AuthContext] Auth initialization failed:', error);
+        clearAuthData('initialization_error');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initializeAuth();
+  }, [validateAuthState, clearAuthData]);
+
+  /**
+   * Login function with comprehensive error handling
    */
   const login = useCallback(async (credentials) => {
     try {
-      logInfo('[AuthContext] Login attempt');
-      const success = await storeLogin(credentials);
-      if (success) {
-        // Force a small delay to ensure all systems have updated
-        await new Promise(resolve => setTimeout(resolve, 100));
+      setIsLoading(true);
+      setError(null);
+      
+      logDebug('[AuthContext] Starting login process', credentials);
+      
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(credentials),
+      });
+
+      logDebug('[AuthContext] Login response received', { 
+        status: response.status, 
+        ok: response.ok,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+
+      if (response.ok) {
+        const responseData = await response.json();
         
-        // Get the updated state from the store
-        const updatedState = useAuthenticationStore.getState();
-        
-        logInfo('[AuthContext] Login success, updated state:', {
-          isAuthenticated: updatedState.isAuthenticated,
-          hasUser: !!updatedState.user,
-          hasToken: !!updatedState.token
+        logDebug('[AuthContext] Login response data', { 
+          hasToken: !!(responseData.data?.token), 
+          hasUser: !!(responseData.data?.user),
+          tokenLength: responseData.data?.token ? responseData.data.token.length : 0,
+          user: responseData.data?.user,
+          fullData: responseData,
+          dataKeys: Object.keys(responseData),
+          rawData: JSON.stringify(responseData)
         });
         
-        setCoordinatorSync(prev => prev + 1); // Force re-render
+        // Extract token and user from nested data structure
+        const token = responseData.data?.token;
+        const user = responseData.data?.user;
         
-        return { success: true, user: updatedState.user };
+        if (!token || !user) {
+          const errorMsg = `Invalid response from login endpoint - token: ${!!token}, user: ${!!user}`;
+          logError('[AuthContext] Login validation failed:', errorMsg);
+          throw new Error(errorMsg);
+        }
+
+        // Store authentication data securely
+        logDebug('[AuthContext] Attempting to store auth data...');
+        const stored = storeAuthData(token, user);
+        if (!stored) {
+          throw new Error('Failed to store authentication data');
+        }
+        logDebug('[AuthContext] Auth data stored successfully');
+        
+        // Update state
+        setUser(user);
+        setIsAuthenticated(true);
+        
+        logInfo('[AuthContext] Login successful - state updated');
+        return { success: true, user: user };
       } else {
-        return { success: false, error: 'Login failed' };
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.message || `Login failed (${response.status})`;
+        setError(errorMessage);
+        logWarn('[AuthContext] Login failed:', errorMessage);
+        return { success: false, error: errorMessage };
       }
     } catch (error) {
-      logDebug('[AuthContext] Login error:', error);
-      return { success: false, error: error.message };
+      const errorMessage = error.message || 'Network error during login';
+      setError(errorMessage);
+      logError('[AuthContext] Login error:', error);
+      return { success: false, error: errorMessage };
+    } finally {
+      setIsLoading(false);
     }
-  }, [storeLogin]);
+  }, [storeAuthData]);
 
   /**
-   * Enhanced logout function
+   * Logout function with cleanup
    */
-  const logout = useCallback(async () => {
+  const logout = useCallback(async (options = {}) => {
     try {
-      logInfo('[AuthContext] Logout attempt');
-      await storeLogout();
+      const { notifyServer = true } = options;
       
-      // Force a small delay to ensure all systems have updated
-      await new Promise(resolve => setTimeout(resolve, 100));
+      logDebug('[AuthContext] Starting logout process');
       
-      setCoordinatorSync(prev => prev + 1); // Force re-render
+      // Notify server if requested and possible
+      if (notifyServer && isAuthenticated) {
+        try {
+          const token = localStorage.getItem(TOKEN_STORAGE_KEY);
+          if (token) {
+            await fetch('/api/auth/logout', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+            });
+          }
+        } catch (serverError) {
+          logWarn('[AuthContext] Server logout notification failed:', serverError);
+        }
+      }
       
+      // Clear all auth data
+      clearAuthData('logout');
+      
+      logInfo('[AuthContext] Logout completed');
       return { success: true };
     } catch (error) {
-      logDebug('[AuthContext] Logout error:', error);
+      logError('[AuthContext] Logout error:', error);
+      // Even if logout fails, clear local data
+      clearAuthData('logout_error');
       return { success: false, error: error.message };
     }
-  }, [storeLogout]);
+  }, [isAuthenticated, clearAuthData]);
 
   /**
    * Registration function
    */
   const register = useCallback(async (userData) => {
     try {
+      setIsLoading(true);
+      setError(null);
+      
+      logDebug('[AuthContext] Starting registration process');
+      
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify(userData)
+        body: JSON.stringify(userData),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Registration failed');
-      }
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (!data.token || !data.user) {
+          throw new Error('Invalid response from registration endpoint');
+        }
 
-      const result = await response.json();
-      return { success: true, message: result.message };
-      
+        // Store authentication data securely
+        const stored = storeAuthData(data.token, data.user);
+        if (!stored) {
+          throw new Error('Failed to store authentication data');
+        }
+        
+        // Update state
+        setUser(data.user);
+        setIsAuthenticated(true);
+        
+        logInfo('[AuthContext] Registration successful');
+        return { success: true, user: data.user };
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.message || `Registration failed (${response.status})`;
+        setError(errorMessage);
+        return { success: false, error: errorMessage };
+      }
     } catch (error) {
-      logDebug('[AuthContext] Registration error:', error);
-      return { success: false, error: error.message };
+      const errorMessage = error.message || 'Network error during registration';
+      setError(errorMessage);
+      logError('[AuthContext] Registration error:', error);
+      return { success: false, error: errorMessage };
+    } finally {
+      setIsLoading(false);
     }
+  }, [storeAuthData]);
+
+  /**
+   * Refresh authentication state
+   */
+  const refreshAuth = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const isValid = await validateAuthState();
+      return { success: isValid };
+    } catch (error) {
+      logError('[AuthContext] Auth refresh error:', error);
+      return { success: false, error: error.message };
+    } finally {
+      setIsLoading(false);
+    }
+  }, [validateAuthState]);
+
+  /**
+   * Clear error function
+   */
+  const clearError = useCallback(() => {
+    setError(null);
   }, []);
 
-  /**
-   * Force auth status check
-   */
-  const forceAuthCheck = useCallback(async () => {
-    try {
-      await checkAuthStatus(true); // Force check
-      setCoordinatorSync(prev => prev + 1); // Force re-render
-    } catch (error) {
-      logWarn('[AuthContext] Force auth check failed:', error);
-    }
-  }, [checkAuthStatus]);
+  // Computed properties
+  const isAdmin = user?.role === 'admin' || user?.role === 'superuser' || user?.account_type === 'superuser';
+  const isSuperuser = user?.role === 'superuser' || user?.account_type === 'superuser';
 
-  /**
-   * Check if user has admin privileges
-   */
-  const isSuperuser = isAdmin();
-
-  // Context value - include coordinatorSync to force re-renders
+  // Context value
   const contextValue = {
-    // State
+    // Core state
     user,
     isAuthenticated,
-    isLoading: isLoading || isInitializing, // Combine store loading with initialization loading
+    isLoading,
     error,
+    authReady,
+    
+    // Computed properties
+    isAdmin,
     isSuperuser,
-    isAdmin: isSuperuser, // Alias for backward compatibility
-    superuserStatusReady: true, // Always ready in optimized version
-    _syncVersion: coordinatorSync, // Internal sync tracker
-
-    // Actions
+    
+    // Functions
     login,
     logout,
     register,
-    checkAuthStatus: forceAuthCheck,
+    refreshAuth,
     clearError,
-    hasRole: (roles) => {
-      if (!user) return false;
-      const userRoles = [user.role, user.account_type].filter(Boolean);
-      return Array.isArray(roles) 
-        ? roles.some(role => userRoles.includes(role))
-        : userRoles.includes(roles);
-    }
+    
+    // Utilities
+    getAuthData,
+    validateAuthState
   };
 
   return (
@@ -277,12 +493,18 @@ AuthProvider.propTypes = {
  */
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  
   if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
-  
   return context;
+};
+
+/**
+ * Hook to check if auth is ready
+ */
+export const useAuthReady = () => {
+  const { authReady } = useAuth();
+  return authReady;
 };
 
 export default AuthContext;

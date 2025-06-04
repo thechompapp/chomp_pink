@@ -114,22 +114,21 @@ const AddToListModal = ({
       if (itemType === 'restaurant') {
         apiPayload = {
           ...itemData,
-          type: 'restaurant',
-          restaurant_id: itemToAdd.id || itemToAdd.restaurant_id
+          itemId: parseInt(itemToAdd.id || itemToAdd.restaurant_id),
+          itemType: 'restaurant'
         };
       } else if (itemType === 'dish') {
         apiPayload = {
           ...itemData,
-          type: 'dish',
-          dish_id: itemToAdd.id || itemToAdd.dish_id
+          itemId: parseInt(itemToAdd.id || itemToAdd.dish_id),
+          itemType: 'dish'
         };
       } else {
-        // Custom item
+        // Custom item - this might need different handling
         apiPayload = {
           ...itemData,
-          type: 'custom',
-          name: itemToAdd.name,
-          description: itemToAdd.description
+          itemId: parseInt(itemToAdd.id),
+          itemType: 'custom'
         };
       }
       

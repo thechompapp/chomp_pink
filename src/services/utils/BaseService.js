@@ -21,6 +21,14 @@ class BaseService {
   }
   
   /**
+   * Get the configured API client
+   * @returns {Object} Configured axios instance with auth headers
+   */
+  getApiClient() {
+    return getDefaultApiClient();
+  }
+  
+  /**
    * Make an API request with standardized error handling
    * @param {Object} options - Request options
    * @param {string} options.method - HTTP method (GET, POST, PUT, DELETE)
@@ -52,6 +60,7 @@ class BaseService {
     logDebug(`[${this.constructor.name}] ${method} ${url}`);
     
     try {
+      const apiClient = this.getApiClient();
       const response = await apiClient({
         method,
         url,

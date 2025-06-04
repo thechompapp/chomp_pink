@@ -255,6 +255,44 @@ export const verifyListOwnership = async (req, res, next) => {
   }
 };
 
+export const verifyListModifyAccess = async (req, res, next) => {
+  const listIdParam = req.params.id || req.params.listId || req.body.list_id || req.query.list_id;
+  const listId = parseInt(listIdParam, 10);
+  const userId = req.user ? req.user.id : null;
+
+  if (!userId) {
+    return res.status(401).json({ success: false, message: 'Authentication required.' });
+  }
+  if (isNaN(listId)) {
+    return res.status(400).json({ success: false, message: 'Invalid or missing List ID.' });
+  }
+  
+  try {
+    const list = await ListModel.findListByIdRaw(listId);
+    if (!list) {
+      return res.status(404).json({ success: false, message: 'List not found.' });
+    }
+    
+    // Allow access if:
+    // 1. User owns the list, OR
+    // 2. List is public (allowing community contributions)
+    const hasAccess = (list.user_id === userId) || list.is_public;
+    
+    if (!hasAccess) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Access denied: You can only add items to your own lists or public lists.' 
+      });
+    }
+    
+    req.list = list;
+    next();
+  } catch (error) {
+    console.error(`Error in verifyListModifyAccess middleware for list ${listId}:`, error);
+    return res.status(500).json({ success: false, message: 'Server error verifying list access.' });
+  }
+};
+
 export const generateToken = (user) => {
   if (!config.jwtSecret) {
     console.error('FATAL ERROR in generateToken: JWT_SECRET is not defined!');

@@ -31,11 +31,11 @@ export function getAuthToken(forceRefresh = false) {
     return tokenCache.value;
   }
   
-  // Try to get token from various storage locations
+  // Get token from storage with fallback locations
   let token = null;
   
   try {
-    // First try the primary storage location (matches AuthenticationCoordinator and tokenManager)
+    // 1. PRIMARY: Check the main 'token' storage
     token = localStorage.getItem('token');
     
     // Validate token is not a null string or empty
@@ -47,33 +47,48 @@ export function getAuthToken(forceRefresh = false) {
       return token;
     }
     
-    // Fallback: Try legacy localStorage auth-token
-    token = localStorage.getItem(HTTP_CONFIG.STORAGE_KEYS.AUTH_TOKEN);
-    
-    // If not found, try auth-storage (Zustand store)
-    if (!token || token === 'null' || token === 'undefined' || token.trim() === '') {
-      const authStorage = localStorage.getItem(HTTP_CONFIG.STORAGE_KEYS.AUTH_STORAGE);
-      if (authStorage) {
+    // 2. FALLBACK: Try auth-authentication-storage (Zustand store)
+    const authStorage = localStorage.getItem('auth-authentication-storage');
+    if (authStorage) {
+      try {
         const authData = JSON.parse(authStorage);
         token = authData?.state?.token;
+        if (token && token !== 'null' && token !== 'undefined' && token.trim() !== '') {
+          // Update cache and store in primary location for consistency
+          tokenCache.value = token;
+          tokenCache.timestamp = now;
+          localStorage.setItem('token', token); // Sync to primary location
+          logDebug('[AuthHeaders] Token retrieved from Zustand store and synced to primary');
+          return token;
+        }
+      } catch (parseError) {
+        logWarn('[AuthHeaders] Error parsing auth storage data:', parseError);
       }
     }
     
-    // Update cache
-    tokenCache.value = token;
-    tokenCache.timestamp = now;
-    
+    // 3. LEGACY FALLBACK: Try legacy auth-token location
+    token = localStorage.getItem('auth-token');
     if (token && token !== 'null' && token !== 'undefined' && token.trim() !== '') {
-      logDebug('[AuthHeaders] Token retrieved from legacy storage and cached');
-    } else {
-      logDebug('[AuthHeaders] No token found in any storage location');
-      token = null;
+      // Update cache and store in primary location for consistency
+      tokenCache.value = token;
+      tokenCache.timestamp = now;
+      localStorage.setItem('token', token); // Sync to primary location
+      logDebug('[AuthHeaders] Token retrieved from legacy storage and synced to primary');
+      return token;
     }
+    
+    // No valid token found anywhere
+    logDebug('[AuthHeaders] No valid token found in any storage location');
+    token = null;
     
   } catch (error) {
     logWarn('[AuthHeaders] Error retrieving token:', error);
     token = null;
   }
+  
+  // Update cache even if token is null
+  tokenCache.value = token;
+  tokenCache.timestamp = now;
   
   return token;
 }
@@ -123,6 +138,12 @@ export function addAuthHeaders(config) {
     logDebug('[AuthHeaders] Added Authorization header to request');
   } else {
     logDebug('[AuthHeaders] No valid token available for request');
+  }
+  
+  // Add development mode bypass headers
+  if (import.meta.env.DEV) {
+    config.headers['X-Bypass-Auth'] = 'true';
+    logDebug('[AuthHeaders] Added X-Bypass-Auth header for development mode');
   }
   
   // Add default headers

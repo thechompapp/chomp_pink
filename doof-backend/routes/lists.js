@@ -16,7 +16,8 @@ import {
     requireAuth,
     optionalAuth,
     verifyListOwnership,
-    verifyListAccess
+    verifyListAccess,
+    verifyListModifyAccess
 } from '../middleware/auth.js';
 import { validators, validate, validationRules } from '../utils/validationUtils.js';
 import { param } from 'express-validator';
@@ -96,12 +97,12 @@ router.delete(
     deleteList
 );
 
-// Add an item to a list (requires ownership)
+// Add an item to a list (requires modify access - ownership or public list)
 router.post(
     '/:id/items',
     requireAuth,
     validate(validators.list.addItemToList),
-    verifyListOwnership,
+    verifyListModifyAccess,
     addItemToList
 );
 
