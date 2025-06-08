@@ -96,7 +96,7 @@ export const BulkUpdatePanel = ({
     const commonProps = {
       value: value || '',
       onChange: (e) => updateFieldValue(field.key, e.target.value),
-      className: "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+      className: "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-white focus:border-white"
     };
 
     switch (field.type) {
@@ -130,7 +130,7 @@ export const BulkUpdatePanel = ({
       value: value || '',
       onChange: onChange,
       placeholder: "Enter new value",
-      className: "flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+      className: "flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-white focus:border-white"
     };
 
     switch (selectedField.type) {
@@ -138,7 +138,7 @@ export const BulkUpdatePanel = ({
         return <textarea {...commonProps} rows={2} />;
       case 'select':
         return (
-          <select {...commonProps} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+          <select {...commonProps} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-white focus:border-white">
             <option value="">Select {selectedField.label}</option>
             {selectedField.options?.map(option => (
               <option key={option} value={option}>
@@ -214,7 +214,7 @@ export const BulkUpdatePanel = ({
             <select
               value={newFieldKey}
               onChange={(e) => setNewFieldKey(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-white focus:border-white"
             >
               <option value="">Select field to update</option>
               {availableFields
@@ -241,7 +241,7 @@ export const BulkUpdatePanel = ({
                     value={newFieldValue}
                     onChange={(e) => setNewFieldValue(e.target.value)}
                     placeholder="Enter new value"
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-white focus:border-white"
                   />;
               })() : (
                 <input

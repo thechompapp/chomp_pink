@@ -69,10 +69,28 @@ export const getSearchAnalytics = async (req, res, next) => {
     }
 };
 
+// Controller to get aggregate trends data for charts
+export const getAggregateTrends = async (req, res, next) => {
+    const { itemType, period } = req.query;
+
+    try {
+        // Generate aggregate trend data based on engagement data
+        const aggregateTrends = await AnalyticsModel.getAggregateTrends({ itemType, period });
+        res.json({
+            success: true,
+            message: 'Aggregate trends retrieved successfully.',
+            data: aggregateTrends,
+        });
+    } catch (error) {
+        handleControllerError(res, error, 'Error fetching aggregate trends');
+    }
+};
+
 // Export controller methods individually or as default object
 const analyticsController = {
     getAnalyticsSummary,
     getEngagementAnalytics,
     getSearchAnalytics,
+    getAggregateTrends,
 };
 export default analyticsController;

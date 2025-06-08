@@ -282,6 +282,51 @@ export const useBulkOperations = ({
     }
   }, [resourceType, selectedRows, onOperationComplete]);
 
+  // Handle bulk add
+  const handleBulkAdd = useCallback(async (records) => {
+    if (!records || records.length === 0) {
+      toast.error('No records to add');
+      return;
+    }
+    
+    setIsLoading(true);
+    setProgress(0);
+    
+    try {
+      const result = await enhancedAdminService.bulkAddResources(
+        resourceType,
+        records,
+        (progress) => setProgress(progress)
+      );
+      
+      // Add to operation history
+      setOperationHistory(prev => [...prev, {
+        id: Date.now(),
+        type: OPERATION_TYPES.BULK_ADD,
+        timestamp: new Date(),
+        records: records.length,
+        success: result.success,
+        failed: result.failed
+      }]);
+      
+      toast.success(`Added ${result.success} records successfully`);
+      
+      if (result.failed > 0) {
+        toast.warning(`${result.failed} records failed to add`);
+      }
+      
+      setActiveOperation(null);
+      onOperationComplete?.();
+      
+    } catch (error) {
+      console.error('Bulk add error:', error);
+      toast.error(`Bulk add failed: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+      setProgress(0);
+    }
+  }, [resourceType, onOperationComplete]);
+
   // Reset state
   const resetOperation = useCallback(() => {
     setActiveOperation(null);
@@ -322,6 +367,7 @@ export const useBulkOperations = ({
     handleBulkExport,
     handleBulkUpdate,
     handleBulkDelete,
+    handleBulkAdd,
     resetOperation,
     
     // Utilities

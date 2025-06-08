@@ -52,7 +52,7 @@ const DishDetailSkeleton = () => (
 
 
 const DishDetail = () => {
-    const { dishId: id } = useParams(); // Rename id param to dishId for clarity internally if needed
+    const { dishId } = useParams(); // Get dishId from URL params
     const navigate = useNavigate();
     const isAuthenticated = useAuth().isAuthenticated;
     const { openQuickAdd } = useQuickAdd();
@@ -61,9 +61,9 @@ const DishDetail = () => {
     const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
     const queryResult = useQuery({
-        queryKey: ['dishDetails', id],
-        queryFn: () => fetchDishDetails(id),
-        enabled: !!id,
+        queryKey: ['dishDetails', dishId],
+        queryFn: () => fetchDishDetails(dishId),
+        enabled: !!dishId,
         staleTime: 5 * 60 * 1000,
         retry: (failureCount, error) => {
             const status = error?.status;
@@ -74,10 +74,10 @@ const DishDetail = () => {
 
     useEffect(() => {
         window.scrollTo(0, 0);
-    }, [id]);
+    }, [dishId]);
 
     useEffect(() => {
-        const numericId = id ? parseInt(id, 10) : NaN;
+        const numericId = dishId ? parseInt(dishId, 10) : NaN;
         if (!isNaN(numericId) && numericId > 0 && queryResult.isSuccess && !queryResult.isLoading) {
             engagementService.logEngagement({
                 item_id: numericId,
@@ -85,7 +85,7 @@ const DishDetail = () => {
                 engagement_type: 'view',
             }).catch(err => console.error("[DishDetail] Failed to log view:", err));
         }
-    }, [id, queryResult.isLoading, queryResult.isSuccess]);
+    }, [dishId, queryResult.isLoading, queryResult.isSuccess]);
 
     const handleAddToList = useCallback((dish) => {
         if (!isAuthenticated) {
@@ -221,7 +221,7 @@ const DishDetail = () => {
                 onClose={() => setShowLoginPrompt(false)}
                 title="Save Dish to Your List"
                 message={`Log in to save "${queryResult.data?.name || 'this dish'}" to your personal lists and keep track of your favorite foods.`}
-                currentPath={`/dish/${id}`}
+                currentPath={`/dish/${dishId}`}
             />
         </div>
     );

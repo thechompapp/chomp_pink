@@ -1,96 +1,101 @@
 /**
- * Card Component Styles
+ * Modern Card Component Styles
+ * Clean, borderless design with subtle shadows
  */
 
 .card {
   background-color: #FFFFFF;
-  border-radius: 8px;
+  border-radius: 0.75rem;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   width: 100%;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
 }
 
 /* Card Variants */
 .card-default {
-  border: 1px solid #EEEEEE;
+  background-color: #FFFFFF;
 }
 
 .card-outlined {
-  border: 1px solid #DBDBDB;
+  background-color: #FFFFFF;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
 }
 
 .card-elevated {
-  border: none;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+.card-muted {
+  background-color: #fafafa;
 }
 
 /* Card Header */
 .card-header {
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid #EEEEEE;
+  padding: 1.5rem 1.5rem 0;
 }
 
 .card-title {
   margin: 0;
-  font-size: 1.125rem;
+  font-size: 1.25rem;
   font-weight: 600;
-  color: #333333;
+  color: #1f2937;
+  line-height: 1.3;
+}
+
+.card-subtitle {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  color: #6b7280;
+  line-height: 1.4;
 }
 
 /* Card Body */
 .card-body {
-  padding: 1.25rem;
+  padding: 1.5rem;
   flex: 1;
 }
 
 /* Card Footer */
 .card-footer {
-  padding: 1rem 1.25rem;
-  border-top: 1px solid #EEEEEE;
-  background-color: #FAFAFA;
+  padding: 0 1.5rem 1.5rem;
+  margin-top: auto;
 }
 
 /* Interactive States */
-.card-hoverable {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
 .card-hoverable:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
 }
 
 .card-clickable {
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .card-clickable:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.card-clickable:active {
-  transform: translateY(0);
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
 }
 
 .card-clickable:focus {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(255, 90, 95, 0.3);
+  box-shadow: 0 0 0 2px rgb(59 130 246 / 0.2);
 }
 
 /* Responsive Adjustments */
 @media (max-width: 768px) {
   .card-header {
-    padding: 0.75rem 1rem;
+    padding: 1.25rem 1.25rem 0;
   }
   
   .card-body {
-    padding: 1rem;
+    padding: 1.25rem;
   }
   
   .card-footer {
-    padding: 0.75rem 1rem;
+    padding: 0 1.25rem 1.25rem;
+  }
+  
+  .card-title {
+    font-size: 1.125rem;
   }
 }

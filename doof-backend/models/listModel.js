@@ -93,14 +93,12 @@ export const findListsByUser = async (userId, {
   let baseQuery = `
     SELECT DISTINCT l.id, l.name, l.description, l.list_type, l.saved_count, 
            l.city_name, l.tags, l.is_public, l.creator_handle, l.user_id, 
-           l.created_at, l.updated_at,
+           l.created_at, l.updated_at, l.item_count,
            u.username as creator_username,
-           CASE WHEN lf.user_id IS NOT NULL THEN true ELSE false END as is_following,
-           COUNT(li.id) as items_count
+           CASE WHEN lf.user_id IS NOT NULL THEN true ELSE false END as is_following
     FROM lists l
     LEFT JOIN users u ON l.user_id = u.id
     LEFT JOIN listfollows lf ON l.id = lf.list_id AND lf.user_id = ${addParam(userId)}
-    LEFT JOIN listitems li ON l.id = li.list_id
   `;
 
   let whereConditions = [];
@@ -154,10 +152,14 @@ export const findListsByUser = async (userId, {
     
     const result = await db.query(baseQuery, params);
     
-    const formattedLists = result.rows.map(row => formatList({
-      ...row,
-      items_count: parseInt(row.items_count) || 0
-    }));
+    console.log(`[ListModel findListsByUser] Raw query result:`, result.rows.map(row => ({
+      id: row.id, 
+      name: row.name, 
+      item_count: row.item_count,
+      raw_item_count_type: typeof row.item_count
+    })));
+    
+    const formattedLists = result.rows.map(row => formatList(row));
 
     console.log(`[ListModel findListsByUser] Found ${formattedLists.length} lists for user ${userId}`);
     return formattedLists;
@@ -258,13 +260,10 @@ export const findListByIdRaw = async (listId) => {
   
   try {
     const query = `
-      SELECT l.*, u.username as creator_username,
-             COUNT(li.id) as items_count
+      SELECT l.*, u.username as creator_username
       FROM lists l
       LEFT JOIN users u ON l.user_id = u.id
-      LEFT JOIN listitems li ON l.id = li.list_id
       WHERE l.id = $1
-      GROUP BY l.id, u.username
     `;
     
     const result = await db.query(query, [listId]);
@@ -276,7 +275,7 @@ export const findListByIdRaw = async (listId) => {
     
     const list = {
       ...result.rows[0],
-      item_count: parseInt(result.rows[0].items_count) || 0
+      // item_count is already in the l.* selection
     };
     
     console.log(`[ListModel findListByIdRaw] Found list ${listId}:`, list.name);
@@ -434,12 +433,11 @@ export const getAllLists = async ({ page = 1, limit = 50, search = null, userId 
         l.user_id,
         l.created_at,
         l.updated_at,
+        l.item_count,
         u.username as creator_username,
-        u.email as creator_email,
-        COUNT(li.id) as items_count
+        u.email as creator_email
       FROM lists l
       LEFT JOIN users u ON l.user_id = u.id
-      LEFT JOIN listitems li ON l.id = li.list_id
     `;
     
     const conditions = [];
@@ -482,20 +480,13 @@ export const getAllLists = async ({ page = 1, limit = 50, search = null, userId 
     if (conditions.length > 0) {
       baseQuery += ` WHERE ${conditions.join(' AND ')}`;
     }
-    
-    // Add GROUP BY for aggregation
-    baseQuery += ` GROUP BY l.id, u.username, u.email`;
-    
-    // Add sorting
-    const validSortColumns = ['name', 'created_at', 'updated_at', 'saved_count', 'items_count', 'list_type'];
+
+    // Add sorting - no GROUP BY needed since we're not aggregating
+    const validSortColumns = ['name', 'created_at', 'updated_at', 'saved_count', 'item_count', 'list_type'];
     const sortColumn = validSortColumns.includes(sort) ? sort : 'updated_at';
     const sortOrder = order.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
     
-    if (sort === 'items_count') {
-      baseQuery += ` ORDER BY items_count ${sortOrder}`;
-    } else {
-      baseQuery += ` ORDER BY l.${sortColumn} ${sortOrder}`;
-    }
+    baseQuery += ` ORDER BY l.${sortColumn} ${sortOrder}`;
     
     // Add pagination
     const offset = (page - 1) * limit;
@@ -527,7 +518,7 @@ export const getAllLists = async ({ page = 1, limit = 50, search = null, userId 
         user_id: row.user_id,
         creator_username: row.creator_username,
         creator_email: row.creator_email,
-        item_count: parseInt(row.items_count) || 0,
+        item_count: parseInt(row.item_count) || 0,
         created_at: row.created_at,
         updated_at: row.updated_at
       })),
@@ -563,14 +554,12 @@ export const getListById = async (id) => {
         l.user_id,
         l.created_at,
         l.updated_at,
+        l.item_count,
         u.username as creator_username,
-        u.email as creator_email,
-        COUNT(li.id) as items_count
+        u.email as creator_email
       FROM lists l
       LEFT JOIN users u ON l.user_id = u.id
-      LEFT JOIN listitems li ON l.id = li.list_id
       WHERE l.id = $1
-      GROUP BY l.id, u.username, u.email
     `;
     
     const result = await db.query(query, [id]);
@@ -593,7 +582,7 @@ export const getListById = async (id) => {
       user_id: row.user_id,
       creator_username: row.creator_username,
       creator_email: row.creator_email,
-      item_count: parseInt(row.items_count) || 0,
+      item_count: parseInt(row.item_count) || 0,
       created_at: row.created_at,
       updated_at: row.updated_at
     };

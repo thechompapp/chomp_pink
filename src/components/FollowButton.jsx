@@ -165,7 +165,7 @@ const FollowButton = ({ listId, isFollowing: initialIsFollowing, className = '',
 
     return (
         <Button
-            variant={isFollowing ? "outline" : "primary"}
+            variant={isFollowing ? "destructive" : "outline"}
             size="sm"
             onClick={(e) => {
                 // Stop event propagation at all costs
@@ -183,7 +183,7 @@ const FollowButton = ({ listId, isFollowing: initialIsFollowing, className = '',
                 }
             }}
             disabled={isPending || !listId || !isAuthenticated}
-            className={`relative z-50 ${className}`}
+            className={`relative z-50 flex items-center ${className}`}
             style={{
                 pointerEvents: 'auto', // Force pointer events
                 position: 'relative' // Create stacking context
@@ -194,11 +194,11 @@ const FollowButton = ({ listId, isFollowing: initialIsFollowing, className = '',
             aria-label={isFollowing ? `Unfollow list` : `Follow list`}
         >
             {isPending ? (
-                <Loader2 size={16} className="animate-spin mr-1" />
+                <Loader2 size={14} className="animate-spin mr-2" />
             ) : (
-                isFollowing ? <HeartOff size={14} className="mr-1" /> : <Heart size={14} className="mr-1" />
+                <Heart size={14} className={`mr-2 ${isFollowing ? 'fill-current' : ''}`} />
             )}
-            <span>{isPending ? '...' : (isFollowing ? 'Unfollow' : 'Follow')}</span>
+            <span>{isPending ? '...' : 'Follow'}</span>
         </Button>
     );
 };

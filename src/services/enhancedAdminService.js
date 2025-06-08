@@ -12,6 +12,7 @@
 import httpClient from '@/services/http/httpClient';
 import { handleApiResponse } from '@/utils/serviceHelpers';
 import { logInfo, logError, logDebug, logWarn } from '@/utils/logger';
+import offlineModeGuard from '@/utils/offlineModeGuard';
 
 // Admin API endpoints configuration
 const ADMIN_ENDPOINTS = {
@@ -151,7 +152,7 @@ export const enhancedAdminService = {
   },
 
   /**
-   * Fetch data for a specific resource type
+   * Fetch data for a specific resource type with enhanced error handling
    */
   async fetchResourceData(resourceType) {
     logDebug(`[EnhancedAdminService] Fetching ${resourceType} data`);
@@ -162,7 +163,17 @@ export const enhancedAdminService = {
     }
     
     try {
-      const response = await httpClient.get(endpoint);
+      // Check if httpClient is available
+      if (!httpClient) {
+        throw new Error('HTTP client is not available');
+      }
+
+      // Use longer timeout for admin requests
+      const response = await httpClient.get(endpoint, {
+        timeout: 45000, // 45 seconds for admin data
+        _allowOffline: false,
+        _retryCount: 2
+      });
       
       // Extract and normalize data
       let data = [];
@@ -177,6 +188,42 @@ export const enhancedAdminService = {
       return data;
     } catch (error) {
       logError(`[EnhancedAdminService] Error fetching ${resourceType}:`, error);
+      
+      // Handle specific error types
+      if (error.message?.includes('HTTP client is not available')) {
+        throw new Error(`Service unavailable. Please refresh the page and try again.`);
+      } else if (error.message?.includes('Cannot make network requests in offline mode')) {
+        // Clear offline mode using the guard and try again
+        offlineModeGuard.clearOfflineModeFlags();
+        logWarn(`[EnhancedAdminService] Cleared offline mode using guard and retrying ${resourceType}`);
+        
+        try {
+          const retryResponse = await httpClient.get(endpoint, {
+            timeout: 30000,
+            _allowOffline: false
+          });
+          
+          let retryData = [];
+          if (retryResponse?.data?.data && Array.isArray(retryResponse.data.data)) {
+            retryData = retryResponse.data.data;
+          } else if (Array.isArray(retryResponse?.data)) {
+            retryData = retryResponse.data;
+          }
+          
+          logDebug(`[EnhancedAdminService] Retry successful for ${resourceType}:`, { count: retryData.length });
+          return retryData;
+        } catch (retryError) {
+          logError(`[EnhancedAdminService] Retry failed for ${resourceType}:`, retryError);
+          throw new Error(`Unable to load ${resourceType}. Please check your connection and try again.`);
+        }
+      } else if (error.code === 'ECONNABORTED') {
+        throw new Error(`Request timeout loading ${resourceType}. Please try again.`);
+      } else if (error.isOffline) {
+        throw new Error(`Network connection unavailable. Please check your connection and try again.`);
+      } else if (error.response?.status === 500) {
+        throw new Error(`Server error loading ${resourceType}. Please try again later.`);
+      }
+      
       throw error;
     }
   },
@@ -451,11 +498,18 @@ export const enhancedAdminService = {
     }
     
     try {
+      // Check if httpClient is available
+      if (!httpClient) {
+        throw new Error('HTTP client is not available');
+      }
+
       const response = await httpClient.get(endpoint, {
         params: {
           search: query,
           ...filters
-        }
+        },
+        timeout: 30000, // 30 seconds for search
+        _allowOffline: false
       });
       
       // Extract and normalize data
@@ -470,6 +524,17 @@ export const enhancedAdminService = {
       return data;
     } catch (error) {
       logError(`[EnhancedAdminService] Error searching ${resourceType}:`, error);
+      
+      // Handle specific error types similar to fetchResourceData
+      if (error.message?.includes('HTTP client is not available')) {
+        throw new Error(`Service unavailable. Please refresh the page and try again.`);
+      } else if (error.message?.includes('Cannot make network requests in offline mode')) {
+        // Clear offline mode using the guard and try simple fetch instead
+        offlineModeGuard.clearOfflineModeFlags();
+        logWarn(`[EnhancedAdminService] Cleared offline mode using guard, falling back to basic fetch for ${resourceType}`);
+        return this.fetchResourceData(resourceType);
+      }
+      
       throw error;
     }
   },

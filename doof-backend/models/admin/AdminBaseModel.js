@@ -17,10 +17,11 @@ export const resourceConfig = {
   restaurants: {
     tableName: 'restaurants',
     formatter: formatRestaurant,
-    allowedCreateColumns: ['name', 'address', 'city_id', 'neighborhood_id', 'zip_code', 'phone', 'website', 'instagram_handle', 'google_place_id', 'latitude', 'longitude', 'chain_id', 'created_at', 'updated_at'],
-    allowedUpdateColumns: ['name', 'address', 'city_id', 'neighborhood_id', 'zip_code', 'phone', 'website', 'instagram_handle', 'google_place_id', 'latitude', 'longitude', 'adds', 'chain_id', 'updated_at'],
+    allowedCreateColumns: ['name', 'cuisine', 'address', 'city_id', 'neighborhood_id', 'zip_code', 'phone', 'website', 'instagram_handle', 'google_place_id', 'latitude', 'longitude', 'chain_id', 'created_at', 'updated_at'],
+    allowedUpdateColumns: ['name', 'cuisine', 'address', 'city_id', 'neighborhood_id', 'zip_code', 'phone', 'website', 'instagram_handle', 'google_place_id', 'latitude', 'longitude', 'adds', 'chain_id', 'updated_at'],
     fieldsForCleanup: {
         name: { titleCase: true, trim: true },
+        cuisine: { titleCase: true, trim: true },
         description: { truncate: 500 },
         website: { prefixHttp: true },
         phone: { formatUS: true }

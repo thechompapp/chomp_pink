@@ -21,7 +21,7 @@ const AdminAuthDebug = () => {
       <div className="space-y-6">
         {/* Auth Context State */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h2 className="text-xl font-semibold mb-3 text-blue-800">Auth Context State</h2>
+          <h2 className="text-xl font-semibold mb-3 text-white">Auth Context State</h2>
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <strong>isAuthenticated:</strong> 

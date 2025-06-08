@@ -103,11 +103,18 @@ const search = async (params = {}, useCache = true) => {
   logDebug(`[searchService] Making API request to:`, axiosConfig.url);
   logDebug(`[searchService] Full request URL will be: http://localhost:5173${axiosConfig.url}`);
   
+  console.log(`[searchService] Making API request:`, axiosConfig);
+  console.log(`[searchService] Request URL:`, axiosConfig.url);
+  
   // Make API request with standardized error handling
   const result = await handleApiResponse(
     () => apiClient.request(axiosConfig),
     'searchService.search'
   );
+  
+  console.log(`[searchService] API call completed:`, result);
+  console.log(`[searchService] Result type:`, typeof result);
+  console.log(`[searchService] Result keys:`, result ? Object.keys(result) : 'no result');
   
   logDebug(`[searchService] Raw API result:`, result);
   logDebug(`[searchService] Raw API result type:`, typeof result);

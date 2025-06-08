@@ -94,7 +94,7 @@ export const useNotificationStore = create(
             params.append('type', state.filters.type);
           }
 
-          const response = await apiClient.get(`/api/notifications?${params}`);
+          const response = await apiClient.get(`/notifications?${params}`);
           
           if (response.data.success) {
             set(
@@ -169,7 +169,7 @@ export const useNotificationStore = create(
        */
       fetchUnreadCount: async () => {
         try {
-          const response = await apiClient.get('/api/notifications/unread-count');
+          const response = await apiClient.get('/notifications/unread-count');
           
           if (response.data.success) {
             set(
@@ -205,9 +205,9 @@ export const useNotificationStore = create(
 
           let response;
           if (ids.length === 1) {
-            response = await apiClient.post(`/api/notifications/${ids[0]}/read`);
+            response = await apiClient.post(`/notifications/${ids[0]}/read`);
           } else {
-            response = await apiClient.post('/api/notifications/read-multiple', {
+            response = await apiClient.post('/notifications/read-multiple', {
               notification_ids: ids
             });
           }
@@ -260,7 +260,7 @@ export const useNotificationStore = create(
             })
           );
 
-          const response = await apiClient.post('/api/notifications/read-all');
+          const response = await apiClient.post('/notifications/read-all');
           
           if (response.data.success) {
             logInfo(`[NotificationStore] Marked all notifications as read`);
@@ -292,7 +292,7 @@ export const useNotificationStore = create(
             })
           );
 
-          const response = await apiClient.delete(`/api/notifications/${notificationId}`);
+          const response = await apiClient.delete(`/notifications/${notificationId}`);
           
           if (response.data.success) {
             logInfo(`[NotificationStore] Deleted notification ${notificationId}`);
@@ -400,10 +400,20 @@ export const useNotificationStore = create(
               })
             );
             
-            // Try to reconnect after a delay
-            setTimeout(() => {
-              get().reconnectToNotificationStream();
-            }, 5000);
+            // Close the failed connection
+            eventSource.close();
+            
+            // Only try to reconnect after a delay if we're not already disconnecting
+            const currentState = get();
+            if (!currentState.isConnected) {
+              setTimeout(() => {
+                const latestState = get();
+                // Only reconnect if we're still not connected and don't have an active connection
+                if (!latestState.isConnected && !latestState.eventSource) {
+                  get().reconnectToNotificationStream();
+                }
+              }, 5000);
+            }
           };
 
         } catch (error) {
@@ -529,7 +539,7 @@ export const useNotificationStore = create(
             })
           );
 
-          const response = await apiClient.get('/api/notifications/preferences');
+          const response = await apiClient.get('/notifications/preferences');
           
           if (response.data.success) {
             set(
@@ -556,7 +566,7 @@ export const useNotificationStore = create(
        */
       updatePreferences: async (updates) => {
         try {
-          const response = await apiClient.put('/api/notifications/preferences', updates);
+          const response = await apiClient.put('/notifications/preferences', updates);
           
           if (response.data.success) {
             set(

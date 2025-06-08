@@ -147,16 +147,14 @@ const ItemDetailsForm = ({
       )}
       
       <Button 
-        onClick={handleAddItemToList} 
-        isLoading={addItemToListMutation.isPending} 
-        className="w-full bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-200"
-        variant="primary"
-        disabled={!listId || addItemToListMutation.isPending || isItemInList}
-        aria-label={`Add ${item.name} to ${listName}`}
+        type="submit" 
+        disabled={addItemToListMutation.isPending || !listId}
+        className="w-full bg-white text-black border border-gray-300 hover:bg-gray-50 hover:border-gray-400 shadow-sm font-semibold py-3 px-4 rounded-lg transition-colors duration-200"
+        onClick={handleAddItemToList}
       >
         {addItemToListMutation.isPending ? (
           <div className="flex items-center justify-center">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-black mr-2"></div>
             Adding...
           </div>
         ) : (

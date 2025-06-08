@@ -78,7 +78,9 @@ const ModalListCard = ({ list, onQuickAdd }) => {
       list.created_by_user === true ||
       // Check username match (fallback)
       (user.username && list.creator_handle && 
-       user.username.toLowerCase() === list.creator_handle.toLowerCase())
+       user.username.toLowerCase() === list.creator_handle.toLowerCase()) ||
+      // Additional check for creator ID
+      (user.id === list.creator_id || Number(user.id) === Number(list.creator_id))
     )
   );
 
@@ -228,7 +230,7 @@ const ModalListCard = ({ list, onQuickAdd }) => {
               {list.name}
             </h3>
             {/* Only show follow button for authenticated users and not their own lists */}
-            {user && !isOwnList && (
+            {isAuthenticated && !isOwnList && (
               <button
                 onClick={handleToggleFollow}
                 className={`ml-2 flex-shrink-0 inline-flex items-center px-2 py-1 text-xs rounded-sm z-10 ${followStatus ? 'bg-black text-white' : 'bg-white text-black border border-black'}`}

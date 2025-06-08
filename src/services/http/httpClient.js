@@ -13,10 +13,10 @@ import axios from 'axios';
 import tokenManager from '@/services/auth/tokenManager';
 import { logDebug, logError, logWarn } from '@/utils/logger';
 
-// Create axios instance with default config
+// Create axios instance with development-optimized timeout
 const httpClient = axios.create({
-  baseURL: '/api',
-  timeout: 15000,
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api',
+  timeout: import.meta.env.DEV ? 30000 : 10000, // 30 seconds in dev, 10 seconds in prod
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json'
@@ -63,11 +63,17 @@ const rejectRefreshQueue = (error) => {
 // Request interceptor
 httpClient.interceptors.request.use(
   async (config) => {
+    // Ensure config exists
+    if (!config) {
+      logError('[HttpClient] Request interceptor: config is undefined');
+      return Promise.reject(new Error('Request configuration is undefined'));
+    }
+
     // Don't add token to auth endpoints except logout
-    const isAuthEndpoint = config.url.startsWith('/auth/') && 
-                          !config.url.includes('/auth/logout');
+    const isAuthEndpoint = config.url?.startsWith('/auth/') && 
+                          !config.url?.includes('/auth/logout');
     
-    // Check offline mode
+    // Check offline mode with proper null checking
     const isOfflineMode = localStorage.getItem('offline_mode') === 'true';
     if (isOfflineMode && !config._allowOffline) {
       throw new Error('Cannot make network requests in offline mode');
@@ -77,12 +83,13 @@ httpClient.interceptors.request.use(
     if (!isAuthEndpoint) {
       const token = tokenManager.getAccessToken();
       if (token) {
+        config.headers = config.headers || {};
         config.headers.Authorization = `Bearer ${token}`;
-        if (config.url.includes('/admin/')) {
+        if (config.url?.includes('/admin/')) {
           logDebug(`[HttpClient] Admin request - using token: ${token.substring(0, 20)}...`);
         }
       } else {
-        if (config.url.includes('/admin/')) {
+        if (config.url?.includes('/admin/')) {
           logWarn(`[HttpClient] Admin request - NO TOKEN AVAILABLE for ${config.url}`);
         }
       }
@@ -100,11 +107,17 @@ httpClient.interceptors.request.use(
 // Response interceptor
 httpClient.interceptors.response.use(
   (response) => {
-    logDebug(`[HttpClient] Response: ${response.status} from ${response.config.url}`);
+    logDebug(`[HttpClient] Response: ${response.status} from ${response?.config?.url}`);
     return response;
   },
   async (error) => {
     const originalRequest = error.config;
+    
+    // Ensure originalRequest exists before proceeding
+    if (!originalRequest) {
+      logError('[HttpClient] Response interceptor: originalRequest is undefined');
+      return Promise.reject(error);
+    }
     
     // Handle network errors (offline)
     if (!error.response) {
@@ -127,7 +140,7 @@ httpClient.interceptors.response.use(
     // Handle 401 Unauthorized errors (token expired)
     if (error.response.status === 401 && !originalRequest._retry) {
       // Don't attempt to refresh if this is an auth endpoint
-      if (originalRequest.url.includes('/auth/')) {
+      if (originalRequest.url?.includes('/auth/')) {
         return Promise.reject(error);
       }
       
@@ -169,7 +182,8 @@ httpClient.interceptors.response.use(
             throw new Error('No new token after development re-authentication');
           }
           
-          // Update authorization header
+          // Ensure headers object exists
+          originalRequest.headers = originalRequest.headers || {};
           originalRequest.headers.Authorization = `Bearer ${newToken}`;
           
           // Process queued requests
@@ -195,7 +209,8 @@ httpClient.interceptors.response.use(
           expiresIn
         });
         
-        // Update authorization header
+        // Ensure headers object exists
+        originalRequest.headers = originalRequest.headers || {};
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         
         // Process queued requests

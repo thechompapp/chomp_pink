@@ -5,7 +5,7 @@
  * Uses standardized UI components from the models system for consistency.
  */
 import React, { useState, useMemo, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { 
   PlusCircle, 
@@ -48,6 +48,7 @@ const SORT_OPTIONS = [
 const MyLists = () => {
   const { user, isAuthenticated } = useAuth();
   const userId = user?.id;
+  const queryClient = useQueryClient();
 
   // State management
   const [view, setView] = useState('created'); // 'created' or 'followed'
@@ -58,7 +59,7 @@ const MyLists = () => {
   const [showBulkActions, setShowBulkActions] = useState(false);
   const limit = 12;
 
-  // React Query for data fetching
+  // React Query for current view's data
   const { 
     data: queryResult, 
     isLoading, 
@@ -68,41 +69,107 @@ const MyLists = () => {
     refetch 
   } = useQuery({
     queryKey: ['userLists', userId, { view, page, limit, searchTerm, sortMethod }],
-    queryFn: () => listService.getUserLists({ 
-      view, 
-      page, 
-      limit, 
-      searchTerm,
-      sortBy: sortMethod === 'recent' ? 'updated_at' : 
-              sortMethod === 'name' ? 'name' :
-              sortMethod === 'created' ? 'created_at' :
-              sortMethod === 'items' ? 'item_count' :
-              sortMethod === 'popular' ? 'follow_count' : 'updated_at',
-      sortOrder: sortMethod === 'name' ? 'asc' : 'desc'
-    }),
+    queryFn: () => {
+      // For the My Lists page, we need to get user-specific lists
+      // The backend should handle authentication properly
+      return listService.getUserLists({ 
+        view, 
+        page, 
+        limit, 
+        searchTerm,
+        sortBy: sortMethod === 'recent' ? 'updated_at' : 
+                sortMethod === 'name' ? 'name' :
+                sortMethod === 'created' ? 'created_at' :
+                sortMethod === 'items' ? 'item_count' :
+                sortMethod === 'popular' ? 'follow_count' : 'updated_at',
+        sortOrder: sortMethod === 'name' ? 'asc' : 'desc',
+        // Add explicit user context - this should make the backend filter by authenticated user
+        includePrivate: true, // Include private lists for My Lists page
+        createdByUser: view === 'created' ? true : undefined,
+        followedByUser: view === 'followed' ? true : undefined
+      });
+    },
     placeholderData: (previousData) => previousData,
     enabled: !!isAuthenticated && !!userId,
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
 
+  // Separate queries for counts - these get the total counts regardless of current view
+  const { data: createdCountData } = useQuery({
+    queryKey: ['userListsCount', userId, 'created'],
+    queryFn: () => listService.getUserLists({ 
+      view: 'created', 
+      page: 1, 
+      limit: 1, // Only need count, not actual data
+      includePrivate: true,
+      createdByUser: true 
+    }),
+    enabled: !!isAuthenticated && !!userId,
+    staleTime: 5 * 60 * 1000, // 5 minutes - counts don't change as frequently
+    select: (data) => data?.pagination?.total || 0
+  });
+
+  const { data: followedCountData } = useQuery({
+    queryKey: ['userListsCount', userId, 'followed'],
+    queryFn: () => listService.getUserLists({ 
+      view: 'followed', 
+      page: 1, 
+      limit: 1, // Only need count, not actual data
+      followedByUser: true 
+    }),
+    enabled: !!isAuthenticated && !!userId,
+    staleTime: 5 * 60 * 1000, // 5 minutes - counts don't change as frequently
+    select: (data) => data?.pagination?.total || 0
+  });
+
+  // Use the counts from separate queries
+  const createdCount = createdCountData || 0;
+  const followedCount = followedCountData || 0;
+
   // Extract data with proper fallbacks
-  const lists = useMemo(() => queryResult?.data || [], [queryResult?.data]);
+  const lists = useMemo(() => {
+    const result = queryResult?.data || [];
+    return result;
+  }, [queryResult?.data]);
+  
   const pagination = queryResult?.pagination;
   const totalPages = pagination?.totalPages || 1;
   const totalCount = pagination?.total || lists.length;
 
-  // Normalize list data to match UI component expectations
+  // Normalize lists with consistent structure
   const normalizedLists = useMemo(() => {
     return lists.map(list => {
-      // Use the standardized card data normalizer
-      const normalized = normalizeCardData[CardTypes.LIST]?.(list) || list;
-      
-      // Ensure required fields are present for UI consistency
-      return {
+      const normalized = {
+        ...list,
+        // Normalize common fields
+        id: list.id,
+        name: list.name || 'Untitled List',
+        description: list.description || '',
+        type: list.type || list.list_type || 'restaurant',
+        list_type: list.list_type || list.type || 'restaurant',
+        created_at: list.created_at,
+        updated_at: list.updated_at,
+        // Normalize counts
+        item_count: list.item_count || list.items_count || list.items?.length || 0,
+        saved_count: list.saved_count || list.follow_count || 0,
+        view_count: list.view_count || 0,
+        // Normalize user fields
+        user_id: list.user_id,
+        creator_handle: list.creator_handle || list.owner_username,
+        owner_username: list.owner_username || list.creator_handle,
+        // Normalize status fields
+        is_public: list.is_public !== false,
+        tags: Array.isArray(list.tags) ? list.tags : [],
+        items: Array.isArray(list.items) ? list.items : [],
+      };
+
+      // For My Lists page, trust the backend filtering
+      // If a list appears in the response, it should be shown
+      const result = {
         ...normalized,
-        // Handle created vs followed logic
-        created_by_user: list.user_id === userId || list.created_by_user === true,
-        is_following: list.is_following || false,
+        // Handle created vs followed logic - if it's in the API response for this view, show it
+        created_by_user: view === 'created' ? true : list.created_by_user || (list.user_id === userId),
+        is_following: view === 'followed' ? true : (list.is_following || false),
         can_follow: list.user_id !== userId && !list.created_by_user,
         // Ensure display fields are present
         items_count: list.item_count || list.items?.length || 0,
@@ -110,19 +177,17 @@ const MyLists = () => {
         follow_count: list.follow_count || 0,
         comment_count: list.comment_count || 0,
       };
+      
+      return result;
     });
-  }, [lists, userId]);
+  }, [lists, userId, view]);
 
-  // Filter lists by view (created vs followed)
+  // For My Lists, trust the backend filtering - don't re-filter on frontend
   const viewFilteredLists = useMemo(() => {
-    return normalizedLists.filter(list => {
-      if (view === 'created') {
-        return list.created_by_user || list.user_id === userId;
-      } else {
-        return list.is_following && !list.created_by_user && list.user_id !== userId;
-      }
-    });
-  }, [normalizedLists, view, userId]);
+    // Since we're passing view-specific parameters to the API,
+    // trust that the backend is returning the correct lists
+    return normalizedLists;
+  }, [normalizedLists]);
 
   // Filter and sort lists client-side for immediate feedback
   const filteredAndSortedLists = useMemo(() => {
@@ -157,17 +222,6 @@ const MyLists = () => {
 
     return processedLists;
   }, [viewFilteredLists, searchTerm, sortMethod]);
-
-  // Calculate counts for toggle labels
-  const createdCount = useMemo(() => 
-    normalizedLists.filter(l => l.created_by_user || l.user_id === userId).length,
-    [normalizedLists, userId]
-  );
-  
-  const followedCount = useMemo(() => 
-    normalizedLists.filter(l => l.is_following && !l.created_by_user && l.user_id !== userId).length,
-    [normalizedLists, userId]
-  );
 
   // Event handlers
   const handleViewChange = useCallback((newView) => {
@@ -213,14 +267,14 @@ const MyLists = () => {
   }, [selectedLists]);
 
   const handleSelectAll = useCallback(() => {
-    if (selectedLists.size === filteredAndSortedLists.length) {
+    if (selectedLists.size === viewFilteredLists.length) {
       setSelectedLists(new Set());
       setShowBulkActions(false);
     } else {
-      setSelectedLists(new Set(filteredAndSortedLists.map(list => list.id)));
+      setSelectedLists(new Set(viewFilteredLists.map(list => list.id)));
       setShowBulkActions(true);
     }
-  }, [selectedLists.size, filteredAndSortedLists]);
+  }, [selectedLists.size, viewFilteredLists]);
 
   // Quick Add handler for ListCard component
   const handleQuickAdd = useCallback((listData) => {
@@ -229,15 +283,33 @@ const MyLists = () => {
   }, []);
 
   // Follow/Unfollow handlers for ListCard component
-  const handleFollow = useCallback((listId) => {
+  const handleFollow = useCallback(async (listId) => {
     console.log('[MyLists] Follow triggered for list:', listId);
-    // Implement follow functionality
-  }, []);
+    try {
+      await listService.followList(listId);
+      // Invalidate both current view and count queries
+      queryClient.invalidateQueries({ queryKey: ['userLists', userId] });
+      queryClient.invalidateQueries({ queryKey: ['userListsCount', userId, 'followed'] });
+      // Also invalidate created count in case the user was viewing their own list
+      queryClient.invalidateQueries({ queryKey: ['userListsCount', userId, 'created'] });
+    } catch (error) {
+      console.error('[MyLists] Error following list:', error);
+    }
+  }, [queryClient, userId]);
 
-  const handleUnfollow = useCallback((listId) => {
+  const handleUnfollow = useCallback(async (listId) => {
     console.log('[MyLists] Unfollow triggered for list:', listId);
-    // Implement unfollow functionality
-  }, []);
+    try {
+      await listService.unfollowList(listId);
+      // Invalidate both current view and count queries
+      queryClient.invalidateQueries({ queryKey: ['userLists', userId] });
+      queryClient.invalidateQueries({ queryKey: ['userListsCount', userId, 'followed'] });
+      // Also invalidate created count in case the user was viewing their own list
+      queryClient.invalidateQueries({ queryKey: ['userListsCount', userId, 'created'] });
+    } catch (error) {
+      console.error('[MyLists] Error unfollowing list:', error);
+    }
+  }, [queryClient, userId]);
 
   // Loading state
   if (isLoading && !queryResult) {
@@ -269,266 +341,268 @@ const MyLists = () => {
   }
 
   return (
-    <div className={`${CONTAINER.MAX_WIDTH} mx-auto ${CONTAINER.PADDING} ${CONTAINER.VERTICAL_SPACING}`}>
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className={TYPOGRAPHY.PAGE_TITLE}>My Lists</h1>
-          <p className="text-gray-600 mt-1">
-            Manage your created lists and discover lists you're following
-          </p>
-        </div>
-        
-        {/* Quick Stats */}
-        <div className="flex items-center gap-4 text-sm text-gray-600">
-          <div className="text-center">
-            <div className="font-semibold text-lg text-gray-900">{filteredAndSortedLists.length}</div>
-            <div>{view === 'created' ? 'Created' : 'Following'}</div>
+    <div className="page-container">
+      <div className={`${CONTAINER.MAX_WIDTH} mx-auto ${CONTAINER.PADDING} ${CONTAINER.VERTICAL_SPACING}`}>
+        {/* Page Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <h1 className={`${TYPOGRAPHY.PAGE_TITLE} text-black`}>My Lists</h1>
+            <p className="text-gray-600 mt-1">
+              Manage your created lists and discover lists you're following
+            </p>
           </div>
-        </div>
-      </div>
-
-      {/* Controls Section */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6 space-y-4">
-        {/* View Toggle and Create Button */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <ToggleSwitch
-            options={[
-              { value: 'created', label: `Created Lists (${createdCount})` },
-              { value: 'followed', label: `Following Lists (${followedCount})` }
-            ]}
-            selected={view}
-            onChange={handleViewChange}
-          />
           
-          <div className="flex items-center gap-2">
-            {selectedLists.size > 0 && (
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => {
-                  setSelectedLists(new Set());
-                  setShowBulkActions(false);
-                }}
-              >
-                <X className="h-4 w-4 mr-1" />
-                Clear ({selectedLists.size})
-              </Button>
-            )}
-            
-            <Button variant="outline" size="sm">
-              <Download className="h-4 w-4 mr-1" />
-              Export
-            </Button>
-            
-            <Button asChild size="sm">
-              <Link to="/lists/new">
-                <PlusCircle className="h-4 w-4 mr-1" />
-                Create List
-              </Link>
-            </Button>
+          {/* Quick Stats */}
+          <div className="flex items-center gap-4 text-sm text-gray-600">
+            <div className="text-center">
+              <div className="font-semibold text-lg text-gray-900">{viewFilteredLists.length}</div>
+              <div>{view === 'created' ? 'Created' : 'Following'}</div>
+            </div>
           </div>
         </div>
 
-        {/* Search and Sort */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          {/* Search */}
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder={`Search your ${view} lists...`}
-              value={searchTerm}
-              onChange={handleSearchChange}
-              className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        {/* Controls Section */}
+        <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6 space-y-4">
+          {/* View Toggle and Create Button */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <ToggleSwitch
+              options={[
+                { value: 'created', label: `Created Lists (${createdCount})` },
+                { value: 'followed', label: `Following Lists (${followedCount})` }
+              ]}
+              selected={view}
+              onChange={handleViewChange}
             />
-            {searchTerm && (
-              <button
-                onClick={handleClearSearch}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-
-          {/* Sort Options */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm text-gray-600 whitespace-nowrap">Sort by:</span>
-            {SORT_OPTIONS.map(({ id, label, Icon }) => (
-              <Button
-                key={id}
-                variant={sortMethod === id ? 'primary' : 'outline'}
-                size="sm"
-                onClick={() => handleSortChange(id)}
-                className="flex items-center gap-1"
-              >
-                <Icon className="h-3 w-3" />
-                {label}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        {/* Bulk Actions */}
-        {showBulkActions && (
-          <div className="flex items-center justify-between p-3 bg-blue-50 rounded-md border border-blue-200">
+            
             <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={selectedLists.size === filteredAndSortedLists.length}
-                onChange={handleSelectAll}
-                className="rounded border-gray-300"
-              />
-              <span className="text-sm text-blue-900">
-                {selectedLists.size} of {filteredAndSortedLists.length} lists selected
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm">
-                <Share2 className="h-4 w-4 mr-1" />
-                Share
-              </Button>
-              {view === 'created' && (
-                <Button variant="outline" size="sm">
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  Delete
+              {selectedLists.size > 0 && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    setSelectedLists(new Set());
+                    setShowBulkActions(false);
+                  }}
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Clear ({selectedLists.size})
                 </Button>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Search Results Info */}
-      {searchTerm && (
-        <div className="mb-4 text-sm text-gray-600">
-          {filteredAndSortedLists.length} result{filteredAndSortedLists.length !== 1 ? 's' : ''} 
-          {' '}found for "{searchTerm}"
-        </div>
-      )}
-
-      {/* Lists Grid */}
-      {isFetching && !lists.length ? (
-        <div className={GRID_LAYOUTS.FULL_WIDTH}>
-          {Array.from({ length: limit }).map((_, index) => (
-            <ListCardSkeleton key={`loading-${index}`} />
-          ))}
-        </div>
-      ) : filteredAndSortedLists.length > 0 ? (
-        <div className={GRID_LAYOUTS.FULL_WIDTH}>
-          {filteredAndSortedLists.map((list) => (
-            <div key={list.id} className="relative">
-              {/* Selection Checkbox for Bulk Operations */}
-              {showBulkActions && (
-                <div className="absolute top-2 left-2 z-10">
-                  <input
-                    type="checkbox"
-                    checked={selectedLists.has(list.id)}
-                    onChange={() => handleListSelect(list.id)}
-                    className="rounded border-gray-300 bg-white shadow-md"
-                  />
-                </div>
               )}
               
-              {/* Use the standardized ListCard from UI components */}
-              <ListCard 
-                {...list}
-                onQuickAdd={() => handleQuickAdd(list)}
-                onFollow={() => handleFollow(list.id)}
-                onUnfollow={() => handleUnfollow(list.id)}
-                className={showBulkActions ? 'ml-6' : ''}
-              />
+              <Button variant="outline" size="sm">
+                <Download className="h-4 w-4 mr-1" />
+                Export
+              </Button>
+              
+              <Link to="/lists/new">
+                <Button size="sm">
+                  <PlusCircle className="h-4 w-4 mr-1" />
+                  Create List
+                </Button>
+              </Link>
             </div>
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-12">
-          <div className="mb-4">
-            {searchTerm ? (
-              <Filter className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-            ) : (
-              <PlusCircle className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-            )}
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
-            {searchTerm 
-              ? 'No matching lists found'
-              : view === 'created' 
-                ? "You haven't created any lists yet" 
-                : "You aren't following any lists yet"
-            }
-          </h3>
-          <p className="text-gray-600 mb-4">
-            {searchTerm 
-              ? 'Try adjusting your search terms or filters'
-              : view === 'created' 
-                ? 'Create your first list to get started organizing your favorite places' 
-                : 'Discover and follow lists from other food lovers'
-            }
-          </p>
-          {!searchTerm && (
-            <div className="flex justify-center gap-3">
-              {view === 'created' ? (
-                <Button asChild>
-                  <Link to="/lists/new">
-                    <PlusCircle className="h-4 w-4 mr-1" />
-                    Create Your First List
-                  </Link>
-                </Button>
-              ) : (
-                <Button asChild variant="outline">
-                  <Link to="/trending">
-                    <TrendingUp className="h-4 w-4 mr-1" />
-                    Explore Trending Lists
-                  </Link>
-                </Button>
+
+          {/* Search and Sort */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            {/* Search */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder={`Search your ${view} lists...`}
+                value={searchTerm}
+                onChange={handleSearchChange}
+                className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
+              />
+              {searchTerm && (
+                <button
+                  onClick={handleClearSearch}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               )}
+            </div>
+
+            {/* Sort Options */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm text-gray-600 whitespace-nowrap">Sort by:</span>
+              {SORT_OPTIONS.map(({ id, label, Icon }) => (
+                <Button
+                  key={id}
+                  variant={sortMethod === id ? 'primary' : 'outline'}
+                  size="sm"
+                  onClick={() => handleSortChange(id)}
+                  className="flex items-center gap-1"
+                >
+                  <Icon className="h-3 w-3" />
+                  {label}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          {/* Bulk Actions */}
+          {showBulkActions && (
+            <div className="flex items-center justify-between p-3 bg-blue-50 rounded-md border border-blue-200">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={selectedLists.size === viewFilteredLists.length}
+                  onChange={handleSelectAll}
+                  className="rounded border-gray-300"
+                />
+                <span className="text-sm text-blue-900">
+                  {selectedLists.size} of {viewFilteredLists.length} lists selected
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm">
+                  <Share2 className="h-4 w-4 mr-1" />
+                  Share
+                </Button>
+                {view === 'created' && (
+                  <Button variant="outline" size="sm">
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Delete
+                  </Button>
+                )}
+              </div>
             </div>
           )}
         </div>
-      )}
 
-      {/* Pagination */}
-      {pagination && totalPages > 1 && (
-        <div className="flex justify-center items-center gap-2 mt-8 pt-6 border-t border-gray-200">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlePageChange(page - 1)}
-            disabled={page <= 1 || isFetching}
-          >
-            Previous
-          </Button>
-          
-          <div className="flex items-center gap-1">
-            {[...Array(Math.min(totalPages, 5))].map((_, index) => {
-              const pageNum = index + 1;
-              return (
-                <Button
-                  key={pageNum}
-                  variant={page === pageNum ? 'primary' : 'outline'}
-                  size="sm"
-                  onClick={() => handlePageChange(pageNum)}
-                  disabled={isFetching}
-                  className="w-8 h-8 p-0"
-                >
-                  {pageNum}
-                </Button>
-              );
-            })}
+        {/* Search Results Info */}
+        {searchTerm && (
+          <div className="mb-4 text-sm text-gray-600">
+            {viewFilteredLists.length} result{viewFilteredLists.length !== 1 ? 's' : ''} 
+            {' '}found for "{searchTerm}"
           </div>
-          
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlePageChange(page + 1)}
-            disabled={page >= totalPages || isFetching}
-          >
-            Next
-          </Button>
-        </div>
-      )}
+        )}
+
+        {/* Lists Grid */}
+        {isFetching && !lists.length ? (
+          <div className={GRID_LAYOUTS.FULL_WIDTH}>
+            {Array.from({ length: limit }).map((_, index) => (
+              <ListCardSkeleton key={`loading-${index}`} />
+            ))}
+          </div>
+        ) : viewFilteredLists.length > 0 ? (
+          <div className={GRID_LAYOUTS.FULL_WIDTH}>
+            {viewFilteredLists.map((list) => (
+              <div key={list.id} className="relative">
+                {/* Selection Checkbox for Bulk Operations */}
+                {showBulkActions && (
+                  <div className="absolute top-2 left-2 z-10">
+                    <input
+                      type="checkbox"
+                      checked={selectedLists.has(list.id)}
+                      onChange={() => handleListSelect(list.id)}
+                      className="rounded border-gray-300"
+                    />
+                  </div>
+                )}
+                
+                {/* Use the standardized ListCard from UI components */}
+                <ListCard 
+                  {...list}
+                  onQuickAdd={() => handleQuickAdd(list)}
+                  onFollow={() => handleFollow(list.id)}
+                  onUnfollow={() => handleUnfollow(list.id)}
+                  className={showBulkActions ? 'ml-6' : ''}
+                />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <div className="mb-4">
+              {searchTerm ? (
+                <Filter className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+              ) : (
+                <PlusCircle className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+              )}
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              {searchTerm 
+                ? 'No matching lists found'
+                : view === 'created' 
+                  ? "You haven't created any lists yet" 
+                  : "You aren't following any lists yet"
+              }
+            </h3>
+            <p className="text-gray-600 mb-4">
+              {searchTerm 
+                ? 'Try adjusting your search terms or filters'
+                : view === 'created' 
+                  ? 'Create your first list to get started organizing your favorite places' 
+                  : 'Discover and follow lists from other food lovers'
+              }
+            </p>
+            {!searchTerm && (
+              <div className="flex justify-center gap-3">
+                {view === 'created' ? (
+                  <Link to="/lists/new">
+                    <Button>
+                      <PlusCircle className="h-4 w-4 mr-1" />
+                      Create Your First List
+                    </Button>
+                  </Link>
+                ) : (
+                  <Link to="/trending">
+                    <Button variant="outline">
+                      <TrendingUp className="h-4 w-4 mr-1" />
+                      Explore Trending Lists
+                    </Button>
+                  </Link>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {pagination && totalPages > 1 && (
+          <div className="flex justify-center items-center gap-2 mt-8 pt-6 border-t border-gray-200">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(page - 1)}
+              disabled={page <= 1 || isFetching}
+            >
+              Previous
+            </Button>
+            
+            <div className="flex items-center gap-1">
+              {[...Array(Math.min(totalPages, 5))].map((_, index) => {
+                const pageNum = index + 1;
+                return (
+                  <Button
+                    key={pageNum}
+                    variant={page === pageNum ? 'primary' : 'outline'}
+                    size="sm"
+                    onClick={() => handlePageChange(pageNum)}
+                    disabled={isFetching}
+                    className="w-8 h-8 p-0"
+                  >
+                    {pageNum}
+                  </Button>
+                );
+              })}
+            </div>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(page + 1)}
+              disabled={page >= totalPages || isFetching}
+            >
+              Next
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

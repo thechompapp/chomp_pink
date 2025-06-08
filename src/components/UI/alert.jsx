@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 const alertVariants = {
   default: "bg-white text-gray-950 border-gray-200",
   destructive: "border-red-500/50 text-red-900 bg-red-50 [&>svg]:text-red-600",
+  warning: "border-yellow-500/50 text-yellow-900 bg-yellow-50 [&>svg]:text-yellow-600",
 };
 
 const Alert = React.forwardRef(({ className, variant = "default", ...props }, ref) => (

@@ -53,6 +53,18 @@ const SearchResultsPage = () => {
         // Add other react-query options as needed
     });
 
+    console.log(`[SearchPage] Search state:`, {
+        searchQuery,
+        searchType,
+        searchTriggered,
+        isLoading,
+        isError,
+        error: error?.message,
+        data,
+        hasData: !!data,
+        dataKeys: data ? Object.keys(data) : 'no data'
+    });
+
     useEffect(() => {
         // Update local state if URL query params change
         const urlQuery = queryParams.get('q') || '';
@@ -180,7 +192,7 @@ const SearchResultsPage = () => {
     }
 
     return (
-        <div className={`${CONTAINER.MAX_WIDTH} mx-auto ${CONTAINER.PADDING} ${CONTAINER.VERTICAL_SPACING} ${CONTAINER.SECTION_SPACING}`}>
+        <div className={`page-container ${CONTAINER.MAX_WIDTH} mx-auto ${CONTAINER.PADDING} ${CONTAINER.VERTICAL_SPACING} ${CONTAINER.SECTION_SPACING}`}>
             {/* Keep SearchBar at the top */}
             <SearchBar 
                 onSearch={handleSearch} 

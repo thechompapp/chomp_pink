@@ -37,7 +37,7 @@ const CHART_VIEW_OPTIONS = [
 // Fetcher functions
 const fetchTrendingRestaurants = async () => {
     try {
-        const data = await trendingService.getTrendingRestaurants();
+        const data = await trendingService.getTrendingRestaurants({ limit: 50 });
         console.log('[TrendingPage] Restaurant data fetched:', data);
         // Ensure we properly handle all possible return formats
         if (Array.isArray(data)) {
@@ -58,7 +58,7 @@ const fetchTrendingRestaurants = async () => {
 
 const fetchTrendingDishes = async () => {
      try {
-        const data = await trendingService.getTrendingDishes();
+        const data = await trendingService.getTrendingDishes({ limit: 50 });
         console.log('[TrendingPage] Dish data fetched:', data);
         // Ensure we properly handle all possible return formats
         if (Array.isArray(data)) {
@@ -79,7 +79,7 @@ const fetchTrendingDishes = async () => {
 
 const fetchTrendingLists = async () => {
      try {
-        const data = await trendingService.getTrendingLists();
+        const data = await trendingService.getTrendingLists({ limit: 50 });
         console.log('[TrendingPage] List data fetched:', data);
         // Ensure we properly handle all possible return formats
         if (Array.isArray(data)) {
@@ -284,7 +284,7 @@ const Trending = () => {
 
   // Main content render once initial load/error states are passed
   return (
-    <div className={`${CONTAINER.SECTION_SPACING} ${CONTAINER.MAX_WIDTH} mx-auto ${CONTAINER.PADDING} ${CONTAINER.VERTICAL_SPACING}`}>
+    <div className={`page-container ${CONTAINER.SECTION_SPACING} ${CONTAINER.MAX_WIDTH} mx-auto ${CONTAINER.PADDING} ${CONTAINER.VERTICAL_SPACING}`}>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h1 className={TYPOGRAPHY.PAGE_TITLE}>Trending</h1>
          {/* Maybe add a global refresh button here? */}

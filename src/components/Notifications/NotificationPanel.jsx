@@ -117,8 +117,8 @@ const NotificationItem = ({ notification, isSelected, onToggleSelect, onMarkRead
       className={cn(
         'flex items-start space-x-3 p-4 cursor-pointer transition-all duration-200',
         'hover:bg-gray-50 dark:hover:bg-gray-800',
-        !notification.isRead && 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500',
-        isSelected && 'bg-blue-100 dark:bg-blue-800/30'
+        !notification.isRead && 'bg-gray-50 border-l-4 border-gray-500',
+        isSelected && 'bg-gray-100'
       )}
       onClick={handleClick}
     >
@@ -128,7 +128,7 @@ const NotificationItem = ({ notification, isSelected, onToggleSelect, onMarkRead
           type="checkbox"
           checked={isSelected}
           onChange={handleToggleSelect}
-          className="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          className="mt-1 rounded border-gray-300 text-gray-600 focus:ring-gray-500"
           onClick={(e) => e.stopPropagation()}
         />
       )}
@@ -260,7 +260,7 @@ const NotificationFilters = ({ filters, onFiltersChange, onClose }) => {
             type="checkbox"
             checked={localFilters.unreadOnly}
             onChange={(e) => setLocalFilters({ ...localFilters, unreadOnly: e.target.checked })}
-            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            className="rounded border-gray-300 text-gray-600 focus:ring-gray-500"
           />
           <span className="text-sm text-gray-700 dark:text-gray-300">Show unread only</span>
         </label>
@@ -273,7 +273,7 @@ const NotificationFilters = ({ filters, onFiltersChange, onClose }) => {
           <select
             value={localFilters.type || ''}
             onChange={(e) => setLocalFilters({ ...localFilters, type: e.target.value || null })}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
           >
             <option value="">All types</option>
             <option value="like_list">Likes</option>
@@ -288,13 +288,13 @@ const NotificationFilters = ({ filters, onFiltersChange, onClose }) => {
         <div className="flex space-x-2 pt-2">
           <button
             onClick={handleApplyFilters}
-            className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+            className="flex-1 bg-gray-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-700 transition-colors"
           >
             Apply
           </button>
           <button
             onClick={handleResetFilters}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            className="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
           >
             Reset
           </button>
@@ -532,8 +532,8 @@ const NotificationPanel = () => {
                 className={cn(
                   'p-2 rounded-md text-sm font-medium transition-colors',
                   showFilters || filters.unreadOnly || filters.type
-                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-                    : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700'
+                    ? 'bg-gray-100 text-gray-700'
+                    : 'text-gray-600 hover:bg-gray-200'
                 )}
               >
                 <Filter className="w-4 h-4" />
@@ -595,28 +595,28 @@ const NotificationPanel = () => {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className="p-3 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-800"
+              className="p-3 bg-gray-50 border-b border-gray-200"
             >
               <div className="flex items-center justify-between">
-                <span className="text-sm text-blue-700 dark:text-blue-300">
+                <span className="text-sm text-gray-700">
                   {selectedNotifications.size} selected
                 </span>
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={selectAllNotifications}
-                    className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200"
+                    className="text-sm text-gray-600 hover:text-gray-800"
                   >
                     Select All
                   </button>
                   <button
                     onClick={clearSelection}
-                    className="text-sm text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+                    className="text-sm text-gray-600 hover:text-gray-800"
                   >
                     Clear
                   </button>
                   <button
                     onClick={handleMarkSelectedRead}
-                    className="px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
+                    className="px-3 py-1 bg-gray-600 text-white text-sm rounded-md hover:bg-gray-700 transition-colors"
                   >
                     Mark Read
                   </button>

@@ -64,33 +64,17 @@ const RestaurantBadge = ({ icon: Icon, text, color = "gray", size = "sm", testId
 
 // Add to List button component
 const AddToListButton = ({ restaurant, onAddToList }) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated  } = useAuth();
 
   const handleAddToList = useCallback((e) => {
     e.stopPropagation();
-    e.preventDefault();
-    if (onAddToList) {
-      onAddToList({
-        id: restaurant.id,
-        name: restaurant.name,
-        type: 'restaurant'
-      });
+    if (onAddToList && restaurant) {
+      onAddToList(restaurant);
     }
   }, [onAddToList, restaurant]);
 
-  // FIXED: Show login prompt instead of hiding button
   if (!isAuthenticated || !onAddToList) {
-    return (
-      <div className="absolute top-2 right-2 z-10">
-        <LoginPromptButton
-          style="icon"
-          icon={Plus}
-          title="Save Restaurant"
-          message={`Log in to save "${restaurant.name}" to your personal lists.`}
-          tooltip="Log in to save restaurant"
-        />
-      </div>
-    );
+    return null;
   }
 
   return (
@@ -98,7 +82,7 @@ const AddToListButton = ({ restaurant, onAddToList }) => {
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
       onClick={handleAddToList}
-      className="absolute top-2 right-2 z-10 w-8 h-8 bg-black text-white rounded-full flex items-center justify-center hover:bg-gray-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400"
+      className="absolute top-2 right-2 z-10 w-8 h-8 bg-white text-black border border-gray-300 hover:bg-gray-50 hover:border-gray-400 shadow-sm rounded-full flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400"
       title={`Add ${restaurant.name} to list`}
       aria-label={`Add ${restaurant.name} to list`}
       data-testid="add-to-list-button"

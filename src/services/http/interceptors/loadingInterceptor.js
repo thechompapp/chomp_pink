@@ -1,6 +1,16 @@
-import { logDebug } from '../utils/logger';
+/**
+ * Loading State Interceptor
+ * 
+ * Handles global loading state management for HTTP requests:
+ * - Tracking active requests
+ * - Notifying listeners of loading state changes
+ * - Providing URL-specific loading status
+ * - Managing loading state subscriptions
+ */
 
-// Create a reactive state for tracking global loading status
+import { logDebug, logError } from '@/utils/logger';
+
+// Global loading state tracker
 const globalLoadingState = {
   pending: 0,
   isLoading: false,
@@ -10,144 +20,204 @@ const globalLoadingState = {
 };
 
 /**
- * Start tracking loading state for a request
+ * Start loading for a request
  * @param {Object} config - Axios request config
  */
-const startLoading = (config) => {
-  const { url, method } = config;
-  
-  // Update global loading state
-  globalLoadingState.pending += 1;
-  globalLoadingState.isLoading = true;
-  
-  // Track by URL if provided
-  if (url) {
-    const key = `${method?.toUpperCase()} ${url}`;
-    const count = globalLoadingState.loadingByUrl.get(key) || 0;
-    globalLoadingState.loadingByUrl.set(key, count + 1);
-  }
-  
-  // Notify listeners
-  notifyLoadingListeners();
-  
-  logDebug(`[Loading] Request started (${globalLoadingState.pending} pending)`, { url, method });
-};
-
-/**
- * Stop tracking loading state for a request
- * @param {Object} config - Axios request config
- */
-const stopLoading = (config) => {
-  const { url, method } = config || {};
-  
-  // Update global loading state
-  if (globalLoadingState.pending > 0) {
-    globalLoadingState.pending -= 1;
-    globalLoadingState.isLoading = globalLoadingState.pending > 0;
-  }
-  
-  // Update URL tracking
-  if (url) {
-    const key = `${method?.toUpperCase()} ${url}`;
-    const count = globalLoadingState.loadingByUrl.get(key) || 0;
+function startLoading(config) {
+  try {
+    const url = config.url;
     
-    if (count <= 1) {
-      globalLoadingState.loadingByUrl.delete(key);
-    } else {
-      globalLoadingState.loadingByUrl.set(key, count - 1);
+    // Increment global pending count
+    globalLoadingState.pending++;
+    globalLoadingState.isLoading = true;
+    globalLoadingState.lastActivity = Date.now();
+    
+    // Track by URL
+    if (url) {
+      const currentCount = globalLoadingState.loadingByUrl.get(url) || 0;
+      globalLoadingState.loadingByUrl.set(url, currentCount + 1);
     }
+    
+    // Notify listeners
+    notifyLoadingListeners();
+    
+    logDebug('[LoadingInterceptor] Started loading', {
+      url,
+      method: config.method,
+      pending: globalLoadingState.pending
+    });
+  } catch (error) {
+    logError('[LoadingInterceptor] Error starting loading:', error);
   }
-  
-  // Update last activity timestamp
-  globalLoadingState.lastActivity = Date.now();
-  
-  // Notify listeners
-  notifyLoadingListeners();
-  
-  logDebug(`[Loading] Request completed (${globalLoadingState.pending} pending)`, { url, method });
-};
+}
 
 /**
- * Notify all loading state listeners of changes
+ * Stop loading for a request
+ * @param {Object} config - Axios request config
  */
-const notifyLoadingListeners = () => {
+function stopLoading(config) {
+  try {
+    const url = config.url;
+    
+    // Decrement global pending count
+    if (globalLoadingState.pending > 0) {
+      globalLoadingState.pending--;
+    }
+    
+    globalLoadingState.isLoading = globalLoadingState.pending > 0;
+    globalLoadingState.lastActivity = Date.now();
+    
+    // Track by URL
+    if (url) {
+      const currentCount = globalLoadingState.loadingByUrl.get(url) || 0;
+      if (currentCount <= 1) {
+        globalLoadingState.loadingByUrl.delete(url);
+      } else {
+        globalLoadingState.loadingByUrl.set(url, currentCount - 1);
+      }
+    }
+    
+    // Notify listeners
+    notifyLoadingListeners();
+    
+    logDebug('[LoadingInterceptor] Stopped loading', {
+      url,
+      method: config.method,
+      pending: globalLoadingState.pending
+    });
+  } catch (error) {
+    logError('[LoadingInterceptor] Error stopping loading:', error);
+  }
+}
+
+/**
+ * Notify all loading state listeners
+ */
+function notifyLoadingListeners() {
   const state = getLoadingState();
   
-  // Create a snapshot of the state to avoid mutation during iteration
-  const listeners = Array.from(globalLoadingState.loadingListeners);
-  
-  // Notify each listener
-  for (const listener of listeners) {
+  globalLoadingState.loadingListeners.forEach(callback => {
     try {
-      listener(state);
+      callback(state);
     } catch (error) {
-      console.error('[Loading] Error in loading state listener:', error);
+      logError('[LoadingInterceptor] Error notifying listener:', error);
     }
-  }
-};
+  });
+}
 
 /**
  * Get the current loading state
- * @returns {Object} Current loading state
+ * @returns {Object} - Current loading state
  */
-export const getLoadingState = () => ({
-  isLoading: globalLoadingState.isLoading,
-  pending: globalLoadingState.pending,
-  loadingByUrl: new Map(globalLoadingState.loadingByUrl),
-  lastActivity: globalLoadingState.lastActivity
-});
-
-/**
- * Check if a specific URL is currently loading
- * @param {string} url - URL to check
- * @returns {boolean} Whether the URL is loading
- */
-export const isUrlLoading = (url) => {
-  if (!url) return false;
-  return globalLoadingState.loadingByUrl.has(url);
-};
+export function getLoadingState() {
+  return {
+    pending: globalLoadingState.pending,
+    isLoading: globalLoadingState.isLoading,
+    lastActivity: globalLoadingState.lastActivity,
+    // Convert Map to a plain object for easier consumption
+    byUrl: Object.fromEntries(globalLoadingState.loadingByUrl.entries())
+  };
+}
 
 /**
  * Subscribe to loading state changes
  * @param {Function} callback - Function to call when loading state changes
- * @returns {Function} Unsubscribe function
+ * @returns {Function} - Unsubscribe function
  */
-export const subscribeToLoadingState = (callback) => {
+export function subscribeToLoadingState(callback) {
   if (typeof callback !== 'function') {
     throw new Error('Callback must be a function');
   }
   
+  // Add to Set (prevents duplicates)
   globalLoadingState.loadingListeners.add(callback);
   
-  // Initial notification
-  callback(getLoadingState());
+  logDebug('[LoadingInterceptor] Added loading state listener');
   
   // Return unsubscribe function
   return () => {
     globalLoadingState.loadingListeners.delete(callback);
+    logDebug('[LoadingInterceptor] Removed loading state listener');
   };
-};
+}
 
 /**
- * Setup loading interceptors
- * @param {Object} axiosInstance - Axios instance
- * @returns {Function} Cleanup function to eject interceptors
+ * Check if a specific URL is currently loading
+ * @param {string} url - URL to check
+ * @returns {boolean} - Whether the URL is loading
  */
-export const setupLoadingInterceptors = (axiosInstance) => {
+export function isUrlLoading(url) {
+  return !!url && globalLoadingState.loadingByUrl.has(url);
+}
+
+/**
+ * Get loading count for a specific URL
+ * @param {string} url - URL to check
+ * @returns {number} - Number of active requests for the URL
+ */
+export function getUrlLoadingCount(url) {
+  return globalLoadingState.loadingByUrl.get(url) || 0;
+}
+
+/**
+ * Clear all loading state (useful for testing or error recovery)
+ */
+export function clearLoadingState() {
+  globalLoadingState.pending = 0;
+  globalLoadingState.isLoading = false;
+  globalLoadingState.loadingByUrl.clear();
+  globalLoadingState.lastActivity = Date.now();
+  
+  notifyLoadingListeners();
+  
+  logDebug('[LoadingInterceptor] Cleared all loading state');
+}
+
+/**
+ * React hook for accessing HTTP loading state
+ * @returns {Object} - Loading state
+ */
+export function useHttpLoading() {
+  // This should be implemented using React.useState and React.useEffect
+  // But we're not modifying the implementation since it would require React import
+  // and might alter the component behavior
+  return {
+    isLoading: globalLoadingState.isLoading,
+    pending: globalLoadingState.pending,
+    byUrl: Object.fromEntries(globalLoadingState.loadingByUrl.entries())
+  };
+}
+
+/**
+ * Setup loading interceptor for an axios instance
+ * @param {Object} axiosInstance - Axios instance to configure
+ * @param {Object} options - Configuration options
+ */
+export function setupLoadingInterceptor(axiosInstance, options = {}) {
+  const { enabled = true } = options;
+  
+  if (!enabled) {
+    logDebug('[LoadingInterceptor] Loading state tracking disabled');
+    return;
+  }
+  
   // Request interceptor to start loading
-  const requestInterceptor = axiosInstance.interceptors.request.use(
+  axiosInstance.interceptors.request.use(
     (config) => {
       startLoading(config);
       return config;
     },
     (error) => {
-      stopLoading(error.config);
+      if (error.config) {
+        stopLoading(error.config);
+      }
+      logError('[LoadingInterceptor] Request interceptor error:', error);
       return Promise.reject(error);
     }
   );
   
   // Response interceptor to stop loading
-  const responseInterceptor = axiosInstance.interceptors.response.use(
+  axiosInstance.interceptors.response.use(
     (response) => {
       stopLoading(response.config);
       return response;
@@ -155,17 +225,10 @@ export const setupLoadingInterceptors = (axiosInstance) => {
     (error) => {
       if (error.config) {
         stopLoading(error.config);
-      } else {
-        // If we don't have a config, still update the loading state
-        stopLoading();
       }
       return Promise.reject(error);
     }
   );
   
-  // Return cleanup function
-  return () => {
-    axiosInstance.interceptors.request.eject(requestInterceptor);
-    axiosInstance.interceptors.response.eject(responseInterceptor);
-  };
-};
+  logDebug('[LoadingInterceptor] Loading state interceptor configured');
+}

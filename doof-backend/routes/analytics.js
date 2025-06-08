@@ -12,17 +12,20 @@ const router = express.Router();
 router.use(requireAuth, requireSuperuser);
 
 // GET /api/analytics/summary
-router.get('/summary', analyticsController.getAnalyticsSummary); // Access via namespace
+router.get('/summary', analyticsController.getAnalyticsSummary);
 
 // GET /api/analytics/engagement
-router.get('/engagement', analyticsController.getEngagementAnalytics); // Access via namespace
+router.get('/engagement', analyticsController.getEngagementAnalytics);
 
 // GET /api/analytics/search
 router.get('/search', analyticsController.getSearchAnalytics);
 
+// GET /api/analytics/aggregate-trends - NEW: Missing endpoint for trending page
+router.get('/aggregate-trends', analyticsController.getAggregateTrends);
+
 // Additional endpoints needed by frontend
-router.get('/submissions', analyticsController.getAnalyticsSummary); // Reuse summary for now
-router.get('/content-distribution', analyticsController.getAnalyticsSummary); // Reuse summary for now  
-router.get('/users', analyticsController.getAnalyticsSummary); // Reuse summary for now
+router.get('/submissions', analyticsController.getAnalyticsSummary);
+router.get('/content-distribution', analyticsController.getAnalyticsSummary);
+router.get('/users', analyticsController.getAnalyticsSummary);
 
 export default router;

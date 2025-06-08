@@ -137,15 +137,15 @@ const NewListForm = ({
       </div>
       <div className="flex gap-3">
         <Button 
-          onClick={handleCreateList} 
-          isLoading={createListMutation.isPending} 
-          className="flex-1 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-200" 
+          onClick={handleCreateList}
+          type="submit" 
+          disabled={createListMutation.isPending || !listName.trim()}
+          className="flex-1 bg-white text-black border border-gray-300 hover:bg-gray-50 hover:border-gray-400 shadow-sm font-semibold py-3 px-4 rounded-lg transition-colors duration-200"
           variant="primary"
-          disabled={!listName.trim()}
         >
           {createListMutation.isPending ? (
             <div className="flex items-center justify-center">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-black mr-2"></div>
               Creating...
             </div>
           ) : (

@@ -26,7 +26,7 @@ const TextInput = ({ value, onChange, onBlur, onKeyDown, placeholder, className,
     onKeyDown={onKeyDown}
     placeholder={placeholder}
     className={cn(
-      "w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-500",
+      "w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-white",
       error ? "border-red-500" : "border-gray-300",
       className
     )}
@@ -34,7 +34,7 @@ const TextInput = ({ value, onChange, onBlur, onKeyDown, placeholder, className,
   />
 );
 
-const NumberInput = ({ value, onChange, onBlur, onKeyDown, placeholder, className, autoFocus, error, min, max, step }) => (
+const NumberInput = ({ value, onChange, onBlur, onKeyDown, placeholder, className, autoFocus, error, min, max, step = 1 }) => (
   <input
     type="number"
     value={value || ''}
@@ -42,15 +42,15 @@ const NumberInput = ({ value, onChange, onBlur, onKeyDown, placeholder, classNam
     onBlur={onBlur}
     onKeyDown={onKeyDown}
     placeholder={placeholder}
+    min={min}
+    max={max}
+    step={step}
     className={cn(
-      "w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-500",
+      "w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-white",
       error ? "border-red-500" : "border-gray-300",
       className
     )}
     autoFocus={autoFocus}
-    min={min}
-    max={max}
-    step={step}
   />
 );
 
@@ -61,7 +61,7 @@ const SelectInput = ({ value, onChange, onBlur, onKeyDown, options, className, a
     onBlur={onBlur}
     onKeyDown={onKeyDown}
     className={cn(
-      "w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-500",
+      "w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-white",
       error ? "border-red-500" : "border-gray-300",
       className
     )}
@@ -83,7 +83,7 @@ const BooleanInput = ({ value, onChange, onBlur, onKeyDown, className, autoFocus
     onBlur={onBlur}
     onKeyDown={onKeyDown}
     className={cn(
-      "w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500",
+      "w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-white",
       className
     )}
     autoFocus={autoFocus}
@@ -101,7 +101,7 @@ const TextAreaInput = ({ value, onChange, onBlur, onKeyDown, placeholder, classN
     onKeyDown={onKeyDown}
     placeholder={placeholder}
     className={cn(
-      "w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y min-h-[60px]",
+      "w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-white resize-y min-h-[60px]",
       error ? "border-red-500" : "border-gray-300",
       className
     )}

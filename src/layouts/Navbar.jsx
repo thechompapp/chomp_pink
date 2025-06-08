@@ -7,6 +7,8 @@ import { useAdminAuth } from '../hooks/useAdminAuth';
 import { useCreateList } from '../contexts/CreateListContext';
 import Button from '../components/UI/Button';
 import NotificationBell from '../components/NotificationBell';
+import NotificationPanel from '../components/Notifications/NotificationPanel';
+import { useNotificationStore } from '../stores/notificationStore';
 import { logDebug, logInfo, logError } from '../utils/logger';
 import { debounce } from '../utils/helpers';
 import offlineModeGuard from '../utils/offlineModeGuard';
@@ -36,6 +38,9 @@ const Navbar = () => {
   
   // Use the create list context
   const { openCreateListModal } = useCreateList();
+  
+  // Use notification store for panel toggle
+  const { isNotificationPanelOpen, toggleNotificationPanel } = useNotificationStore();
   
   // Check if user has admin access
   const isAdmin = user && adminAuth.hasAdminAccess;
@@ -81,8 +86,7 @@ const Navbar = () => {
   const handleNotificationClick = () => {
     logDebug('[Navbar] Notification bell clicked');
     closeMenus(); // Close any open menus
-    // TODO: Implement notification panel toggle
-    console.log('Notifications clicked - feature not yet implemented');
+    toggleNotificationPanel();
   };
   
   /**
@@ -250,241 +254,233 @@ const Navbar = () => {
   }
   
   return (
-    <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isScrolled ? 'bg-white/95 dark:bg-black/95 backdrop-blur-sm shadow-sm' : 'bg-white dark:bg-black'
-      }`}
-    >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          {/* Logo and main nav links */}
-          <div className="flex">
-            <div className="flex-shrink-0 flex items-center">
-              <Link to="/" className="flex items-center">
-                <img 
-                  src="/images/dooflogo.png" 
-                  alt="DOOF Logo" 
-                  className="h-10 w-auto"
-                />
-              </Link>
-            </div>
-            
-            {/* Desktop navigation links */}
-            <div className="hidden sm:ml-6 sm:flex sm:space-x-4 items-center">
-              <Link
-                to="/"
-                className={`px-3 py-2 text-sm font-medium transition-colors ${
-                  location.pathname === '/'
-                    ? 'text-black dark:text-white bg-gray-100 dark:bg-gray-800'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white'
-                }`}
-              >
-                Home
-              </Link>
-              <Link
-                to="/search"
-                className={`px-3 py-2 text-sm font-medium transition-colors ${
-                  location.pathname === '/search'
-                    ? 'text-black dark:text-white bg-gray-100 dark:bg-gray-800'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white'
-                }`}
-              >
-                Search
-              </Link>
-              <Link
-                to="/trending"
-                className={`px-3 py-2 text-sm font-medium transition-colors ${
-                  location.pathname === '/trending'
-                    ? 'text-black dark:text-white bg-gray-100 dark:bg-gray-800'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white'
-                }`}
-              >
-                Trending
-              </Link>
-              {isAuthenticated && (
+    <>
+      <nav
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+          isScrolled ? 'bg-white/95 dark:bg-black/95 backdrop-blur-sm shadow-sm' : 'bg-white dark:bg-black'
+        }`}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16">
+            {/* Logo and main nav links */}
+            <div className="flex">
+              <div className="flex-shrink-0 flex items-center">
+                <Link to="/" className="flex items-center">
+                  <img 
+                    src="/images/dooflogo.png" 
+                    alt="DOOF Logo" 
+                    className="h-10 w-auto"
+                  />
+                </Link>
+              </div>
+              
+              {/* Desktop navigation links */}
+              <div className="hidden sm:ml-6 sm:flex sm:space-x-4 items-center">
                 <Link
-                  to="/my-lists"
+                  to="/"
                   className={`px-3 py-2 text-sm font-medium transition-colors ${
-                    location.pathname === '/my-lists'
+                    location.pathname === '/'
                       ? 'text-black dark:text-white bg-gray-100 dark:bg-gray-800'
                       : 'text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white'
                   }`}
                 >
-                  My Lists
+                  Home
                 </Link>
-              )}
-              
-              {/* Create List Button - Desktop */}
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleCreateListClick}
-                className="ml-2 flex items-center"
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                Create List
-              </Button>
-            </div>
-          </div>
-          
-          {/* Right side - auth buttons or profile */}
-          <div className="flex items-center">
-            {isAuthenticated ? (
-              <div className="flex items-center space-x-2">
-                {/* Notification Bell */}
-                <NotificationBell onClick={handleNotificationClick} />
+                <Link
+                  to="/trending"
+                  className={`px-3 py-2 text-sm font-medium transition-colors ${
+                    location.pathname === '/trending'
+                      ? 'text-black dark:text-white bg-gray-100 dark:bg-gray-800'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white'
+                  }`}
+                >
+                  Trending
+                </Link>
+                {isAuthenticated && (
+                  <Link
+                    to="/my-lists"
+                    className={`px-3 py-2 text-sm font-medium transition-colors ${
+                      location.pathname === '/my-lists'
+                        ? 'text-black dark:text-white bg-gray-100 dark:bg-gray-800'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white'
+                    }`}
+                  >
+                    My Lists
+                  </Link>
+                )}
                 
-                {/* Profile Menu */}
-                <div className="ml-3 relative">
-                  <div>
-                    <button
-                      onClick={toggleProfileMenu}
-                      className="flex text-sm focus:outline-none focus:ring-0"
-                      id="user-menu-button"
-                      aria-expanded={isProfileMenuOpen}
-                      aria-haspopup="true"
-                    >
-                      <span className="sr-only">Open user menu</span>
-                      <div className="h-8 w-8 bg-black dark:bg-white text-white dark:text-black flex items-center justify-center transition-colors">
-                        {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                      </div>
-                    </button>
-                  </div>
+                {/* Create List Button - Desktop */}
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleCreateListClick}
+                  className="ml-2 flex items-center"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Create List
+                </Button>
+              </div>
+            </div>
+            
+            {/* Right side - auth buttons or profile */}
+            <div className="flex items-center">
+              {isAuthenticated ? (
+                <div className="flex items-center space-x-2">
+                  {/* Notification Bell */}
+                  <NotificationBell onClick={handleNotificationClick} />
                   
-                  {/* Profile dropdown */}
-                  {isProfileMenuOpen && (
-                    <div
-                      className="origin-top-right absolute right-0 mt-2 w-48 bg-white dark:bg-black shadow-lg focus:outline-none"
-                      role="menu"
-                      aria-orientation="vertical"
-                      aria-labelledby="user-menu-button"
-                    >
-                      <div className="py-1" role="none">
-                        <div className="block px-4 py-2 text-sm text-gray-600 dark:text-gray-400">
-                          Signed in as <span className="font-medium text-black dark:text-white">{user?.name || 'User'}</span>
+                  {/* Profile Menu */}
+                  <div className="ml-3 relative">
+                    <div>
+                      <button
+                        onClick={toggleProfileMenu}
+                        className="flex text-sm focus:outline-none focus:ring-0"
+                        id="user-menu-button"
+                        aria-expanded={isProfileMenuOpen}
+                        aria-haspopup="true"
+                      >
+                        <span className="sr-only">Open user menu</span>
+                        <div className="h-8 w-8 bg-black dark:bg-white text-white dark:text-black flex items-center justify-center transition-colors">
+                          {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
                         </div>
-                        
-                        <Link
-                          to="/profile"
-                          className="block px-4 py-2 text-sm text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                          role="menuitem"
-                        >
-                          Profile & Settings
-                        </Link>
-                        
-                        <Link
-                          to="/my-lists"
-                          className="block px-4 py-2 text-sm text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                          role="menuitem"
-                        >
-                          My Lists
-                        </Link>
-                        
-                        <Link
-                          to="/my-submissions"
-                          className="block px-4 py-2 text-sm text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                          role="menuitem"
-                        >
-                          My Submissions
-                        </Link>
-                        
-                        {isAdmin && (
-                          <>
-                            <Link
-                              to="/admin"
-                              className="block px-4 py-2 text-sm text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                              role="menuitem"
-                            >
-                              Admin Panel
-                            </Link>
-                          </>
-                        )}
-                        
-                        {process.env.NODE_ENV === 'development' && (
+                      </button>
+                    </div>
+                    
+                    {/* Profile dropdown */}
+                    {isProfileMenuOpen && (
+                      <div
+                        className="origin-top-right absolute right-0 mt-2 w-48 bg-white dark:bg-black shadow-lg focus:outline-none"
+                        role="menu"
+                        aria-orientation="vertical"
+                        aria-labelledby="user-menu-button"
+                      >
+                        <div className="py-1" role="none">
+                          <div className="block px-4 py-2 text-sm text-gray-600 dark:text-gray-400">
+                            Signed in as <span className="font-medium text-black dark:text-white">{user?.name || 'User'}</span>
+                          </div>
+                          
                           <Link
-                            to="/auth-test"
+                            to="/profile"
                             className="block px-4 py-2 text-sm text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                             role="menuitem"
                           >
-                            Auth Test
+                            Profile & Settings
                           </Link>
-                        )}
-                        
-                        <button
-                          onClick={handleLogout}
-                          className="block w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                          role="menuitem"
-                          data-testid="logout-button"
-                          id="logout-button"
-                        >
-                          Sign out
-                        </button>
+                          
+                          <Link
+                            to="/my-lists"
+                            className="block px-4 py-2 text-sm text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                            role="menuitem"
+                          >
+                            My Lists
+                          </Link>
+                          
+                          <Link
+                            to="/my-submissions"
+                            className="block px-4 py-2 text-sm text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                            role="menuitem"
+                          >
+                            My Submissions
+                          </Link>
+                          
+                          {isAdmin && (
+                            <>
+                              <Link
+                                to="/admin"
+                                className="block px-4 py-2 text-sm text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                role="menuitem"
+                              >
+                                Admin Panel
+                              </Link>
+                            </>
+                          )}
+                          
+                          {process.env.NODE_ENV === 'development' && (
+                            <Link
+                              to="/auth-test"
+                              className="block px-4 py-2 text-sm text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                              role="menuitem"
+                            >
+                              Auth Test
+                            </Link>
+                          )}
+                          
+                          <button
+                            onClick={handleLogout}
+                            className="block w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                            role="menuitem"
+                            data-testid="logout-button"
+                            id="logout-button"
+                          >
+                            Sign out
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
+              ) : (
+                <div className="flex space-x-2">
+                  <Link to="/login">
+                    <Button variant="outline" size="sm">
+                      Sign in
+                    </Button>
+                  </Link>
+                  <Link to="/register" className="hidden sm:block">
+                    <Button variant="primary" size="sm">
+                      Register
+                    </Button>
+                  </Link>
+                </div>
+              )}
+              
+              {/* Mobile menu button */}
+              <div className="flex items-center sm:hidden ml-2">
+                <button
+                  onClick={toggleMenu}
+                  className="inline-flex items-center justify-center p-2 text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:ring-0 transition-colors"
+                  aria-expanded={isMenuOpen}
+                >
+                  <span className="sr-only">Open main menu</span>
+                  {isMenuOpen ? (
+                    <svg
+                      className="block h-6 w-6"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  ) : (
+                    <svg
+                      className="block h-6 w-6"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M4 6h16M4 12h16M4 18h16"
+                      />
+                    </svg>
+                  )}
+                </button>
               </div>
-            ) : (
-              <div className="flex space-x-2">
-                <Link to="/login">
-                  <Button variant="outline" size="sm">
-                    Sign in
-                  </Button>
-                </Link>
-                <Link to="/register" className="hidden sm:block">
-                  <Button variant="primary" size="sm">
-                    Register
-                  </Button>
-                </Link>
-              </div>
-            )}
-            
-            {/* Mobile menu button */}
-            <div className="flex items-center sm:hidden ml-2">
-              <button
-                onClick={toggleMenu}
-                className="inline-flex items-center justify-center p-2 text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:ring-0 transition-colors"
-                aria-expanded={isMenuOpen}
-              >
-                <span className="sr-only">Open main menu</span>
-                {isMenuOpen ? (
-                  <svg
-                    className="block h-6 w-6"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    aria-hidden="true"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                ) : (
-                  <svg
-                    className="block h-6 w-6"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    aria-hidden="true"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M4 6h16M4 12h16M4 18h16"
-                    />
-                  </svg>
-                )}
-              </button>
             </div>
           </div>
         </div>
-      </div>
+      </nav>
       
       {/* Mobile menu */}
       {isMenuOpen && (
@@ -499,16 +495,6 @@ const Navbar = () => {
               }`}
             >
               Home
-            </Link>
-            <Link
-              to="/search"
-              className={`block px-3 py-2 rounded-md text-base font-medium ${
-                location.pathname === '/search'
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-              }`}
-            >
-              Search
             </Link>
             <Link
               to="/trending"
@@ -574,7 +560,10 @@ const Navbar = () => {
           </div>
         </div>
       )}
-    </nav>
+      
+      {/* Notification Panel */}
+      <NotificationPanel />
+    </>
   );
 };
 

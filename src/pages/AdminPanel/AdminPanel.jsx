@@ -118,27 +118,62 @@ const TAB_CONFIG = {
  * Fetch function for admin data
  */
 const fetchAdminData = async (endpoints) => {
+  console.log('[AdminPanel] Starting to fetch admin data for endpoints:', endpoints);
   const results = {};
+  const timeoutDuration = 10000; // 10 second timeout per endpoint
   
-  // Fetch data for each endpoint
-  await Promise.all(
-    endpoints.map(async (endpoint) => {
-      try {
-        const response = await apiClient.get(`/admin/${endpoint}`);
-        if (response?.data?.success && response?.data?.data) {
-          results[endpoint] = response.data.data;
-        } else {
-          console.warn(`No data received for ${endpoint}:`, response);
-          results[endpoint] = [];
+  // Create a timeout wrapper for each endpoint
+  const fetchWithTimeout = async (endpoint) => {
+    return Promise.race([
+      (async () => {
+        try {
+          console.log(`[AdminPanel] Fetching data for ${endpoint}...`);
+          const response = await apiClient.get(`/admin/${endpoint}`);
+          console.log(`[AdminPanel] Response for ${endpoint}:`, response?.status, response?.data?.success);
+          
+          if (response?.data?.success && response?.data?.data) {
+            console.log(`[AdminPanel] Successfully fetched ${response.data.data.length} items for ${endpoint}`);
+            return { endpoint, data: response.data.data, success: true };
+          } else {
+            console.warn(`[AdminPanel] No data received for ${endpoint}:`, response?.data);
+            return { endpoint, data: [], success: true };
+          }
+        } catch (error) {
+          console.error(`[AdminPanel] Error fetching ${endpoint}:`, error.message);
+          return { endpoint, data: [], success: false, error: error.message };
         }
-      } catch (error) {
-        console.error(`Error fetching ${endpoint}:`, error);
+      })(),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error(`Timeout fetching ${endpoint}`)), timeoutDuration)
+      )
+    ]);
+  };
+  
+  // Fetch data for each endpoint with timeout
+  try {
+    const fetchPromises = endpoints.map(endpoint => fetchWithTimeout(endpoint));
+    const responses = await Promise.allSettled(fetchPromises);
+    
+    responses.forEach((response, index) => {
+      const endpoint = endpoints[index];
+      if (response.status === 'fulfilled') {
+        results[endpoint] = response.value.data;
+        if (!response.value.success) {
+          console.warn(`[AdminPanel] ${endpoint} fetch failed:`, response.value.error);
+        }
+      } else {
+        console.error(`[AdminPanel] Promise rejected for ${endpoint}:`, response.reason);
         results[endpoint] = [];
       }
-    })
-  );
-  
-  return results;
+    });
+    
+    console.log('[AdminPanel] Admin data fetch completed:', Object.keys(results));
+    return results;
+  } catch (error) {
+    console.error('[AdminPanel] Error in fetchAdminData:', error);
+    // Return partial results if available
+    return results;
+  }
 };
 
 /**
@@ -146,13 +181,24 @@ const fetchAdminData = async (endpoints) => {
  */
 const fetchAdminStats = async () => {
   try {
+    console.log('[AdminPanel] Fetching admin stats...');
     const response = await apiClient.get('/admin/stats');
+    console.log('[AdminPanel] Stats response:', {
+      status: response?.status,
+      success: response?.data?.success,
+      dataKeys: response?.data?.data ? Object.keys(response.data.data) : 'no data',
+      fullData: response?.data
+    });
+    
     if (response?.data?.success && response?.data?.data) {
+      console.log('[AdminPanel] Stats data:', response.data.data);
       return response.data.data;
     }
+    
+    console.warn('[AdminPanel] No valid stats data received:', response?.data);
     return {};
   } catch (error) {
-    console.error('Error fetching admin stats:', error);
+    console.error('[AdminPanel] Error fetching admin stats:', error);
     return {};
   }
 };
@@ -263,7 +309,7 @@ const AdminPanel = () => {
   const isEnhanced = TAB_CONFIG[activeTab]?.enhanced || false;
   
   // Early return for data loading
-  if (dataLoading && !adminData) {
+  if (dataLoading && (!adminData || Object.keys(adminData).length === 0)) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-center min-h-[400px]">
@@ -396,14 +442,14 @@ const AdminPanel = () => {
             <h4 className="font-medium text-gray-900 mb-3">Select Resource Type</h4>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               {Object.entries({
-                restaurants: { label: 'Restaurants', icon: '🍽️', count: adminStats?.restaurants || 0 },
-                dishes: { label: 'Dishes', icon: '🍝', count: adminStats?.dishes || 0 },
-                users: { label: 'Users', icon: '👥', count: adminStats?.users || 0 },
-                locations: { label: 'Locations', icon: '📍', count: adminStats?.locations || 0 },
-                lists: { label: 'Lists', icon: '📋', count: adminStats?.lists || 0 },
-                hashtags: { label: 'Hashtags', icon: '#️⃣', count: adminStats?.hashtags || 0 },
-                restaurant_chains: { label: 'Chains', icon: '🏢', count: adminStats?.restaurant_chains || 0 },
-                submissions: { label: 'Submissions', icon: '📝', count: adminStats?.submissions || 0 }
+                restaurants: { label: 'Restaurants', icon: '🍽️', count: adminStats?.restaurants || adminStats?.counts?.restaurants || 0 },
+                dishes: { label: 'Dishes', icon: '🍝', count: adminStats?.dishes || adminStats?.counts?.dishes || 0 },
+                users: { label: 'Users', icon: '👥', count: adminStats?.users || adminStats?.counts?.users || 0 },
+                locations: { label: 'Locations', icon: '📍', count: adminStats?.locations || adminStats?.counts?.locations || ((adminStats?.cities || adminStats?.counts?.cities || 0) + (adminStats?.neighborhoods || adminStats?.counts?.neighborhoods || 0)) },
+                lists: { label: 'Lists', icon: '📋', count: adminStats?.lists || adminStats?.counts?.lists || 0 },
+                hashtags: { label: 'Hashtags', icon: '#️⃣', count: adminStats?.hashtags || adminStats?.counts?.hashtags || 0 },
+                restaurant_chains: { label: 'Chains', icon: '🏢', count: adminStats?.restaurant_chains || adminStats?.counts?.restaurant_chains || 0 },
+                submissions: { label: 'Submissions', icon: '📝', count: adminStats?.submissions || adminStats?.counts?.submissions || 0 }
               }).map(([key, { label, icon, count }]) => (
                 <button
                   key={key}
@@ -458,7 +504,7 @@ const AdminPanel = () => {
   
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto p-6 max-w-7xl">
+      <div className="container mx-auto p-6 max-w-7xl navbar-spacing">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Enhanced Admin Panel</h1>
@@ -513,23 +559,23 @@ const AdminPanel = () => {
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
               <div className="text-center p-4 bg-blue-50 rounded-lg">
-                <p className="text-3xl font-bold text-blue-600">{adminStats?.restaurants || 0}</p>
+                <p className="text-3xl font-bold text-blue-600">{adminStats?.restaurants || adminStats?.counts?.restaurants || 0}</p>
                 <p className="text-sm text-gray-600 mt-1">Restaurants</p>
               </div>
               <div className="text-center p-4 bg-green-50 rounded-lg">
-                <p className="text-3xl font-bold text-green-600">{adminStats?.users || 0}</p>
+                <p className="text-3xl font-bold text-green-600">{adminStats?.users || adminStats?.counts?.users || 0}</p>
                 <p className="text-sm text-gray-600 mt-1">Users</p>
               </div>
               <div className="text-center p-4 bg-purple-50 rounded-lg">
-                <p className="text-3xl font-bold text-purple-600">{adminStats?.dishes || 0}</p>
+                <p className="text-3xl font-bold text-purple-600">{adminStats?.dishes || adminStats?.counts?.dishes || 0}</p>
                 <p className="text-sm text-gray-600 mt-1">Dishes</p>
               </div>
               <div className="text-center p-4 bg-yellow-50 rounded-lg">
-                <p className="text-3xl font-bold text-yellow-600">{adminStats?.lists || 0}</p>
+                <p className="text-3xl font-bold text-yellow-600">{adminStats?.lists || adminStats?.counts?.lists || 0}</p>
                 <p className="text-sm text-gray-600 mt-1">Lists</p>
               </div>
               <div className="text-center p-4 bg-orange-50 rounded-lg">
-                <p className="text-3xl font-bold text-orange-600">{adminStats?.locations || 0}</p>
+                <p className="text-3xl font-bold text-orange-600">{adminStats?.locations || adminStats?.counts?.locations || ((adminStats?.cities || adminStats?.counts?.cities || 0) + (adminStats?.neighborhoods || adminStats?.counts?.neighborhoods || 0))}</p>
                 <p className="text-sm text-gray-600 mt-1">Locations</p>
               </div>
             </div>
@@ -539,11 +585,11 @@ const AdminPanel = () => {
           {!statsLoading && !statsError && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-6 pt-6 border-t border-gray-200">
               <div className="text-center p-3 bg-gray-50 rounded-lg">
-                <p className="text-2xl font-bold text-gray-600">{adminStats?.hashtags || 0}</p>
+                <p className="text-2xl font-bold text-gray-600">{adminStats?.hashtags || adminStats?.counts?.hashtags || 0}</p>
                 <p className="text-xs text-gray-500 mt-1">Hashtags</p>
               </div>
               <div className="text-center p-3 bg-gray-50 rounded-lg">
-                <p className="text-2xl font-bold text-gray-600">{adminStats?.submissions || 0}</p>
+                <p className="text-2xl font-bold text-gray-600">{adminStats?.submissions || adminStats?.counts?.submissions || 0}</p>
                 <p className="text-xs text-gray-500 mt-1">Submissions</p>
               </div>
             </div>

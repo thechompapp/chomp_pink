@@ -32,7 +32,7 @@ const Textarea = forwardRef(({
   ...rest
 }, ref) => {
   // Base classes for the textarea
-  const baseClasses = 'block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm';
+  const baseClasses = 'block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-white focus:border-white sm:text-sm';
   
   // Determine classes based on error state and disabled state
   const textareaClasses = `

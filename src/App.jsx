@@ -37,6 +37,8 @@ const TrendingPage = lazy(() => import('./pages/Trending'));
 const MyListsPage = lazy(() => import('./pages/Lists/MyLists'));
 const MySubmissionsPage = lazy(() => import('./pages/MySubmissions'));
 const ListDetailPage = lazy(() => import('./pages/Lists/ListDetail'));
+const RestaurantDetailPage = lazy(() => import('./pages/RestaurantDetail'));
+const DishDetailPage = lazy(() => import('./pages/DishDetail'));
 
 // Query client configuration
 const queryClient = new QueryClient({
@@ -106,40 +108,56 @@ const AppRoutes = () => (
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       
-      {/* Protected Routes */}
+      {/* Public Home Page - Anyone can browse */}
       <Route 
         path="/" 
         element={
-          <ProtectedRoute>
-            <MainLayout>
-              <HomePage />
-            </MainLayout>
-          </ProtectedRoute>
+          <MainLayout>
+            <HomePage />
+          </MainLayout>
         } 
       />
       
+      {/* Public Search Page - Anyone can search */}
       <Route 
         path="/search" 
         element={
-          <ProtectedRoute>
-            <MainLayout>
-              <SearchResultsPage />
-            </MainLayout>
-          </ProtectedRoute>
+          <MainLayout>
+            <SearchResultsPage />
+          </MainLayout>
+        } 
+      />
+      
+      {/* Public Trending Page - Anyone can view trending content */}
+      <Route 
+        path="/trending" 
+        element={
+          <MainLayout>
+            <TrendingPage />
+          </MainLayout>
+        } 
+      />
+      
+      {/* Public Detail Pages - Anyone can view */}
+      <Route 
+        path="/restaurant/:restaurantId" 
+        element={
+          <MainLayout>
+            <RestaurantDetailPage />
+          </MainLayout>
         } 
       />
       
       <Route 
-        path="/trending" 
+        path="/dish/:dishId" 
         element={
-          <ProtectedRoute>
-            <MainLayout>
-              <TrendingPage />
-            </MainLayout>
-          </ProtectedRoute>
+          <MainLayout>
+            <DishDetailPage />
+          </MainLayout>
         } 
       />
       
+      {/* Protected Routes - Require Authentication */}
       <Route 
         path="/my-lists" 
         element={

@@ -34,10 +34,19 @@ export function useListItems(listId, {
     enabled: !!listId && !isExpanded,
     staleTime: 5 * 60 * 1000, // 5 minutes
     select: (response) => {
-      // Handle different response shapes
+      // Handle different response shapes - the API returns { success: true, data: [...] }
       if (!response) return [];
-      if (Array.isArray(response)) return response.slice(0, previewLimit);
-      if (response.data && Array.isArray(response.data)) return response.data.slice(0, previewLimit);
+      
+      // If response.data exists and is an array, use it
+      if (response.data && Array.isArray(response.data)) {
+        return response.data.slice(0, previewLimit);
+      }
+      
+      // If response itself is an array (fallback)
+      if (Array.isArray(response)) {
+        return response.slice(0, previewLimit);
+      }
+      
       return [];
     },
     placeholderData: [],
@@ -55,10 +64,19 @@ export function useListItems(listId, {
     enabled: !!listId && isExpanded,
     staleTime: 2 * 60 * 1000, // 2 minutes
     select: (response) => {
-      // Handle different response shapes
+      // Handle different response shapes - the API returns { success: true, data: [...] }
       if (!response) return [];
-      if (Array.isArray(response)) return response;
-      if (response.data && Array.isArray(response.data)) return response.data;
+      
+      // If response.data exists and is an array, use it
+      if (response.data && Array.isArray(response.data)) {
+        return response.data;
+      }
+      
+      // If response itself is an array (fallback)
+      if (Array.isArray(response)) {
+        return response;
+      }
+      
       return [];
     },
     placeholderData: [],

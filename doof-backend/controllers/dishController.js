@@ -21,7 +21,7 @@ export const getAllDishes = async (req, res, next) => {
     if (cuisine) options.filters.cuisine = cuisine;
 
     try {
-        const results = await DishModel.findAllDishes(options); // Call via namespace
+        const results = await DishModel.getAllDishes(options); // Call via namespace
         // Assuming model now returns formatted data
         const totalItems = results.total || 0;
         const totalPages = Math.ceil(totalItems / options.limit);
@@ -41,7 +41,7 @@ export const getDishById = async (req, res, next) => {
     const dishId = parseInt(id, 10);
 
     try {
-        const dish = await DishModel.findDishById(dishId); // Call via namespace
+        const dish = await DishModel.getDishById(dishId); // Call via namespace
         if (!dish) { return res.status(404).json({ success: false, message: `Dish with ID ${dishId} not found.` }); }
         res.json({ success: true, message: 'Dish details retrieved successfully.', data: dish });
     } catch (error) { next(error); }

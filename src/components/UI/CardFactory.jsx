@@ -3,7 +3,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import DishCard from './DishCard.jsx';
 import RestaurantCard from './RestaurantCard.jsx';
-import ListCard from './ListCard.jsx'; // Use the standardized ListCard
+import ListCard from './ListCard.jsx'; // Use the UI ListCard
 import { normalizeCardData, validateCardData, CardTypes } from '@/models/cardModels';
 
 const CardFactory = ({ 
@@ -93,7 +93,7 @@ const CardFactory = ({
     case CardTypes.LIST:
       return (
         <ListCard 
-          {...normalizedData} 
+          {...normalizedData} // Spread the data as individual props for UI ListCard
           {...props} 
           onQuickAdd={onQuickAdd}
           onFollow={onFollow}

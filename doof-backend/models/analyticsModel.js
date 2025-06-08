@@ -147,6 +147,64 @@ const analyticsModel = {
         }
     },
 
+    /**
+     * Gets aggregate trends data for charts
+     * Returns engagement data over time for a specific item type and time period
+     */
+    async getAggregateTrends(params = {}) {
+        const { itemType, period } = params;
+        
+        // Determine date range based on period
+        const days = period === '7d' ? 7 : 
+                    period === '30d' ? 30 : 
+                    period === '90d' ? 90 : 
+                    period === '1y' ? 365 : 30; // Default to 30 days
+
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - days);
+        const endDate = new Date();
+
+        try {
+            // Query for aggregated engagement data over the time period
+            const query = `
+                SELECT
+                    DATE(engagement_timestamp) as date,
+                    COUNT(*) as total_engagements
+                FROM engagements
+                WHERE item_type = $1
+                  AND engagement_timestamp >= $2
+                  AND engagement_timestamp <= $3
+                GROUP BY DATE(engagement_timestamp)
+                ORDER BY date ASC
+            `;
+            
+            const result = await db.query(query, [itemType, startDate.toISOString(), endDate.toISOString()]);
+            
+            // Fill in missing dates with 0 values to ensure complete data series
+            const trendData = [];
+            const currentDate = new Date(startDate);
+            
+            while (currentDate <= endDate) {
+                const dateStr = currentDate.toISOString().split('T')[0];
+                const existingData = result.rows.find(row => 
+                    row.date.toISOString().split('T')[0] === dateStr
+                );
+                
+                trendData.push({
+                    date: dateStr,
+                    total_engagements: existingData ? parseInt(existingData.total_engagements, 10) : 0
+                });
+                
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+            
+            return trendData;
+        } catch (error) {
+            console.error('Error fetching aggregate trends:', error);
+            throw error;
+        }
+    },
+
     // Add more analytics methods as needed
     // e.g., top viewed items, top contributing users, etc.
 };

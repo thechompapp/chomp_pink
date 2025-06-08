@@ -57,7 +57,7 @@ export const formatList = (list) => {
         type: list.list_type || 'mixed',
         list_type: list.list_type || 'mixed',
         saved_count: Number(list.saved_count || 0),
-        item_count: Number(list.item_count || 0),
+        item_count: Number(list.items_count || list.item_count || 0),
         city: list.city_name || list.city || null,
         tags: Array.isArray(list.tags) ? list.tags : [],
         is_public: !!list.is_public,

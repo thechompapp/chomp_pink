@@ -141,10 +141,10 @@ const ListSelector = ({
       )}
 
       {/* Create list button */}
-      <Button 
-        onClick={onCreateNewClick} 
-        variant="primary" 
-        className="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center"
+      <Button
+        onClick={onCreateNewClick}
+        variant="primary"
+        className="w-full bg-white text-black border border-gray-300 hover:bg-gray-50 hover:border-gray-400 shadow-sm font-semibold py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center"
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />

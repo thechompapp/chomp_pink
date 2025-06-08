@@ -178,7 +178,7 @@ function RestaurantDetailPage() {
 
     return (
         // Light gray page background
-        <div className="bg-gray-100 min-h-screen py-10">
+        <div className="bg-gray-100 min-h-screen py-10 navbar-spacing">
             {/* Centered content container */}
             <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
 

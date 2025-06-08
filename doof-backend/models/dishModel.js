@@ -27,7 +27,8 @@ export const getAllDishes = async ({ page = 1, limit = 50, search = null, restau
         d.adds,
         d.created_at,
         d.updated_at,
-        d.is_common,
+        d.category,
+        d.created_by,
         r.name as restaurant_name
       FROM dishes d
       LEFT JOIN restaurants r ON d.restaurant_id = r.id
@@ -91,7 +92,8 @@ export const getAllDishes = async ({ page = 1, limit = 50, search = null, restau
         adds: row.adds || 0,
         created_at: row.created_at,
         updated_at: row.updated_at,
-        is_common: row.is_common || false
+        category: row.category,
+        created_by: row.created_by
       })),
       pagination: {
         page: parseInt(page),
@@ -120,7 +122,8 @@ export const getDishById = async (id) => {
         d.adds,
         d.created_at,
         d.updated_at,
-        d.is_common,
+        d.category,
+        d.created_by,
         r.name as restaurant_name
       FROM dishes d
       LEFT JOIN restaurants r ON d.restaurant_id = r.id
@@ -143,7 +146,8 @@ export const getDishById = async (id) => {
       adds: row.adds || 0,
       created_at: row.created_at,
       updated_at: row.updated_at,
-      is_common: row.is_common || false
+      category: row.category,
+      created_by: row.created_by
     };
   } catch (error) {
     logError('Error in getDishById:', error);
@@ -241,7 +245,8 @@ export const getDishesByRestaurant = async (restaurantId, { page = 1, limit = 20
         adds,
         created_at,
         updated_at,
-        is_common
+        category,
+        created_by
       FROM dishes
       WHERE restaurant_id = $1
       ORDER BY name ASC
@@ -258,7 +263,8 @@ export const getDishesByRestaurant = async (restaurantId, { page = 1, limit = 20
       adds: row.adds || 0,
       created_at: row.created_at,
       updated_at: row.updated_at,
-      is_common: row.is_common || false
+      category: row.category,
+      created_by: row.created_by
     }));
   } catch (error) {
     logError('Error in getDishesByRestaurant:', error);

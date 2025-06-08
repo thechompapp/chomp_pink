@@ -1,76 +1,80 @@
 /**
- * Input Component Styles
+ * Modern Input Component Styles
+ * Clean design without borders, using subtle rings
  */
 
 .input-container {
   display: flex;
   flex-direction: column;
-  margin-bottom: 16px;
+  margin-bottom: 1rem;
   width: 100%;
 }
 
 .input-label {
   font-size: 0.875rem;
   font-weight: 500;
-  margin-bottom: 6px;
-  color: #484848;
+  margin-bottom: 0.5rem;
+  color: #374151;
 }
 
 .input-required {
-  color: #E31C3D;
-  margin-left: 4px;
+  color: #dc2626;
+  margin-left: 0.25rem;
 }
 
 .input-field {
-  padding: 10px 12px;
+  padding: 0.75rem;
   font-size: 1rem;
-  border: 1px solid #DBDBDB;
-  border-radius: 4px;
-  background-color: #FFFFFF;
-  transition: all 0.2s ease;
+  border: none;
+  border-radius: 0.5rem;
+  background-color: #f9fafb;
+  ring: 1px solid #e5e7eb;
+  box-shadow: inset 0 1px 2px 0 rgb(0 0 0 / 0.05);
   width: 100%;
+  outline: none;
 }
 
 .input-field:focus {
-  outline: none;
-  border-color: #FF5A5F;
-  box-shadow: 0 0 0 2px rgba(255, 90, 95, 0.2);
+  background-color: #ffffff;
+  box-shadow: 0 0 0 2px rgb(59 130 246 / 0.2);
 }
 
 .input-field::placeholder {
-  color: #767676;
+  color: #9ca3af;
 }
 
 .input-field-error {
-  border-color: #E31C3D;
+  box-shadow: 0 0 0 1px #dc2626;
 }
 
 .input-field-error:focus {
-  border-color: #E31C3D;
-  box-shadow: 0 0 0 2px rgba(227, 28, 61, 0.2);
+  box-shadow: 0 0 0 2px rgb(220 38 38 / 0.2);
 }
 
 .input-disabled .input-field,
 .input-field:disabled {
-  background-color: #F5F5F5;
+  background-color: #f3f4f6;
   cursor: not-allowed;
-  opacity: 0.7;
+  opacity: 0.6;
 }
 
 .input-readonly .input-field,
 .input-field:read-only {
-  background-color: #F9F9F9;
+  background-color: #f9fafb;
   cursor: default;
 }
 
 .input-error-text {
   font-size: 0.75rem;
-  color: #E31C3D;
-  margin-top: 4px;
+  color: #dc2626;
+  margin-top: 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 
 .input-helper-text {
   font-size: 0.75rem;
-  color: #767676;
-  margin-top: 4px;
+  color: #6b7280;
+  margin-top: 0.25rem;
 }

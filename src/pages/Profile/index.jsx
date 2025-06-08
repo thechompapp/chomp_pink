@@ -93,87 +93,89 @@ const Profile = () => {
 
   // Render profile using QueryResultDisplay
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <Button onClick={() => navigate(-1)} variant="tertiary" size="sm" className="mb-4 flex items-center text-sm text-gray-600 hover:text-gray-900">
-        <ArrowLeft size={16} className="mr-1" /> Back
-      </Button>
+    <div className="page-container">
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <Button onClick={() => navigate(-1)} variant="tertiary" size="sm" className="mb-4 flex items-center text-sm text-gray-600 hover:text-gray-900">
+          <ArrowLeft size={16} className="mr-1" /> Back
+        </Button>
 
-      <QueryResultDisplay
-        queryResult={queryResult}
-        loadingMessage="Loading profile stats..."
-        errorMessagePrefix="Could not load profile data"
-        isDataEmpty={(profileData) => !profileData || !profileData.user}
-        ErrorChildren={<Button onClick={() => navigate('/')} variant="secondary" size="sm" className="mt-2">Back to Home</Button>}
-      >
-        {(profileData) => {
-          const displayUser = profileData.user || {};
-          const displayStats = profileData.stats || {};
-          return (
-            <div className="space-y-8">
-              {/* User Profile Section */}
-              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
-                {/* User Info */}
-                <div className="flex items-center mb-6">
-                  <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center text-2xl font-bold text-gray-600 mr-4">
-                    {displayUser.username?.charAt(0).toUpperCase() || displayUser.email?.charAt(0).toUpperCase() || '?'}
+        <QueryResultDisplay
+          queryResult={queryResult}
+          loadingMessage="Loading profile stats..."
+          errorMessagePrefix="Could not load profile data"
+          isDataEmpty={(profileData) => !profileData || !profileData.user}
+          ErrorChildren={<Button onClick={() => navigate('/')} variant="secondary" size="sm" className="mt-2">Back to Home</Button>}
+        >
+          {(profileData) => {
+            const displayUser = profileData.user || {};
+            const displayStats = profileData.stats || {};
+            return (
+              <div className="space-y-8">
+                {/* User Profile Section */}
+                <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+                  {/* User Info */}
+                  <div className="flex items-center mb-6">
+                    <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center text-2xl font-bold text-gray-600 mr-4">
+                      {displayUser.username?.charAt(0).toUpperCase() || displayUser.email?.charAt(0).toUpperCase() || '?'}
+                    </div>
+                    <div>
+                      <h1 className="text-2xl font-bold text-gray-800 flex items-center">
+                        @{displayUser.username || displayUser.email?.split('@')[0] || 'Unknown'}
+                        {(displayUser.account_type === 'contributor' || displayUser.role === 'contributor') && (
+                          <CheckCircle size={16} className="ml-2 text-green-500" title="Verified Contributor" />
+                        )}
+                        {(displayUser.account_type === 'superuser' || displayUser.role === 'admin' || displayUser.role === 'superuser') && (
+                          <CheckCircle size={16} className="ml-2 text-blue-500" title="Admin" />
+                        )}
+                      </h1>
+                      <p className="text-sm text-gray-600">Email: {displayUser.email || 'N/A'}</p>
+                      <p className="text-sm text-gray-600 capitalize">Account Type: {displayUser.account_type || displayUser.role || 'User'}</p>
+                      {displayUser.created_at && (
+                        <p className="text-sm text-gray-600">Member since: {new Date(displayUser.created_at).toLocaleDateString()}</p>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <h1 className="text-2xl font-bold text-gray-800 flex items-center">
-                      @{displayUser.username || displayUser.email?.split('@')[0] || 'Unknown'}
-                      {(displayUser.account_type === 'contributor' || displayUser.role === 'contributor') && (
-                        <CheckCircle size={16} className="ml-2 text-green-500" title="Verified Contributor" />
-                      )}
-                      {(displayUser.account_type === 'superuser' || displayUser.role === 'admin' || displayUser.role === 'superuser') && (
-                        <CheckCircle size={16} className="ml-2 text-blue-500" title="Admin" />
-                      )}
-                    </h1>
-                    <p className="text-sm text-gray-600">Email: {displayUser.email || 'N/A'}</p>
-                    <p className="text-sm text-gray-600 capitalize">Account Type: {displayUser.account_type || displayUser.role || 'User'}</p>
-                    {displayUser.created_at && (
-                      <p className="text-sm text-gray-600">Member since: {new Date(displayUser.created_at).toLocaleDateString()}</p>
-                    )}
+                  
+                  {/* Stats */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
+                      <div className="flex items-center gap-2">
+                        <List size={16} className="text-[#A78B71]" />
+                        <span className="text-sm font-medium text-gray-800">Lists Created</span>
+                      </div>
+                      <p className="text-lg font-bold text-gray-900 mt-1">{displayStats.listsCreated ?? 0}</p>
+                    </div>
+                    <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
+                      <div className="flex items-center gap-2">
+                        <List size={16} className="text-[#A78B71]" />
+                        <span className="text-sm font-medium text-gray-800">Lists Following</span>
+                      </div>
+                      <p className="text-lg font-bold text-gray-900 mt-1">{displayStats.listsFollowing ?? 0}</p>
+                    </div>
+                    <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
+                      <div className="flex items-center gap-2">
+                        <Heart size={16} className="text-[#A78B71]" />
+                        <span className="text-sm font-medium text-gray-800">Dishes Liked</span>
+                      </div>
+                      <p className="text-lg font-bold text-gray-900 mt-1">{displayStats.dishesFollowing ?? 0}</p>
+                    </div>
+                    <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
+                      <div className="flex items-center gap-2">
+                        <Heart size={16} className="text-[#A78B71]" />
+                        <span className="text-sm font-medium text-gray-800">Restaurants Liked</span>
+                      </div>
+                      <p className="text-lg font-bold text-gray-900 mt-1">{displayStats.restaurantsFollowing ?? 0}</p>
+                    </div>
                   </div>
                 </div>
-                
-                {/* Stats */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
-                    <div className="flex items-center gap-2">
-                      <List size={16} className="text-[#A78B71]" />
-                      <span className="text-sm font-medium text-gray-800">Lists Created</span>
-                    </div>
-                    <p className="text-lg font-bold text-gray-900 mt-1">{displayStats.listsCreated ?? 0}</p>
-                  </div>
-                  <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
-                    <div className="flex items-center gap-2">
-                      <List size={16} className="text-[#A78B71]" />
-                      <span className="text-sm font-medium text-gray-800">Lists Following</span>
-                    </div>
-                    <p className="text-lg font-bold text-gray-900 mt-1">{displayStats.listsFollowing ?? 0}</p>
-                  </div>
-                  <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
-                    <div className="flex items-center gap-2">
-                      <Heart size={16} className="text-[#A78B71]" />
-                      <span className="text-sm font-medium text-gray-800">Dishes Liked</span>
-                    </div>
-                    <p className="text-lg font-bold text-gray-900 mt-1">{displayStats.dishesFollowing ?? 0}</p>
-                  </div>
-                  <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
-                    <div className="flex items-center gap-2">
-                      <Heart size={16} className="text-[#A78B71]" />
-                      <span className="text-sm font-medium text-gray-800">Restaurants Liked</span>
-                    </div>
-                    <p className="text-lg font-bold text-gray-900 mt-1">{displayStats.restaurantsFollowing ?? 0}</p>
-                  </div>
-                </div>
+
+                {/* Notification Preferences Section */}
+                <NotificationPreferences userId={user.id} />
               </div>
-
-              {/* Notification Preferences Section */}
-              <NotificationPreferences userId={user.id} />
-            </div>
-          );
-        }}
-      </QueryResultDisplay>
+            );
+          }}
+        </QueryResultDisplay>
+      </div>
     </div>
   );
 };

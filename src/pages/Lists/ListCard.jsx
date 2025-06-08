@@ -176,7 +176,7 @@ const ListItemDisplay = ({ item, listType, onQuickAdd, showQuickAdd = true, inde
 const SimpleListCard = ({ list, onClick }) => {
   // Safely access list properties with defaults
   const listName = list?.name || 'Unnamed List';
-  const itemCount = list?.items?.length || list?.item_count || 0;
+  const itemCount = list?.item_count || list?.items?.length || 0;
   const updatedAt = list?.updated_at ? new Date(list.updated_at) : new Date();
   const updatedText = formatRelativeDate(updatedAt) || 'Updated recently';
 
@@ -268,7 +268,14 @@ const ListCard = (props) => {
     if (isError || !itemsData?.data) {
       return Array.isArray(list.items) ? list.items.slice(0, PREVIEW_ITEM_LIMIT) : [];
     }
-    return itemsData.data.slice(0, PREVIEW_ITEM_LIMIT);
+    
+    // itemsData.data should be an array of items from the API
+    if (Array.isArray(itemsData.data)) {
+      return itemsData.data.slice(0, PREVIEW_ITEM_LIMIT);
+    }
+    
+    // Fallback to list.items if available
+    return Array.isArray(list.items) ? list.items.slice(0, PREVIEW_ITEM_LIMIT) : [];
   }, [itemsData, isError, list.items]);
 
   const isOwnList = useMemo(() => {
@@ -410,15 +417,36 @@ const ListCard = (props) => {
   const updatedAt = list.updated_at ? new Date(list.updated_at) : new Date();
   const updatedText = formatRelativeDate(updatedAt) || 'Updated recently';
   
-  // Use accurate item count from listDetailsData if available
+  // Use accurate item count from listDetailsData if available, prioritizing actual item_count over preview arrays
   const itemCount = useMemo(() => {
-    // If we have details data, use the items array length from there
-    if (listDetailsData?.items && Array.isArray(listDetailsData.items)) {
-      return listDetailsData.items.length;
+    // First priority: item_count from fetched list details (most accurate)
+    if (listDetailsData?.data?.item_count !== undefined) {
+      return listDetailsData.data.item_count;
     }
-    // Fallback to original calculation
-    return list.items?.length || list.item_count || 0;
-  }, [list.items, list.item_count, listDetailsData?.items]);
+    
+    // Second priority: item_count from original list props (from main API response)
+    if (list.item_count !== undefined) {
+      return list.item_count;
+    }
+    
+    // Third priority: items array length from fetched list details (only if no item_count available)
+    if (listDetailsData?.data?.items && Array.isArray(listDetailsData.data.items)) {
+      return listDetailsData.data.items.length;
+    }
+    
+    // Fourth priority: items array length from original list props
+    if (list.items && Array.isArray(list.items)) {
+      return list.items.length;
+    }
+    
+    // Last resort: preview items array length (will be limited to PREVIEW_ITEM_LIMIT)
+    if (itemsData?.data && Array.isArray(itemsData.data)) {
+      return itemsData.data.length;
+    }
+    
+    // Fallback: 0
+    return 0;
+  }, [listDetailsData?.data, list.item_count, list.items, itemsData?.data]);
 
   const hasMoreItems = itemCount > PREVIEW_ITEM_LIMIT;
 
@@ -551,6 +579,16 @@ const ListCard = (props) => {
                 <Clock size={12} />
                 <span>{updatedText}</span>
               </div>
+              
+              {/* User Handle Display */}
+              {(list.creator_handle || list.creator_username) && (
+                <div className="flex items-center space-x-1 text-xs text-gray-600">
+                  <span>created by</span>
+                  <span className="font-medium text-gray-800">
+                    @{list.creator_handle || list.creator_username}
+                  </span>
+                </div>
+              )}
               
               {list.list_type && (
                 <ListBadge 

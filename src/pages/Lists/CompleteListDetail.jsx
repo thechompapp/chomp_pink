@@ -67,32 +67,48 @@ function CompleteListDetail({ listId: propListId, embedded = false }) {
   });
 
   // Extract list data from query results
-  const { list = {}, items: rawItems = [] } = data || {};
+  const listDetails = data?.data || {};
+  const list = listDetails.list || listDetails || {};
+  const rawItems = listDetails.items || data?.items || [];
+  
+  console.log(`🔍 [CompleteListDetail] Data extraction debug:`, {
+    hasData: !!data,
+    dataKeys: data ? Object.keys(data) : 'no data',
+    hasListDetails: !!listDetails,
+    listDetailsKeys: listDetails ? Object.keys(listDetails) : 'no listDetails',
+    listName: list?.name,
+    rawItemsType: typeof rawItems,
+    rawItemsIsArray: Array.isArray(rawItems),
+    rawItemsLength: Array.isArray(rawItems) ? rawItems.length : 'not array'
+  });
   
   // Apply sorting to items
   const items = useMemo(() => {
-    if (!rawItems || !Array.isArray(rawItems)) return [];
+    if (!rawItems || !Array.isArray(rawItems)) {
+      console.log(`⚠️ [CompleteListDetail] Items not an array:`, { rawItems, type: typeof rawItems });
+      return [];
+    }
     
     let sortedItems = [...rawItems];
     
     switch (sortOrder) {
       case 'az':
         return sortedItems.sort((a, b) => {
-          const nameA = (a.restaurant_name || a.dish_name || '').toLowerCase();
-          const nameB = (b.restaurant_name || b.dish_name || '').toLowerCase();
+          const nameA = (a.restaurant_name || a.dish_name || a.name || '').toLowerCase();
+          const nameB = (b.restaurant_name || b.dish_name || b.name || '').toLowerCase();
           return nameA.localeCompare(nameB);
         });
       case 'za':
         return sortedItems.sort((a, b) => {
-          const nameA = (a.restaurant_name || a.dish_name || '').toLowerCase();
-          const nameB = (b.restaurant_name || b.dish_name || '').toLowerCase();
+          const nameA = (a.restaurant_name || a.dish_name || a.name || '').toLowerCase();
+          const nameB = (b.restaurant_name || b.dish_name || b.name || '').toLowerCase();
           return nameB.localeCompare(nameA);
         });
       // Could implement distance sorting with geolocation API
       case 'distance':
         // For now, just return the default order when distance is selected
         // This would require user location and geocoding API to implement fully
-        logWarn('[ListDetail] Distance sorting requested but not fully implemented');
+        logWarn('[CompleteListDetail] Distance sorting requested but not fully implemented');
         return sortedItems;
       default:
         return sortedItems;

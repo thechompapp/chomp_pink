@@ -8,6 +8,8 @@
  * - Log API activity with configurable verbosity
  * - Detect and handle offline mode with fallback strategies
  * - Support development mode with mock data
+ * 
+ * Refactored to use modular interceptor architecture for better maintainability.
  */
 
 import axios from 'axios';
@@ -16,6 +18,19 @@ import { logDebug, logError, logWarn, logInfo } from '@/utils/logger';
 import ErrorHandler from '@/utils/ErrorHandler';
 import { API_BASE_URL } from '@/config';
 import { createMockResponseFromError } from '@/services/mockApi';
+import {
+  setupAllInterceptors,
+  setupEnhancedInterceptors,
+  getLoadingState,
+  subscribeToLoadingState,
+  isUrlLoading,
+  useHttpLoading,
+  checkOfflineMode,
+  setOfflineMode,
+  isDevelopmentModeNoBackend,
+  setDevelopmentModeNoBackend,
+  getInterceptorStatus
+} from './http/interceptors/index.js';
 
 // Constants for configuration
 const CONFIG = {
@@ -72,6 +87,8 @@ const stateCache = {
  * This is called automatically when the module is imported
  */
 function initialize() {
+  logDebug('[HttpInterceptor] Initializing HTTP interceptor system');
+  
   if (stateCache.initialized) return;
   
   // Check if we've previously detected development mode with no backend
@@ -107,6 +124,8 @@ function initialize() {
   }
   
   stateCache.initialized = true;
+  
+  logDebug('[HttpInterceptor] HTTP interceptor system initialized');
 }
 
 /**
@@ -241,11 +260,10 @@ export function setOfflineMode(offline, persistent = false, bypassAuth = true) {
 }
 
 /**
- * Initialize HTTP interceptors on an axios instance
- * 
- * @param {Object} axiosInstance - The axios instance to configure
+ * Setup interceptors for an axios instance
+ * @param {Object} axiosInstance - Axios instance to configure
  * @param {Object} options - Configuration options
- * @returns {Object} - The configured axios instance
+ * @returns {Object} - Configured axios instance
  */
 export function setupInterceptors(axiosInstance, options = {}) {
   // Ensure the interceptor is initialized
@@ -263,9 +281,6 @@ export function setupInterceptors(axiosInstance, options = {}) {
       retryStatusCodes: [408, 429, 500, 502, 503, 504]
     }
   } = options;
-  
-  // Initialize retry counts for each request
-  const retryCounts = new Map();
 
   // Configure default headers for CORS and content type
   axiosInstance.defaults.headers.common['Content-Type'] = 'application/json';
@@ -277,206 +292,75 @@ export function setupInterceptors(axiosInstance, options = {}) {
     axiosInstance.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
   }
 
-  // Request interceptor
+  // Add timestamp to prevent caching
   axiosInstance.interceptors.request.use(
     (config) => {
-      try {
-        // Add timestamp to prevent caching
-        config.params = {
-          ...config.params,
-          _t: Date.now()
-        };
+      config.params = {
+        ...config.params,
+        _t: Date.now()
+      };
 
-        // In development, ensure we're using relative URLs to leverage Vite proxy
-        if (process.env.NODE_ENV === 'development' && config.url && config.url.startsWith('http')) {
-          const url = new URL(config.url);
-          config.url = url.pathname + url.search;
-          logDebug(`[HttpInterceptor] Converted URL to relative: ${config.url}`);
-        }
-
-        // Add auth headers if enabled
-        if (includeAuth) {
-          config = addAuthHeaders(config);
-        }
-
-        // Track loading state if enabled
-        if (enableLoadingState) {
-          startLoading(config);
-        }
-
-        // Log request if enabled
-        if (enableLogging) {
-          logRequest(config);
-        }
-
-        return config;
-      } catch (error) {
-        logError('[HttpInterceptor] Error in request interceptor:', error);
-        return Promise.reject(error);
+      // In development, ensure we're using relative URLs to leverage Vite proxy
+      if (process.env.NODE_ENV === 'development' && config.url && config.url.startsWith('http')) {
+        const url = new URL(config.url);
+        config.url = url.pathname + url.search;
+        logDebug(`[HttpInterceptor] Converted URL to relative: ${config.url}`);
       }
+
+      return config;
     },
     (error) => {
-      if (enableLoadingState && error.config) {
-        stopLoading(error.config);
-      }
-      logError('[HttpInterceptor] Request interceptor error:', {
-        message: error.message,
-        url: error.config?.url,
-        method: error.config?.method,
-        stack: error.stack
-      });
+      logError('[HttpInterceptor] Request preprocessing error:', error);
       return Promise.reject(error);
     }
   );
 
-  // Response interceptor
-  axiosInstance.interceptors.response.use(
-    (response) => {
-      try {
-        // Stop loading state if enabled
-        if (enableLoadingState) {
-          stopLoading(response.config);
-        }
-
-        // Clear retry count on success
-        if (response.config?.url) {
-          retryCounts.delete(response.config.url);
-        }
-
-        // Log response if enabled
-        if (enableLogging) {
-          logResponse(response);
-        }
-
-        return response;
-      } catch (error) {
-        logError('[HttpInterceptor] Error processing response:', error);
-        return response; // Still return the response even if logging fails
-      }
-    },
-    async (error) => {
-      const { config, response, request } = error;
-      
-      // Stop loading state if enabled
-      if (enableLoadingState && config) {
-        stopLoading(config);
-      }
-      
-      // Log the error
-      logError('[HttpInterceptor] Request failed:', {
-        url: config?.url,
-        method: config?.method,
-        status: response?.status,
-        statusText: response?.statusText,
-        message: error.message,
-        isNetworkError: !response && request,
-        isServerError: response?.status >= 500
-      });
-      
-      // Handle retry logic if we have a config
-      if (config) {
-        const url = config.url;
-        const retryCount = retryCounts.get(url) || 0;
-        
-        // Check if we should retry
-        const shouldRetry = (
-          retryCount < retryConfig.maxRetries &&
-          (
-            // Retry on network errors
-            (!response && request) ||
-            // Retry on specific status codes
-            (response && retryConfig.retryStatusCodes.includes(response.status))
-          )
-        );
-        
-        if (shouldRetry) {
-          const nextRetryCount = retryCount + 1;
-          retryCounts.set(url, nextRetryCount);
-          
-          // Calculate delay with exponential backoff
-          const delay = retryConfig.retryDelay * Math.pow(2, nextRetryCount - 1);
-          logDebug(`[HttpInterceptor] Retrying request (${nextRetryCount}/${retryConfig.maxRetries}) in ${delay}ms: ${url}`);
-          
-          // Wait before retrying
-          await new Promise(resolve => setTimeout(resolve, delay));
-          
-          // Retry the request
-          return axiosInstance(config);
-        }
-        
-        // Clean up retry count if we're not retrying
-        retryCounts.delete(url);
-      }
-      
-      // Handle network errors
-      if (!response && request) {
-        // Check if we should enable offline mode
-        if (!checkOfflineMode()) {
-          setOfflineMode(true, false); // Non-persistent by default
-          toast.error(CONFIG.ERROR_MESSAGES.NETWORK_ERROR, {
-            duration: 5000,
-            id: 'offline-mode-toast',
-            icon: '📶'
-          });
-        }
-      }
-      
-      // Handle server errors
-      if (response?.status >= 500) {
-        logError(`[HttpInterceptor] Server error (${response.status}):`, {
-          url: config?.url,
-          status: response.status,
-          data: response.data
-        });
-      }
-      
-      // Handle authentication errors
-      if (response?.status === 401 || response?.status === 403) {
-        logWarn('[HttpInterceptor] Authentication error, clearing auth state');
-        // Clear any cached auth tokens
-        _cachedAuthToken = null;
-      }
-      
-      // Handle the error if enabled
-      if (handleErrors) {
-        return handleResponseError(error);
-      }
-      
-      return Promise.reject(error);
-    }
-  );
+  // Setup modular interceptors using the new architecture
+  setupEnhancedInterceptors(axiosInstance, {
+    includeAuth,
+    trackLoading: trackLoading && enableLoadingState,
+    handleErrors,
+    enableLogging,
+    enableRetry: true,
+    enableOfflineDetection: true,
+    retryConfig
+  });
+  
+  logInfo('[HttpInterceptor] Enhanced interceptors configured', {
+    includeAuth,
+    trackLoading: trackLoading && enableLoadingState,
+    handleErrors,
+    enableLogging,
+    retryConfig
+  });
   
   return axiosInstance;
 }
 
 /**
- * Default headers for all requests
+ * Setup global defaults for axios
+ * @param {Object} options - Configuration options
  */
-const defaultHeaders = {
-  'Accept': 'application/json',
-  'Content-Type': 'application/json',
-  'X-Requested-With': 'XMLHttpRequest'
-};
+export function setupGlobalDefaults(options = {}) {
+  const {
+    baseURL = API_BASE_URL,
+    timeout = 30000,
+    headers = {}
+  } = options;
 
-/**
- * Apply global defaults to axios
- */
-export function setupGlobalDefaults() {
-  // Set default headers
-  Object.entries(defaultHeaders).forEach(([key, value]) => {
-    axios.defaults.headers.common[key] = value;
+  // Set global defaults
+  axios.defaults.baseURL = baseURL;
+  axios.defaults.timeout = timeout;
+  axios.defaults.headers.common = {
+    ...CONFIG.DEFAULT_HEADERS,
+    ...headers
+  };
+
+  logDebug('[HttpInterceptor] Global defaults configured', {
+    baseURL,
+    timeout,
+    headers: Object.keys(headers)
   });
-  
-  // Set reasonable timeouts
-  axios.defaults.timeout = 30000; // 30 seconds
-  
-  // Set base URL if configured
-  if (API_BASE_URL) {
-    axios.defaults.baseURL = API_BASE_URL;
-  }
-  
-  // Setup interceptors on the global axios instance
-  setupInterceptors(axios);
 }
 
 // Cache auth token to reduce localStorage reads
@@ -914,61 +798,6 @@ function handleResponseError(error) {
 }
 
 /**
- * Get the current loading state
- * @returns {Object} - Current loading state
- */
-export function getLoadingState() {
-  return {
-    pending: globalLoadingState.pending,
-    isLoading: globalLoadingState.isLoading,
-    // Convert Map to a plain object for easier consumption
-    byUrl: Object.fromEntries(globalLoadingState.loadingByUrl.entries())
-  };
-}
-
-/**
- * Subscribe to loading state changes
- * @param {Function} callback - Function to call when loading state changes
- * @returns {Function} - Unsubscribe function
- */
-export function subscribeToLoadingState(callback) {
-  if (typeof callback !== 'function') {
-    throw new Error('Callback must be a function');
-  }
-  
-  // Add to Set (prevents duplicates)
-  globalLoadingState.loadingListeners.add(callback);
-  
-  // Return unsubscribe function
-  return () => {
-    globalLoadingState.loadingListeners.delete(callback);
-  };
-}
-
-/**
- * Check if a specific URL is currently loading
- * @param {string} url - URL to check
- * @returns {boolean} - Whether the URL is loading
- */
-export function isUrlLoading(url) {
-  return !!url && globalLoadingState.loadingByUrl.has(url);
-}
-
-/**
- * React hook for accessing HTTP loading state
- * @returns {Object} - Loading state
- */
-export function useHttpLoading() {
-  // This should be implemented using React.useState and React.useEffect
-  // But we're not modifying the implementation since it would require React import
-  // and might alter the component behavior
-  return {
-    isLoading: globalLoadingState.isLoading,
-    pending: globalLoadingState.pending
-  };
-}
-
-/**
  * Create a configured axios instance with enhanced features
  * @param {Object} options - Configuration options
  * @returns {Object} - Configured axios instance
@@ -981,32 +810,56 @@ export function createApiClient(options = {}) {
   const instance = axios.create({
     baseURL: options.baseURL || API_BASE_URL,
     timeout: options.timeout || 30000,
-    headers: { ...CONFIG.DEFAULT_HEADERS, ...(options.headers || {}) },
-    // Add default retry configuration
-    _retryConfig: {
-      retries: options.retries || 2,
+    headers: { ...CONFIG.DEFAULT_HEADERS, ...(options.headers || {}) }
+  });
+  
+  // Setup enhanced interceptors
+  setupInterceptors(instance, {
+    includeAuth: options.includeAuth !== false, // Default to true
+    trackLoading: options.trackLoading !== false, // Default to true
+    handleErrors: options.handleErrors !== false, // Default to true
+    enableLogging: options.enableLogging !== false && process.env.NODE_ENV !== 'production', // Default to true in dev
+    enableLoadingState: options.enableLoadingState !== false, // Default to true
+    retryConfig: {
+      maxRetries: options.retries || options.maxRetries || 3,
       retryDelay: options.retryDelay || 1000,
       retryStatusCodes: options.retryStatusCodes || [408, 429, 500, 502, 503, 504]
     }
   });
   
-  // Setup interceptors with enhanced options
-  setupInterceptors(instance, {
-    includeAuth: options.includeAuth !== false, // Default to true
-    trackLoading: options.trackLoading !== false, // Default to true
-    handleErrors: options.handleErrors !== false, // Default to true
-    logRequests: options.logRequests !== false && process.env.NODE_ENV !== 'production', // Default to true in dev
-    enableRetry: options.enableRetry !== false, // Default to true
-    maxRetries: options.retries || 2,
-    retryDelay: options.retryDelay || 1000,
-    retryStatusCodes: options.retryStatusCodes || [408, 429, 500, 502, 503, 504],
-    offlineMode: options.offlineMode || {}
-  });
+  logDebug('[HttpInterceptor] API client created with enhanced interceptors');
   
   return instance;
 }
 
-// Export all functions
+// Export compatibility functions and utilities
+export {
+  // Core interceptor functions
+  setupGlobalDefaults,
+  createApiClient,
+  
+  // Loading state management (re-exported from modular system)
+  getLoadingState,
+  subscribeToLoadingState,
+  isUrlLoading,
+  useHttpLoading,
+  
+  // Offline mode management (re-exported from modular system)
+  checkOfflineMode,
+  setOfflineMode,
+  
+  // Development mode utilities (re-exported from modular system)
+  isDevelopmentModeNoBackend,
+  setDevelopmentModeNoBackend,
+  
+  // System status
+  getInterceptorStatus,
+  
+  // Initialization
+  initialize
+};
+
+// Backward compatibility default export
 export default {
   // Core interceptor functions
   setupInterceptors,
@@ -1026,6 +879,9 @@ export default {
   // Development mode utilities
   isDevelopmentModeNoBackend,
   setDevelopmentModeNoBackend,
+  
+  // System status
+  getInterceptorStatus,
   
   // Initialization
   initialize

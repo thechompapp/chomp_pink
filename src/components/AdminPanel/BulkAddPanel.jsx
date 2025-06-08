@@ -29,7 +29,7 @@ export const BulkAddPanel = ({
       return csvExamples[resourceType] || 'field1,field2,field3\nvalue1,value2,value3';
     } else {
       const listExamples = {
-        restaurants: 'Bistro Luna\nCafe Roma\nTrattoria Milano\nSushi Zen',
+        restaurants: 'Joe\'s Pizza, 7 Carmine St, New York, NY 10014\nKatz\'s Delicatessen, 205 E Houston St, New York, NY 10002\nCarbone, 181 Thompson St, New York, NY 10012\nLucali, 575 Henry St, Brooklyn, NY 11231',
         dishes: 'Pasta Carbonara\nCaesar Salad\nMargherita Pizza\nTuna Sashimi',
         users: 'user@example.com\nadmin@example.com\nmanager@example.com',
         hashtags: 'italian\nvegetarian\nspicy\ngluten-free',
@@ -49,12 +49,21 @@ export const BulkAddPanel = ({
         'Wrap values containing commas in quotes'
       ];
     } else {
-      return [
-        'Enter one item per line',
-        'Each line will create a new record',
-        'Empty lines will be ignored',
-        'Additional fields will use default values'
-      ];
+      if (resourceType === 'restaurants') {
+        return [
+          'Enter one restaurant per line',
+          'Format: Name, Address, City, State, ZIP',
+          'Example: Joe\'s Pizza, 7 Carmine St, New York, NY 10014',
+          'Empty lines will be ignored'
+        ];
+      } else {
+        return [
+          'Enter one item per line',
+          'Each line will create a new record',
+          'Empty lines will be ignored',
+          'Additional fields will use default values'
+        ];
+      }
     }
   };
 
@@ -88,10 +97,132 @@ export const BulkAddPanel = ({
   const handleAdd = async () => {
     if (parsedData.length === 0) return;
     
-    // Here you would normally call the bulk add service
-    // For now, we'll use the existing hook pattern
-    console.log('Adding records:', parsedData);
-    // bulkOps.handleBulkAdd(parsedData);
+    try {
+      // Parse the data into the format expected by the backend
+      const preparedData = parsedData.map(record => {
+        if (inputFormat === 'csv') {
+          // For CSV, we already have the structured data
+          return record;
+        } else {
+          // For simple list format, create a basic record
+          if (resourceType === 'restaurants') {
+            // Try to parse restaurant name and address from the simple format
+            // Examples: "Joe's Pizza, 7 Carmine St, New York, NY 10014"
+            const parts = record.name.split(',').map(part => part.trim());
+            if (parts.length >= 3) {
+              // Parse the third part which might be "New York, NY 10014"
+              const locationPart = parts[2];
+              const cityStateZip = locationPart.split(' ');
+              
+              // Try to extract city, state, and zip
+              let city = '', state = '', zip = '';
+              
+              if (cityStateZip.length >= 3) {
+                // Last part is likely ZIP code
+                zip = cityStateZip[cityStateZip.length - 1];
+                // Second to last is likely state
+                state = cityStateZip[cityStateZip.length - 2];
+                // Everything else is city
+                city = cityStateZip.slice(0, -2).join(' ');
+              } else if (cityStateZip.length === 2) {
+                city = cityStateZip[0];
+                state = cityStateZip[1];
+              } else {
+                city = locationPart;
+              }
+              
+              return {
+                name: parts[0],
+                address: parts[1],
+                city: city,
+                state: state,
+                zip: zip
+              };
+            } else {
+              return {
+                name: record.name.trim(),
+                address: '',
+                city: '',
+                state: '',
+                zip: ''
+              };
+            }
+          } else {
+            return {
+              name: record.name.trim(),
+              // Add default fields based on resource type
+              ...(resourceType === 'dishes' && { 
+                description: '', 
+                restaurant_id: null 
+              }),
+              ...(resourceType === 'users' && { 
+                email: record.name.includes('@') ? record.name : `${record.name}@example.com`,
+                username: record.name.toLowerCase().replace(/\s+/g, ''),
+                role: 'user'
+              }),
+              ...(resourceType === 'hashtags' && { 
+                category: 'general' 
+              }),
+              ...(resourceType === 'restaurant_chains' && { 
+                website: '', 
+                description: '' 
+              }),
+              ...(resourceType === 'locations' && { 
+                type: 'neighborhood',
+                state: ''
+              })
+            };
+          }
+        }
+      });
+
+      console.log('Adding records:', preparedData);
+      
+      // Call the bulk add function from the bulkOps hook
+      if (bulkOps.handleBulkAdd) {
+        await bulkOps.handleBulkAdd(preparedData);
+      } else {
+        // Fallback to direct API call if hook method doesn't exist
+        const response = await fetch(`/api/admin/${resourceType}/bulk`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Bypass-Auth': 'true' // For development
+          },
+          credentials: 'include',
+          body: JSON.stringify({ 
+            [resourceType]: preparedData 
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        
+        if (result.success) {
+          console.log('Bulk add successful:', result);
+          // Clear the input and reset
+          setTextInput('');
+          bulkOps.resetOperation();
+          // Show success message
+          if (window.toast) {
+            window.toast.success(`Successfully added ${result.data?.success || preparedData.length} records`);
+          }
+        } else {
+          throw new Error(result.message || 'Bulk add failed');
+        }
+      }
+    } catch (error) {
+      console.error('Error adding records:', error);
+      // Show error message
+      if (window.toast) {
+        window.toast.error(`Failed to add records: ${error.message}`);
+      } else {
+        alert(`Failed to add records: ${error.message}`);
+      }
+    }
   };
 
   return (

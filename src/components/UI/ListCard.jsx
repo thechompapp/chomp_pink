@@ -13,7 +13,8 @@ import {
   Plus,
   UserPlus,
   UserMinus,
-  Share2
+  Share2,
+  Heart
 } from 'lucide-react';
 import { engagementService } from '@/services/engagementService';
 import { useAuth } from '@/contexts/auth/AuthContext';
@@ -68,16 +69,7 @@ const FollowButton = ({ list, onFollow, onUnfollow }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isFollowing, setIsFollowing] = useState(list?.is_following || false);
 
-  // Don't show follow button if no follow handlers are provided
-  if (!onFollow && !onUnfollow) {
-    return null;
-  }
-
-  // Don't show follow button if user owns the list or can't follow
-  if (list.created_by_user || !list.can_follow) {
-    return null;
-  }
-
+  // Move useCallback to the top, before any conditional logic
   const handleFollowToggle = useCallback(async (e) => {
     e.stopPropagation();
     e.preventDefault();
@@ -100,6 +92,16 @@ const FollowButton = ({ list, onFollow, onUnfollow }) => {
     }
   }, [isFollowing, isProcessing, onFollow, onUnfollow, list.id]);
 
+  // Don't show follow button if no follow handlers are provided
+  if (!onFollow && !onUnfollow) {
+    return null;
+  }
+
+  // Don't show follow button if user owns the list or can't follow
+  if (list.created_by_user || !list.can_follow) {
+    return null;
+  }
+
   // Show login prompt for unauthenticated users
   if (!isAuthenticated) {
     return (
@@ -120,22 +122,19 @@ const FollowButton = ({ list, onFollow, onUnfollow }) => {
       whileTap={{ scale: 0.95 }}
       onClick={handleFollowToggle}
       disabled={isProcessing}
-      className={`w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 ${
-        isFollowing 
-          ? 'bg-blue-600 text-white hover:bg-blue-700' 
-          : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'
+      className={`flex items-center px-3 py-1.5 rounded-md font-medium text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 bg-white text-black border border-gray-300 hover:bg-gray-50 hover:border-gray-400 shadow-sm ${
+        isFollowing ? 'text-red-600 border-red-300 hover:bg-red-50 hover:border-red-400' : ''
       }`}
       title={isFollowing ? `Unfollow ${list.name}` : `Follow ${list.name}`}
       aria-label={isFollowing ? `Unfollow ${list.name}` : `Follow ${list.name}`}
       data-testid="follow-button"
     >
       {isProcessing ? (
-        <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
-      ) : isFollowing ? (
-        <UserMinus size={12} />
+        <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin mr-2" />
       ) : (
-        <UserPlus size={12} />
+        <Heart size={14} className={`mr-2 ${isFollowing ? 'fill-current' : ''}`} />
       )}
+      <span>Follow</span>
     </motion.button>
   );
 };
@@ -174,7 +173,7 @@ const QuickAddButton = ({ list, onQuickAdd }) => {
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
       onClick={handleQuickAdd}
-      className="w-6 h-6 bg-black text-white rounded-full flex items-center justify-center hover:bg-gray-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400"
+      className="w-6 h-6 bg-white text-black border border-gray-300 hover:bg-gray-50 hover:border-gray-400 shadow-sm rounded-full flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400"
       title={`Add item to ${list.name}`}
       aria-label={`Add item to ${list.name}`}
       data-testid="quick-add-button"

@@ -95,10 +95,10 @@ const TrendChart = ({ itemType }) => { // REMOVED: Type hints for props
                     {PERIOD_OPTIONS.map(option => (
                         <Button
                             key={option.id}
-                            variant={period === option.id ? 'filled' : 'outlined'}
+                            variant={period === option.id ? 'primary' : 'secondary'}
                             size="sm"
                             onClick={() => setPeriod(option.id)}
-                            className={period === option.id ? 'bg-[#A78B71] text-white' : 'text-gray-600'}
+                            className="bg-white text-black border-gray-300 hover:bg-gray-50 hover:border-gray-400 shadow-sm"
                         >
                             {option.label}
                         </Button>

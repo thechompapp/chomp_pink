@@ -38,7 +38,7 @@ const LoginPromptButton = ({
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={handleClick}
-          className={`w-8 h-8 bg-gray-400 text-white rounded-full flex items-center justify-center hover:bg-gray-500 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 ${className}`}
+          className={`w-8 h-8 bg-white text-black border border-gray-300 hover:bg-gray-50 hover:border-gray-400 shadow-sm rounded-full flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 ${className}`}
           title={tooltip}
           aria-label={tooltip}
           {...props}
@@ -62,12 +62,12 @@ const LoginPromptButton = ({
       <>
         <div 
           onClick={handleClick}
-          className={`p-3 border border-gray-200 rounded-md cursor-pointer hover:border-gray-300 hover:bg-gray-50 transition-colors ${className}`}
+          className={`p-3 bg-white text-black border border-gray-300 hover:bg-gray-50 hover:border-gray-400 shadow-sm rounded-md cursor-pointer transition-colors ${className}`}
           role="button"
           tabIndex={0}
           onKeyDown={(e) => e.key === 'Enter' && handleClick(e)}
         >
-          <div className="flex items-center justify-center text-gray-500">
+          <div className="flex items-center justify-center text-black">
             <Icon size={16} className="mr-2" />
             <span className="text-sm">{children || "Log in to continue"}</span>
           </div>
@@ -85,9 +85,9 @@ const LoginPromptButton = ({
 
   // Standard button style
   const variantClasses = {
-    primary: "bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500",
-    secondary: "bg-gray-600 text-white hover:bg-gray-700 focus:ring-gray-500",
-    outline: "border border-gray-300 text-gray-700 hover:bg-gray-50 focus:ring-gray-500",
+    primary: "bg-white text-black border border-gray-300 hover:bg-gray-50 hover:border-gray-400 shadow-sm focus:ring-gray-400",
+    secondary: "bg-white text-black border border-gray-300 hover:bg-gray-50 hover:border-gray-400 shadow-sm focus:ring-gray-400",
+    outline: "bg-white text-black border border-gray-300 hover:bg-gray-50 hover:border-gray-400 shadow-sm focus:ring-gray-400",
   };
 
   const sizeClasses = {
