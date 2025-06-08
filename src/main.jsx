@@ -14,6 +14,12 @@ import { logError, logInfo } from '@/utils/logger';
 import { Toaster } from 'react-hot-toast';
 import { BrowserRouter } from 'react-router-dom';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { AuthProvider } from './contexts/auth';
+import { QuickAddProvider } from './contexts/QuickAddContext';
+import { CreateListProvider } from './contexts/CreateListContext';
+import { PlacesApiProvider } from './contexts/PlacesApiContext';
+import { FilterProvider } from './hooks/filters/FilterContext';
+import { ErrorBoundary } from 'react-error-boundary';
 
 // Import emergency utilities for debugging
 import './utils/emergencyReset.js';
@@ -75,48 +81,58 @@ const Root = () => {
 
   try {
     return (
-      <React.StrictMode>
-        <QueryClientProvider client={queryClient}>
-          <Toaster 
-            position="bottom-right"
-            toastOptions={{
-              duration: 4000,
-              style: {
-                background: '#fff',
-                color: '#363636',
-                border: '1px solid #e5e7eb',
-                borderRadius: '8px',
-                fontSize: '14px',
-                maxWidth: '400px',
-                zIndex: 9999,
-              },
-              success: {
-                duration: 4000,
-                style: {
-                  background: '#10b981',
-                  color: '#fff',
-                  border: '1px solid #059669',
-                },
-              },
-              error: {
-                duration: 5000,
-                style: {
-                  background: '#ef4444',
-                  color: '#fff',
-                  border: '1px solid #dc2626',
-                },
-              },
-            }}
-            containerStyle={{
-              zIndex: 9999,
-            }}
-          />
-          <BrowserRouter>
-            <App />
-          </BrowserRouter>
-          <ReactQueryDevtools initialIsOpen={false} />
-        </QueryClientProvider>
-      </React.StrictMode>
+      <ErrorBoundary FallbackComponent={ErrorFallback} onError={setError}>
+        <BrowserRouter>
+          <QueryClientProvider client={queryClient}>
+            <FilterProvider>
+              <AuthProvider>
+                <QuickAddProvider>
+                  <CreateListProvider>
+                    <PlacesApiProvider>
+                      <Toaster 
+                        position="bottom-right"
+                        toastOptions={{
+                          duration: 4000,
+                          style: {
+                            background: '#fff',
+                            color: '#363636',
+                            border: '1px solid #e5e7eb',
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            maxWidth: '400px',
+                            zIndex: 9999,
+                          },
+                          success: {
+                            duration: 4000,
+                            style: {
+                              background: '#10b981',
+                              color: '#fff',
+                              border: '1px solid #059669',
+                            },
+                          },
+                          error: {
+                            duration: 5000,
+                            style: {
+                              background: '#ef4444',
+                              color: '#fff',
+                              border: '1px solid #dc2626',
+                            },
+                          },
+                        }}
+                        containerStyle={{
+                          zIndex: 9999,
+                        }}
+                      />
+                      <App />
+                    </PlacesApiProvider>
+                  </CreateListProvider>
+                </QuickAddProvider>
+              </AuthProvider>
+            </FilterProvider>
+            <ReactQueryDevtools initialIsOpen={false} />
+          </QueryClientProvider>
+        </BrowserRouter>
+      </ErrorBoundary>
     );
   } catch (err) {
     console.error('Error rendering application:', err);

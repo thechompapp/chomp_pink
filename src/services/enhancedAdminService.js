@@ -680,24 +680,12 @@ export const enhancedAdminService = {
   async bulkDelete(resourceType, ids, progressCallback) {
     logDebug(`[EnhancedAdminService] Starting bulk delete of ${ids.length} ${resourceType} records`);
     
-    // DEBUG: Log what we're sending
-    console.log(`[DEBUG] Frontend sending bulk delete request:`, {
-      resourceType,
-      ids,
-      idsLength: ids.length,
-      idsType: typeof ids,
-      isArray: Array.isArray(ids)
-    });
-    
     const endpoint = ADMIN_ENDPOINTS[resourceType];
     if (!endpoint) {
       throw new Error(`Unknown resource type: ${resourceType}`);
     }
     
     try {
-      console.log(`[DEBUG] Making DELETE request to:`, `${endpoint}/bulk`);
-      console.log(`[DEBUG] Request data:`, { ids });
-      
       // FIXED: Use the axios() method with explicit config instead of httpClient.delete() 
       // This ensures the data is properly sent in the request body for DELETE requests
       const response = await httpClient({
@@ -717,8 +705,6 @@ export const enhancedAdminService = {
       
       return response.data.data;
     } catch (error) {
-      console.log(`[DEBUG] Bulk delete error:`, error);
-      console.log(`[DEBUG] Error response:`, error.response?.data);
       logError(`[EnhancedAdminService] Error during bulk delete:`, error);
       throw error;
     }

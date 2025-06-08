@@ -1,42 +1,40 @@
 /**
- * Filter Services - Central Export Module
+ * Filter Services - Focused Service Exports
  * 
- * This module provides centralized access to all filter-related services
- * following the Single Responsibility Principle.
- * 
- * Services:
- * - FilterDataService: Centralized API data fetching
- * - FilterCacheService: Optimized data caching
- * - FilterTransformService: Data transformation logic
+ * Refactored services following Single Responsibility Principle:
+ * - ApiTransformer: API format conversion only
+ * - UrlTransformer: URL parameter handling only  
+ * - FilterDataService: Data fetching only
+ * - FilterCacheService: Caching only
  */
 
-// Import all services
-import { filterDataService, FilterDataService } from './FilterDataService';
-import { filterCacheService, FilterCacheService } from './FilterCacheService';
-import { filterTransformService, FilterTransformService, FILTER_TYPES } from './FilterTransformService';
+// Import services first
+import { filterDataService } from './FilterDataService';
+import { filterCacheService } from './FilterCacheService';
+import { filterTransformService } from './FilterTransformService';
+import { apiTransformer } from './ApiTransformer';
+import { urlTransformer } from './UrlTransformer';
+import { FilterTransformService } from './FilterTransformService';
 
-// Export service instances (for common usage)
-export {
-  filterDataService,
-  filterCacheService,
-  filterTransformService
-};
+// Core services exports
+export { filterDataService } from './FilterDataService';
+export { filterCacheService } from './FilterCacheService';
+export { filterTransformService } from './FilterTransformService';
 
-// Export service classes (for testing and custom instances)
-export {
-  FilterDataService,
-  FilterCacheService,
-  FilterTransformService
-};
+// New focused transformation services
+export { apiTransformer } from './ApiTransformer';
+export { urlTransformer } from './UrlTransformer';
 
-// Export constants
-export { FILTER_TYPES };
+// Backward compatibility - legacy FilterTransformService still available
+export { FilterTransformService } from './FilterTransformService';
 
-// Export combined service interface for convenience
+// Convenience exports
 export const filterServices = {
   data: filterDataService,
   cache: filterCacheService,
-  transform: filterTransformService
+  transform: filterTransformService,
+  api: apiTransformer,
+  url: urlTransformer
 };
 
 // Backward compatibility - maintain existing API
@@ -48,14 +46,14 @@ export const filterService = {
   getCuisines: (searchTerm, limit) => filterDataService.getCuisines(searchTerm, limit),
   
   // Enhanced methods from transform service
-  transformFiltersForApi: (filters) => filterTransformService.toApiFormat(filters),
-  validateFilters: (filters) => filterTransformService.validate(filters),
+  transformFiltersForApi: (filters) => FilterTransformService.toApiFormat(filters),
+  validateFilters: (filters) => FilterTransformService.validate(filters),
   
   // Cache control methods
   clearCache: () => {
     filterDataService.clearCache();
     filterCacheService.clear();
-    filterTransformService.clearCache();
+    FilterTransformService.clearCache();
   },
   
   // Statistics and monitoring

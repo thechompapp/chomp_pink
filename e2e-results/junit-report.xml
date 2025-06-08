@@ -1,2 +1,8 @@
-<testsuites id="" name="" tests="0" failures="0" skipped="0" errors="0" time="0.519258">
+<testsuites id="" name="" tests="1" failures="0" skipped="1" errors="0" time="91.34872600000001">
+<testsuite name="filter-debug.spec.js" timestamp="2025-06-08T14:45:51.567Z" hostname="desktop-chrome-comprehensive" tests="1" failures="0" skipped="1" time="85.49" errors="0">
+<testcase name="Debug filter clicking issues" classname="filter-debug.spec.js" time="85.49">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
 </testsuites>

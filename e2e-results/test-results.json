@@ -10,7 +10,9 @@
     "grep": {},
     "grepInvert": null,
     "maxFailures": 0,
-    "metadata": {},
+    "metadata": {
+      "actualWorkers": 1
+    },
     "preserveOutput": "always",
     "reporter": [
       [
@@ -46,7 +48,9 @@
         "outputDir": "/Users/naf/Downloads/doof/e2e-results/test-artifacts",
         "repeatEach": 1,
         "retries": 1,
-        "metadata": {},
+        "metadata": {
+          "actualWorkers": 1
+        },
         "id": "desktop-chrome-comprehensive",
         "name": "desktop-chrome-comprehensive",
         "testDir": "/Users/naf/Downloads/doof/e2e",
@@ -64,46 +68,96 @@
     "workers": 1,
     "webServer": null
   },
-  "suites": [],
-  "errors": [
+  "suites": [
     {
-      "message": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/admin-panel.spec.js",
-      "stack": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/admin-panel.spec.js"
-    },
-    {
-      "message": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/application-wiring-validation.spec.js",
-      "stack": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/application-wiring-validation.spec.js"
-    },
-    {
-      "message": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/dishes-admin-diagnosis.spec.js",
-      "stack": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/dishes-admin-diagnosis.spec.js"
-    },
-    {
-      "message": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/enhanced-auth-e2e.spec.js",
-      "stack": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/enhanced-auth-e2e.spec.js"
-    },
-    {
-      "message": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/google-places-integration.spec.js",
-      "stack": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/google-places-integration.spec.js"
-    },
-    {
-      "message": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/incremental-flows.spec.js",
-      "stack": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/incremental-flows.spec.js"
-    },
-    {
-      "message": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/restaurant-address-autocomplete.spec.js",
-      "stack": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/restaurant-address-autocomplete.spec.js"
-    },
-    {
-      "message": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/restaurant-dish-flows.spec.js",
-      "stack": "Error: Cannot find module '/Users/naf/Downloads/doof/e2e/auth-helpers.js' imported from /Users/naf/Downloads/doof/e2e/restaurant-dish-flows.spec.js"
+      "title": "filter-debug.spec.js",
+      "file": "filter-debug.spec.js",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "Debug filter clicking issues",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop-chrome-comprehensive",
+              "projectName": "desktop-chrome-comprehensive",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "interrupted",
+                  "duration": 85490,
+                  "error": {
+                    "message": "TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-testid=\"filter-container\"], .filter-container, .space-y-4') to be visible\u001b[22m\n",
+                    "stack": "TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-testid=\"filter-container\"], .filter-container, .space-y-4') to be visible\u001b[22m\n\n    at /Users/naf/Downloads/doof/e2e/filter-debug.spec.js:8:14",
+                    "location": {
+                      "file": "/Users/naf/Downloads/doof/e2e/filter-debug.spec.js",
+                      "column": 14,
+                      "line": 8
+                    },
+                    "snippet": "\u001b[0m \u001b[90m  6 |\u001b[39m   \n \u001b[90m  7 |\u001b[39m   \u001b[90m// Wait for the page to load and filters to appear\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m  8 |\u001b[39m   \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForSelector(\u001b[32m'[data-testid=\"filter-container\"], .filter-container, .space-y-4'\u001b[39m\u001b[33m,\u001b[39m { timeout\u001b[33m:\u001b[39m \u001b[35m10000\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m              \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m  9 |\u001b[39m   \n \u001b[90m 10 |\u001b[39m   console\u001b[33m.\u001b[39mlog(\u001b[32m'Page loaded, looking for filter elements...'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 11 |\u001b[39m   \u001b[0m"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/naf/Downloads/doof/e2e/filter-debug.spec.js",
+                        "column": 14,
+                        "line": 8
+                      },
+                      "message": "TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-testid=\"filter-container\"], .filter-container, .space-y-4') to be visible\u001b[22m\n\n\n\u001b[0m \u001b[90m  6 |\u001b[39m   \n \u001b[90m  7 |\u001b[39m   \u001b[90m// Wait for the page to load and filters to appear\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m  8 |\u001b[39m   \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForSelector(\u001b[32m'[data-testid=\"filter-container\"], .filter-container, .space-y-4'\u001b[39m\u001b[33m,\u001b[39m { timeout\u001b[33m:\u001b[39m \u001b[35m10000\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m              \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m  9 |\u001b[39m   \n \u001b[90m 10 |\u001b[39m   console\u001b[33m.\u001b[39mlog(\u001b[32m'Page loaded, looking for filter elements...'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 11 |\u001b[39m   \u001b[0m\n\u001b[2m    at /Users/naf/Downloads/doof/e2e/filter-debug.spec.js:8:14\u001b[22m"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2025-06-08T14:45:52.454Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "video",
+                      "contentType": "video/webm",
+                      "path": "/Users/naf/Downloads/doof/e2e-results/test-artifacts/filter-debug-Debug-filter-clicking-issues-desktop-chrome-comprehensive/video.webm"
+                    },
+                    {
+                      "name": "_error-context-0",
+                      "contentType": "text/markdown",
+                      "path": "/Users/naf/Downloads/doof/e2e-results/test-artifacts/filter-debug-Debug-filter-clicking-issues-desktop-chrome-comprehensive/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/naf/Downloads/doof/e2e-results/test-artifacts/filter-debug-Debug-filter-clicking-issues-desktop-chrome-comprehensive/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/naf/Downloads/doof/e2e/filter-debug.spec.js",
+                    "column": 14,
+                    "line": 8
+                  }
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "9d7bed43838a858496e5-b25579813035b9f7a888",
+          "file": "filter-debug.spec.js",
+          "line": 3,
+          "column": 1
+        }
+      ]
     }
   ],
+  "errors": [],
   "stats": {
-    "startTime": "2025-06-04T02:42:01.059Z",
-    "duration": 519.258,
+    "startTime": "2025-06-08T14:45:51.346Z",
+    "duration": 91348.72600000001,
     "expected": 0,
-    "skipped": 0,
+    "skipped": 1,
     "unexpected": 0,
     "flaky": 0
   }

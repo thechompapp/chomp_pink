@@ -17,6 +17,7 @@ import { AuthProvider } from './contexts/auth';
 import { QuickAddProvider } from './contexts/QuickAddContext';
 import { CreateListProvider } from './contexts/CreateListContext';
 import { PlacesApiProvider } from './contexts/PlacesApiContext';
+import { FilterProvider } from './hooks/filters/FilterContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './layouts/Navbar';
 import LoadingSpinner from './components/UI/LoadingSpinner';
@@ -264,14 +265,11 @@ const AppRoutes = () => (
  * Main Application Component
  */
 const App = () => {
-  // Log application startup
-  React.useEffect(() => {
-    logInfo('[App] Application starting up', {
-      isDev: import.meta.env.DEV,
-      mode: import.meta.env.MODE,
-      timestamp: new Date().toISOString()
-    });
-  }, []);
+  logInfo(`[App] Application starting up`, {
+    isDev: import.meta.env.DEV,
+    mode: import.meta.env.MODE,
+    timestamp: new Date().toISOString()
+  });
 
   return (
     <ErrorBoundary
@@ -284,42 +282,44 @@ const App = () => {
           <QuickAddProvider>
             <CreateListProvider>
               <PlacesApiProvider>
-                <div className="App">
-                  <AppRoutes />
-                </div>
-                
-                {/* Global Toast Notifications */}
-                <Toaster
-                  position="top-right"
-                  reverseOrder={false}
-                  gutter={8}
-                  containerClassName=""
-                  containerStyle={{}}
-                  toastOptions={{
-                    // Default options for all toasts
-                    className: '',
-                    duration: 4000,
-                    style: {
-                      background: '#363636',
-                      color: '#fff',
-                    },
-                    // Default options for specific toast types
-                    success: {
-                      duration: 3000,
-                      theme: {
-                        primary: 'green',
-                        secondary: 'black',
+                <FilterProvider>
+                  <div className="App bg-gray-50 dark:bg-gray-900 min-h-screen">
+                    <AppRoutes />
+                  </div>
+                  
+                  {/* Global Toast Notifications */}
+                  <Toaster
+                    position="top-right"
+                    reverseOrder={false}
+                    gutter={8}
+                    containerClassName=""
+                    containerStyle={{}}
+                    toastOptions={{
+                      // Default options for all toasts
+                      className: '',
+                      duration: 4000,
+                      style: {
+                        background: '#363636',
+                        color: '#fff',
                       },
-                    },
-                    error: {
-                      duration: 5000,
-                      theme: {
-                        primary: 'red',
-                        secondary: 'black',
+                      // Default options for specific toast types
+                      success: {
+                        duration: 3000,
+                        theme: {
+                          primary: 'green',
+                          secondary: 'black',
+                        },
                       },
-                    },
-                  }}
-                />
+                      error: {
+                        duration: 5000,
+                        theme: {
+                          primary: 'red',
+                          secondary: 'black',
+                        },
+                      },
+                    }}
+                  />
+                </FilterProvider>
               </PlacesApiProvider>
             </CreateListProvider>
           </QuickAddProvider>

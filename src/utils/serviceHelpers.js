@@ -40,13 +40,18 @@ export const handleApiResponse = async (apiCall, context, transformFn = null) =>
       };
     }
     
-    // If the response is already in the expected format, return it directly
-    if (typeof response.data === 'object' && 'success' in response.data) {
-      // Ensure the response has all required fields
+    // **FIXED**: Correctly extract data from the API response's success wrapper
+    // Handle the wrapper format: { success: true, message: "...", data: [...] }
+    if (typeof response.data === 'object' && 'success' in response.data && 'data' in response.data) {
+      logDebug(`[${context}] Detected success wrapper format with data field`);
+      
+      // Extract the actual data array from the wrapper
+      const actualData = response.data.data;
+      
       const formattedResponse = {
         success: response.data.success !== undefined ? response.data.success : true,
         message: response.data.message || 'Operation successful',
-        data: response.data.data !== undefined ? response.data.data : (Array.isArray(response.data) ? response.data : []),
+        data: Array.isArray(actualData) ? actualData : [], // Ensure data is an array
         ...(response.data.pagination && { pagination: response.data.pagination })
       };
       

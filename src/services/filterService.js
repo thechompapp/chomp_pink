@@ -1,7 +1,13 @@
 /* src/services/filterService.js */
 import apiClient from './apiClient';
-import { logDebug, logError, logWarn, logInfo } from '@/utils/logger';
+import { logDebug, logError, logWarn } from '@/utils/logger';
 import { handleApiResponse, validateId, createQueryParams } from '@/utils/serviceHelpers';
+
+/**
+ * Cache for expensive operations
+ */
+const operationCache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 /**
  * Mock data for development fallback when API returns unexpected format
@@ -20,8 +26,44 @@ const MOCK_BOROUGHS = [
   { id: 5, name: 'Staten Island', city_id: 1 }
 ];
 
-// Note: This function is no longer needed since we're using handleApiResponse
-// which standardizes the response format
+/**
+ * Cache helper functions
+ */
+const getCacheKey = (operation, params = '') => `${operation}_${params}`;
+
+const getCachedResult = (key) => {
+  const cached = operationCache.get(key);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+  operationCache.delete(key);
+  return null;
+};
+
+const setCachedResult = (key, data) => {
+  operationCache.set(key, { data, timestamp: Date.now() });
+};
+
+/**
+ * Memoized city normalization function
+ */
+const cityNameNormalizations = new Map();
+
+const memoizedNormalizeCityName = (cityName) => {
+  if (cityNameNormalizations.has(cityName)) {
+    return cityNameNormalizations.get(cityName);
+  }
+  
+  const normalized = String(cityName)
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s+/g, ' ')
+    .replace(/\b(city|borough|county)\b/g, '');
+    
+  cityNameNormalizations.set(cityName, normalized);
+  return normalized;
+};
 
 /**
  * Filter service for standardized API access to filter-related endpoints
@@ -33,12 +75,21 @@ export const filterService = {
    * @returns {Promise<Array>} List of cities with standardized boolean properties
    */
   async getCities(options = {}) {
-    logDebug('[FilterService] Fetching cities from API with options:', options);
+    const cacheKey = getCacheKey('cities', JSON.stringify(options));
+    const cached = getCachedResult(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    logDebug('[FilterService] Fetching cities from API');
     
-    // Convert options to proper params format
-    const params = options && Object.keys(options).length > 0 ? 
-      Object.fromEntries(Object.entries(options).map(([key, value]) => 
-        [key, typeof value === 'object' ? JSON.stringify(value) : String(value)])) : undefined;
+    // Convert options to proper params format efficiently
+    const params = Object.keys(options).length > 0 ? 
+      Object.fromEntries(
+        Object.entries(options).map(([key, value]) => 
+          [key, typeof value === 'object' ? JSON.stringify(value) : String(value)]
+        )
+      ) : undefined;
     
     const result = await handleApiResponse(
       () => apiClient.get('/filters/cities', params ? { params } : undefined),
@@ -50,10 +101,11 @@ export const filterService = {
     
     if (citiesArray.length === 0) {
       logWarn('[FilterService] No cities found in response, using mock data');
+      setCachedResult(cacheKey, MOCK_CITIES);
       return MOCK_CITIES;
     }
     
-    // Process the cities data
+    // Process the cities data efficiently
     const processedCities = citiesArray.map(city => ({
       id: parseInt(city.id, 10) || null,
       name: city.name || '',
@@ -62,6 +114,7 @@ export const filterService = {
       country: city.country || 'USA'
     }));
     
+    setCachedResult(cacheKey, processedCities);
     logDebug(`[FilterService] Processed ${processedCities.length} cities`);
     return processedCities;
   },
@@ -71,6 +124,12 @@ export const filterService = {
    * @returns {Promise<Array>} List of cuisine hashtags
    */
   async getCuisines() {
+    const cacheKey = getCacheKey('cuisines');
+    const cached = getCachedResult(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     logDebug('[FilterService] Fetching cuisines');
     
     const result = await handleApiResponse(
@@ -85,14 +144,18 @@ export const filterService = {
       logWarn('[FilterService] No cuisines found, using mock data');
       // Import from hashtagService to avoid duplication
       const { MOCK_HASHTAGS } = await import('./hashtagService');
+      setCachedResult(cacheKey, MOCK_HASHTAGS);
       return MOCK_HASHTAGS;
     }
     
-    return cuisines.map(cuisine => ({
+    const processedCuisines = cuisines.map(cuisine => ({
       id: parseInt(cuisine.id, 10) || null,
       name: cuisine.name || '',
       usage_count: parseInt(cuisine.usage_count, 10) || 0
     }));
+
+    setCachedResult(cacheKey, processedCuisines);
+    return processedCuisines;
   },
 
   /**
@@ -104,6 +167,12 @@ export const filterService = {
     if (!zipcode || !/^\d{5}$/.test(zipcode)) {
       logWarn(`[FilterService] Invalid zipcode format: ${zipcode}`);
       return null;
+    }
+
+    const cacheKey = getCacheKey('neighborhood_zipcode', zipcode);
+    const cached = getCachedResult(cacheKey);
+    if (cached) {
+      return cached;
     }
 
     logDebug(`[FilterService] Looking up neighborhood for zipcode: ${zipcode}`);
@@ -118,15 +187,15 @@ export const filterService = {
     
     if (neighborhoods.length === 0) {
       logDebug(`[FilterService] No neighborhoods match zipcode: ${zipcode}`);
+      setCachedResult(cacheKey, null);
       return null;
     }
     
-    // Return the first matching neighborhood
+    // Return the first matching neighborhood with normalized structure
     const neighborhood = neighborhoods[0];
     logDebug(`[FilterService] Found neighborhood for zipcode ${zipcode}:`, neighborhood.name);
     
-    // Normalize the neighborhood object
-    return {
+    const normalizedNeighborhood = {
       id: parseInt(neighborhood.id, 10) || null,
       name: neighborhood.name || '',
       neighborhood: neighborhood.name || '',  // For compatibility
@@ -137,6 +206,9 @@ export const filterService = {
       city_name: neighborhood.city_name || null,
       zipcode: zipcode
     };
+
+    setCachedResult(cacheKey, normalizedNeighborhood);
+    return normalizedNeighborhood;
   },
 
   /**
@@ -151,6 +223,12 @@ export const filterService = {
     }
 
     const numericCityId = parseInt(cityId, 10);
+    const cacheKey = getCacheKey('neighborhoods_city', numericCityId.toString());
+    const cached = getCachedResult(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     logDebug(`[FilterService] Getting neighborhoods for city ID: ${numericCityId}`);
     
     const result = await handleApiResponse(
@@ -169,12 +247,14 @@ export const filterService = {
       // For New York City (ID 1), return mock boroughs as fallback
       if (numericCityId === 1) {
         logDebug('[FilterService] Using mock boroughs for New York City');
+        setCachedResult(cacheKey, MOCK_BOROUGHS);
         return MOCK_BOROUGHS;
       }
+      setCachedResult(cacheKey, []);
       return [];
     }
     
-    // Process the neighborhoods data
+    // Process the neighborhoods data efficiently
     const processedNeighborhoods = neighborhoods.map(neighborhood => ({
       id: parseInt(neighborhood.id, 10) || null,
       name: neighborhood.name || '',
@@ -185,6 +265,7 @@ export const filterService = {
       city_id: numericCityId
     }));
     
+    setCachedResult(cacheKey, processedNeighborhoods);
     logDebug(`[FilterService] Processed ${processedNeighborhoods.length} neighborhoods for city ID: ${numericCityId}`);
     return processedNeighborhoods;
   },
@@ -198,116 +279,111 @@ export const filterService = {
    * @returns {Object|null} - Matching city object or null
    */
   findCityByPartialMatch: function(cities, normalizedCityName, normalizeFn, logFn) {
-    for (const city of cities) {
-      const cityNameNormalized = normalizeFn(city.name);
-      if (
-        cityNameNormalized.includes(normalizedCityName) ||
-        normalizedCityName.includes(cityNameNormalized)
-      ) {
-        if (logFn) {
-          logFn(`[FilterService] Partial match: input='${normalizedCityName}', city='${cityNameNormalized}' (ID: ${city.id})`);
-        }
-        return city;
-      }
+    if (!cities || !Array.isArray(cities) || cities.length === 0) {
+      return null;
     }
-    if (logFn) {
-      logFn(`[FilterService] No partial city match for '${normalizedCityName}'`);
+
+    // Try exact match first
+    const exactMatch = cities.find(city => {
+      const normalized = normalizeFn(city.name);
+      return normalized === normalizedCityName;
+    });
+    
+    if (exactMatch) {
+      return exactMatch;
     }
-    return null;
+
+    // Try partial matches
+    const partialMatches = cities.filter(city => {
+      const normalized = normalizeFn(city.name);
+      return normalized.includes(normalizedCityName) || normalizedCityName.includes(normalized);
+    });
+
+    if (partialMatches.length === 1) {
+      return partialMatches[0];
+    }
+
+    if (partialMatches.length > 1 && logFn) {
+      logFn(`[FilterService] Multiple city matches for "${normalizedCityName}":`, partialMatches.map(c => c.name));
+    }
+
+    return partialMatches.length > 0 ? partialMatches[0] : null;
   },
 
   /**
-   * Find a city by name
-   * @param {string} cityName - The name of the city to look up
-   * @returns {Promise<Object|null>} The city object if found, null otherwise
+   * Find a city by name with flexible matching
+   * @param {string} cityName - The city name to search for
+   * @returns {Promise<Object|null>} The matching city object or null
    */
   async findCityByName(cityName) {
     if (!cityName || typeof cityName !== 'string') {
-      logWarn(`[FilterService] Invalid city name: ${cityName}`);
-      // Return default New York City object instead of null
-      return MOCK_CITIES[0]; // New York City
+      logWarn('[FilterService] Invalid city name provided');
+      return null;
     }
 
-    logDebug(`[FilterService] Looking up city by name: ${cityName}`);
-
-    // Normalize city name to handle common variations
-    const normalizedCityName = this.normalizeCityName(cityName);
+    const normalizedInput = memoizedNormalizeCityName(cityName);
+    const cacheKey = getCacheKey('city_by_name', normalizedInput);
+    const cached = getCachedResult(cacheKey);
+    if (cached) {
+      return cached;
+    }
 
     try {
-      // First get all cities
       const cities = await this.getCities();
-
-      if (!Array.isArray(cities) || cities.length === 0) {
-        logWarn('[FilterService] No cities found in the database');
-        return MOCK_CITIES[0]; // Default to New York City
+      
+      if (!cities || cities.length === 0) {
+        logWarn('[FilterService] No cities available for search');
+        setCachedResult(cacheKey, null);
+        return null;
       }
 
-      // Find the city by name (case insensitive)
-      const city = cities.find(c =>
-        this.normalizeCityName(c.name) === normalizedCityName);
+      const result = this.findCityByPartialMatch(
+        cities, 
+        normalizedInput, 
+        memoizedNormalizeCityName, 
+        logWarn
+      );
 
-      if (city) {
-        logDebug(`[FilterService] Found city by name: ${cityName} -> ${city.name} (ID: ${city.id})`);
-        return city;
+      setCachedResult(cacheKey, result);
+      
+      if (result) {
+        logDebug(`[FilterService] Found city match for "${cityName}":`, result.name);
+      } else {
+        logDebug(`[FilterService] No city match found for "${cityName}"`);
       }
 
-      // Special case handling for common city aliases
-      if (normalizedCityName === 'nyc' || normalizedCityName === 'newyorkcity') {
-        const nyc = cities.find(c => c.name.toLowerCase().includes('new york'));
-        if (nyc) {
-          logDebug(`[FilterService] Found city by alias: ${cityName} -> ${nyc.name} (ID: ${nyc.id})`);
-          return nyc;
-        }
-      }
-
-      // Try partial matching if exact match fails
-      const partialMatch = this.findCityByPartialMatch(cities, normalizedCityName);
-      if (partialMatch) {
-        logDebug(`[FilterService] Found city by partial match: ${cityName} -> ${partialMatch.name} (ID: ${partialMatch.id})`);
-        return partialMatch;
-      }
-
-      logWarn(`[FilterService] City not found by name: ${cityName}, using default`);
-      return MOCK_CITIES[0]; // Default to New York City
+      return result;
     } catch (error) {
-      logError(`[FilterService] Error finding city by name ${cityName}:`, error);
-      return MOCK_CITIES[0]; // Default to New York City
+      logError('[FilterService] Error finding city by name:', error);
+      return null;
     }
   },
 
   /**
-   * Normalize city name for consistent matching
+   * Optimized city name normalization (exposed for external use)
    * @param {string} cityName - The city name to normalize
-   * @returns {string} Normalized city name
+   * @returns {string} - Normalized city name
    */
-  normalizeCityName(cityName) {
-    if (!cityName || typeof cityName !== 'string') {
-      return '';
-    }
+  normalizeCityName: memoizedNormalizeCityName,
 
-    // Remove spaces, punctuation, and convert to lowercase
-    let normalized = cityName.toLowerCase()
-      .replace(/[\s\-.,'\/&()]/g, '') // Remove spaces, hyphens, periods, commas, apostrophes, slashes, parentheses
-      .replace(/saint/g, 'st') // Normalize saint to st
-      .trim();
-
-    // Handle special cases
-    const specialCases = {
-      'newyorkcity': 'newyork',
-      'nyc': 'newyork',
-      'sf': 'sanfrancisco',
-      'sanfran': 'sanfrancisco',
-      'la': 'losangeles',
-      'dc': 'washingtondc',
-      'philly': 'philadelphia',
-      'chi': 'chicago',
-      'atl': 'atlanta',
-      'vegas': 'lasvegas',
-      'nola': 'neworleans'
-    };
-
-    return specialCases[normalized] || normalized;
+  /**
+   * Clear operation cache (for testing or manual cache invalidation)
+   */
+  clearCache() {
+    operationCache.clear();
+    cityNameNormalizations.clear();
   },
+
+  /**
+   * Get cache statistics
+   * @returns {Object} Cache statistics
+   */
+  getCacheStats() {
+    return {
+      operationCacheSize: operationCache.size,
+      cityNormalizationCacheSize: cityNameNormalizations.size
+    };
+  }
 };
 
 // Export the service object and mock data for testing and fallbacks

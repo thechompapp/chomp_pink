@@ -106,10 +106,14 @@ class FilterDataService {
       'FilterDataService.getCities'
     );
     
-    // Extract and validate data
-    const citiesArray = Array.isArray(result.data) ? result.data : [];
+    // Extract and validate data - fixed to handle the success wrapper format
+    let citiesArray = [];
     
-    if (citiesArray.length === 0) {
+    // Handle response format properly
+    if (result.success && result.data) {
+      citiesArray = Array.isArray(result.data) ? result.data : [];
+      logDebug('[FilterDataService] Successfully extracted cities array:', citiesArray.length);
+    } else {
       logWarn('[FilterDataService] No cities found in response, using mock data');
       return MOCK_DATA.cities;
     }
@@ -324,10 +328,15 @@ class FilterDataService {
       'FilterDataService.getCuisines'
     );
     
-    const cuisinesArray = Array.isArray(result.data) ? result.data : [];
+    // Extract and validate data - fixed to handle the success wrapper format
+    let cuisinesArray = [];
     
-    if (cuisinesArray.length === 0) {
-      logWarn('[FilterDataService] No cuisines found, using mock data');
+    // Handle response format properly
+    if (result.success && result.data) {
+      cuisinesArray = Array.isArray(result.data) ? result.data : [];
+      logDebug('[FilterDataService] Successfully extracted cuisines array:', cuisinesArray.length);
+    } else {
+      logWarn('[FilterDataService] No cuisines found in response, using mock data');
       return MOCK_DATA.cuisines.slice(0, limit);
     }
     
