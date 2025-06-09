@@ -106,24 +106,91 @@ const search = async (params = {}, useCache = true) => {
   console.log(`[searchService] Making API request:`, axiosConfig);
   console.log(`[searchService] Request URL:`, axiosConfig.url);
   
-  // Make API request with standardized error handling
-  const result = await handleApiResponse(
-    () => apiClient.request(axiosConfig),
-    'searchService.search'
-  );
-  
-  console.log(`[searchService] API call completed:`, result);
-  console.log(`[searchService] Result type:`, typeof result);
-  console.log(`[searchService] Result keys:`, result ? Object.keys(result) : 'no result');
-  
-  logDebug(`[searchService] Raw API result:`, result);
-  logDebug(`[searchService] Raw API result type:`, typeof result);
-  logDebug(`[searchService] Raw API result success:`, result?.success);
-  logDebug(`[searchService] Raw API result data keys:`, result?.data ? Object.keys(result.data) : 'no data');
-  
-  // If the API request failed, return empty results
-  if (!result.success) {
-    logDebug(`[searchService] API request failed, returning empty results`);
+  // Make API request directly without handleApiResponse for search endpoint
+  // because search returns a nested object structure, not a simple array
+  try {
+    const response = await apiClient.request(axiosConfig);
+    
+    console.log(`[searchService] API call completed:`, response.data);
+    console.log(`[searchService] Result type:`, typeof response.data);
+    console.log(`[searchService] Result keys:`, response.data ? Object.keys(response.data) : 'no result');
+    
+    logDebug(`[searchService] Raw API result:`, response.data);
+    logDebug(`[searchService] Raw API result type:`, typeof response.data);
+    logDebug(`[searchService] Raw API result success:`, response.data?.success);
+    logDebug(`[searchService] Raw API result data keys:`, response.data?.data ? Object.keys(response.data.data) : 'no data');
+    
+    // Check if API request failed
+    if (!response.data?.success) {
+      logDebug(`[searchService] API request failed, returning empty results`);
+      return { 
+        restaurants: [], 
+        dishes: [], 
+        lists: [], 
+        totalRestaurants: 0, 
+        totalDishes: 0, 
+        totalLists: 0,
+        error: response.data?.message || 'An error occurred during search'
+      };
+    }
+    
+    // Process and normalize the response data
+    // The API returns: { success: true, data: { restaurants: [...], dishes: [...], totalRestaurants: N, totalDishes: N } }
+    const data = response.data.data || {};
+    logDebug(`[searchService] Extracted data:`, data);
+    logDebug(`[searchService] Data keys:`, Object.keys(data));
+    logDebug(`[searchService] Restaurants array length:`, data.restaurants?.length);
+    logDebug(`[searchService] Dishes array length:`, data.dishes?.length);
+    logDebug(`[searchService] Lists array length:`, data.lists?.length);
+    
+    // Process and normalize the response
+    logDebug('[searchService] Processing search result.data:', data);
+    
+    const searchResults = data || { 
+      restaurants: [], 
+      dishes: [], 
+      lists: [], 
+      totalRestaurants: 0, 
+      totalDishes: 0, 
+      totalLists: 0 
+    };
+    
+    // Ensure we have the expected structure - the data should already be the correct nested object
+    const normalizedResults = {
+      restaurants: Array.isArray(searchResults.restaurants) ? searchResults.restaurants : [],
+      dishes: Array.isArray(searchResults.dishes) ? searchResults.dishes : [],
+      lists: Array.isArray(searchResults.lists) ? searchResults.lists : [],
+      totalRestaurants: typeof searchResults.totalRestaurants === 'number' ? searchResults.totalRestaurants : 0,
+      totalDishes: typeof searchResults.totalDishes === 'number' ? searchResults.totalDishes : 0,
+      totalLists: typeof searchResults.totalLists === 'number' ? searchResults.totalLists : 0,
+      success: true, // Add success field for consistency
+      data: searchResults // Also include the raw data for backward compatibility
+    };
+    
+    logDebug('[searchService] Normalized search results:', {
+      hasRestaurants: normalizedResults.restaurants.length > 0,
+      hasDishes: normalizedResults.dishes.length > 0,
+      hasLists: normalizedResults.lists.length > 0,
+      totals: {
+        restaurants: normalizedResults.totalRestaurants,
+        dishes: normalizedResults.totalDishes,
+        lists: normalizedResults.totalLists
+      }
+    });
+    
+    // Update cache
+    if (useCache) {
+      searchCache.set(cacheKey, {
+        data: normalizedResults,
+        timestamp: Date.now()
+      });
+    }
+    
+    return normalizedResults;
+  } catch (error) {
+    logError('[searchService] API Error:', error);
+    
+    // Return empty results on error
     return { 
       restaurants: [], 
       dishes: [], 
@@ -131,66 +198,9 @@ const search = async (params = {}, useCache = true) => {
       totalRestaurants: 0, 
       totalDishes: 0, 
       totalLists: 0,
-      error: result.error || 'An error occurred during search'
+      error: error.message || 'An error occurred during search'
     };
   }
-  
-  // Process and normalize the response data
-  // The API should return: { success: true, data: { restaurants: [...], dishes: [...], totalRestaurants: N, totalDishes: N } }
-  const data = result.data || {};
-  logDebug(`[searchService] Extracted data:`, data);
-  logDebug(`[searchService] Data keys:`, Object.keys(data));
-  logDebug(`[searchService] Restaurants array length:`, data.restaurants?.length);
-  logDebug(`[searchService] Dishes array length:`, data.dishes?.length);
-  logDebug(`[searchService] Lists array length:`, data.lists?.length);
-  
-  // Process and normalize the response
-  // The API returns: {success: true, data: {restaurants: [...], dishes: [...], lists: [...], totalRestaurants: N, ...}}
-  // handleApiResponse will extract result.data from the response.data part
-  // So result.data should contain {restaurants: [...], dishes: [...], lists: [...], totalRestaurants: N, ...}
-  logDebug('[searchService] Processing search result.data:', data);
-  
-  const searchResults = data || { 
-    restaurants: [], 
-    dishes: [], 
-    lists: [], 
-    totalRestaurants: 0, 
-    totalDishes: 0, 
-    totalLists: 0 
-  };
-  
-  // Ensure we have the expected structure - the data should already be the correct nested object
-  const normalizedResults = {
-    restaurants: Array.isArray(searchResults.restaurants) ? searchResults.restaurants : [],
-    dishes: Array.isArray(searchResults.dishes) ? searchResults.dishes : [],
-    lists: Array.isArray(searchResults.lists) ? searchResults.lists : [],
-    totalRestaurants: typeof searchResults.totalRestaurants === 'number' ? searchResults.totalRestaurants : 0,
-    totalDishes: typeof searchResults.totalDishes === 'number' ? searchResults.totalDishes : 0,
-    totalLists: typeof searchResults.totalLists === 'number' ? searchResults.totalLists : 0,
-    success: true, // Add success field for consistency
-    data: searchResults // Also include the raw data for backward compatibility
-  };
-  
-  logDebug('[searchService] Normalized search results:', {
-    hasRestaurants: normalizedResults.restaurants.length > 0,
-    hasDishes: normalizedResults.dishes.length > 0,
-    hasLists: normalizedResults.lists.length > 0,
-    totals: {
-      restaurants: normalizedResults.totalRestaurants,
-      dishes: normalizedResults.totalDishes,
-      lists: normalizedResults.totalLists
-    }
-  });
-  
-  // Update cache
-  if (useCache) {
-    searchCache.set(cacheKey, {
-      data: normalizedResults,
-      timestamp: Date.now()
-    });
-  }
-  
-  return normalizedResults;
 };
 
 export const searchService = {

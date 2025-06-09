@@ -13,7 +13,7 @@ import { Toaster } from 'react-hot-toast';
 import { ErrorBoundary } from 'react-error-boundary';
 
 // Core Components
-import { AuthProvider } from './contexts/auth';
+import { AuthProvider } from './contexts/auth/AuthContext';
 import { QuickAddProvider } from './contexts/QuickAddContext';
 import { CreateListProvider } from './contexts/CreateListContext';
 import { PlacesApiProvider } from './contexts/PlacesApiContext';
@@ -22,7 +22,8 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './layouts/Navbar';
 import LoadingSpinner from './components/UI/LoadingSpinner';
 import ErrorFallback from './components/ErrorBoundary';
-import { logError, logInfo } from './utils/logger';
+import { logError, logInfo, logDebug } from './utils/logger';
+import { LocationProvider } from './contexts/LocationContext';
 
 // Lazy-loaded page components for better performance
 const LoginPage = lazy(() => import('./pages/Login'));
@@ -40,6 +41,7 @@ const MySubmissionsPage = lazy(() => import('./pages/MySubmissions'));
 const ListDetailPage = lazy(() => import('./pages/Lists/ListDetail'));
 const RestaurantDetailPage = lazy(() => import('./pages/RestaurantDetail'));
 const DishDetailPage = lazy(() => import('./pages/DishDetail'));
+const MapsPage = lazy(() => import('./pages/Maps'));
 
 // Query client configuration
 const queryClient = new QueryClient({
@@ -254,6 +256,16 @@ const AppRoutes = () => (
         } 
       />
       
+      {/* Maps Route */}
+      <Route 
+        path="/maps" 
+        element={
+          <MainLayout>
+            <MapsPage />
+          </MainLayout>
+        } 
+      />
+      
       {/* Catch-all Route */}
       <Route path="/404" element={<NotFoundPage />} />
       <Route path="*" element={<Navigate to="/404" replace />} />
@@ -265,11 +277,7 @@ const AppRoutes = () => (
  * Main Application Component
  */
 const App = () => {
-  logInfo(`[App] Application starting up`, {
-    isDev: import.meta.env.DEV,
-    mode: import.meta.env.MODE,
-    timestamp: new Date().toISOString()
-  });
+  logDebug(`[App] Application starting up {isDev: ${import.meta.env.DEV}, mode: '${import.meta.env.MODE}', timestamp: '${new Date().toISOString()}'}`);
 
   return (
     <ErrorBoundary
@@ -279,50 +287,52 @@ const App = () => {
     >
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <QuickAddProvider>
-            <CreateListProvider>
-              <PlacesApiProvider>
-                <FilterProvider>
-                  <div className="App bg-gray-50 dark:bg-gray-900 min-h-screen">
-                    <AppRoutes />
-                  </div>
-                  
-                  {/* Global Toast Notifications */}
-                  <Toaster
-                    position="top-right"
-                    reverseOrder={false}
-                    gutter={8}
-                    containerClassName=""
-                    containerStyle={{}}
-                    toastOptions={{
-                      // Default options for all toasts
-                      className: '',
-                      duration: 4000,
-                      style: {
-                        background: '#363636',
-                        color: '#fff',
-                      },
-                      // Default options for specific toast types
-                      success: {
-                        duration: 3000,
-                        theme: {
-                          primary: 'green',
-                          secondary: 'black',
+          <LocationProvider>
+            <QuickAddProvider>
+              <CreateListProvider>
+                <PlacesApiProvider>
+                  <FilterProvider>
+                    <div className="App bg-gray-50 dark:bg-gray-900 min-h-screen">
+                      <AppRoutes />
+                    </div>
+                    
+                    {/* Global Toast Notifications */}
+                    <Toaster
+                      position="top-right"
+                      reverseOrder={false}
+                      gutter={8}
+                      containerClassName=""
+                      containerStyle={{}}
+                      toastOptions={{
+                        // Default options for all toasts
+                        className: '',
+                        duration: 4000,
+                        style: {
+                          background: '#363636',
+                          color: '#fff',
                         },
-                      },
-                      error: {
-                        duration: 5000,
-                        theme: {
-                          primary: 'red',
-                          secondary: 'black',
+                        // Default options for specific toast types
+                        success: {
+                          duration: 3000,
+                          theme: {
+                            primary: 'green',
+                            secondary: 'black',
+                          },
                         },
-                      },
-                    }}
-                  />
-                </FilterProvider>
-              </PlacesApiProvider>
-            </CreateListProvider>
-          </QuickAddProvider>
+                        error: {
+                          duration: 5000,
+                          theme: {
+                            primary: 'red',
+                            secondary: 'black',
+                          },
+                        },
+                      }}
+                    />
+                  </FilterProvider>
+                </PlacesApiProvider>
+              </CreateListProvider>
+            </QuickAddProvider>
+          </LocationProvider>
         </AuthProvider>
         
         {/* React Query DevTools (only in development) */}

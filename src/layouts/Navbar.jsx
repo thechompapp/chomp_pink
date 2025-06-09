@@ -296,6 +296,16 @@ const Navbar = () => {
                 >
                   Trending
                 </Link>
+                <Link
+                  to="/maps"
+                  className={`px-3 py-2 text-sm font-medium transition-colors ${
+                    location.pathname === '/maps'
+                      ? 'text-black dark:text-white bg-gray-100 dark:bg-gray-800'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white'
+                  }`}
+                >
+                  Maps
+                </Link>
                 {isAuthenticated && (
                   <Link
                     to="/my-lists"
@@ -505,6 +515,16 @@ const Navbar = () => {
               }`}
             >
               Trending
+            </Link>
+            <Link
+              to="/maps"
+              className={`block px-3 py-2 rounded-md text-base font-medium ${
+                location.pathname === '/maps'
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              }`}
+            >
+              Maps
             </Link>
             {isAuthenticated && (
               <>

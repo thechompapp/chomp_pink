@@ -11,12 +11,12 @@ export const getBoroughsByCity = async (cityId) => {
         console.error('[NeighborhoodModel] Invalid cityId for getBoroughsByCity:', cityId);
         return []; // Return empty for invalid ID
     }
-    // Select locations that are level 1 (Boroughs) for the given city
+    // Select locations that are boroughs (is_borough = true) for the given city
     const queryText = `
         SELECT n.*, c.name as city_name
         FROM neighborhoods n
         JOIN cities c ON n.city_id = c.id
-        WHERE n.city_id = $1 AND n.location_level = 1
+        WHERE n.city_id = $1 AND n.is_borough = true
         ORDER BY n.name ASC
     `;
     try {

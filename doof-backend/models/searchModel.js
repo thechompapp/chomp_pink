@@ -39,7 +39,7 @@ const buildFilterClauses = (filters, paramObj) => {
 
 
 // performSearch function (uses named exports)
-export const performSearch = async ({ query, limit = 10, offset = 0, type = 'all', cityId, neighborhoodId, hashtags = [], userId }) => {
+export const performSearch = async ({ query, limit = 10, offset = 0, type = 'all', cityId, boroughId, neighborhoodId, hashtags = [], userId }) => {
     const numericUserId = userId ? parseInt(userId, 10) : null;
     const safeLimit = Math.max(1, parseInt(limit, 10) || 10);
     const safeOffset = Math.max(0, parseInt(offset, 10) || 0);
@@ -79,6 +79,16 @@ export const performSearch = async ({ query, limit = 10, offset = 0, type = 'all
             LEFT JOIN Hashtags h ON rh.hashtag_id = h.id
         `; // WHERE clause built dynamically
 
+        // Add relevance scoring if there's a search query
+        if (query) {
+            const relevanceSelect = `, CASE 
+                WHEN r.name ILIKE $1 THEN 2
+                WHEN r.description ILIKE $1 THEN 1
+                ELSE 0
+            END as relevance_score`;
+            restaurantQuery = restaurantQuery.replace('COUNT(*) OVER() AS total_count', `COUNT(*) OVER() AS total_count${relevanceSelect}`);
+        }
+
         if (query) {
             conditions.push(`(r.name ILIKE $${currentParamIndex} OR r.description ILIKE $${currentParamIndex})`);
             restaurantParams.push(`%${query}%`);
@@ -87,6 +97,11 @@ export const performSearch = async ({ query, limit = 10, offset = 0, type = 'all
         if (cityId) {
             conditions.push(`r.city_id = $${currentParamIndex}`);
             restaurantParams.push(parseInt(cityId, 10));
+            currentParamIndex++;
+        }
+        if (boroughId) {
+            conditions.push(`n.parent_id = $${currentParamIndex}`);
+            restaurantParams.push(parseInt(boroughId, 10));
             currentParamIndex++;
         }
         if (neighborhoodId) {
@@ -104,7 +119,14 @@ export const performSearch = async ({ query, limit = 10, offset = 0, type = 'all
         }
 
         restaurantQuery += ` WHERE ${conditions.join(' AND ')}`;
-        restaurantQuery += ` ORDER BY r.name ASC `; // Or relevance score
+        
+        // Order by relevance if we have a search query, otherwise just by name
+        if (query) {
+            restaurantQuery += ` ORDER BY relevance_score DESC, r.name ASC `;
+        } else {
+            restaurantQuery += ` ORDER BY r.name ASC `;
+        }
+        
         restaurantQuery += ` LIMIT $${currentParamIndex++} OFFSET $${currentParamIndex++}`;
         restaurantParams.push(safeLimit, safeOffset);
 
@@ -157,6 +179,18 @@ export const performSearch = async ({ query, limit = 10, offset = 0, type = 'all
             LEFT JOIN Hashtags h ON dh.hashtag_id = h.id
         `; // WHERE clause built dynamically
 
+        // Add relevance scoring if there's a search query
+        let relevanceSelect = '';
+        if (query) {
+            relevanceSelect = `, CASE 
+                WHEN d.name ILIKE $1 THEN 3
+                WHEN d.description ILIKE $1 THEN 2  
+                WHEN r_dish.name ILIKE $1 THEN 1
+                ELSE 0
+            END as relevance_score`;
+            dishQuery = dishQuery.replace('COUNT(*) OVER() AS total_count', `COUNT(*) OVER() AS total_count${relevanceSelect}`);
+        }
+
         if (query) {
             conditions.push(`(d.name ILIKE $${currentParamIndex} OR d.description ILIKE $${currentParamIndex} OR r_dish.name ILIKE $${currentParamIndex})`);
             dishParams.push(`%${query}%`);
@@ -165,6 +199,11 @@ export const performSearch = async ({ query, limit = 10, offset = 0, type = 'all
         if (cityId) {
              conditions.push(`r_dish.city_id = $${currentParamIndex}`);
             dishParams.push(parseInt(cityId, 10));
+            currentParamIndex++;
+        }
+        if (boroughId) {
+            conditions.push(`n.parent_id = $${currentParamIndex}`);
+            dishParams.push(parseInt(boroughId, 10));
             currentParamIndex++;
         }
         if (neighborhoodId) {
@@ -182,7 +221,14 @@ export const performSearch = async ({ query, limit = 10, offset = 0, type = 'all
         }
 
         dishQuery += ` WHERE ${conditions.join(' AND ')}`;
-        dishQuery += ` ORDER BY d.name ASC `; // Or relevance score
+        
+        // Order by relevance if we have a search query, otherwise just by name
+        if (query) {
+            dishQuery += ` ORDER BY relevance_score DESC, d.name ASC `;
+        } else {
+            dishQuery += ` ORDER BY d.name ASC `;
+        }
+        
         dishQuery += ` LIMIT $${currentParamIndex++} OFFSET $${currentParamIndex++}`;
         dishParams.push(safeLimit, safeOffset);
 

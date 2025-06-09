@@ -1,9 +1,9 @@
 // Filename: /root/doof-backend/utils/formatters.js
 export const formatRestaurant = (restaurant) => {
-    if (!restaurant || !restaurant.id || !restaurant.name) return null;
+    if (!restaurant || !restaurant.id) return null; // Only require ID, not name
     return {
         id: Number(restaurant.id),
-        name: restaurant.name || 'Unnamed Restaurant',
+        name: (restaurant.name && restaurant.name.trim()) || 'Unnamed Restaurant',
         description: restaurant.description || null,
         cuisine: restaurant.cuisine || null,
         price_range: restaurant.price_range || null,
@@ -24,10 +24,10 @@ export const formatRestaurant = (restaurant) => {
 };
 
 export const formatDish = (dish) => {
-    if (!dish || !dish.id || !dish.name) return null;
+    if (!dish || !dish.id) return null; // Only require ID, not name
     return {
         id: Number(dish.id),
-        name: dish.name || 'Unnamed Dish',
+        name: (dish.name && dish.name.trim()) || 'Unnamed Dish',
         restaurant_id: dish.restaurant_id ? Number(dish.restaurant_id) : null,
         restaurant_name: dish.restaurant_name || null, // This likely comes from a JOIN
         description: dish.description || null,

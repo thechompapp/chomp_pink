@@ -32,6 +32,26 @@ import PaginationControls from '@/components/AdminPanel/PaginationControls.jsx';
 import AdminAnalyticsSummary from '@/pages/AdminPanel/AdminAnalyticsSummary.jsx';
 
 /**
+ * Flattens the hierarchical location data into a single lookup object.
+ * @param {Array} hierarchy - The hierarchical location data from the API.
+ * @returns {Object} A flat object mapping location ID to location name.
+ */
+const flattenLocations = (hierarchy) => {
+  const flatMap = {};
+  const recurse = (nodes) => {
+    if (!nodes || !Array.isArray(nodes)) return;
+    nodes.forEach(node => {
+      flatMap[node.id] = node.name;
+      if (node.children && node.children.length > 0) {
+        recurse(node.children);
+      }
+    });
+  };
+  recurse(hierarchy);
+  return flatMap;
+};
+
+/**
  * Tab configuration for admin panel
  */
 const TAB_CONFIG = {
@@ -244,6 +264,21 @@ const AdminPanel = () => {
     refetchOnWindowFocus: false,
   });
   
+  // Fetch all neighborhood data for lookups
+  const { data: neighborhoods, isLoading: neighborhoodsLoading } = useQuery({
+    queryKey: ['allNeighborhoods'],
+    queryFn: () => enhancedAdminService.fetchAllNeighborhoods(),
+    staleTime: 15 * 60 * 1000, // 15 minutes
+    refetchOnWindowFocus: false,
+  });
+
+  const flattenedNeighborhoods = useMemo(() => {
+    if (neighborhoods) {
+      return flattenLocations(neighborhoods);
+    }
+    return {};
+  }, [neighborhoods]);
+  
   // Fetch admin stats
   const { 
     data: adminStats = {}, 
@@ -349,156 +384,59 @@ const AdminPanel = () => {
   
   const currentData = getCurrentDataForTab(activeTab);
   const cities = adminData?.cities || [];
-  const neighborhoods = adminData?.neighborhoods || [];
   
   // Render tab content
   const renderTabContent = () => {
     const currentData = getCurrentDataForTab(activeTab);
-    const allTabData = adminData[activeTab] || [];
-    const tabPageSettings = pageSettings[activeTab] || { page: 1, pageSize: 25 };
-    
-    // Special case for locations tab
-    if (activeTab === 'locations') {
-      return (
-        <div className="space-y-6">
-          <LocationsTab 
-            onOperationComplete={handleOperationComplete}
-            adminData={adminData}
-          />
-        </div>
-      );
-    }
-    
-    // Enhanced tabs with pagination
-    if (['restaurants', 'dishes', 'users', 'hashtags', 'restaurant_chains', 'submissions', 'lists'].includes(activeTab)) {
-      return (
-        <div className="space-y-6">
-          {/* Enhanced Admin Table */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-            <EnhancedAdminTable
-              resourceType={activeTab}
-              initialData={currentData}
-              cities={adminData.cities || []}
-              neighborhoods={adminData.neighborhoods || []}
-              pageSize={tabPageSettings.pageSize === -1 ? allTabData.length : tabPageSettings.pageSize}
-              enableInlineEditing={true}
-              enableBulkOperations={true}
-              enableSelection={true}
-              enableCreate={true}
-              onGlobalRefresh={() => queryClient.invalidateQueries(['adminData'])}
-              className="shadow-lg"
-            />
-            
-            {/* Pagination Controls */}
-            <PaginationControls
-              currentPage={tabPageSettings.page}
-              totalItems={allTabData.length}
-              pageSize={tabPageSettings.pageSize}
-              onPageChange={(newPage) => handlePageChange(activeTab, newPage)}
-              onPageSizeChange={(newPageSize) => handlePageSizeChange(activeTab, newPageSize)}
-              showPageSizeSelector={true}
-              showPageInfo={true}
-              showNavigation={true}
-            />
-          </div>
-        </div>
-      );
-    }
-    
-    // Special case for chain management
-    if (activeTab === 'chain_management') {
-      return (
-        <div className="space-y-6">
-          <ChainManagement 
-            initialData={adminData?.restaurant_chains || []}
-            onDataChange={handleOperationComplete}
-          />
-        </div>
-      );
-    }
-    
-    // Special case for analytics
+    const currentPageSettings = pageSettings[activeTab] || { page: 1, pageSize: 25 };
+
     if (activeTab === 'analytics') {
-      return (
-        <div className="space-y-6">
-          <AdminAnalyticsSummary adminData={adminData} />
-        </div>
-      );
+      return <AdminAnalyticsDashboard stats={adminStats} />;
     }
     
-    // Special case for bulk operations
     if (activeTab === 'bulk_operations') {
-      return (
-        <div className="space-y-6">
-          <div className="bg-blue-50 p-4 rounded-lg mb-6">
-            <h3 className="text-lg font-semibold text-blue-900 mb-2">Universal Bulk Operations</h3>
-            <p className="text-blue-700 text-sm">
-              Perform bulk operations across all data types. Select a resource type below to get started.
-            </p>
-          </div>
-          
-          {/* Resource Type Selector */}
-          <div className="bg-white rounded-lg border p-4">
-            <h4 className="font-medium text-gray-900 mb-3">Select Resource Type</h4>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              {Object.entries({
-                restaurants: { label: 'Restaurants', icon: '🍽️', count: adminStats?.restaurants || adminStats?.counts?.restaurants || 0 },
-                dishes: { label: 'Dishes', icon: '🍝', count: adminStats?.dishes || adminStats?.counts?.dishes || 0 },
-                users: { label: 'Users', icon: '👥', count: adminStats?.users || adminStats?.counts?.users || 0 },
-                locations: { label: 'Locations', icon: '📍', count: adminStats?.locations || adminStats?.counts?.locations || ((adminStats?.cities || adminStats?.counts?.cities || 0) + (adminStats?.neighborhoods || adminStats?.counts?.neighborhoods || 0)) },
-                lists: { label: 'Lists', icon: '📋', count: adminStats?.lists || adminStats?.counts?.lists || 0 },
-                hashtags: { label: 'Hashtags', icon: '#️⃣', count: adminStats?.hashtags || adminStats?.counts?.hashtags || 0 },
-                restaurant_chains: { label: 'Chains', icon: '🏢', count: adminStats?.restaurant_chains || adminStats?.counts?.restaurant_chains || 0 },
-                submissions: { label: 'Submissions', icon: '📝', count: adminStats?.submissions || adminStats?.counts?.submissions || 0 }
-              }).map(([key, { label, icon, count }]) => (
-                <button
-                  key={key}
-                  onClick={() => setSelectedBulkResource(key)}
-                  className={cn(
-                    "p-3 rounded-lg border text-left transition-all",
-                    selectedBulkResource === key
-                      ? "border-blue-500 bg-blue-50 text-blue-900"
-                      : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-                  )}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-lg">{icon}</span>
-                      <span className="font-medium text-sm">{label}</span>
-                    </div>
-                    <span className="text-xs text-gray-500">{count}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-          
-          {/* Bulk Operations Panel */}
-          {selectedBulkResource && (
-            <BulkOperationsPanel 
-              resourceType={selectedBulkResource}
-              selectedRows={new Set()} // For now, no pre-selected rows
-              adminData={adminData}
-              onOperationComplete={handleOperationComplete}
-            />
-          )}
-          
-          {!selectedBulkResource && (
-            <div className="text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-              <div className="text-gray-400 text-6xl mb-4">⚡</div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Ready for Bulk Operations</h3>
-              <p className="text-gray-600">Select a resource type above to start performing bulk operations</p>
-            </div>
-          )}
-        </div>
-      );
+      return <BulkOperationsPanel onResourceSelect={setSelectedBulkResource} />;
     }
     
-    // Default fallback
+    if (activeTab === 'chain_management') {
+      return <ChainManagement />;
+    }
+
+    if (activeTab === 'locations') {
+      return <LocationsTab />;
+    }
+
+    if (dataLoading || neighborhoodsLoading) {
+      return <LoadingSpinner />;
+    }
+    
+    if (error) {
+      return <ErrorMessage message={error.message} />;
+    }
+    
+    if (!currentData) {
+      return <div>No data available for {activeTab}.</div>;
+    }
+
     return (
-      <div className="text-center py-12">
-        <p className="text-gray-500">Tab content not implemented yet</p>
-      </div>
+      <>
+        <EnhancedAdminTable
+          key={activeTab} // Use key to re-mount component on tab change
+          resourceType={activeTab}
+          initialData={currentData}
+          cities={adminData.cities || []}
+          neighborhoods={flattenedNeighborhoods}
+          onRefresh={() => queryClient.invalidateQueries(['adminData'])}
+          onGlobalRefresh={() => queryClient.invalidateQueries()}
+        />
+        <PaginationControls
+          currentPage={currentPageSettings.page}
+          pageSize={currentPageSettings.pageSize}
+          totalCount={currentData.length}
+          onPageChange={(newPage) => handlePageChange(activeTab, newPage)}
+          onPageSizeChange={(newPageSize) => handlePageSizeChange(activeTab, newPageSize)}
+        />
+      </>
     );
   };
   

@@ -88,15 +88,31 @@ class UrlTransformer {
   }
 
   /**
-   * Parse string value to appropriate type
+   * Parse string value to appropriate JavaScript type
+   * Handles: numbers, booleans, null/undefined, and strings
    */
   _parseValue(value) {
-    // Try to parse as number
-    if (/^\d+$/.test(value)) {
-      return parseInt(value, 10);
+    // Handle empty string
+    if (value === '') {
+      return null;
     }
     
-    // Return as string
+    // Handle explicit null/undefined
+    if (value === 'null' || value === 'undefined') {
+      return null;
+    }
+    
+    // Handle booleans
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    
+    // Handle numbers (integers and decimals, positive and negative)
+    if (/^-?\d+\.?\d*$/.test(value) && !isNaN(Number(value))) {
+      const num = Number(value);
+      return Number.isInteger(num) ? parseInt(value, 10) : parseFloat(value);
+    }
+    
+    // Return as string for everything else
     return value;
   }
 }

@@ -1,8 +1,321 @@
-<testsuites id="" name="" tests="1" failures="0" skipped="1" errors="0" time="91.34872600000001">
-<testsuite name="filter-debug.spec.js" timestamp="2025-06-08T14:45:51.567Z" hostname="desktop-chrome-comprehensive" tests="1" failures="0" skipped="1" time="85.49" errors="0">
-<testcase name="Debug filter clicking issues" classname="filter-debug.spec.js" time="85.49">
-<skipped>
-</skipped>
+<testsuites id="" name="" tests="2" failures="0" skipped="0" errors="0" time="155.72399299999998">
+<testsuite name="comprehensive-visual-test.spec.js" timestamp="2025-06-09T01:13:13.840Z" hostname="desktop-chrome-comprehensive" tests="2" failures="0" skipped="0" time="152.118" errors="0">
+<testcase name="COMPREHENSIVE VISUAL APPLICATION TEST › should test all navigation and interactive elements comprehensively" classname="comprehensive-visual-test.spec.js" time="143.751">
+<system-out>
+<![CDATA[🚀 STARTING COMPREHENSIVE VISUAL TEST
+📺 Browser windows will be visible for monitoring
+
+🏠 PHASE 1: HOMEPAGE COMPREHENSIVE TESTING
+   📍 Testing Homepage Elements
+   🧩 Found undefined elements on homepage
+   🔘 Testing all buttons...
+     Clicking button: "Create List"
+🚨 CONSOLE ERROR: Warning: Received `%s` for a non-boolean attribute `%s`.
+
+If you want to write it to the DOM, pass a string instead: %s="%s" or %s={value.toString()}.%s true jsx jsx true jsx 
+    at style
+    at div
+    at LoginPromptDialog (http://localhost:5173/src/components/UI/LoginPromptDialog.jsx:23:3)
+    at CreateListModal (http://localhost:5173/src/components/UI/CreateListModal.jsx:101:28)
+    at CreateListProvider (http://localhost:5173/src/contexts/CreateListContext.jsx:23:38)
+    at QuickAddProvider (http://localhost:5173/src/contexts/QuickAddContext.jsx:55:36)
+    at LocationProvider (http://localhost:5173/src/contexts/LocationContext.jsx?t=1749430612948:38:36)
+    at AuthProvider (http://localhost:5173/src/contexts/auth/AuthContext.jsx:37:32)
+    at QueryClientProvider (http://localhost:5173/node_modules/.vite/deps/chunk-5TH5XDVO.js?v=4fa4e401:2926:3)
+    at ErrorBoundary (http://localhost:5173/node_modules/.vite/deps/react-error-boundary.js?v=4fa4e401:18:5)
+    at App
+    at PlacesApiProvider (http://localhost:5173/src/contexts/PlacesApiContext.jsx:22:37)
+    at CreateListProvider (http://localhost:5173/src/contexts/CreateListContext.jsx:23:38)
+    at QuickAddProvider (http://localhost:5173/src/contexts/QuickAddContext.jsx:55:36)
+    at AuthProvider (http://localhost:5173/src/contexts/auth/AuthContext.jsx:37:32)
+    at FilterProvider (http://localhost:5173/src/hooks/filters/FilterContext.jsx:82:34)
+    at QueryClientProvider (http://localhost:5173/node_modules/.vite/deps/chunk-5TH5XDVO.js?v=4fa4e401:2926:3)
+    at Router (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=4fa4e401:4517:15)
+    at BrowserRouter (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=4fa4e401:5266:5)
+    at ErrorBoundary (http://localhost:5173/node_modules/.vite/deps/react-error-boundary.js?v=4fa4e401:18:5)
+    at Root (http://localhost:5173/src/main.jsx?t=1749430612948:85:35)
+     Clicking button: "Sign in"
+     Clicking button: "Register"
+     Clicking button: "Restaurants"
+     Clicking button: "Dishes"
+     Clicking button: "Lists"
+     Clicking button: "Location"
+     Clicking button: "Chicago"
+     Clicking button: "Los Angeles"
+     Clicking button: "Miami"
+   🔗 Testing navigation links...
+     Testing link: "" -> /
+🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:13:56.837Z] [NotificationStore] SSE connection error: Event
+🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:13:56.839Z] [NotificationStore] SSE connection error: Event
+     Testing link: "Home" -> /
+🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:01.315Z] [NotificationStore] SSE connection error: Event
+🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:01.317Z] [NotificationStore] SSE connection error: Event
+     Testing link: "Trending" -> /trending
+🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:05.854Z] [NotificationStore] SSE connection error: Event
+🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:05.855Z] [NotificationStore] SSE connection error: Event
+     Testing link: "Maps" -> /maps
+🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:10.267Z] [NotificationStore] SSE connection error: Event
+🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:10.268Z] [NotificationStore] SSE connection error: Event
+     Testing link: "Sign in" -> /login
+🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:14.700Z] [NotificationStore] SSE connection error: Event
+🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:14.701Z] [NotificationStore] SSE connection error: Event
+
+🔐 PHASE 2: AUTHENTICATION FLOW TESTING
+   📍 Testing Login Page
+🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:16.680Z] [NotificationStore] SSE connection error: Event
+🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:16.681Z] [NotificationStore] SSE connection error: Event
+   🧩 Found undefined elements on login page
+     ✏️ Filling login form...
+     🔐 Attempting login...
+   📍 Testing Register Page
+🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:24.496Z] [NotificationStore] SSE connection error: Event
+🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:24.497Z] [NotificationStore] SSE connection error: Event
+   🧩 Found undefined elements on register page
+
+📄 PHASE 3: MAIN APPLICATION PAGES TESTING
+   📍 Testing Lists page
+🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:27.881Z] [NotificationStore] SSE connection error: Event
+🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:27.882Z] [NotificationStore] SSE connection error: Event
+   🧩 Found undefined elements on Lists
+     Clicking "Create List" button
+     Clicking "" button
+     Clicking "Open user menuU" button
+   📍 Testing Search page
+🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:38.790Z] [NotificationStore] SSE connection error: Event
+🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:38.791Z] [NotificationStore] SSE connection error: Event
+   🧩 Found undefined elements on Search
+     Clicking "Create List" button
+     Clicking "" button
+     Clicking "Open user menuU" button
+   📍 Testing My Lists page
+🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:49.648Z] [NotificationStore] SSE connection error: Event
+🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:49.649Z] [NotificationStore] SSE connection error: Event
+   🧩 Found undefined elements on My Lists
+     Clicking "Create List" button
+     Clicking "" button
+     Clicking "Open user menuU" button
+
+👑 PHASE 4: ADMIN PANEL COMPREHENSIVE TESTING
+   🔐 Ensuring admin authentication...
+🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:15:00.565Z] [NotificationStore] SSE connection error: Event
+🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:15:00.566Z] [NotificationStore] SSE connection error: Event
+   👑 Attempting to access admin panel...
+   🔍 Found 0 potential admin links
+   🔗 Testing direct admin routes...
+     Testing direct route: /admin
+🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:15:02.255Z] [NotificationStore] SSE connection error: Event
+🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:15:02.264Z] [NotificationStore] SSE connection error: Event
+🚨 CONSOLE ERROR: Warning: Failed %s type: %s%s prop Invalid prop `neighborhoods` of type `object` supplied to `GooglePlacesModal`, expected `array`. 
+    at GooglePlacesModal (http://localhost:5173/src/components/AdminPanel/GooglePlacesModal.jsx:28:3)
+    at EnhancedAdminTable (http://localhost:5173/src/components/AdminPanel/EnhancedAdminTable.jsx:565:3)
+    at div
+    at div
+    at div
+    at div
+    at AdminPanel (http://localhost:5173/src/pages/AdminPanel/AdminPanel.jsx?t=1749430301826:206:37)
+    at MainLayout (http://localhost:5173/src/App.jsx?t=1749430612948:112:23)
+    at ProtectedRoute (http://localhost:5173/src/components/ProtectedRoute.jsx:166:3)
+    at RenderedRoute (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=4fa4e401:4103:5)
+    at Routes (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=4fa4e401:4574:5)
+    at Suspense
+    at AppRoutes
+    at div
+    at FilterProvider (http://localhost:5173/src/hooks/filters/FilterContext.jsx:82:34)
+    at PlacesApiProvider (http://localhost:5173/src/contexts/PlacesApiContext.jsx:22:37)
+    at CreateListProvider (http://localhost:5173/src/contexts/CreateListContext.jsx:23:38)
+    at QuickAddProvider (http://localhost:5173/src/contexts/QuickAddContext.jsx:55:36)
+    at LocationProvider (http://localhost:5173/src/contexts/LocationContext.jsx?t=1749430612948:38:36)
+    at AuthProvider (http://localhost:5173/src/contexts/auth/AuthContext.jsx:37:32)
+    at QueryClientProvider (http://localhost:5173/node_modules/.vite/deps/chunk-5TH5XDVO.js?v=4fa4e401:2926:3)
+    at ErrorBoundary (http://localhost:5173/node_modules/.vite/deps/react-error-boundary.js?v=4fa4e401:18:5)
+    at App
+    at PlacesApiProvider (http://localhost:5173/src/contexts/PlacesApiContext.jsx:22:37)
+    at CreateListProvider (http://localhost:5173/src/contexts/CreateListContext.jsx:23:38)
+    at QuickAddProvider (http://localhost:5173/src/contexts/QuickAddContext.jsx:55:36)
+    at AuthProvider (http://localhost:5173/src/contexts/auth/AuthContext.jsx:37:32)
+    at FilterProvider (http://localhost:5173/src/hooks/filters/FilterContext.jsx:82:34)
+    at QueryClientProvider (http://localhost:5173/node_modules/.vite/deps/chunk-5TH5XDVO.js?v=4fa4e401:2926:3)
+    at Router (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=4fa4e401:4517:15)
+    at BrowserRouter (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=4fa4e401:5266:5)
+    at ErrorBoundary (http://localhost:5173/node_modules/.vite/deps/react-error-boundary.js?v=4fa4e401:18:5)
+    at Root (http://localhost:5173/src/main.jsx?t=1749430612948:85:35)
+     Final URL: http://localhost:5173/admin
+     ✅ Admin route accessible!
+     🧩 Admin page has undefined elements
+     Testing direct route: /admin/dashboard
+🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:15:06.263Z] [NotificationStore] SSE connection error: Event
+🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:15:06.264Z] [NotificationStore] SSE connection error: Event
+🚨 CONSOLE ERROR: Warning: Failed %s type: %s%s prop Invalid prop `neighborhoods` of type `object` supplied to `GooglePlacesModal`, expected `array`. 
+    at GooglePlacesModal (http://localhost:5173/src/components/AdminPanel/GooglePlacesModal.jsx:28:3)
+    at EnhancedAdminTable (http://localhost:5173/src/components/AdminPanel/EnhancedAdminTable.jsx:565:3)
+    at div
+    at div
+    at div
+    at div
+    at AdminPanel (http://localhost:5173/src/pages/AdminPanel/AdminPanel.jsx?t=1749430301826:206:37)
+    at MainLayout (http://localhost:5173/src/App.jsx?t=1749430612948:112:23)
+    at ProtectedRoute (http://localhost:5173/src/components/ProtectedRoute.jsx:166:3)
+    at RenderedRoute (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=4fa4e401:4103:5)
+    at Routes (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=4fa4e401:4574:5)
+    at Suspense
+    at AppRoutes
+    at div
+    at FilterProvider (http://localhost:5173/src/hooks/filters/FilterContext.jsx:82:34)
+    at PlacesApiProvider (http://localhost:5173/src/contexts/PlacesApiContext.jsx:22:37)
+    at CreateListProvider (http://localhost:5173/src/contexts/CreateListContext.jsx:23:38)
+    at QuickAddProvider (http://localhost:5173/src/contexts/QuickAddContext.jsx:55:36)
+    at LocationProvider (http://localhost:5173/src/contexts/LocationContext.jsx?t=1749430612948:38:36)
+    at AuthProvider (http://localhost:5173/src/contexts/auth/AuthContext.jsx:37:32)
+    at QueryClientProvider (http://localhost:5173/node_modules/.vite/deps/chunk-5TH5XDVO.js?v=4fa4e401:2926:3)
+    at ErrorBoundary (http://localhost:5173/node_modules/.vite/deps/react-error-boundary.js?v=4fa4e401:18:5)
+    at App
+    at PlacesApiProvider (http://localhost:5173/src/contexts/PlacesApiContext.jsx:22:37)
+    at CreateListProvider (http://localhost:5173/src/contexts/CreateListContext.jsx:23:38)
+    at QuickAddProvider (http://localhost:5173/src/contexts/QuickAddContext.jsx:55:36)
+    at AuthProvider (http://localhost:5173/src/contexts/auth/AuthContext.jsx:37:32)
+    at FilterProvider (http://localhost:5173/src/hooks/filters/FilterContext.jsx:82:34)
+    at QueryClientProvider (http://localhost:5173/node_modules/.vite/deps/chunk-5TH5XDVO.js?v=4fa4e401:2926:3)
+    at Router (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=4fa4e401:4517:15)
+    at BrowserRouter (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=4fa4e401:5266:5)
+    at ErrorBoundary (http://localhost:5173/node_modules/.vite/deps/react-error-boundary.js?v=4fa4e401:18:5)
+    at Root (http://localhost:5173/src/main.jsx?t=1749430612948:85:35)
+     Final URL: http://localhost:5173/admin/dashboard
+     ✅ Admin route accessible!
+     🧩 Admin page has undefined elements
+     Testing direct route: /admin/panel
+🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:15:10.201Z] [NotificationStore] SSE connection error: Event
+🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:15:10.202Z] [NotificationStore] SSE connection error: Event
+🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:15:10.295Z] [ProtectedRoute] Admin verification error: No user data
+🚨 CONSOLE ERROR: Warning: Failed %s type: %s%s prop Invalid prop `neighborhoods` of type `object` supplied to `GooglePlacesModal`, expected `array`. 
+    at GooglePlacesModal (http://localhost:5173/src/components/AdminPanel/GooglePlacesModal.jsx:28:3)
+    at EnhancedAdminTable (http://localhost:5173/src/components/AdminPanel/EnhancedAdminTable.jsx:565:3)
+    at div
+    at div
+    at div
+    at div
+    at AdminPanel (http://localhost:5173/src/pages/AdminPanel/AdminPanel.jsx?t=1749430301826:206:37)
+    at MainLayout (http://localhost:5173/src/App.jsx?t=1749430612948:112:23)
+    at ProtectedRoute (http://localhost:5173/src/components/ProtectedRoute.jsx:166:3)
+    at RenderedRoute (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=4fa4e401:4103:5)
+    at Routes (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=4fa4e401:4574:5)
+    at Suspense
+    at AppRoutes
+    at div
+    at FilterProvider (http://localhost:5173/src/hooks/filters/FilterContext.jsx:82:34)
+    at PlacesApiProvider (http://localhost:5173/src/contexts/PlacesApiContext.jsx:22:37)
+    at CreateListProvider (http://localhost:5173/src/contexts/CreateListContext.jsx:23:38)
+    at QuickAddProvider (http://localhost:5173/src/contexts/QuickAddContext.jsx:55:36)
+    at LocationProvider (http://localhost:5173/src/contexts/LocationContext.jsx?t=1749430612948:38:36)
+    at AuthProvider (http://localhost:5173/src/contexts/auth/AuthContext.jsx:37:32)
+    at QueryClientProvider (http://localhost:5173/node_modules/.vite/deps/chunk-5TH5XDVO.js?v=4fa4e401:2926:3)
+    at ErrorBoundary (http://localhost:5173/node_modules/.vite/deps/react-error-boundary.js?v=4fa4e401:18:5)
+    at App
+    at PlacesApiProvider (http://localhost:5173/src/contexts/PlacesApiContext.jsx:22:37)
+    at CreateListProvider (http://localhost:5173/src/contexts/CreateListContext.jsx:23:38)
+    at QuickAddProvider (http://localhost:5173/src/contexts/QuickAddContext.jsx:55:36)
+    at AuthProvider (http://localhost:5173/src/contexts/auth/AuthContext.jsx:37:32)
+    at FilterProvider (http://localhost:5173/src/hooks/filters/FilterContext.jsx:82:34)
+    at QueryClientProvider (http://localhost:5173/node_modules/.vite/deps/chunk-5TH5XDVO.js?v=4fa4e401:2926:3)
+    at Router (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=4fa4e401:4517:15)
+    at BrowserRouter (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=4fa4e401:5266:5)
+    at ErrorBoundary (http://localhost:5173/node_modules/.vite/deps/react-error-boundary.js?v=4fa4e401:18:5)
+    at Root (http://localhost:5173/src/main.jsx?t=1749430612948:85:35)
+     Final URL: http://localhost:5173/admin/panel
+     ✅ Admin route accessible!
+     🧩 Admin page has undefined elements
+     Testing direct route: /dashboard
+🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:15:14.152Z] [NotificationStore] SSE connection error: Event
+🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:15:14.153Z] [NotificationStore] SSE connection error: Event
+     Final URL: http://localhost:5173/404
+     ⚠️ Admin route redirected or blocked
+
+🧭 PHASE 5: GLOBAL NAVIGATION TESTING
+🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:15:16.604Z] [NotificationStore] SSE connection error: Event
+   🔗 Testing 5 header navigation links
+     Testing nav link: "" -> /
+       Navigated to: http://localhost:5173/
+     Testing nav link: "Home" -> /
+       Navigated to: http://localhost:5173/
+     Testing nav link: "Trending" -> /trending
+       Navigated to: http://localhost:5173/trending
+     Testing nav link: "Maps" -> /maps
+       Navigated to: http://localhost:5173/maps
+     Testing nav link: "My Lists" -> /my-lists
+       Navigated to: http://localhost:5173/my-lists
+
+📝 PHASE 6: FORM INTERACTIONS TESTING
+🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:15:30.452Z] [NotificationStore] SSE connection error: Event
+🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:15:30.453Z] [NotificationStore] SSE connection error: Event
+🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:15:30.453Z] [NotificationStore] SSE connection error: Event
+   🔍 Found 1 search inputs
+     Testing search input 1
+
+📊 COMPREHENSIVE VISUAL TEST RESULTS
+================================================================================
+📄 Pages Visited: 6
+   Homepage, Login, Register, Lists, Search, My Lists
+🔘 Elements Clicked: 21
+🧭 Navigation Tests: 10
+👑 Admin Panel Tests: 3
+❌ Errors Encountered: 1
+
+🚨 DETAILED ERRORS:
+   1. Admin route /dashboard redirected to http://localhost:5173/404
+
+🎯 ADMIN PANEL STATUS:
+   ✅ Admin panel access attempts made
+
+✅ COMPREHENSIVE VISUAL TEST COMPLETE
+
+[[ATTACHMENT|test-artifacts/comprehensive-visual-test--1bbed-ve-elements-comprehensively-desktop-chrome-comprehensive/test-finished-1.png]]
+
+[[ATTACHMENT|test-artifacts/comprehensive-visual-test--1bbed-ve-elements-comprehensively-desktop-chrome-comprehensive/video.webm]]
+
+[[ATTACHMENT|test-artifacts/comprehensive-visual-test--1bbed-ve-elements-comprehensively-desktop-chrome-comprehensive/trace.zip]]
+]]>
+</system-out>
+</testcase>
+<testcase name="COMPREHENSIVE VISUAL APPLICATION TEST › should test modal interactions and overlays" classname="comprehensive-visual-test.spec.js" time="8.367">
+<system-out>
+<![CDATA[
+🪟 TESTING MODAL INTERACTIONS AND OVERLAYS
+   🎯 Found 2 potential modal triggers
+     Testing modal trigger: "Create List"
+🚨 CONSOLE ERROR: Warning: Received `%s` for a non-boolean attribute `%s`.
+
+If you want to write it to the DOM, pass a string instead: %s="%s" or %s={value.toString()}.%s true jsx jsx true jsx 
+    at style
+    at div
+    at LoginPromptDialog (http://localhost:5173/src/components/UI/LoginPromptDialog.jsx:23:3)
+    at CreateListModal (http://localhost:5173/src/components/UI/CreateListModal.jsx:101:28)
+    at CreateListProvider (http://localhost:5173/src/contexts/CreateListContext.jsx:23:38)
+    at QuickAddProvider (http://localhost:5173/src/contexts/QuickAddContext.jsx:55:36)
+    at LocationProvider (http://localhost:5173/src/contexts/LocationContext.jsx?t=1749430612948:38:36)
+    at AuthProvider (http://localhost:5173/src/contexts/auth/AuthContext.jsx:37:32)
+    at QueryClientProvider (http://localhost:5173/node_modules/.vite/deps/chunk-5TH5XDVO.js?v=4fa4e401:2926:3)
+    at ErrorBoundary (http://localhost:5173/node_modules/.vite/deps/react-error-boundary.js?v=4fa4e401:18:5)
+    at App
+    at PlacesApiProvider (http://localhost:5173/src/contexts/PlacesApiContext.jsx:22:37)
+    at CreateListProvider (http://localhost:5173/src/contexts/CreateListContext.jsx:23:38)
+    at QuickAddProvider (http://localhost:5173/src/contexts/QuickAddContext.jsx:55:36)
+    at AuthProvider (http://localhost:5173/src/contexts/auth/AuthContext.jsx:37:32)
+    at FilterProvider (http://localhost:5173/src/hooks/filters/FilterContext.jsx:82:34)
+    at QueryClientProvider (http://localhost:5173/node_modules/.vite/deps/chunk-5TH5XDVO.js?v=4fa4e401:2926:3)
+    at Router (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=4fa4e401:4517:15)
+    at BrowserRouter (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=4fa4e401:5266:5)
+    at ErrorBoundary (http://localhost:5173/node_modules/.vite/deps/react-error-boundary.js?v=4fa4e401:18:5)
+    at Root (http://localhost:5173/src/main.jsx?t=1749430612948:85:35)
+       ✅ Modal opened successfully
+     Testing modal trigger: "New York"
+       ✅ Modal opened successfully
+
+[[ATTACHMENT|test-artifacts/comprehensive-visual-test--182bf-l-interactions-and-overlays-desktop-chrome-comprehensive/test-finished-1.png]]
+
+[[ATTACHMENT|test-artifacts/comprehensive-visual-test--182bf-l-interactions-and-overlays-desktop-chrome-comprehensive/video.webm]]
+
+[[ATTACHMENT|test-artifacts/comprehensive-visual-test--182bf-l-interactions-and-overlays-desktop-chrome-comprehensive/trace.zip]]
+]]>
+</system-out>
 </testcase>
 </testsuite>
 </testsuites>

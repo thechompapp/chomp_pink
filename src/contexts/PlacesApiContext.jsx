@@ -26,37 +26,52 @@ export const PlacesApiProvider = ({ children }) => {
         logInfo('[PlacesAPI] Loading Google Places API...');
         
         // Check if already loaded
-        if (window.google?.maps?.places) {
-          logInfo('[PlacesAPI] Google Places API already loaded');
-          setPlacesApi(window.google.maps.places);
+        if (window.google?.maps?.places && window.google?.maps?.marker) {
+          logInfo('[PlacesAPI] Google Places and Marker libraries already loaded');
+          setPlacesApi(window.google.maps);
           setIsLoaded(true);
           return;
         }
 
+        // Prevent duplicate script injection
+        if (window.googleMapsScriptLoaded) {
+          logDebug('[PlacesAPI] Google Maps script injection already in progress.');
+          // If script is already being loaded, wait for it to finish
+          const interval = setInterval(() => {
+            if (window.google?.maps?.places && window.google?.maps?.marker) {
+              clearInterval(interval);
+              setIsLoaded(true);
+              setPlacesApi(window.google.maps);
+            }
+          }, 100);
+          return;
+        }
+        window.googleMapsScriptLoaded = true;
+
         // Load the Google Maps JavaScript API
         const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_PLACES_API_KEY}&libraries=places`;
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}&libraries=places,marker`;
         script.async = true;
         script.defer = true;
 
         script.onload = () => {
-          if (window.google?.maps?.places) {
-            logInfo('[PlacesAPI] Google Places API loaded successfully');
-            setPlacesApi(window.google.maps.places);
+          if (window.google?.maps?.places && window.google?.maps?.marker) {
+            logInfo('[PlacesAPI] Google Maps API loaded successfully');
+            setPlacesApi(window.google.maps);
             setIsLoaded(true);
           } else {
-            throw new Error('Google Places API not available after script load');
+            throw new Error('Google Maps API not available after script load');
           }
         };
 
         script.onerror = () => {
-          throw new Error('Failed to load Google Places API script');
+          throw new Error('Failed to load Google Maps API script');
         };
 
         document.head.appendChild(script);
 
       } catch (err) {
-        logWarn('[PlacesAPI] Error loading Google Places API:', err);
+        logWarn('[PlacesAPI] Error loading Google Maps API:', err);
         setError(err.message);
       }
     };
@@ -67,6 +82,7 @@ export const PlacesApiProvider = ({ children }) => {
   const contextValue = {
     isLoaded,
     placesApi,
+    google: window.google, // Expose the full google object
     error,
     // Helper to check if Places API is ready
     isReady: isLoaded && placesApi && !error

@@ -1,122 +1,230 @@
 /**
- * NeighborhoodFilter.jsx - Optimized location filter component
+ * NeighborhoodFilter.jsx - Location Filter UI Component
  * 
- * Single Responsibility: Location filter UI (City, Borough, Neighborhood)
- * - Uses Phase 2 hooks for simplified data and state management
- * - Clean component focused only on UI rendering
- * - Handles geographic filter hierarchy
- * - Provides loading and error states
- * 
- * OPTIMIZATIONS:
- * - Removed redundant debug logging for performance
- * - Memoized expensive computations and callbacks
- * - Optimized component re-renders with React.memo
- * - Reduced unnecessary effect dependencies
+ * Single Responsibility: Display location filter options
+ * - Pure UI component with clear prop interface
+ * - Hierarchical location selection (City → Borough → Neighborhood)
+ * - Loading and error state handling
+ * - No business logic or state management
  */
 
-import React, { useMemo, useCallback } from 'react';
-import { MapPin, Loader2 } from 'lucide-react';
-import FilterGroup from './FilterGroup';
+import React from 'react';
 import FilterItem from './FilterItem';
-import LoadingSpinner from '../UI/LoadingSpinner';
+import LoadingSpinner from '@/components/UI/LoadingSpinner';
+import { MapPin } from 'lucide-react';
 import { logDebug } from '@/utils/logger';
 
 /**
- * NeighborhoodFilter component - Optimized location filters using Phase 2 hooks
- * 
- * @param {Object} props - Component props
- * @param {Object} props.filterSystem - Complete filter system from useFilters hook
- * @param {Array} props.cities - Available cities data
- * @param {Array} props.boroughs - Available boroughs data
- * @param {Array} props.neighborhoods - Available neighborhoods data
- * @param {Object} props.loading - Loading states for each data type
- * @param {Object} props.errors - Error states for each data type
- * @param {boolean} props.showBoroughs - Whether to show borough selection
- * @param {boolean} props.showNeighborhoods - Whether to show neighborhood selection
- * @param {string} props.className - Additional CSS classes
+ * NeighborhoodFilter - Location filtering component
  */
-const NeighborhoodFilter = React.memo(({
-  cities,
-  boroughs,
-  neighborhoods,
-  loading,
-  error,
-  filters,
-  onFilterChange,
+const NeighborhoodFilter = ({
+  cities = [],
+  boroughs = [],
+  neighborhoods = [],
+  selectedCity = null,
+  selectedBorough = null,
+  selectedNeighborhood = null,
+  loading = {},
+  errors = {},
+  onCityChange,
+  onBoroughChange,
+  onNeighborhoodChange
 }) => {
   logDebug('[NeighborhoodFilter] Props received:', {
-    cities: cities.length,
-    boroughs: boroughs.length,
-    neighborhoods: neighborhoods.length,
+    citiesCount: cities.length,
+    boroughsCount: boroughs.length,
+    neighborhoodsCount: neighborhoods.length,
+    selectedCity,
+    selectedBorough,
+    selectedNeighborhood,
     loading,
-    filters,
+    errors
   });
 
-  if (loading.cities || loading.boroughs || loading.neighborhoods) {
-    return <div className="flex justify-center items-center h-24"><LoadingSpinner /></div>;
+  // Handle loading states
+  if (loading.cities) {
+    return (
+      <div className="flex justify-center items-center h-24">
+        <LoadingSpinner />
+        <span className="ml-2 text-gray-600">Loading cities...</span>
+      </div>
+    );
   }
 
-  if (error.cities || error.boroughs || error.neighborhoods) {
-    return <div className="text-red-500">Error loading location data.</div>;
+  // Handle error states
+  if (errors.cities) {
+    return (
+      <div className="text-red-500 text-sm p-3 bg-red-50 border border-red-200 rounded">
+        <div className="flex items-center">
+          <MapPin size={16} className="mr-2" />
+          Error loading location data: {errors.cities}
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-4">
-      {/* Cities */}
-      <div className="space-y-2">
-        <h4 className="font-semibold text-gray-700">City</h4>
-        <div className="flex flex-wrap gap-2">
-          {cities.map(city => (
-            <FilterItem
-              key={city.id}
-              type="city"
-              value={city.id}
-              label={city.name}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* Boroughs */}
-      {filters.city && boroughs.length > 0 && (
+      {/* Cities - show when no city is selected */}
+      {!selectedCity && (
         <div className="space-y-2">
-          <h4 className="font-semibold text-gray-700">Borough</h4>
+          <h4 className="font-semibold text-gray-700 flex items-center">
+            <MapPin size={16} className="mr-2" />
+            City
+          </h4>
           <div className="flex flex-wrap gap-2">
-            {boroughs.map(borough => (
+            {cities.map(city => (
               <FilterItem
-                key={borough.id}
-                type="borough"
-                value={borough.id}
-                label={borough.name}
+                key={city.id}
+                label={city.name}
+                isActive={selectedCity === city.id}
+                onClick={() => {
+                  // Simple toggle: if already selected, deselect, otherwise select
+                  if (selectedCity === city.id) {
+                    onCityChange(null);
+                  } else {
+                    onCityChange(city.id);
+                  }
+                }}
+                disabled={loading.cities}
               />
             ))}
           </div>
         </div>
       )}
 
-      {/* Neighborhoods */}
-      {filters.borough && neighborhoods.length > 0 && (
+      {/* Boroughs - show when city is selected but no borough selected */}
+      {selectedCity && !selectedBorough && (
         <div className="space-y-2">
-          <h4 className="font-semibold text-gray-700">Neighborhood</h4>
-          <div className="flex flex-wrap gap-2">
-            {neighborhoods.map(neighborhood => (
-              <FilterItem
-                key={neighborhood.id}
-                type="neighborhood"
-                value={neighborhood.id}
-                label={neighborhood.name}
-              />
-            ))}
-          </div>
+          <h4 className="font-semibold text-gray-700 flex items-center">
+            <MapPin size={16} className="mr-2" />
+            Borough
+            {loading.boroughs && <LoadingSpinner size="sm" className="ml-2" />}
+          </h4>
+          
+          {errors.boroughs ? (
+            <div className="text-red-500 text-sm">Error loading boroughs: {errors.boroughs}</div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {boroughs.map(borough => (
+                <FilterItem
+                  key={borough.id}
+                  label={borough.name}
+                  isActive={selectedBorough === borough.id}
+                  onClick={() => {
+                    // Simple toggle: if already selected, deselect, otherwise select
+                    if (selectedBorough === borough.id) {
+                      onBoroughChange(null);
+                    } else {
+                      onBoroughChange(borough.id);
+                    }
+                  }}
+                  disabled={loading.boroughs}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
-      {filters.borough && neighborhoods.length === 0 && !loading.neighborhoods && (
-        <p className="text-gray-500">No neighborhoods available for this borough.</p>
+
+      {/* Neighborhoods - show when borough is selected */}
+      {selectedBorough && (
+        <div className="space-y-2">
+          <h4 className="font-semibold text-gray-700 flex items-center">
+            <MapPin size={16} className="mr-2" />
+            Neighborhood
+            {loading.neighborhoods && <LoadingSpinner size="sm" className="ml-2" />}
+          </h4>
+          
+          {errors.neighborhoods ? (
+            <div className="text-red-500 text-sm">Error loading neighborhoods: {errors.neighborhoods}</div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {neighborhoods.map(neighborhood => (
+                <FilterItem
+                  key={neighborhood.id}
+                  label={neighborhood.name}
+                  isActive={selectedNeighborhood === neighborhood.id}
+                  onClick={() => {
+                    // Simple toggle: if already selected, deselect, otherwise select
+                    if (selectedNeighborhood === neighborhood.id) {
+                      onNeighborhoodChange(null);
+                    } else {
+                      onNeighborhoodChange(neighborhood.id);
+                    }
+                  }}
+                  disabled={loading.neighborhoods}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Helper text based on current state */}
+      {!selectedCity && (
+        <div className="text-sm text-gray-500 italic">
+          Select a city to see boroughs
+        </div>
+      )}
+      
+      {selectedCity && !selectedBorough && (
+        <div className="text-sm text-gray-500 italic">
+          Select a borough to see neighborhoods
+        </div>
+      )}
+      
+      {/* Breadcrumb showing current selection path */}
+      {(selectedCity || selectedBorough || selectedNeighborhood) && (
+        <div className="text-sm text-gray-600 bg-gray-100 p-2 rounded flex items-center justify-between">
+          <div>
+            <span className="font-medium">Selected: </span>
+            {selectedNeighborhood && (
+              <span>
+                {cities.find(c => c.id === selectedCity)?.name} → {boroughs.find(b => b.id === selectedBorough)?.name} → {neighborhoods.find(n => n.id === selectedNeighborhood)?.name}
+              </span>
+            )}
+            {selectedBorough && !selectedNeighborhood && (
+              <span>
+                {cities.find(c => c.id === selectedCity)?.name} → {boroughs.find(b => b.id === selectedBorough)?.name}
+              </span>
+            )}
+            {selectedCity && !selectedBorough && (
+              <span>
+                {cities.find(c => c.id === selectedCity)?.name}
+              </span>
+            )}
+          </div>
+          <div className="flex space-x-2">
+            {selectedNeighborhood && (
+              <button
+                onClick={() => onNeighborhoodChange(null)}
+                className="text-xs text-gray-500 hover:text-gray-700 underline"
+              >
+                Back to boroughs
+              </button>
+            )}
+            {selectedBorough && !selectedNeighborhood && (
+              <button
+                onClick={() => onBoroughChange(null)}
+                className="text-xs text-gray-500 hover:text-gray-700 underline"
+              >
+                Back to cities
+              </button>
+            )}
+            {selectedCity && !selectedBorough && (
+              <button
+                onClick={() => onCityChange(null)}
+                className="text-xs text-gray-500 hover:text-gray-700 underline"
+              >
+                Clear selection
+              </button>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
-});
+};
 
-NeighborhoodFilter.displayName = 'NeighborhoodFilter';
-
-export default NeighborhoodFilter; 
+export default React.memo(NeighborhoodFilter); 

@@ -70,94 +70,548 @@
   },
   "suites": [
     {
-      "title": "filter-debug.spec.js",
-      "file": "filter-debug.spec.js",
+      "title": "comprehensive-visual-test.spec.js",
+      "file": "comprehensive-visual-test.spec.js",
       "column": 0,
       "line": 0,
-      "specs": [
+      "specs": [],
+      "suites": [
         {
-          "title": "Debug filter clicking issues",
-          "ok": true,
-          "tags": [],
-          "tests": [
+          "title": "COMPREHENSIVE VISUAL APPLICATION TEST",
+          "file": "comprehensive-visual-test.spec.js",
+          "line": 10,
+          "column": 6,
+          "specs": [
             {
-              "timeout": 300000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "desktop-chrome-comprehensive",
-              "projectName": "desktop-chrome-comprehensive",
-              "results": [
+              "title": "should test all navigation and interactive elements comprehensively",
+              "ok": true,
+              "tags": [],
+              "tests": [
                 {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "interrupted",
-                  "duration": 85490,
-                  "error": {
-                    "message": "TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-testid=\"filter-container\"], .filter-container, .space-y-4') to be visible\u001b[22m\n",
-                    "stack": "TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-testid=\"filter-container\"], .filter-container, .space-y-4') to be visible\u001b[22m\n\n    at /Users/naf/Downloads/doof/e2e/filter-debug.spec.js:8:14",
-                    "location": {
-                      "file": "/Users/naf/Downloads/doof/e2e/filter-debug.spec.js",
-                      "column": 14,
-                      "line": 8
-                    },
-                    "snippet": "\u001b[0m \u001b[90m  6 |\u001b[39m   \n \u001b[90m  7 |\u001b[39m   \u001b[90m// Wait for the page to load and filters to appear\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m  8 |\u001b[39m   \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForSelector(\u001b[32m'[data-testid=\"filter-container\"], .filter-container, .space-y-4'\u001b[39m\u001b[33m,\u001b[39m { timeout\u001b[33m:\u001b[39m \u001b[35m10000\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m              \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m  9 |\u001b[39m   \n \u001b[90m 10 |\u001b[39m   console\u001b[33m.\u001b[39mlog(\u001b[32m'Page loaded, looking for filter elements...'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 11 |\u001b[39m   \u001b[0m"
-                  },
-                  "errors": [
-                    {
-                      "location": {
-                        "file": "/Users/naf/Downloads/doof/e2e/filter-debug.spec.js",
-                        "column": 14,
-                        "line": 8
-                      },
-                      "message": "TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-testid=\"filter-container\"], .filter-container, .space-y-4') to be visible\u001b[22m\n\n\n\u001b[0m \u001b[90m  6 |\u001b[39m   \n \u001b[90m  7 |\u001b[39m   \u001b[90m// Wait for the page to load and filters to appear\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m  8 |\u001b[39m   \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForSelector(\u001b[32m'[data-testid=\"filter-container\"], .filter-container, .space-y-4'\u001b[39m\u001b[33m,\u001b[39m { timeout\u001b[33m:\u001b[39m \u001b[35m10000\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m              \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m  9 |\u001b[39m   \n \u001b[90m 10 |\u001b[39m   console\u001b[33m.\u001b[39mlog(\u001b[32m'Page loaded, looking for filter elements...'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 11 |\u001b[39m   \u001b[0m\n\u001b[2m    at /Users/naf/Downloads/doof/e2e/filter-debug.spec.js:8:14\u001b[22m"
-                    }
-                  ],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2025-06-08T14:45:52.454Z",
+                  "timeout": 300000,
                   "annotations": [],
-                  "attachments": [
+                  "expectedStatus": "passed",
+                  "projectId": "desktop-chrome-comprehensive",
+                  "projectName": "desktop-chrome-comprehensive",
+                  "results": [
                     {
-                      "name": "video",
-                      "contentType": "video/webm",
-                      "path": "/Users/naf/Downloads/doof/e2e-results/test-artifacts/filter-debug-Debug-filter-clicking-issues-desktop-chrome-comprehensive/video.webm"
-                    },
-                    {
-                      "name": "_error-context-0",
-                      "contentType": "text/markdown",
-                      "path": "/Users/naf/Downloads/doof/e2e-results/test-artifacts/filter-debug-Debug-filter-clicking-issues-desktop-chrome-comprehensive/error-context.md"
-                    },
-                    {
-                      "name": "trace",
-                      "contentType": "application/zip",
-                      "path": "/Users/naf/Downloads/doof/e2e-results/test-artifacts/filter-debug-Debug-filter-clicking-issues-desktop-chrome-comprehensive/trace.zip"
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 143751,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🚀 STARTING COMPREHENSIVE VISUAL TEST\n"
+                        },
+                        {
+                          "text": "📺 Browser windows will be visible for monitoring\n"
+                        },
+                        {
+                          "text": "\n🏠 PHASE 1: HOMEPAGE COMPREHENSIVE TESTING\n"
+                        },
+                        {
+                          "text": "   📍 Testing Homepage Elements\n"
+                        },
+                        {
+                          "text": "   🧩 Found undefined elements on homepage\n"
+                        },
+                        {
+                          "text": "   🔘 Testing all buttons...\n"
+                        },
+                        {
+                          "text": "     Clicking button: \"Create List\"\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: Warning: Received `%s` for a non-boolean attribute `%s`.\n\nIf you want to write it to the DOM, pass a string instead: %s=\"%s\" or %s={value.toString()}.%s true jsx jsx true jsx \n    at style\n    at div\n    at LoginPromptDialog (http://localhost:5173/src/components/UI/LoginPromptDialog.jsx:23:3)\n    at CreateListModal (http://localhost:5173/src/components/UI/CreateListModal.jsx:101:28)\n    at CreateListProvider (http://localhost:5173/src/contexts/CreateListContext.jsx:23:38)\n    at QuickAddProvider (http://localhost:5173/src/contexts/QuickAddContext.jsx:55:36)\n    at LocationProvider (http://localhost:5173/src/contexts/LocationContext.jsx?t=1749430612948:38:36)\n    at AuthProvider (http://localhost:5173/src/contexts/auth/AuthContext.jsx:37:32)\n    at QueryClientProvider (http://localhost:5173/node_modules/.vite/deps/chunk-5TH5XDVO.js?v=4fa4e401:2926:3)\n    at ErrorBoundary (http://localhost:5173/node_modules/.vite/deps/react-error-boundary.js?v=4fa4e401:18:5)\n    at App\n    at PlacesApiProvider (http://localhost:5173/src/contexts/PlacesApiContext.jsx:22:37)\n    at CreateListProvider (http://localhost:5173/src/contexts/CreateListContext.jsx:23:38)\n    at QuickAddProvider (http://localhost:5173/src/contexts/QuickAddContext.jsx:55:36)\n    at AuthProvider (http://localhost:5173/src/contexts/auth/AuthContext.jsx:37:32)\n    at FilterProvider (http://localhost:5173/src/hooks/filters/FilterContext.jsx:82:34)\n    at QueryClientProvider (http://localhost:5173/node_modules/.vite/deps/chunk-5TH5XDVO.js?v=4fa4e401:2926:3)\n    at Router (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=4fa4e401:4517:15)\n    at BrowserRouter (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=4fa4e401:5266:5)\n    at ErrorBoundary (http://localhost:5173/node_modules/.vite/deps/react-error-boundary.js?v=4fa4e401:18:5)\n    at Root (http://localhost:5173/src/main.jsx?t=1749430612948:85:35)\n"
+                        },
+                        {
+                          "text": "     Clicking button: \"Sign in\"\n"
+                        },
+                        {
+                          "text": "     Clicking button: \"Register\"\n"
+                        },
+                        {
+                          "text": "     Clicking button: \"Restaurants\"\n"
+                        },
+                        {
+                          "text": "     Clicking button: \"Dishes\"\n"
+                        },
+                        {
+                          "text": "     Clicking button: \"Lists\"\n"
+                        },
+                        {
+                          "text": "     Clicking button: \"Location\"\n"
+                        },
+                        {
+                          "text": "     Clicking button: \"Chicago\"\n"
+                        },
+                        {
+                          "text": "     Clicking button: \"Los Angeles\"\n"
+                        },
+                        {
+                          "text": "     Clicking button: \"Miami\"\n"
+                        },
+                        {
+                          "text": "   🔗 Testing navigation links...\n"
+                        },
+                        {
+                          "text": "     Testing link: \"\" -> /\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:13:56.837Z] [NotificationStore] SSE connection error: Event\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:13:56.839Z] [NotificationStore] SSE connection error: Event\n"
+                        },
+                        {
+                          "text": "     Testing link: \"Home\" -> /\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:01.315Z] [NotificationStore] SSE connection error: Event\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:01.317Z] [NotificationStore] SSE connection error: Event\n"
+                        },
+                        {
+                          "text": "     Testing link: \"Trending\" -> /trending\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:05.854Z] [NotificationStore] SSE connection error: Event\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:05.855Z] [NotificationStore] SSE connection error: Event\n"
+                        },
+                        {
+                          "text": "     Testing link: \"Maps\" -> /maps\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:10.267Z] [NotificationStore] SSE connection error: Event\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:10.268Z] [NotificationStore] SSE connection error: Event\n"
+                        },
+                        {
+                          "text": "     Testing link: \"Sign in\" -> /login\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:14.700Z] [NotificationStore] SSE connection error: Event\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:14.701Z] [NotificationStore] SSE connection error: Event\n"
+                        },
+                        {
+                          "text": "\n🔐 PHASE 2: AUTHENTICATION FLOW TESTING\n"
+                        },
+                        {
+                          "text": "   📍 Testing Login Page\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:16.680Z] [NotificationStore] SSE connection error: Event\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:16.681Z] [NotificationStore] SSE connection error: Event\n"
+                        },
+                        {
+                          "text": "   🧩 Found undefined elements on login page\n"
+                        },
+                        {
+                          "text": "     ✏️ Filling login form...\n"
+                        },
+                        {
+                          "text": "     🔐 Attempting login...\n"
+                        },
+                        {
+                          "text": "   📍 Testing Register Page\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:24.496Z] [NotificationStore] SSE connection error: Event\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:24.497Z] [NotificationStore] SSE connection error: Event\n"
+                        },
+                        {
+                          "text": "   🧩 Found undefined elements on register page\n"
+                        },
+                        {
+                          "text": "\n📄 PHASE 3: MAIN APPLICATION PAGES TESTING\n"
+                        },
+                        {
+                          "text": "   📍 Testing Lists page\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:27.881Z] [NotificationStore] SSE connection error: Event\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:27.882Z] [NotificationStore] SSE connection error: Event\n"
+                        },
+                        {
+                          "text": "   🧩 Found undefined elements on Lists\n"
+                        },
+                        {
+                          "text": "     Clicking \"Create List\" button\n"
+                        },
+                        {
+                          "text": "     Clicking \"\" button\n"
+                        },
+                        {
+                          "text": "     Clicking \"Open user menuU\" button\n"
+                        },
+                        {
+                          "text": "   📍 Testing Search page\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:38.790Z] [NotificationStore] SSE connection error: Event\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:38.791Z] [NotificationStore] SSE connection error: Event\n"
+                        },
+                        {
+                          "text": "   🧩 Found undefined elements on Search\n"
+                        },
+                        {
+                          "text": "     Clicking \"Create List\" button\n"
+                        },
+                        {
+                          "text": "     Clicking \"\" button\n"
+                        },
+                        {
+                          "text": "     Clicking \"Open user menuU\" button\n"
+                        },
+                        {
+                          "text": "   📍 Testing My Lists page\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:49.648Z] [NotificationStore] SSE connection error: Event\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:14:49.649Z] [NotificationStore] SSE connection error: Event\n"
+                        },
+                        {
+                          "text": "   🧩 Found undefined elements on My Lists\n"
+                        },
+                        {
+                          "text": "     Clicking \"Create List\" button\n"
+                        },
+                        {
+                          "text": "     Clicking \"\" button\n"
+                        },
+                        {
+                          "text": "     Clicking \"Open user menuU\" button\n"
+                        },
+                        {
+                          "text": "\n👑 PHASE 4: ADMIN PANEL COMPREHENSIVE TESTING\n"
+                        },
+                        {
+                          "text": "   🔐 Ensuring admin authentication...\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:15:00.565Z] [NotificationStore] SSE connection error: Event\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:15:00.566Z] [NotificationStore] SSE connection error: Event\n"
+                        },
+                        {
+                          "text": "   👑 Attempting to access admin panel...\n"
+                        },
+                        {
+                          "text": "   🔍 Found 0 potential admin links\n"
+                        },
+                        {
+                          "text": "   🔗 Testing direct admin routes...\n"
+                        },
+                        {
+                          "text": "     Testing direct route: /admin\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:15:02.255Z] [NotificationStore] SSE connection error: Event\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:15:02.264Z] [NotificationStore] SSE connection error: Event\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: Warning: Failed %s type: %s%s prop Invalid prop `neighborhoods` of type `object` supplied to `GooglePlacesModal`, expected `array`. \n    at GooglePlacesModal (http://localhost:5173/src/components/AdminPanel/GooglePlacesModal.jsx:28:3)\n    at EnhancedAdminTable (http://localhost:5173/src/components/AdminPanel/EnhancedAdminTable.jsx:565:3)\n    at div\n    at div\n    at div\n    at div\n    at AdminPanel (http://localhost:5173/src/pages/AdminPanel/AdminPanel.jsx?t=1749430301826:206:37)\n    at MainLayout (http://localhost:5173/src/App.jsx?t=1749430612948:112:23)\n    at ProtectedRoute (http://localhost:5173/src/components/ProtectedRoute.jsx:166:3)\n    at RenderedRoute (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=4fa4e401:4103:5)\n    at Routes (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=4fa4e401:4574:5)\n    at Suspense\n    at AppRoutes\n    at div\n    at FilterProvider (http://localhost:5173/src/hooks/filters/FilterContext.jsx:82:34)\n    at PlacesApiProvider (http://localhost:5173/src/contexts/PlacesApiContext.jsx:22:37)\n    at CreateListProvider (http://localhost:5173/src/contexts/CreateListContext.jsx:23:38)\n    at QuickAddProvider (http://localhost:5173/src/contexts/QuickAddContext.jsx:55:36)\n    at LocationProvider (http://localhost:5173/src/contexts/LocationContext.jsx?t=1749430612948:38:36)\n    at AuthProvider (http://localhost:5173/src/contexts/auth/AuthContext.jsx:37:32)\n    at QueryClientProvider (http://localhost:5173/node_modules/.vite/deps/chunk-5TH5XDVO.js?v=4fa4e401:2926:3)\n    at ErrorBoundary (http://localhost:5173/node_modules/.vite/deps/react-error-boundary.js?v=4fa4e401:18:5)\n    at App\n    at PlacesApiProvider (http://localhost:5173/src/contexts/PlacesApiContext.jsx:22:37)\n    at CreateListProvider (http://localhost:5173/src/contexts/CreateListContext.jsx:23:38)\n    at QuickAddProvider (http://localhost:5173/src/contexts/QuickAddContext.jsx:55:36)\n    at AuthProvider (http://localhost:5173/src/contexts/auth/AuthContext.jsx:37:32)\n    at FilterProvider (http://localhost:5173/src/hooks/filters/FilterContext.jsx:82:34)\n    at QueryClientProvider (http://localhost:5173/node_modules/.vite/deps/chunk-5TH5XDVO.js?v=4fa4e401:2926:3)\n    at Router (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=4fa4e401:4517:15)\n    at BrowserRouter (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=4fa4e401:5266:5)\n    at ErrorBoundary (http://localhost:5173/node_modules/.vite/deps/react-error-boundary.js?v=4fa4e401:18:5)\n    at Root (http://localhost:5173/src/main.jsx?t=1749430612948:85:35)\n"
+                        },
+                        {
+                          "text": "     Final URL: http://localhost:5173/admin\n"
+                        },
+                        {
+                          "text": "     ✅ Admin route accessible!\n"
+                        },
+                        {
+                          "text": "     🧩 Admin page has undefined elements\n"
+                        },
+                        {
+                          "text": "     Testing direct route: /admin/dashboard\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:15:06.263Z] [NotificationStore] SSE connection error: Event\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:15:06.264Z] [NotificationStore] SSE connection error: Event\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: Warning: Failed %s type: %s%s prop Invalid prop `neighborhoods` of type `object` supplied to `GooglePlacesModal`, expected `array`. \n    at GooglePlacesModal (http://localhost:5173/src/components/AdminPanel/GooglePlacesModal.jsx:28:3)\n    at EnhancedAdminTable (http://localhost:5173/src/components/AdminPanel/EnhancedAdminTable.jsx:565:3)\n    at div\n    at div\n    at div\n    at div\n    at AdminPanel (http://localhost:5173/src/pages/AdminPanel/AdminPanel.jsx?t=1749430301826:206:37)\n    at MainLayout (http://localhost:5173/src/App.jsx?t=1749430612948:112:23)\n    at ProtectedRoute (http://localhost:5173/src/components/ProtectedRoute.jsx:166:3)\n    at RenderedRoute (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=4fa4e401:4103:5)\n    at Routes (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=4fa4e401:4574:5)\n    at Suspense\n    at AppRoutes\n    at div\n    at FilterProvider (http://localhost:5173/src/hooks/filters/FilterContext.jsx:82:34)\n    at PlacesApiProvider (http://localhost:5173/src/contexts/PlacesApiContext.jsx:22:37)\n    at CreateListProvider (http://localhost:5173/src/contexts/CreateListContext.jsx:23:38)\n    at QuickAddProvider (http://localhost:5173/src/contexts/QuickAddContext.jsx:55:36)\n    at LocationProvider (http://localhost:5173/src/contexts/LocationContext.jsx?t=1749430612948:38:36)\n    at AuthProvider (http://localhost:5173/src/contexts/auth/AuthContext.jsx:37:32)\n    at QueryClientProvider (http://localhost:5173/node_modules/.vite/deps/chunk-5TH5XDVO.js?v=4fa4e401:2926:3)\n    at ErrorBoundary (http://localhost:5173/node_modules/.vite/deps/react-error-boundary.js?v=4fa4e401:18:5)\n    at App\n    at PlacesApiProvider (http://localhost:5173/src/contexts/PlacesApiContext.jsx:22:37)\n    at CreateListProvider (http://localhost:5173/src/contexts/CreateListContext.jsx:23:38)\n    at QuickAddProvider (http://localhost:5173/src/contexts/QuickAddContext.jsx:55:36)\n    at AuthProvider (http://localhost:5173/src/contexts/auth/AuthContext.jsx:37:32)\n    at FilterProvider (http://localhost:5173/src/hooks/filters/FilterContext.jsx:82:34)\n    at QueryClientProvider (http://localhost:5173/node_modules/.vite/deps/chunk-5TH5XDVO.js?v=4fa4e401:2926:3)\n    at Router (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=4fa4e401:4517:15)\n    at BrowserRouter (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=4fa4e401:5266:5)\n    at ErrorBoundary (http://localhost:5173/node_modules/.vite/deps/react-error-boundary.js?v=4fa4e401:18:5)\n    at Root (http://localhost:5173/src/main.jsx?t=1749430612948:85:35)\n"
+                        },
+                        {
+                          "text": "     Final URL: http://localhost:5173/admin/dashboard\n"
+                        },
+                        {
+                          "text": "     ✅ Admin route accessible!\n"
+                        },
+                        {
+                          "text": "     🧩 Admin page has undefined elements\n"
+                        },
+                        {
+                          "text": "     Testing direct route: /admin/panel\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:15:10.201Z] [NotificationStore] SSE connection error: Event\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:15:10.202Z] [NotificationStore] SSE connection error: Event\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:15:10.295Z] [ProtectedRoute] Admin verification error: No user data\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: Warning: Failed %s type: %s%s prop Invalid prop `neighborhoods` of type `object` supplied to `GooglePlacesModal`, expected `array`. \n    at GooglePlacesModal (http://localhost:5173/src/components/AdminPanel/GooglePlacesModal.jsx:28:3)\n    at EnhancedAdminTable (http://localhost:5173/src/components/AdminPanel/EnhancedAdminTable.jsx:565:3)\n    at div\n    at div\n    at div\n    at div\n    at AdminPanel (http://localhost:5173/src/pages/AdminPanel/AdminPanel.jsx?t=1749430301826:206:37)\n    at MainLayout (http://localhost:5173/src/App.jsx?t=1749430612948:112:23)\n    at ProtectedRoute (http://localhost:5173/src/components/ProtectedRoute.jsx:166:3)\n    at RenderedRoute (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=4fa4e401:4103:5)\n    at Routes (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=4fa4e401:4574:5)\n    at Suspense\n    at AppRoutes\n    at div\n    at FilterProvider (http://localhost:5173/src/hooks/filters/FilterContext.jsx:82:34)\n    at PlacesApiProvider (http://localhost:5173/src/contexts/PlacesApiContext.jsx:22:37)\n    at CreateListProvider (http://localhost:5173/src/contexts/CreateListContext.jsx:23:38)\n    at QuickAddProvider (http://localhost:5173/src/contexts/QuickAddContext.jsx:55:36)\n    at LocationProvider (http://localhost:5173/src/contexts/LocationContext.jsx?t=1749430612948:38:36)\n    at AuthProvider (http://localhost:5173/src/contexts/auth/AuthContext.jsx:37:32)\n    at QueryClientProvider (http://localhost:5173/node_modules/.vite/deps/chunk-5TH5XDVO.js?v=4fa4e401:2926:3)\n    at ErrorBoundary (http://localhost:5173/node_modules/.vite/deps/react-error-boundary.js?v=4fa4e401:18:5)\n    at App\n    at PlacesApiProvider (http://localhost:5173/src/contexts/PlacesApiContext.jsx:22:37)\n    at CreateListProvider (http://localhost:5173/src/contexts/CreateListContext.jsx:23:38)\n    at QuickAddProvider (http://localhost:5173/src/contexts/QuickAddContext.jsx:55:36)\n    at AuthProvider (http://localhost:5173/src/contexts/auth/AuthContext.jsx:37:32)\n    at FilterProvider (http://localhost:5173/src/hooks/filters/FilterContext.jsx:82:34)\n    at QueryClientProvider (http://localhost:5173/node_modules/.vite/deps/chunk-5TH5XDVO.js?v=4fa4e401:2926:3)\n    at Router (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=4fa4e401:4517:15)\n    at BrowserRouter (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=4fa4e401:5266:5)\n    at ErrorBoundary (http://localhost:5173/node_modules/.vite/deps/react-error-boundary.js?v=4fa4e401:18:5)\n    at Root (http://localhost:5173/src/main.jsx?t=1749430612948:85:35)\n"
+                        },
+                        {
+                          "text": "     Final URL: http://localhost:5173/admin/panel\n"
+                        },
+                        {
+                          "text": "     ✅ Admin route accessible!\n"
+                        },
+                        {
+                          "text": "     🧩 Admin page has undefined elements\n"
+                        },
+                        {
+                          "text": "     Testing direct route: /dashboard\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:15:14.152Z] [NotificationStore] SSE connection error: Event\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:15:14.153Z] [NotificationStore] SSE connection error: Event\n"
+                        },
+                        {
+                          "text": "     Final URL: http://localhost:5173/404\n"
+                        },
+                        {
+                          "text": "     ⚠️ Admin route redirected or blocked\n"
+                        },
+                        {
+                          "text": "\n🧭 PHASE 5: GLOBAL NAVIGATION TESTING\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:15:16.604Z] [NotificationStore] SSE connection error: Event\n"
+                        },
+                        {
+                          "text": "   🔗 Testing 5 header navigation links\n"
+                        },
+                        {
+                          "text": "     Testing nav link: \"\" -> /\n"
+                        },
+                        {
+                          "text": "       Navigated to: http://localhost:5173/\n"
+                        },
+                        {
+                          "text": "     Testing nav link: \"Home\" -> /\n"
+                        },
+                        {
+                          "text": "       Navigated to: http://localhost:5173/\n"
+                        },
+                        {
+                          "text": "     Testing nav link: \"Trending\" -> /trending\n"
+                        },
+                        {
+                          "text": "       Navigated to: http://localhost:5173/trending\n"
+                        },
+                        {
+                          "text": "     Testing nav link: \"Maps\" -> /maps\n"
+                        },
+                        {
+                          "text": "       Navigated to: http://localhost:5173/maps\n"
+                        },
+                        {
+                          "text": "     Testing nav link: \"My Lists\" -> /my-lists\n"
+                        },
+                        {
+                          "text": "       Navigated to: http://localhost:5173/my-lists\n"
+                        },
+                        {
+                          "text": "\n📝 PHASE 6: FORM INTERACTIONS TESTING\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:15:30.452Z] [NotificationStore] SSE connection error: Event\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:15:30.453Z] [NotificationStore] SSE connection error: Event\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: [ERROR][2025-06-09T01:15:30.453Z] [NotificationStore] SSE connection error: Event\n"
+                        },
+                        {
+                          "text": "   🔍 Found 1 search inputs\n"
+                        },
+                        {
+                          "text": "     Testing search input 1\n"
+                        },
+                        {
+                          "text": "\n📊 COMPREHENSIVE VISUAL TEST RESULTS\n"
+                        },
+                        {
+                          "text": "================================================================================\n"
+                        },
+                        {
+                          "text": "📄 Pages Visited: 6\n"
+                        },
+                        {
+                          "text": "   Homepage, Login, Register, Lists, Search, My Lists\n"
+                        },
+                        {
+                          "text": "🔘 Elements Clicked: 21\n"
+                        },
+                        {
+                          "text": "🧭 Navigation Tests: 10\n"
+                        },
+                        {
+                          "text": "👑 Admin Panel Tests: 3\n"
+                        },
+                        {
+                          "text": "❌ Errors Encountered: 1\n"
+                        },
+                        {
+                          "text": "\n🚨 DETAILED ERRORS:\n"
+                        },
+                        {
+                          "text": "   1. Admin route /dashboard redirected to http://localhost:5173/404\n"
+                        },
+                        {
+                          "text": "\n🎯 ADMIN PANEL STATUS:\n"
+                        },
+                        {
+                          "text": "   ✅ Admin panel access attempts made\n"
+                        },
+                        {
+                          "text": "\n✅ COMPREHENSIVE VISUAL TEST COMPLETE\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-09T01:13:14.255Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/naf/Downloads/doof/e2e-results/test-artifacts/comprehensive-visual-test--1bbed-ve-elements-comprehensively-desktop-chrome-comprehensive/test-finished-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/naf/Downloads/doof/e2e-results/test-artifacts/comprehensive-visual-test--1bbed-ve-elements-comprehensively-desktop-chrome-comprehensive/video.webm"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/naf/Downloads/doof/e2e-results/test-artifacts/comprehensive-visual-test--1bbed-ve-elements-comprehensively-desktop-chrome-comprehensive/trace.zip"
+                        }
+                      ]
                     }
                   ],
-                  "errorLocation": {
-                    "file": "/Users/naf/Downloads/doof/e2e/filter-debug.spec.js",
-                    "column": 14,
-                    "line": 8
-                  }
+                  "status": "expected"
                 }
               ],
-              "status": "skipped"
+              "id": "9eea13f4f8bf0bea8fd2-1920e2eced604ee0be86",
+              "file": "comprehensive-visual-test.spec.js",
+              "line": 25,
+              "column": 3
+            },
+            {
+              "title": "should test modal interactions and overlays",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 300000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop-chrome-comprehensive",
+                  "projectName": "desktop-chrome-comprehensive",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 8367,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "\n🪟 TESTING MODAL INTERACTIONS AND OVERLAYS\n"
+                        },
+                        {
+                          "text": "   🎯 Found 2 potential modal triggers\n"
+                        },
+                        {
+                          "text": "     Testing modal trigger: \"Create List\"\n"
+                        },
+                        {
+                          "text": "🚨 CONSOLE ERROR: Warning: Received `%s` for a non-boolean attribute `%s`.\n\nIf you want to write it to the DOM, pass a string instead: %s=\"%s\" or %s={value.toString()}.%s true jsx jsx true jsx \n    at style\n    at div\n    at LoginPromptDialog (http://localhost:5173/src/components/UI/LoginPromptDialog.jsx:23:3)\n    at CreateListModal (http://localhost:5173/src/components/UI/CreateListModal.jsx:101:28)\n    at CreateListProvider (http://localhost:5173/src/contexts/CreateListContext.jsx:23:38)\n    at QuickAddProvider (http://localhost:5173/src/contexts/QuickAddContext.jsx:55:36)\n    at LocationProvider (http://localhost:5173/src/contexts/LocationContext.jsx?t=1749430612948:38:36)\n    at AuthProvider (http://localhost:5173/src/contexts/auth/AuthContext.jsx:37:32)\n    at QueryClientProvider (http://localhost:5173/node_modules/.vite/deps/chunk-5TH5XDVO.js?v=4fa4e401:2926:3)\n    at ErrorBoundary (http://localhost:5173/node_modules/.vite/deps/react-error-boundary.js?v=4fa4e401:18:5)\n    at App\n    at PlacesApiProvider (http://localhost:5173/src/contexts/PlacesApiContext.jsx:22:37)\n    at CreateListProvider (http://localhost:5173/src/contexts/CreateListContext.jsx:23:38)\n    at QuickAddProvider (http://localhost:5173/src/contexts/QuickAddContext.jsx:55:36)\n    at AuthProvider (http://localhost:5173/src/contexts/auth/AuthContext.jsx:37:32)\n    at FilterProvider (http://localhost:5173/src/hooks/filters/FilterContext.jsx:82:34)\n    at QueryClientProvider (http://localhost:5173/node_modules/.vite/deps/chunk-5TH5XDVO.js?v=4fa4e401:2926:3)\n    at Router (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=4fa4e401:4517:15)\n    at BrowserRouter (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=4fa4e401:5266:5)\n    at ErrorBoundary (http://localhost:5173/node_modules/.vite/deps/react-error-boundary.js?v=4fa4e401:18:5)\n    at Root (http://localhost:5173/src/main.jsx?t=1749430612948:85:35)\n"
+                        },
+                        {
+                          "text": "       ✅ Modal opened successfully\n"
+                        },
+                        {
+                          "text": "     Testing modal trigger: \"New York\"\n"
+                        },
+                        {
+                          "text": "       ✅ Modal opened successfully\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-09T01:15:40.689Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/naf/Downloads/doof/e2e-results/test-artifacts/comprehensive-visual-test--182bf-l-interactions-and-overlays-desktop-chrome-comprehensive/test-finished-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/naf/Downloads/doof/e2e-results/test-artifacts/comprehensive-visual-test--182bf-l-interactions-and-overlays-desktop-chrome-comprehensive/video.webm"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/naf/Downloads/doof/e2e-results/test-artifacts/comprehensive-visual-test--182bf-l-interactions-and-overlays-desktop-chrome-comprehensive/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9eea13f4f8bf0bea8fd2-4a5e657c7c7fd8a32325",
+              "file": "comprehensive-visual-test.spec.js",
+              "line": 352,
+              "column": 3
             }
-          ],
-          "id": "9d7bed43838a858496e5-b25579813035b9f7a888",
-          "file": "filter-debug.spec.js",
-          "line": 3,
-          "column": 1
+          ]
         }
       ]
     }
   ],
   "errors": [],
   "stats": {
-    "startTime": "2025-06-08T14:45:51.346Z",
-    "duration": 91348.72600000001,
-    "expected": 0,
-    "skipped": 1,
+    "startTime": "2025-06-09T01:13:13.774Z",
+    "duration": 155723.993,
+    "expected": 2,
+    "skipped": 0,
     "unexpected": 0,
     "flaky": 0
   }

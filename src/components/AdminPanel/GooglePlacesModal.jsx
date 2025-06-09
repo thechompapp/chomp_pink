@@ -19,9 +19,7 @@ const GooglePlacesModal = ({
   onClose, 
   onApply, 
   restaurantId,
-  currentData = {},
-  cities = [],
-  neighborhoods = []
+  currentData = {}
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPlace, setSelectedPlace] = useState(null);
@@ -54,20 +52,14 @@ const GooglePlacesModal = ({
 
     try {
       // Use existing neighborhood lookup service
-      const response = await fetch(`/api/neighborhoods/zip/${zipcode}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
-        }
-      });
+      const response = await fetch(`/api/neighborhoods/zip/${zipcode}`);
 
       if (response.ok) {
-        const neighborhoods = await response.json();
-        if (neighborhoods && neighborhoods.length > 0) {
-          const neighborhood = neighborhoods[0];
-          const city = cities.find(c => c.id === neighborhood.city_id);
+        const data = await response.json();
+        if (data && data.neighborhood) {
           return {
-            city: city ? { id: city.id, name: city.name } : null,
-            neighborhood: { id: neighborhood.id, name: neighborhood.name }
+            city: data.city,
+            neighborhood: data.neighborhood
           };
         }
       }
@@ -76,7 +68,7 @@ const GooglePlacesModal = ({
     }
 
     return { city: null, neighborhood: null };
-  }, [cities]);
+  }, []);
 
   // Handle place selection from Google Places
   const handlePlaceSelect = useCallback(async (placeData) => {
@@ -454,10 +446,8 @@ GooglePlacesModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   onApply: PropTypes.func.isRequired,
-  restaurantId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-  currentData: PropTypes.object,
-  cities: PropTypes.array,
-  neighborhoods: PropTypes.array
+  restaurantId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  currentData: PropTypes.object
 };
 
 export default GooglePlacesModal; 

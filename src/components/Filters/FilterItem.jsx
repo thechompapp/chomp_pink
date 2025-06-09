@@ -1,119 +1,73 @@
+/**
+ * FilterItem.jsx - Reusable Filter Button Component
+ * 
+ * Single Responsibility: Display a clickable filter option
+ * - Pure UI component with clear prop interface
+ * - Active/inactive states
+ * - Loading and disabled states
+ * - Consistent styling and animations
+ */
+
 import React from 'react';
-import { useFilterContext } from '@/hooks/filters/FilterContext';
-import PillButton from '@/components/UI/PillButton';
-import { logDebug } from '@/utils/logger';
+import { motion } from 'framer-motion';
+import { Loader2 } from 'lucide-react';
 
 /**
- * FilterItem component - a wrapper around PillButton that integrates with FilterContext
- * 
- * @param {Object} props - Component props
- * @param {string} props.type - The filter type (city, borough, neighborhood, cuisine, hashtag)
- * @param {any} props.value - The filter value (string, number, etc.)
- * @param {string} props.label - Display text for the button
- * @param {boolean} props.isLoading - Whether the item is in loading state
- * @param {boolean} props.disabled - Whether the item is disabled
- * @param {Function} props.onClick - Custom onClick handler (optional)
- * @param {string} props.className - Additional CSS classes
- * @param {string} props.prefix - Optional prefix character to display before label
+ * FilterItem - Reusable filter button component
  */
-const FilterItem = ({ 
-  type,
-  value,
+const FilterItem = ({
   label,
+  isActive = false,
   isLoading = false,
   disabled = false,
   onClick,
   className = "",
-  prefix
+  prefix,
+  icon: Icon
 }) => {
-  const context = useFilterContext();
-  
-  // Add safety checks for context destructuring
-  if (!context) {
-    return null;
-  }
-  
-  const { filters = {}, setFilter, data } = context;
-  
-  // Additional safety check for filters object
-  if (!filters) {
-    return null;
-  }
-  
-  // Debug: Log context values
-  React.useEffect(() => {
-    logDebug(`[FilterItem:${type}:${value}] Context data:`, {
-      filterContextAvailable: !!context,
-      dataAvailable: !!data,
-      dataCities: data?.cities?.length || 0,
-      dataCuisines: data?.cuisines?.length || 0,
-      cityIds: data?.cities?.map(c => c.id) || [],
-      cuisineNames: data?.cuisines?.map(c => c.name) || []
-    });
-  }, [context, data, type, value]);
-  
-  // Determine if this item is currently active
-  const isActive = React.useMemo(() => {
-    // Safety check for filters existence
-    if (!filters || !filters.hasOwnProperty(type)) {
-      return false;
-    }
-    
-    if (Array.isArray(filters[type])) {
-      return filters[type].includes(value);
-    }
-    return filters[type] === value;
-  }, [filters, type, value]);
-  
-  // Helper function to toggle array filter values
-  const toggleArrayFilter = (filterType, filterValue) => {
-    // Safety check for filters
-    if (!filters) return;
-    
-    const currentValues = filters[filterType] || [];
-    const newValues = currentValues.includes(filterValue)
-      ? currentValues.filter(v => v !== filterValue)
-      : [...currentValues, filterValue];
-    logDebug(`[FilterItem] Toggling array filter ${filterType}:`, {
-      current: currentValues,
-      new: newValues,
-      value: filterValue
-    });
-    setFilter(filterType, newValues);
-  };
-  
-  // Default handler for clicking on a filter item
   const handleClick = () => {
-    if (disabled || isLoading || !filters || !setFilter) return;
-    
-    if (onClick) {
-      // Custom click handler
-      logDebug(`[FilterItem] Using custom click handler for ${type}:${value}`);
-      onClick(value, type);
-    } else {
-      // Default behavior based on filter type
-      const currentFilterValue = filters[type];
-      if (Array.isArray(currentFilterValue)) {
-        logDebug(`[FilterItem] Toggling array filter ${type}:`, value);
-        toggleArrayFilter(type, value);
-      } else {
-        // Toggle selection for single-select filters
-        logDebug(`[FilterItem] Setting filter ${type}:`, isActive ? null : value);
-        setFilter(type, isActive ? null : value);
-      }
+    if (!disabled && !isLoading && onClick) {
+      onClick();
     }
   };
-  
+
   return (
-    <PillButton
-      label={label || String(value)}
-      isActive={isActive}
+    <motion.button
+      whileHover={!disabled && !isLoading ? { scale: 1.02 } : {}}
+      whileTap={!disabled && !isLoading ? { scale: 0.98 } : {}}
       onClick={handleClick}
       disabled={disabled || isLoading}
-      className={className}
-      prefix={prefix}
-    />
+      className={`
+        inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium
+        transition-all duration-200 border-2
+        ${isActive
+          ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700 hover:border-blue-700'
+          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-blue-400'
+        }
+        ${disabled || isLoading
+          ? 'opacity-50 cursor-not-allowed'
+          : 'cursor-pointer'
+        }
+        ${className}
+      `}
+      aria-pressed={isActive}
+      aria-label={`Filter by ${label}`}
+    >
+      {isLoading && (
+        <Loader2 size={12} className="mr-1 animate-spin" />
+      )}
+      
+      {Icon && !isLoading && (
+        <Icon size={12} className="mr-1" />
+      )}
+      
+      {prefix && !isLoading && (
+        <span className="mr-1 text-gray-500">{prefix}</span>
+      )}
+      
+      <span className="truncate max-w-32">{label}</span>
+    </motion.button>
   );
 };
 
-export default FilterItem; 
+export default React.memo(FilterItem); 

@@ -89,6 +89,9 @@ class AppServer {
    * Configure all middleware for the application
    */
   configureMiddleware() {
+    // Disable ETag generation for all responses to prevent 304s
+    this.app.disable('etag');
+
     // Security enhancements
     this.app.use(helmet());
     

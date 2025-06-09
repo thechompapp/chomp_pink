@@ -152,6 +152,20 @@ export const enhancedAdminService = {
   },
 
   /**
+   * Fetch all neighborhoods in a hierarchical structure.
+   */
+  async fetchAllNeighborhoods() {
+    logInfo('[EnhancedAdminService] Fetching all neighborhoods');
+    try {
+      const response = await httpClient.get('/neighborhoods');
+      return response.data;
+    } catch (error) {
+      logError('[EnhancedAdminService] Error fetching neighborhoods:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Fetch data for a specific resource type with enhanced error handling
    */
   async fetchResourceData(resourceType) {

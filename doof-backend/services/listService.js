@@ -34,14 +34,47 @@ const rawMethods = {
   getUserLists: async (userId, options = {}) => {
     logDebug(`[ListService.getUserLists] Fetching lists for user ${userId} with options:`, options);
     try {
-      const result = await listModel.findListsByUser(userId, options);
+      // Map view parameter to model options
+      const { view = 'all', ...otherOptions } = options;
+      
+      let modelOptions = { ...otherOptions };
+      
+      // Set the appropriate filtering based on view
+      if (view === 'created') {
+        modelOptions.createdByUser = true;
+        modelOptions.followedByUser = false;
+        modelOptions.allLists = false;
+      } else if (view === 'followed') {
+        modelOptions.createdByUser = false;
+        modelOptions.followedByUser = true;
+        modelOptions.allLists = false;
+      } else {
+        // 'all' view - show both created and followed lists
+        modelOptions.createdByUser = false;
+        modelOptions.followedByUser = false;
+        modelOptions.allLists = true;
+      }
+      
+      logDebug(`[ListService.getUserLists] Calling model with options:`, modelOptions);
+      
+      const result = await listModel.findListsByUser(userId, modelOptions);
       logDebug(`[ListService.getUserLists] Result from model:`, {
-        hasData: !!result.data,
-        dataLength: result.data?.length || 0,
-        total: result.total,
-        pagination: result.pagination
+        hasData: !!result,
+        dataLength: Array.isArray(result) ? result.length : 0,
       });
-      return result;
+      
+      // Wrap the result in the expected structure for the controller
+      return {
+        success: true,
+        data: result || [],
+        total: Array.isArray(result) ? result.length : 0,
+        pagination: {
+          page: modelOptions.page || 1,
+          limit: modelOptions.limit || 10,
+          total: Array.isArray(result) ? result.length : 0,
+          totalPages: Math.ceil((Array.isArray(result) ? result.length : 0) / (modelOptions.limit || 10))
+        }
+      };
     } catch (error) {
       logDebug(`[ListService.getUserLists] Error:`, error.message);
       throw error;

@@ -16,176 +16,142 @@ import { logDebug } from '@/utils/logger';
 import { TrendingUp } from 'lucide-react';
 
 const Home = () => {
-  // Lifted state for filters
-  const [filters, setFilters] = useState({
-    cityId: null,
-    boroughId: null, // Added boroughId
-    neighborhoodId: null,
-    hashtags: [],
-  });
-
-  // State for content type toggle (moved from Results)
-  const [contentType, setContentType] = useState('lists'); // Default to lists
-  
-  // State for search functionality
+  // Search and filter state
   const [searchQuery, setSearchQuery] = useState('');
-  
-  // State for sticky search bar
+  const [contentType, setContentType] = useState('restaurants');
+  const [filters, setFilters] = useState({});
   const [isSearchSticky, setIsSearchSticky] = useState(false);
-  const searchSectionRef = useRef(null);
+  
+  // Refs for intersection observer
+  const searchBarRef = useRef(null);
+  const stickySearchRef = useRef(null);
 
-  // Fetch trending data for snapshots (8 items each)
-  const { data: trendingRestaurants } = useQuery({
-    queryKey: ['trendingRestaurantsHome'],
-    queryFn: () => trendingService.getTrendingRestaurants(8),
-    staleTime: 5 * 60 * 1000,
-    placeholderData: []
+  // Fetch trending data
+  const { data: trendingData = [] } = useQuery({
+    queryKey: ['trending', contentType],
+    queryFn: () => trendingService.getTrending(contentType),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    enabled: !searchQuery // Only fetch when not searching
   });
 
-  const { data: trendingDishes } = useQuery({
-    queryKey: ['trendingDishesHome'],
-    queryFn: () => trendingService.getTrendingDishes(8),
-    staleTime: 5 * 60 * 1000,
-    placeholderData: []
-  });
-
-  const { data: trendingLists } = useQuery({
-    queryKey: ['trendingListsHome'],
-    queryFn: () => trendingService.getTrendingLists(8),
-    staleTime: 5 * 60 * 1000,
-    placeholderData: []
-  });
-
-  // Scroll handler for sticky search bar
-  useEffect(() => {
-    const handleScroll = () => {
-      if (searchSectionRef.current) {
-        const rect = searchSectionRef.current.getBoundingClientRect();
-        setIsSearchSticky(rect.bottom <= 0);
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  // Filter change handler
+  // Handle filter changes from FilterContainer
   const handleFilterChange = useCallback((newFilters) => {
-    logDebug('[Home] Filter changed:', newFilters);
+    logDebug('[Home] Filters changed:', newFilters);
     setFilters(newFilters);
   }, []);
 
-  // Content type toggle handler
-  const handleContentTypeChange = useCallback((type) => {
-    logDebug('[Home] Content type changed to:', type);
-    setContentType(type);
-  }, []);
-
-  // Search handler
+  // Handle search
   const handleSearch = useCallback((query) => {
+    logDebug('[Home] Search query changed:', query);
     setSearchQuery(query);
   }, []);
 
-  // Get trending data based on toggle
-  const getTrendingData = () => {
-    switch (contentType) {
-      case 'restaurants':
-        return Array.isArray(trendingRestaurants) ? trendingRestaurants : [];
-      case 'dishes':
-        return Array.isArray(trendingDishes) ? trendingDishes : [];
-      case 'lists':
-        return Array.isArray(trendingLists) ? trendingLists : [];
-      default:
-        return [];
-    }
+  // Handle content type toggle
+  const handleContentTypeChange = useCallback((newType) => {
+    logDebug('[Home] Content type changed:', newType);
+    setContentType(newType);
+  }, []);
+
+  // Sticky search bar logic
+  useEffect(() => {
+    const searchElement = searchBarRef.current;
+    if (!searchElement) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          setIsSearchSticky(!entry.isIntersecting);
+        });
+      },
+      { threshold: 0, rootMargin: '-100px 0px 0px 0px' }
+    );
+
+    observer.observe(searchElement);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
+  // Scroll to top when sticky search is clicked
+  const handleStickySearchClick = () => {
+    searchBarRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const trendingData = getTrendingData();
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Search Section */}
-      <div ref={searchSectionRef} className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pt-20">
-          <div className="text-center mb-6">
-            {/* Main Logo Marquee */}
-            <div className="flex justify-center mb-4">
-              <img 
-                src="/images/dooflogo.png" 
-                alt="DOOF Logo" 
-                className="h-24 sm:h-32 w-auto"
-              />
-            </div>
-            
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Discover Amazing Food
-            </h1>
-            <p className="text-gray-600">
-              Find restaurants, dishes, and curated lists from food lovers
-            </p>
-          </div>
-          
-          <SearchBar 
-            className="mb-6" 
-            contentType={contentType}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            onSearch={handleSearch}
-          />
-          
-          {/* Content Type Toggle */}
-          <div className="flex justify-center">
-            <ToggleSwitch
-              options={[
-                { value: 'lists', label: 'Lists' },
-                { value: 'restaurants', label: 'Restaurants' },
-                { value: 'dishes', label: 'Dishes' }
-              ]}
-              selected={contentType}
-              onChange={handleContentTypeChange}
-              className="mb-4"
-            />
-          </div>
-        </div>
-      </div>
-
+    <div className="min-h-screen bg-gray-50 navbar-spacing">
       {/* Sticky Search Bar */}
       {isSearchSticky && (
-        <div className="fixed top-16 left-0 right-0 z-40 bg-white shadow-md border-b border-gray-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div
+          ref={stickySearchRef}
+          className="fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-200 shadow-sm navbar-spacing"
+        >
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
             <div className="flex items-center space-x-4">
               <div className="flex-1">
-                <SearchBar 
-                  contentType={contentType}
-                  searchQuery={searchQuery}
-                  setSearchQuery={setSearchQuery}
+                <SearchBar
                   onSearch={handleSearch}
-                  className="mb-0"
+                  placeholder={`Search ${contentType}...`}
+                  initialValue={searchQuery}
+                  onClick={handleStickySearchClick}
                 />
               </div>
-              <div className="flex-shrink-0">
-                <ToggleSwitch
-                  options={[
-                    { value: 'lists', label: 'Lists' },
-                    { value: 'restaurants', label: 'Restaurants' },
-                    { value: 'dishes', label: 'Dishes' }
-                  ]}
-                  selected={contentType}
-                  onChange={handleContentTypeChange}
-                  className="mb-0"
-                />
-              </div>
+              <ToggleSwitch
+                options={[
+                  { value: 'restaurants', label: 'Restaurants' },
+                  { value: 'dishes', label: 'Dishes' },
+                  { value: 'lists', label: 'Lists' }
+                ]}
+                value={contentType}
+                onChange={handleContentTypeChange}
+              />
             </div>
           </div>
         </div>
       )}
 
+      {/* Hero Section */}
+      <div className="bg-gradient-to-br from-[#F8F6F0] to-[#E8E2D5] text-black">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="text-center">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6">
+              Find Your Next Great <span className="text-[#A78B71]">Meal</span>
+            </h1>
+            <p className="text-xl text-gray-700 mb-8 max-w-2xl mx-auto">
+              Discover restaurants, dishes, and curated lists from fellow food lovers in your city.
+            </p>
+            
+            {/* Main Search Bar */}
+            <div ref={searchBarRef} className="max-w-2xl mx-auto">
+              <SearchBar
+                onSearch={handleSearch}
+                placeholder={`Search ${contentType}...`}
+                size="lg"
+                initialValue={searchQuery}
+              />
+            </div>
+            
+            {/* Content Type Toggle */}
+            <div className="mt-6">
+              <ToggleSwitch
+                options={[
+                  { value: 'restaurants', label: 'Restaurants' },
+                  { value: 'dishes', label: 'Dishes' },
+                  { value: 'lists', label: 'Lists' }
+                ]}
+                value={contentType}
+                onChange={handleContentTypeChange}
+                size="lg"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Trending Ticker */}
-      <TrendingTicker 
-        refreshInterval={180000} // 3 minutes
-        scrollSpeed="normal"
-        pauseOnHover={true}
-      />
+      {!searchQuery && trendingData.length > 0 && (
+        <TrendingTicker items={trendingData.slice(0, 10)} />
+      )}
 
       {/* Main Content */}
       <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 ${isSearchSticky ? 'pt-20' : ''}`}>
@@ -224,22 +190,25 @@ const Home = () => {
           </div>
         )}
 
-        {/* Filters Section - Now on Top */}
+        {/* Filters Section */}
         <div className="mb-8">
           <FilterContainer 
-            filters={filters}
             onFilterChange={handleFilterChange}
+            initialFilters={{}}
+            showControls={true}
+            showActiveFilters={true}
           />
         </div>
 
-        {/* Results Section - Full Width */}
-        <div className="w-full">
-          <Results 
-            filters={filters}
-            contentType={contentType}
-            searchQuery={searchQuery}
-          />
-        </div>
+        {/* Results Section */}
+        <Results 
+          searchQuery={searchQuery}
+          contentType={contentType}
+          cityId={filters.cityId}
+          boroughId={filters.boroughId}
+          neighborhoodId={filters.neighborhoodId}
+          hashtags={filters.hashtags || []}
+        />
       </div>
     </div>
   );

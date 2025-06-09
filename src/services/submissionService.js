@@ -39,11 +39,11 @@ export const submissionService = {
       };
     }
     
-    // The backend route /api/submissions/user uses req.user.id from the authenticated session
+    // The backend route /api/submissions/ uses req.user.id from the authenticated session
     logDebug(`[SubmissionService] Fetching submissions for authenticated user with params:`, params);
     
     const result = await handleApiResponse(
-      () => apiClient.get('/submissions/user', { params }), // Updated endpoint to match backend route
+      () => apiClient.get('/submissions', { params }), // Fixed endpoint to match backend route
       'SubmissionService.getUserSubmissions'
     );
     

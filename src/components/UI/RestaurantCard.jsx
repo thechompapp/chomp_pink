@@ -21,6 +21,7 @@ import { useAuth } from '@/contexts/auth/AuthContext'; // Migrated from useAuthS
 import { CARD_SPECS } from '@/models/cardModels';
 import EnhancedRestaurantModal from '@/components/modals/EnhancedRestaurantModal';
 import LoginPromptButton from './LoginPromptButton'; // Import LoginPromptButton
+import { useLocations } from '@/contexts/LocationContext';
 
 // Animation variants for better UX - fixed to prevent border clipping
 const restaurantCardVariants = {
@@ -95,6 +96,7 @@ const AddToListButton = ({ restaurant, onAddToList }) => {
 const RestaurantCard = ({
   id,
   name,
+  neighborhood_id,
   neighborhood_name,
   city_name,
   tags = [],
@@ -113,13 +115,15 @@ const RestaurantCard = ({
   const [isHovered, setIsHovered] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { isAuthenticated  } = useAuth();
+  const { locations } = useLocations();
   
   // Keep name cleaning logic
   const cleanName = name?.split(',')[0].trim() || 'Unnamed Restaurant';
   const safeTags = Array.isArray(tags) ? tags : [];
 
   // Combine location parts, handling nulls gracefully
-  const locationParts = [neighborhood_name, city_name].filter(Boolean);
+  const resolvedNeighborhoodName = locations[neighborhood_id] || neighborhood_name;
+  const locationParts = [resolvedNeighborhoodName, city_name].filter(Boolean);
   const locationString = locationParts.join(', ') || 'Unknown Location';
 
   // Rating display
@@ -170,7 +174,7 @@ const RestaurantCard = ({
   const restaurantForModal = useMemo(() => ({
     id,
     name: cleanName,
-    neighborhood_name,
+    neighborhood_name: resolvedNeighborhoodName,
     city_name,
     description,
     rating,
@@ -183,7 +187,7 @@ const RestaurantCard = ({
     is_featured,
     adds
   }), [
-    id, cleanName, neighborhood_name, city_name, description, rating,
+    id, cleanName, resolvedNeighborhoodName, city_name, description, rating,
     safeTags, website, phone, hours, image_url, is_trending, is_featured, adds
   ]);
 
@@ -398,9 +402,10 @@ const RestaurantCard = ({
 RestaurantCard.propTypes = {
   id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
   name: PropTypes.string.isRequired,
+  neighborhood_id: PropTypes.number,
   neighborhood_name: PropTypes.string,
   city_name: PropTypes.string,
-  tags: PropTypes.array,
+  tags: PropTypes.arrayOf(PropTypes.string),
   adds: PropTypes.number,
   onAddToList: PropTypes.func,
   website: PropTypes.string,

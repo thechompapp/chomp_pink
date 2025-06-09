@@ -38,19 +38,30 @@ export const getAllRestaurants = async (req, res, next) => {
     } = req.query;
 
     const options = {
-        limit: Number(limit), offset: (Number(page) - 1) * Number(limit), sortBy: sort, sortDirection: order, search: search, filters: {}
+        page: Number(page),
+        limit: Number(limit), 
+        sort: sort, 
+        order: order, 
+        search: search || null
     };
-    if (city_id) options.filters.cityId = Number(city_id);
-    if (neighborhood_id) options.filters.neighborhoodId = Number(neighborhood_id);
-    if (cuisine) options.filters.cuisine = cuisine;
+    if (city_id) options.cityId = Number(city_id);
+    if (neighborhood_id) options.neighborhoodId = Number(neighborhood_id);
+    if (cuisine) options.cuisine = cuisine;
 
     try {
-        const results = await RestaurantModel.findAllRestaurants(options); // Use model function via namespace
-        const totalItems = results.total || 0;
-        const totalPages = Math.ceil(totalItems / options.limit);
+        const results = await RestaurantModel.getAllRestaurants(options); // Fix: use getAllRestaurants
+        const totalItems = results.pagination?.totalCount || 0;
+        const totalPages = results.pagination?.totalPages || 0;
         res.json({
-            success: true, message: 'Restaurants retrieved successfully.', data: results.data,
-            pagination: { currentPage: Number(page), totalPages: totalPages, totalItems: totalItems, itemsPerPage: options.limit, },
+            success: true, 
+            message: 'Restaurants retrieved successfully.', 
+            data: results.restaurants || [],
+            pagination: { 
+                currentPage: Number(page), 
+                totalPages: totalPages, 
+                totalItems: totalItems, 
+                itemsPerPage: Number(limit) 
+            },
         });
     } catch (error) { next(error); } // Pass to global handler
 };
@@ -64,7 +75,7 @@ export const getRestaurantById = async (req, res, next) => {
     const restaurantId = parseInt(id, 10);
 
     try {
-        const restaurant = await RestaurantModel.findRestaurantById(restaurantId); // Use model function via namespace
+        const restaurant = await RestaurantModel.getRestaurantById(restaurantId); // Fix: use getRestaurantById
         if (!restaurant) { return res.status(404).json({ success: false, message: `Restaurant with ID ${restaurantId} not found.` }); }
         res.json({ success: true, message: 'Restaurant details retrieved successfully.', data: restaurant });
     } catch (error) { next(error); }

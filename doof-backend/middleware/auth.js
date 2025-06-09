@@ -25,7 +25,7 @@ export const requireAuth = async (req, res, next) => {
     console.log(`[Auth Middleware] Access granted via admin API key for ${req.path}`);
     // Set a default admin user for development
     req.user = {
-      id: 1,
+      id: 213,
       username: 'admin',
       email: 'admin@example.com',
       account_type: 'superuser'
@@ -36,9 +36,9 @@ export const requireAuth = async (req, res, next) => {
   // Allow bypass in development/test mode with the right headers
   if ((isDevMode || isTestEnv) && isLocalhost && (bypassAuth || isPlacesApiRequest || isTestMode)) {
     console.log(`[Auth Middleware] Bypassing authentication for ${req.path} in ${isTestEnv ? 'test' : 'development'} mode on localhost`);
-    // Set a default admin user for development/testing
+    // Set a default admin user for development/testing (using existing user ID)
     req.user = {
-      id: 1,
+      id: 213,
       username: 'admin',
       email: 'admin@example.com',
       account_type: 'superuser'
@@ -340,7 +340,7 @@ export const optionalAuth = async (req, res, next) => {
         console.log(`[OptionalAuth Middleware] ${isTestEnv ? 'Test' : 'Development'} mode bypass for ${req.path}`);
         // Set a mock superuser
         req.user = {
-            id: 1,
+            id: 213,
             username: 'admin',
             email: 'admin@example.com',
             account_type: 'superuser'

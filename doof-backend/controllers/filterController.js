@@ -6,7 +6,7 @@ import * as NeighborhoodModel from '../models/neighborhoodModel.js'; // Import n
 // Controller to get filter options based on type
 export const getFilterOptions = async (req, res, next) => {
     const { type } = req.params;
-    const { cityId } = req.query;
+    const { cityId, boroughId } = req.query;
 
     let options;
     try {
@@ -19,12 +19,24 @@ export const getFilterOptions = async (req, res, next) => {
                 options = await FilterModel.getCuisines(); // Ensure this exists
                 break;
             case 'neighborhoods':
-                const cityIdNum = cityId ? parseInt(String(cityId), 10) : null;
-                if (cityId && isNaN(cityIdNum)) {
-                    return res.status(400).json({ success: false, message: 'Invalid cityId parameter.' });
+                // Handle both borough and neighborhood requests
+                if (boroughId) {
+                    // Get neighborhoods for a specific borough
+                    const boroughIdNum = parseInt(String(boroughId), 10);
+                    if (isNaN(boroughIdNum)) {
+                        return res.status(400).json({ success: false, message: 'Invalid boroughId parameter.' });
+                    }
+                    options = await NeighborhoodModel.getNeighborhoodsByParent(boroughIdNum);
+                } else if (cityId) {
+                    // Get boroughs for a specific city
+                    const cityIdNum = parseInt(String(cityId), 10);
+                    if (isNaN(cityIdNum)) {
+                        return res.status(400).json({ success: false, message: 'Invalid cityId parameter.' });
+                    }
+                    options = await NeighborhoodModel.getBoroughsByCity(cityIdNum);
+                } else {
+                    return res.status(400).json({ success: false, message: 'Either cityId or boroughId parameter is required for neighborhoods.' });
                 }
-                // Use NeighborhoodModel instead of FilterModel
-                options = await NeighborhoodModel.getBoroughsByCity(cityIdNum); 
                 break;
             default:
                 return res.status(400).json({ success: false, message: `Invalid filter type specified: ${type}` });

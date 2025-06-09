@@ -13,7 +13,7 @@ export const validatePerformSearch = [
   query('limit').optional().isInt({ min: 1, max: 100 }).toInt().withMessage('Limit must be between 1 and 100.'),
   query('offset').optional().isInt({ min: 0 }).toInt().withMessage('Offset must be a non-negative integer.'),
   query('cityId').optional().isInt({ min: 1 }).toInt().withMessage('City ID must be a positive integer.'),
-  // query('boroughId').optional().isInt({ min: 1 }).toInt().withMessage('Borough ID must be a positive integer.'), // Add if model supports it
+  query('boroughId').optional().isInt({ min: 1 }).toInt().withMessage('Borough ID must be a positive integer.'),
   query('neighborhoodId').optional().isInt({ min: 1 }).toInt().withMessage('Neighborhood ID must be a positive integer.'),
   // Validate hashtags as an array of strings (sent as repeated query params)
   query('hashtags').optional().toArray().isArray().withMessage('Hashtags must be provided as an array (e.g., hashtags=tag1&hashtags=tag2).'),
@@ -36,7 +36,7 @@ export const performSearch = async (req, res, next) => {
         limit = config.DEFAULT_PAGE_LIMIT ?? 10, // Use config default
         offset = 0,
         cityId,
-        // boroughId, // Add if model supports it
+        boroughId,
         neighborhoodId,
         hashtags = [], // Default to empty array if not provided
     } = req.query;
@@ -50,7 +50,7 @@ export const performSearch = async (req, res, next) => {
             limit,
             offset,
             cityId,
-            // boroughId,
+            boroughId,
             neighborhoodId,
             hashtags, // Pass validated array
             userId,

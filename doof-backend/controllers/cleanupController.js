@@ -7,6 +7,18 @@
 
 import * as AdminModel from '../models/adminModel.js';
 import { logInfo, logError, logWarn } from '../utils/logger.js';
+import db from '../db/index.js';
+
+/**
+ * Extracts a 5-digit zip code from a string.
+ * @param {string} address - The address string.
+ * @returns {string|null} The extracted zip code or null.
+ */
+const extractZipCode = (address) => {
+  if (!address) return null;
+  const zipMatch = address.match(/\b\d{5}\b/);
+  return zipMatch ? zipMatch[0] : null;
+};
 
 /**
  * Apply cleanup fixes to data
@@ -14,40 +26,44 @@ import { logInfo, logError, logWarn } from '../utils/logger.js';
 export const applyFixes = async (req, res) => {
   try {
     const { resourceType } = req.params;
-    const { fixIds } = req.body;
+    const { changes } = req.body;
 
-    logInfo(`[CleanupController] Applying ${fixIds.length} fixes for ${resourceType}`);
+    logInfo(`[CleanupController] Applying ${changes.length} fixes for ${resourceType}`);
 
-    if (!fixIds || !Array.isArray(fixIds) || fixIds.length === 0) {
+    if (resourceType !== 'restaurants') {
+      return res.status(400).json({ success: false, message: 'Cleanup fixes are only supported for restaurants.' });
+    }
+
+    if (!changes || !Array.isArray(changes) || changes.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'No fix IDs provided'
+        message: 'No changes provided'
       });
     }
 
-    // For now, simulate fix application
-    // In a real implementation, this would:
-    // 1. Parse fix IDs to extract item IDs and fix types
-    // 2. Apply the specific fixes (format names, fix relationships, etc.)
-    // 3. Update the database records
-    // 4. Return success/failure status for each fix
-    
-    const results = {
-      applied: fixIds.length,
-      failed: 0,
-      details: fixIds.map(fixId => ({
-        fixId,
-        status: 'success',
-        message: 'Fix applied successfully'
-      }))
-    };
+    const applied = [];
+    const failed = [];
 
-    logInfo(`[CleanupController] Applied ${results.applied} fixes successfully`);
+    for (const change of changes) {
+      const { resourceId, proposedValue } = change;
+      try {
+        await db.query(
+          'UPDATE restaurants SET neighborhood_id = $1 WHERE id = $2',
+          [proposedValue, resourceId]
+        );
+        applied.push(change.changeId);
+      } catch (error) {
+        logError(`[CleanupController] Failed to apply change ${change.changeId}:`, error);
+        failed.push(change.changeId);
+      }
+    }
+
+    logInfo(`[CleanupController] Applied ${applied.length} fixes, ${failed.length} failed.`);
 
     return res.status(200).json({
       success: true,
-      message: `Applied ${results.applied} fixes successfully`,
-      results
+      message: `Applied ${applied.length} fixes successfully. ${failed.length} failed.`,
+      results: { applied, failed }
     });
   } catch (error) {
     logError('[CleanupController] Error applying fixes:', error);
@@ -86,27 +102,69 @@ export const getStatus = async (req, res) => {
 };
 
 /**
- * Analyze data for cleanup (this will be handled on the frontend for now)
+ * Analyze data for cleanup
  */
 export const analyzeData = async (req, res) => {
   try {
     const { resourceType } = req.params;
-    const { config } = req.body;
-
     logInfo(`[CleanupController] Starting analysis for ${resourceType}`);
 
-    // For now, return a mock analysis result
-    // In a real implementation, this would:
-    // 1. Fetch the data from the database
-    // 2. Run the configured checks
-    // 3. Return the analysis results
-    
+    if (resourceType !== 'restaurants') {
+      return res.status(400).json({ success: false, message: 'Cleanup analysis is only supported for restaurants.' });
+    }
+
+    // 1. Find restaurants with null or invalid neighborhood_id
+    const restaurantsToFix = await db.query(`
+      SELECT r.id, r.name, r.address, r.neighborhood_id
+      FROM restaurants r
+      LEFT JOIN neighborhoods n ON r.neighborhood_id = n.id
+      WHERE r.neighborhood_id IS NULL OR n.id IS NULL
+    `);
+
+    if (restaurantsToFix.rows.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: 'No restaurants found needing neighborhood cleanup.',
+        data: []
+      });
+    }
+
+    logInfo(`[CleanupController] Found ${restaurantsToFix.rows.length} restaurants to analyze.`);
+
+    const changes = [];
+    for (const restaurant of restaurantsToFix.rows) {
+      const zipCode = extractZipCode(restaurant.address);
+      if (zipCode) {
+        // 2. Find neighborhood by zip code
+        const neighborhoodResult = await db.query(
+          'SELECT id, name FROM neighborhoods WHERE $1 = ANY(zipcode_ranges)',
+          [zipCode]
+        );
+
+        if (neighborhoodResult.rows.length > 0) {
+          const newNeighborhood = neighborhoodResult.rows[0];
+          changes.push({
+            changeId: `${restaurant.id}-neighborhood-fix`,
+            resourceId: restaurant.id,
+            resourceName: restaurant.name,
+            field: 'neighborhood_id',
+            currentValue: restaurant.neighborhood_id,
+            proposedValue: newNeighborhood.id,
+            proposedValueName: newNeighborhood.name,
+            reason: `Found matching neighborhood '${newNeighborhood.name}' for zip code ${zipCode}.`
+          });
+        }
+      }
+    }
+
+    logInfo(`[CleanupController] Generated ${changes.length} potential cleanup changes.`);
+
     return res.status(200).json({
       success: true,
-      message: 'Analysis will be performed on the frontend',
-      resourceType,
-      timestamp: new Date().toISOString()
+      message: `Analysis complete. Found ${changes.length} potential fixes.`,
+      data: changes,
     });
+
   } catch (error) {
     logError('[CleanupController] Error analyzing data:', error);
     return res.status(500).json({

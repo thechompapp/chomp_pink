@@ -232,13 +232,11 @@ class DataCleanupService {
       
       try {
         const endpoint = DATA_CLEANUP_API.apply(resourceType);
-        // Extract changeIds from the change objects
-        const changeIds = approvedChanges.map(change => change.changeId);
-        const payload = { changeIds };
+        // The backend now expects the full change objects
+        const payload = { changes: approvedChanges };
         
         // Log what we're sending to help with debugging
         logDebug(`[${context}] Sending payload to ${endpoint}:`, JSON.stringify(payload));
-        logDebug(`[${context}] Change IDs being sent:`, changeIds);
         
         const response = await apiClient.post(
           endpoint,

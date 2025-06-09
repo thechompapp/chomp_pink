@@ -27,15 +27,68 @@ const fetchUserProfile = async () => {
       throw error;
     }
     
-    // Create a profile structure with user data and mock stats for now
+    // Fetch real stats
     const userData = response.data.data;
+    
+    // Default stats with fallbacks
+    let listsCreated = 0;
+    let listsFollowing = 0;
+    
+    try {
+      // Get lists created by user
+      const createdListsResponse = await apiClient.get('/lists', { 
+        params: { 
+          view: 'created',
+          page: 1,
+          limit: 1,
+          createdByUser: true,
+          includePrivate: true 
+        }
+      });
+      
+      // Extract created lists count if available
+      if (createdListsResponse?.data?.success) {
+        // Check for pagination.total first, then fall back to data.length, then total field
+        listsCreated = createdListsResponse.data.pagination?.total || 
+                      createdListsResponse.data.total || 
+                      (Array.isArray(createdListsResponse.data.data) ? createdListsResponse.data.data.length : 0);
+      }
+    } catch (statsError) {
+      console.error('Error fetching created lists count:', statsError);
+      // Continue with default value for listsCreated
+    }
+    
+    try {
+      // Get lists followed by user
+      const followedListsResponse = await apiClient.get('/lists', { 
+        params: { 
+          view: 'followed',
+          page: 1, 
+          limit: 1,
+          followedByUser: true 
+        }
+      });
+      
+      // Extract followed lists count if available
+      if (followedListsResponse?.data?.success) {
+        // Check for pagination.total first, then fall back to data.length, then total field
+        listsFollowing = followedListsResponse.data.pagination?.total || 
+                        followedListsResponse.data.total || 
+                        (Array.isArray(followedListsResponse.data.data) ? followedListsResponse.data.data.length : 0);
+      }
+    } catch (statsError) {
+      console.error('Error fetching followed lists count:', statsError);
+      // Continue with default value for listsFollowing
+    }
+    
+    // Create a profile structure with user data and real stats
     const profileData = {
       user: userData,
       stats: {
-        listsCreated: 0,      // Mock data until we have real stats
-        listsFollowing: 0,    // Mock data until we have real stats  
-        dishesFollowing: 0,   // Mock data until we have real stats
-        restaurantsFollowing: 0 // Mock data until we have real stats
+        listsCreated,
+        listsFollowing,
+        dishesFollowing: 0,   // Still mock until we have this endpoint
+        restaurantsFollowing: 0 // Still mock until we have this endpoint
       }
     };
     
